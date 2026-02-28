@@ -24,7 +24,7 @@ OPTIONS = {
     "includes": [
         "rumps",
         "pynput",
-        "sounddevice",
+        "AVFoundation",
         "soundfile",
         "httpx",
         "keyring",

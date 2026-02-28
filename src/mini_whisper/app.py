@@ -250,6 +250,7 @@ class MiniWhisperApp(rumps.App):
 
     def _quit(self, _):
         self.hotkey_listener.stop()
+        self.controller.recorder.close()
         rumps.quit_application()
 
     # ------------------------------------------------------------------

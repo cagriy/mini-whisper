@@ -1,68 +1,125 @@
-"""Audio recorder using sounddevice.
+"""Audio recorder using AVAudioEngine for near-instant recording start.
 
-Records microphone input at 16kHz mono int16 (optimal for Whisper API).
+Uses macOS AVAudioEngine with prepare() to preallocate hardware resources
+at init time. On hotkey press, startAndReturnError_() is near-instant
+since the engine is already prepared.
+
+Hardware captures at native rate (44.1/48kHz) and we resample to 16kHz
+at stop time for Whisper API compatibility.
+
 Thread-safe: start() and stop() may be called from different threads.
 """
 
 import io
+import logging
 import threading
 
+import AVFoundation
 import numpy as np
-import sounddevice as sd
 import soundfile as sf
 
-SAMPLE_RATE = 16000
-CHANNELS = 1
-DTYPE = "int16"
+logger = logging.getLogger(__name__)
+
+TARGET_SAMPLE_RATE = 16000
+
+
+# -- Helpers ---------------------------------------------------------------
+
+
+def _buffer_to_numpy(pcm_buffer) -> np.ndarray:
+    """Extract float32 audio data from an AVAudioPCMBuffer via floatChannelData."""
+    frame_len = pcm_buffer.frameLength()
+    channel0 = pcm_buffer.floatChannelData()[0]
+    raw = channel0.as_buffer(frame_len)
+    return np.frombuffer(raw, dtype=np.float32).copy()
+
+
+def _resample(audio: np.ndarray, orig_sr: float, target_sr: float) -> np.ndarray:
+    """Resample audio via linear interpolation (sufficient for speech→Whisper)."""
+    if orig_sr == target_sr:
+        return audio
+    duration = len(audio) / orig_sr
+    target_len = int(duration * target_sr)
+    x_orig = np.linspace(0, duration, len(audio), endpoint=False)
+    x_target = np.linspace(0, duration, target_len, endpoint=False)
+    return np.interp(x_target, x_orig, audio)
+
+
+# -- Recorder --------------------------------------------------------------
 
 
 class Recorder:
     def __init__(self):
         self._frames: list[np.ndarray] = []
-        self._stream: sd.InputStream | None = None
         self._lock = threading.Lock()
         self._recording = False
 
-    def _callback(self, indata, frames, time, status):
-        """Called by sounddevice for each audio block."""
+        self._engine = AVFoundation.AVAudioEngine.alloc().init()
+        input_node = self._engine.inputNode()
+
+        # Hardware format — typically 44100 or 48000 Hz
+        hw_format = input_node.inputFormatForBus_(0)
+        self._hw_sample_rate = hw_format.sampleRate()
+        logger.info("Hardware sample rate: %s Hz", self._hw_sample_rate)
+
+        # Install tap at hardware rate to avoid internal resampling
+        buf_size = 4096
+        input_node.installTapOnBus_bufferSize_format_block_(
+            0, buf_size, hw_format, self._tap_block
+        )
+
+        # Preallocate hardware resources — no orange mic dot yet
+        self._engine.prepare()
+
+    def _tap_block(self, pcm_buffer, when):
+        """Callback from AVAudioEngine's input tap."""
         if self._recording:
-            self._frames.append(indata.copy())
+            try:
+                data = _buffer_to_numpy(pcm_buffer)
+                self._frames.append(data)
+            except Exception:
+                logger.exception("Error reading audio buffer")
 
     def start(self):
         """Begin capturing audio from the default microphone."""
         with self._lock:
             self._frames = []
             self._recording = True
-            self._stream = sd.InputStream(
-                samplerate=SAMPLE_RATE,
-                channels=CHANNELS,
-                dtype=DTYPE,
-                callback=self._callback,
-            )
-            self._stream.start()
+            success, error = self._engine.startAndReturnError_(None)
+            if not success:
+                self._recording = False
+                logger.error("AVAudioEngine start failed: %s", error)
 
     def stop(self) -> io.BytesIO:
         """Stop recording and return audio as a WAV BytesIO buffer."""
         with self._lock:
             self._recording = False
-            if self._stream is not None:
-                self._stream.stop()
-                self._stream.close()
-                self._stream = None
+            self._engine.stop()
 
             if not self._frames:
                 buf = io.BytesIO()
                 buf.name = "audio.wav"
                 return buf
 
-            audio = np.concatenate(self._frames, axis=0)
+            audio = np.concatenate(self._frames)
             self._frames = []
+
+        # Resample from hardware rate to 16kHz
+        audio = _resample(audio, self._hw_sample_rate, TARGET_SAMPLE_RATE)
+
+        # Convert float32 [-1,1] to int16
+        audio = np.clip(audio, -1.0, 1.0)
+        audio_int16 = (audio * 32767).astype(np.int16)
 
         buf = io.BytesIO()
         buf.name = "audio.wav"
-        sf.write(buf, audio, SAMPLE_RATE, format="WAV", subtype="PCM_16")
+        sf.write(buf, audio_int16, TARGET_SAMPLE_RATE, format="WAV", subtype="PCM_16")
         buf.seek(0)
         return buf
+
+    def close(self):
+        """Release the audio tap. Call once at app shutdown."""
+        self._engine.inputNode().removeTapOnBus_(0)
 
     @property
     def is_recording(self) -> bool:
@@ -74,4 +131,4 @@ class Recorder:
             if not self._frames:
                 return 0.0
             total_samples = sum(f.shape[0] for f in self._frames)
-            return total_samples / SAMPLE_RATE
+            return total_samples / self._hw_sample_rate

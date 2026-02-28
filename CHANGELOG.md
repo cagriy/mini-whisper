@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-02-28
+
+### Changed
+- Replace sounddevice (PortAudio) with AVAudioEngine for near-instant recording start
+- Audio engine pre-warms hardware at init via `prepare()`, eliminating ~200-500ms startup latency
+- Hardware captures at native rate (48kHz) and resamples to 16kHz at stop time
+
 ## [0.1.1] - 2026-02-28
 
 ### Added

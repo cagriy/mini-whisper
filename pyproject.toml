@@ -1,12 +1,12 @@
 [project]
 name = "mini-whisper"
-version = "0.1.1"
+version = "0.1.2"
 description = "macOS menu bar dictation app with Whisper STT and LLM cleanup"
 requires-python = ">=3.12"
 dependencies = [
     "rumps>=0.4.0",
     "pynput>=1.7.0",
-    "sounddevice>=0.4.0",
+    "pyobjc-framework-AVFoundation>=10.0",
     "soundfile>=0.12.0",
     "httpx>=0.27.0",
     "keyring>=25.0.0",
