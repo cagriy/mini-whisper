@@ -92,6 +92,7 @@ class MiniWhisperApp(rumps.App):
             None,
             rumps.MenuItem("Set API Key...", callback=self._set_api_key),
             rumps.MenuItem("Change Hotkey...", callback=self._change_hotkey),
+            rumps.MenuItem("Change Submit Hotkey...", callback=self._change_submit_hotkey),
             rumps.MenuItem("Edit Cleanup Prompt...", callback=self._edit_prompt),
             self.cleanup_item,
             None,
@@ -99,11 +100,22 @@ class MiniWhisperApp(rumps.App):
             rumps.MenuItem("Quit", callback=self._quit),
         ]
 
-        combo = self.cfg.get("hotkey", "cmd+shift+space")
-        self.hotkey_listener = HotkeyListener(
-            combo,
-            on_press=self.controller.on_hotkey_press,
-            on_release=self.controller.on_hotkey_release,
+        self.hotkey_listener = HotkeyListener()
+
+        paste_combo = self.cfg.get("hotkey", "cmd+shift+space")
+        self.hotkey_listener.register(
+            "paste",
+            paste_combo,
+            on_press=lambda: self.controller.on_hotkey_press("paste"),
+            on_release=lambda: self.controller.on_hotkey_release("paste"),
+        )
+
+        submit_combo = self.cfg.get("submit_hotkey", "cmd+shift+enter")
+        self.hotkey_listener.register(
+            "paste_submit",
+            submit_combo,
+            on_press=lambda: self.controller.on_hotkey_press("paste_submit"),
+            on_release=lambda: self.controller.on_hotkey_release("paste_submit"),
         )
 
         self.poll_timer = rumps.Timer(self._poll_ui_events, 0.1)
@@ -154,19 +166,18 @@ class MiniWhisperApp(rumps.App):
             else:
                 rumps.alert("Invalid API key — it must start with 'sk-'.")
 
-    def _change_hotkey(self, _):
+    def _capture_and_update_hotkey(self, name: str, config_key: str, dialog_title: str):
+        """Shared helper: capture a new hotkey combo and update binding + config."""
         from pynput.keyboard import Key, KeyCode
 
         captured = {}
 
         def on_capture(modifiers, trigger):
             if not modifiers:
-                # No modifier held — reject, re-enter capture for another try
                 self.hotkey_listener.enter_capture_mode(on_capture)
                 return
             captured["modifiers"] = modifiers
             captured["trigger"] = trigger
-            # Dismiss the dialog from pynput's background thread
             stopper = _ModalStopper.alloc().init()
             stopper.performSelectorOnMainThread_withObject_waitUntilDone_(
                 "stop:", None, False
@@ -174,12 +185,11 @@ class MiniWhisperApp(rumps.App):
 
         self.hotkey_listener.enter_capture_mode(on_capture)
 
-        # Show a dialog that stays open while we wait for the key combo
         alert = AppKit.NSAlert.alloc().init()
-        alert.setMessageText_("Change Hotkey")
+        alert.setMessageText_(dialog_title)
         alert.setInformativeText_(
             "Press your desired shortcut now...\n\n"
-            "Must include \u2318 (Cmd) and/or \u21e7 (Shift) with another key."
+            "Must include ⌘ (Cmd) and/or ⇧ (Shift) with another key."
         )
         alert.addButtonWithTitle_("Cancel")
 
@@ -187,10 +197,10 @@ class MiniWhisperApp(rumps.App):
         AppKit.NSApp.setActivationPolicy_(AppKit.NSApplicationActivationPolicyRegular)
         AppKit.NSApp.activateIgnoringOtherApps_(True)
 
-        alert.runModal()  # blocks until Cancel or stopModal() from capture
+        alert.runModal()
 
         AppKit.NSApp.setActivationPolicy_(prev_policy)
-        self.hotkey_listener.cancel_capture()  # no-op if already captured
+        self.hotkey_listener.cancel_capture()
 
         if captured:
             modifiers = captured["modifiers"]
@@ -207,10 +217,16 @@ class MiniWhisperApp(rumps.App):
                 parts.append(str(trigger))
 
             combo_str = "+".join(parts)
-            self.hotkey_listener.update_hotkey(combo_str)
-            self.cfg["hotkey"] = combo_str
+            self.hotkey_listener.update_hotkey(name, combo_str)
+            self.cfg[config_key] = combo_str
             config.save(self.cfg)
             _notify("Mini Whisper", "Hotkey Changed", f"New hotkey: {display}")
+
+    def _change_hotkey(self, _):
+        self._capture_and_update_hotkey("paste", "hotkey", "Change Hotkey")
+
+    def _change_submit_hotkey(self, _):
+        self._capture_and_update_hotkey("paste_submit", "submit_hotkey", "Change Submit Hotkey")
 
     def _edit_prompt(self, _):
         config.ensure_config_dir()

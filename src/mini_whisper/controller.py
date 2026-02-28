@@ -32,11 +32,13 @@ class Controller:
         self.recorder = Recorder()
         self.ui_queue: queue.Queue[UIEvent] = queue.Queue()
         self._worker: threading.Thread | None = None
+        self._submit_after_paste: bool = False
 
-    def on_hotkey_press(self):
-        """Called when the hotkey is pressed — start recording."""
+    def on_hotkey_press(self, hotkey_name: str):
+        """Called when a hotkey is pressed — start recording."""
         if self.recorder.is_recording:
             return
+        self._submit_after_paste = hotkey_name == "paste_submit"
         try:
             self.recorder.start()
             self.ui_queue.put(UIEvent("recording"))
@@ -44,8 +46,8 @@ class Controller:
             logger.exception("Failed to start recording")
             self.ui_queue.put(UIEvent("error", f"Mic error: {e}"))
 
-    def on_hotkey_release(self):
-        """Called when the hotkey is released — stop and process."""
+    def on_hotkey_release(self, hotkey_name: str):
+        """Called when a hotkey is released — stop and process."""
         if not self.recorder.is_recording:
             return
 
@@ -58,13 +60,16 @@ class Controller:
 
         self.ui_queue.put(UIEvent("processing"))
 
+        # Capture flag before spawning thread
+        submit = self._submit_after_paste
+
         # Process in background thread
         self._worker = threading.Thread(
-            target=self._process, args=(audio,), daemon=True
+            target=self._process, args=(audio, submit), daemon=True
         )
         self._worker.start()
 
-    def _process(self, audio):
+    def _process(self, audio, submit: bool = False):
         """Background worker: transcribe → clean → paste."""
         try:
             api_key = config.get_api_key()
@@ -87,7 +92,7 @@ class Controller:
                 final_text = raw_text
 
             # Paste into active app
-            paste(final_text)
+            paste(final_text, submit=submit)
             self.ui_queue.put(UIEvent("result", final_text))
 
         except Exception as e:

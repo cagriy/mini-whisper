@@ -8,11 +8,12 @@ from pynput.keyboard import Controller, Key
 _keyboard = Controller()
 
 
-def paste(text: str):
+def paste(text: str, submit: bool = False):
     """Copy text to clipboard and simulate Cmd+V in the active app.
 
     Args:
         text: The text to paste.
+        submit: If True, press Enter after pasting to submit the text.
     """
     # Copy to clipboard via pbcopy
     subprocess.run(["pbcopy"], input=text.encode("utf-8"), check=True)
@@ -25,3 +26,8 @@ def paste(text: str):
     _keyboard.press("v")
     _keyboard.release("v")
     _keyboard.release(Key.cmd)
+
+    if submit:
+        time.sleep(0.05)
+        _keyboard.press(Key.enter)
+        _keyboard.release(Key.enter)

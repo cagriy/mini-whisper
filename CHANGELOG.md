@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-02-28
+
+### Added
+- Dual hotkey support: paste-only (`cmd+shift+space`) and paste+submit (`cmd+shift+enter`)
+- "Change Submit Hotkey..." menu item for configuring the submit hotkey
+- `submit_hotkey` config option with default `cmd+shift+enter`
+- HotkeyListener now supports multiple named bindings on a single listener
+
 ## [0.1.0] - 2026-02-28
 
 ### Added

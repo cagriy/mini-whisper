@@ -2,9 +2,10 @@
 
 Supports push-to-talk (hold to record, release to process) and
 key capture mode for changing the hotkey from the menu.
+Multiple named bindings share a single pynput Listener.
 """
 
-import threading
+from dataclasses import dataclass, field
 from typing import Callable
 
 from pynput.keyboard import Key, KeyCode, Listener
@@ -72,21 +73,47 @@ def format_hotkey(modifiers: set, trigger: Key | KeyCode) -> str:
     return "".join(parts)
 
 
+@dataclass
+class _HotkeyBinding:
+    """State for a single named hotkey binding."""
+
+    modifiers: set
+    trigger: Key | KeyCode
+    on_press: Callable[[], None]
+    on_release: Callable[[], None]
+    active: bool = field(default=False, init=False)
+
+
 class HotkeyListener:
-    def __init__(
+    def __init__(self):
+        self._bindings: dict[str, _HotkeyBinding] = {}
+        self._pressed_modifiers: set = set()
+        self._listener: Listener | None = None
+        self._capture_callback: Callable | None = None
+        self._capture_modifiers: set = set()
+
+    def register(
         self,
+        name: str,
         combo: str,
         on_press: Callable[[], None],
         on_release: Callable[[], None],
     ):
-        self._modifiers, self._trigger = parse_hotkey(combo)
-        self._on_press = on_press
-        self._on_release = on_release
-        self._pressed_modifiers: set = set()
-        self._hotkey_active = False
-        self._listener: Listener | None = None
-        self._capture_callback: Callable | None = None
-        self._capture_modifiers: set = set()
+        """Register a named hotkey binding.
+
+        Args:
+            name: Unique name for this binding (e.g. "paste", "paste_submit").
+            combo: Hotkey string like 'cmd+shift+space'.
+            on_press: Called when the hotkey is pressed.
+            on_release: Called when the hotkey is released.
+        """
+        modifiers, trigger = parse_hotkey(combo)
+        self._bindings[name] = _HotkeyBinding(
+            modifiers=modifiers,
+            trigger=trigger,
+            on_press=on_press,
+            on_release=on_release,
+        )
 
     def _on_key_press(self, key):
         # Key capture mode
@@ -105,16 +132,17 @@ class HotkeyListener:
 
         # Normal hotkey detection
         canonical = self._to_canonical(key)
-        if canonical in self._modifiers:
+        if canonical in _MODIFIER_MAP.values():
             self._pressed_modifiers.add(canonical)
 
-        if (
-            not self._hotkey_active
-            and self._pressed_modifiers >= self._modifiers
-            and canonical == self._trigger
-        ):
-            self._hotkey_active = True
-            self._on_press()
+        for binding in self._bindings.values():
+            if (
+                not binding.active
+                and self._pressed_modifiers >= binding.modifiers
+                and canonical == binding.trigger
+            ):
+                binding.active = True
+                binding.on_press()
 
     def _on_key_release(self, key):
         if self._capture_callback is not None:
@@ -122,12 +150,12 @@ class HotkeyListener:
 
         canonical = self._to_canonical(key)
 
-        # Release hotkey when trigger or any modifier is released
-        if self._hotkey_active and (
-            canonical == self._trigger or canonical in self._modifiers
-        ):
-            self._hotkey_active = False
-            self._on_release()
+        for binding in self._bindings.values():
+            if binding.active and (
+                canonical == binding.trigger or canonical in binding.modifiers
+            ):
+                binding.active = False
+                binding.on_release()
 
         self._pressed_modifiers.discard(canonical)
 
@@ -155,10 +183,13 @@ class HotkeyListener:
             self._listener.stop()
             self._listener = None
 
-    def update_hotkey(self, combo: str):
-        """Change the hotkey combo."""
-        self._modifiers, self._trigger = parse_hotkey(combo)
-        self._hotkey_active = False
+    def update_hotkey(self, name: str, combo: str):
+        """Change the hotkey combo for a named binding."""
+        binding = self._bindings.get(name)
+        if binding is None:
+            raise KeyError(f"No binding named '{name}'")
+        binding.modifiers, binding.trigger = parse_hotkey(combo)
+        binding.active = False
         self._pressed_modifiers.clear()
 
     def enter_capture_mode(self, callback: Callable[[set, Key | KeyCode], None]):

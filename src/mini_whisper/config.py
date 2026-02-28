@@ -22,6 +22,7 @@ KEYRING_USERNAME = "openai-api-key"
 
 DEFAULT_CONFIG = {
     "hotkey": "cmd+shift+space",
+    "submit_hotkey": "cmd+shift+enter",
     "cleanup_enabled": True,
 }
 

@@ -1,6 +1,6 @@
 [project]
 name = "mini-whisper"
-version = "0.1.0"
+version = "0.1.1"
 description = "macOS menu bar dictation app with Whisper STT and LLM cleanup"
 requires-python = ">=3.12"
 dependencies = [
