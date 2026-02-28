@@ -1,0 +1,270 @@
+name: Build macOS App
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      sign:
+        description: "Sign and notarize the build"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  unit-tests:
+    runs-on: macos-15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install uv
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Set up Python and install dependencies
+        run: |
+          uv python install 3.13
+          uv venv
+          uv pip install -e .
+          uv pip install pytest
+
+      - name: Run unit tests
+        run: |
+          source .venv/bin/activate
+          python -m pytest tests/ -v -m "not integration"
+
+  detect-changes:
+    needs: [unit-tests]
+    runs-on: ubuntu-latest
+    outputs:
+      integration: ${{ steps.filter.outputs.integration }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Check relevant paths
+        uses: dorny/paths-filter@v4
+        id: filter
+        with:
+          base: main
+          filters: |
+            integration:
+              - 'src/mini_whisper/transcriber.py'
+              - 'src/mini_whisper/cleaner.py'
+              - 'src/mini_whisper/resources/default_prompt.txt'
+              - 'src/mini_whisper/resources/default_transcribe_prompt.txt'
+              - 'tests/fixtures/wav/**'
+              - 'tests/test_integration.py'
+
+  integration-tests:
+    needs: [detect-changes]
+    runs-on: macos-15
+    if: >-
+      vars.RUN_INTEGRATION_TESTS == 'true' &&
+      needs.detect-changes.outputs.integration == 'true'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install uv
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Set up Python and install dependencies
+        run: |
+          uv python install 3.13
+          uv venv
+          uv pip install -e .
+          uv pip install pytest
+
+      - name: Run integration tests
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          source .venv/bin/activate
+          python -m pytest tests/ -v -s -m integration
+
+  build:
+    needs: [unit-tests, integration-tests]
+    if: >-
+      always() &&
+      needs.unit-tests.result == 'success' &&
+      (
+        needs.integration-tests.result == 'success' ||
+        needs.integration-tests.result == 'skipped' ||
+        (vars.REQUIRE_INTEGRATION_TESTS != 'true' && needs.integration-tests.result == 'failure')
+      )
+    runs-on: macos-15
+    env:
+      APP_NAME: "Mini Whisper"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Extract version
+        id: version
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            VERSION="${GITHUB_REF#refs/tags/v}"
+          else
+            VERSION=$(python3 -c "
+          import re
+          text = open('pyproject.toml').read()
+          print(re.search(r'version = \"(.+?)\"', text).group(1))
+          ")
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Building version: $VERSION"
+
+      - name: Install uv
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Set up Python and install dependencies
+        run: |
+          export PATH="$HOME/.local/bin:$PATH"
+          uv python install 3.13
+          uv venv
+          uv pip install -e .
+          uv pip install py2app
+          # Patch py2app for uv-installed Python where zlib is a built-in module
+          # (no __file__ attribute). See: https://github.com/ronaldoussoren/py2app/issues/555
+          SITE=$(.venv/bin/python -c "import site; print(site.getsitepackages()[0])")
+          sed -i '' 's/self.copy_file(zlib.__file__, os.path.dirname(arcdir))/hasattr(zlib, "__file__") and self.copy_file(zlib.__file__, os.path.dirname(arcdir))/' \
+            "$SITE/py2app/build_app.py"
+
+      - name: Build .app with py2app
+        env:
+          APP_VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          source .venv/bin/activate
+          # Hide pyproject.toml so setuptools doesn't populate install_requires
+          # (py2app 0.28.9+ rejects non-empty install_requires)
+          mv pyproject.toml pyproject.toml.bak
+          python setup.py py2app
+          mv pyproject.toml.bak pyproject.toml
+
+      - name: Verify .app
+        run: |
+          APP_PATH="dist/Mini Whisper.app"
+          test -d "$APP_PATH" || { echo "ERROR: .app not found"; exit 1; }
+          ls -la "$APP_PATH/Contents/Resources/"
+          file "$APP_PATH/Contents/MacOS/Mini Whisper" || true
+
+      - name: Import signing certificate
+        if: >-
+          (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v'))
+          || (github.event.inputs.sign == 'true')
+        env:
+          P12_BASE64: ${{ secrets.DEVELOPER_ID_APPLICATION_P12 }}
+          P12_PASSWORD: ${{ secrets.DEVELOPER_ID_APPLICATION_PASSWORD }}
+        run: |
+          CERT_PATH="$RUNNER_TEMP/certificate.p12"
+          KEYCHAIN_PATH="$RUNNER_TEMP/build.keychain-db"
+          KEYCHAIN_PASSWORD="$(openssl rand -hex 16)"
+
+          echo "$P12_BASE64" | base64 --decode > "$CERT_PATH"
+
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security import "$CERT_PATH" -P "$P12_PASSWORD" -A -t cert -f pkcs12 \
+            -k "$KEYCHAIN_PATH"
+          security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" \
+            "$KEYCHAIN_PATH"
+          security list-keychains -d user -s "$KEYCHAIN_PATH" login.keychain-db
+
+      - name: Sign .app
+        if: >-
+          (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v'))
+          || (github.event.inputs.sign == 'true')
+        env:
+          TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          IDENTITY="Developer ID Application"
+          APP_PATH="dist/Mini Whisper.app"
+
+          # Inject Team ID into entitlements
+          sed -i '' "s/\$(TEAM_ID)/$TEAM_ID/g" entitlements.plist
+
+          # Sign embedded frameworks and dylibs first
+          find "$APP_PATH" -type f \( -name "*.dylib" -o -name "*.so" \) \
+            -exec codesign --force --options runtime --sign "$IDENTITY" \
+            --entitlements entitlements.plist --timestamp {} \;
+
+          # Sign the main bundle
+          codesign --force --deep --options runtime \
+            --sign "$IDENTITY" \
+            --entitlements entitlements.plist \
+            --timestamp \
+            "$APP_PATH"
+
+          codesign --verify --verbose=2 "$APP_PATH"
+
+      - name: Create DMG
+        env:
+          APP_VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          brew install create-dmg
+
+          DMG_NAME="MiniWhisper-${APP_VERSION}-arm64.dmg"
+
+          create-dmg \
+            --volname "Mini Whisper" \
+            --window-pos 200 120 \
+            --window-size 660 400 \
+            --icon-size 100 \
+            --icon "Mini Whisper.app" 180 190 \
+            --hide-extension "Mini Whisper.app" \
+            --app-drop-link 480 190 \
+            --no-internet-enable \
+            "dist/$DMG_NAME" \
+            "dist/Mini Whisper.app"
+
+          echo "dmg_name=$DMG_NAME" >> "$GITHUB_ENV"
+          echo "dmg_path=dist/$DMG_NAME" >> "$GITHUB_ENV"
+
+      - name: Notarize DMG
+        if: >-
+          (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v'))
+          || (github.event.inputs.sign == 'true')
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
+          TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          xcrun notarytool submit "${{ env.dmg_path }}" \
+            --apple-id "$APPLE_ID" \
+            --password "$APPLE_ID_PASSWORD" \
+            --team-id "$TEAM_ID" \
+            --wait --timeout 600
+
+          xcrun stapler staple "${{ env.dmg_path }}"
+
+      - name: Upload DMG artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.dmg_name }}
+          path: ${{ env.dmg_path }}
+
+      - name: Create GitHub Release
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ env.dmg_path }}
+          generate_release_notes: true
+          draft: false
+          prerelease: ${{ contains(github.ref, '-beta') || contains(github.ref, '-rc') }}
