@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+*.egg
+dist/
+build/
+wheels/
+*.so
+
+# Virtual environments
+.venv/
+venv/
+
+# macOS
+.DS_Store
+*.app
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Environment
+.env
+.env.local
+
+# py2app
+dist/
+build/
