@@ -10,11 +10,11 @@ from Foundation import NSMakeRect, NSMakePoint
 
 # -- Constants ----------------------------------------------------------------
 
-NUM_DOTS = 18
+NUM_DOTS = 24
 WINDOW_SIZE = 300
 DOT_AREA_RADIUS = 100
-DOT_RADIUS_MIN = 3.0
-DOT_RADIUS_MAX = 7.0
+DOT_RADIUS_MIN = 2.0
+DOT_RADIUS_MAX = 5.0
 CONNECTION_DISTANCE = 120.0
 BG_CORNER_RADIUS = 20.0
 BG_ALPHA = 0.7
@@ -23,8 +23,7 @@ BG_ALPHA = 0.7
 SPRING_K = 30.0
 DAMPING = 10.0
 AMBIENT_AMPLITUDE = 10.0
-AMBIENT_SPEED_X = 2.5  # rad/s — horizontal sinusoidal drift speed
-AMBIENT_SPEED_Y = 2.3  # rad/s — vertical sinusoidal drift speed
+AMBIENT_SPEED = 1.2  # rad/s — orbital rotation speed for idle drift
 AUDIO_AMPLITUDE = 130.0
 AUDIO_ANGLE_DRIFT = 2.0   # base std dev of audio direction random walk (rad/s)
 AUDIO_ANGLE_BOOST = 40.0  # multiplier on drift speed at max audio level
@@ -71,6 +70,7 @@ class DotsView(AppKit.NSView):
             return None
         self._dots: list[Dot] = []
         self._connections: list[tuple[Dot, Dot, float]] = []
+        self._duration_text: str = ""
         return self
 
     def isFlipped(self):
@@ -105,6 +105,22 @@ class DotsView(AppKit.NSView):
             oval = AppKit.NSBezierPath.bezierPathWithOvalInRect_(dot_rect)
             oval.fill()
 
+        # Draw duration text in bottom-right corner
+        if self._duration_text:
+            attrs = {
+                AppKit.NSFontAttributeName: AppKit.NSFont.monospacedDigitSystemFontOfSize_weight_(11.0, AppKit.NSFontWeightRegular),
+                AppKit.NSForegroundColorAttributeName: AppKit.NSColor.whiteColor().colorWithAlphaComponent_(0.9),
+            }
+            text_str = AppKit.NSAttributedString.alloc().initWithString_attributes_(
+                self._duration_text, attrs
+            )
+            text_size = text_str.size()
+            text_point = NSMakePoint(
+                bounds.size.width - text_size.width - 12,
+                10,
+            )
+            text_str.drawAtPoint_(text_point)
+
 
 # -- Timer callback target (NSObject so NSTimer can send it a selector) -------
 
@@ -131,6 +147,7 @@ class DotsOverlayWindow:
         self._smoothed_level = 0.0
         self._timer = None
         self._last_time = time.monotonic()
+        self._start_time = 0.0
 
         # Create dots centered in the window
         cx = WINDOW_SIZE / 2
@@ -170,7 +187,9 @@ class DotsOverlayWindow:
 
     def show(self):
         self._smoothed_level = 0.0
-        self._last_time = time.monotonic()
+        now = time.monotonic()
+        self._last_time = now
+        self._start_time = now
         # Reset dot positions
         cx = WINDOW_SIZE / 2
         cy = WINDOW_SIZE / 2
@@ -220,8 +239,9 @@ class DotsOverlayWindow:
         # Update each dot
         for dot in self._dots:
             # Ambient sinusoidal drift (always present, even at silence)
-            ambient_x = AMBIENT_AMPLITUDE * math.sin(t * AMBIENT_SPEED_X + dot.phase)
-            ambient_y = AMBIENT_AMPLITUDE * math.cos(t * AMBIENT_SPEED_Y + dot.phase + 1.0)
+            orbit_angle = t * AMBIENT_SPEED + dot.phase
+            ambient_x = AMBIENT_AMPLITUDE * math.cos(orbit_angle)
+            ambient_y = AMBIENT_AMPLITUDE * math.sin(orbit_angle)
 
             # Audio-driven displacement: coherent direction per dot that drifts
             # slowly (random walk in angle), so the spring can actually track it.
@@ -256,4 +276,6 @@ class DotsOverlayWindow:
                     connections.append((a, b, alpha))
 
         self._view._connections = connections
+        elapsed = now - self._start_time
+        self._view._duration_text = f"{elapsed:.1f}s"
         self._view.setNeedsDisplay_(True)
