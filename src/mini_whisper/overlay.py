@@ -1,0 +1,253 @@
+"""Floating connected-dots overlay that reacts to audio volume during recording."""
+
+import math
+import random
+import time
+
+import AppKit
+import objc
+from Foundation import NSMakeRect, NSMakePoint
+
+# -- Constants ----------------------------------------------------------------
+
+NUM_DOTS = 18
+WINDOW_SIZE = 300
+DOT_AREA_RADIUS = 100
+DOT_RADIUS_MIN = 3.0
+DOT_RADIUS_MAX = 7.0
+CONNECTION_DISTANCE = 120.0
+BG_CORNER_RADIUS = 20.0
+BG_ALPHA = 0.7
+
+# Physics
+SPRING_K = 8.0
+DAMPING = 5.0
+AMBIENT_AMPLITUDE = 10.0
+AUDIO_AMPLITUDE = 60.0
+
+# Audio level normalization (raw RMS range)
+LEVEL_FLOOR = 0.005
+LEVEL_CEIL = 0.15
+SMOOTH_FACTOR = 0.3
+
+FPS = 60.0
+
+
+# -- Dot data -----------------------------------------------------------------
+
+
+class Dot:
+    __slots__ = (
+        "home_x", "home_y", "x", "y", "vx", "vy",
+        "radius", "phase", "audio_angle",
+    )
+
+    def __init__(self, center_x: float, center_y: float):
+        angle = random.uniform(0, 2 * math.pi)
+        dist = random.uniform(0, DOT_AREA_RADIUS)
+        self.home_x = center_x + dist * math.cos(angle)
+        self.home_y = center_y + dist * math.sin(angle)
+        self.x = self.home_x
+        self.y = self.home_y
+        self.vx = 0.0
+        self.vy = 0.0
+        self.radius = random.uniform(DOT_RADIUS_MIN, DOT_RADIUS_MAX)
+        self.phase = random.uniform(0, 2 * math.pi)
+        self.audio_angle = random.uniform(0, 2 * math.pi)
+
+
+# -- NSView subclass ----------------------------------------------------------
+
+
+class DotsView(AppKit.NSView):
+    def initWithFrame_(self, frame):
+        self = objc.super(DotsView, self).initWithFrame_(frame)
+        if self is None:
+            return None
+        self._dots: list[Dot] = []
+        self._connections: list[tuple[Dot, Dot, float]] = []
+        return self
+
+    def isFlipped(self):
+        return False
+
+    def drawRect_(self, rect):
+        # Background rounded rect
+        bounds = self.bounds()
+        bg_path = AppKit.NSBezierPath.bezierPathWithRoundedRect_xRadius_yRadius_(
+            bounds, BG_CORNER_RADIUS, BG_CORNER_RADIUS
+        )
+        AppKit.NSColor.colorWithCalibratedRed_green_blue_alpha_(
+            0.0, 0.0, 0.0, BG_ALPHA
+        ).setFill()
+        bg_path.fill()
+
+        # Draw connection lines
+        white = AppKit.NSColor.whiteColor()
+        for dot_a, dot_b, alpha in self._connections:
+            white.colorWithAlphaComponent_(alpha * 0.6).setStroke()
+            line = AppKit.NSBezierPath.bezierPath()
+            line.setLineWidth_(1.0)
+            line.moveToPoint_(NSMakePoint(dot_a.x, dot_a.y))
+            line.lineToPoint_(NSMakePoint(dot_b.x, dot_b.y))
+            line.stroke()
+
+        # Draw dots on top
+        white.colorWithAlphaComponent_(0.9).setFill()
+        for dot in self._dots:
+            r = dot.radius
+            dot_rect = NSMakeRect(dot.x - r, dot.y - r, r * 2, r * 2)
+            oval = AppKit.NSBezierPath.bezierPathWithOvalInRect_(dot_rect)
+            oval.fill()
+
+
+# -- Timer callback target (NSObject so NSTimer can send it a selector) -------
+
+
+class _TimerTarget(AppKit.NSObject):
+    def init(self):
+        self = objc.super(_TimerTarget, self).init()
+        if self is None:
+            return None
+        self._callback = None
+        return self
+
+    def fire_(self, timer):
+        if self._callback is not None:
+            self._callback()
+
+
+# -- Overlay window -----------------------------------------------------------
+
+
+class DotsOverlayWindow:
+    def __init__(self, recorder):
+        self._recorder = recorder
+        self._smoothed_level = 0.0
+        self._timer = None
+        self._last_time = time.monotonic()
+
+        # Create dots centered in the window
+        cx = WINDOW_SIZE / 2
+        cy = WINDOW_SIZE / 2
+        self._dots = [Dot(cx, cy) for _ in range(NUM_DOTS)]
+
+        # Timer target (must be NSObject for NSTimer selector dispatch)
+        self._timer_target = _TimerTarget.alloc().init()
+        self._timer_target._callback = self._tick
+
+        # Window
+        screen = AppKit.NSScreen.mainScreen()
+        screen_frame = screen.frame()
+        wx = (screen_frame.size.width - WINDOW_SIZE) / 2
+        wy = (screen_frame.size.height - WINDOW_SIZE) / 2
+        frame = NSMakeRect(wx, wy, WINDOW_SIZE, WINDOW_SIZE)
+
+        self._window = AppKit.NSWindow.alloc().initWithContentRect_styleMask_backing_defer_(
+            frame,
+            AppKit.NSWindowStyleMaskBorderless,
+            AppKit.NSBackingStoreBuffered,
+            False,
+        )
+        self._window.setLevel_(AppKit.NSFloatingWindowLevel)
+        self._window.setBackgroundColor_(AppKit.NSColor.clearColor())
+        self._window.setOpaque_(False)
+        self._window.setHasShadow_(False)
+        self._window.setIgnoresMouseEvents_(True)
+
+        # Content view
+        self._view = DotsView.alloc().initWithFrame_(
+            NSMakeRect(0, 0, WINDOW_SIZE, WINDOW_SIZE)
+        )
+        self._view._dots = self._dots
+        self._view._connections = []
+        self._window.setContentView_(self._view)
+
+    def show(self):
+        self._smoothed_level = 0.0
+        self._last_time = time.monotonic()
+        # Reset dot positions
+        cx = WINDOW_SIZE / 2
+        cy = WINDOW_SIZE / 2
+        for dot in self._dots:
+            angle = random.uniform(0, 2 * math.pi)
+            dist = random.uniform(0, DOT_AREA_RADIUS)
+            dot.home_x = cx + dist * math.cos(angle)
+            dot.home_y = cy + dist * math.sin(angle)
+            dot.x = dot.home_x
+            dot.y = dot.home_y
+            dot.vx = 0.0
+            dot.vy = 0.0
+            dot.audio_angle = random.uniform(0, 2 * math.pi)
+
+        self._window.orderFront_(None)
+        if self._timer is None:
+            self._timer = AppKit.NSTimer.scheduledTimerWithTimeInterval_target_selector_userInfo_repeats_(
+                1.0 / FPS, self._timer_target, "fire:", None, True
+            )
+
+    def hide(self):
+        if self._timer is not None:
+            self._timer.invalidate()
+            self._timer = None
+        self._window.orderOut_(None)
+
+    def cleanup(self):
+        self.hide()
+        self._timer_target._callback = None
+
+    # -- Animation tick -------------------------------------------------------
+
+    def _tick(self):
+        now = time.monotonic()
+        dt = min(now - self._last_time, 0.05)  # cap to avoid spiral on lag
+        self._last_time = now
+
+        # Read and normalize audio level
+        raw = self._recorder.audio_level
+        normalized = max(0.0, min(1.0, (raw - LEVEL_FLOOR) / (LEVEL_CEIL - LEVEL_FLOOR)))
+        self._smoothed_level += SMOOTH_FACTOR * (normalized - self._smoothed_level)
+        level = self._smoothed_level
+
+        t = now  # for ambient sinusoidal motion
+
+        # Update each dot
+        for dot in self._dots:
+            # Ambient sinusoidal drift (always present, even at silence)
+            ambient_x = AMBIENT_AMPLITUDE * math.sin(t * 1.5 + dot.phase)
+            ambient_y = AMBIENT_AMPLITUDE * math.cos(t * 1.3 + dot.phase + 1.0)
+
+            # Audio-driven displacement: coherent direction per dot that drifts
+            # slowly (random walk in angle), so the spring can actually track it.
+            dot.audio_angle += random.gauss(0, 2.0) * dt
+            audio_x = level * AUDIO_AMPLITUDE * math.cos(dot.audio_angle)
+            audio_y = level * AUDIO_AMPLITUDE * math.sin(dot.audio_angle)
+
+            # Target = home + ambient + audio
+            target_x = dot.home_x + ambient_x + audio_x
+            target_y = dot.home_y + ambient_y + audio_y
+
+            # Spring-damper force
+            fx = SPRING_K * (target_x - dot.x) - DAMPING * dot.vx
+            fy = SPRING_K * (target_y - dot.y) - DAMPING * dot.vy
+
+            # Euler integration
+            dot.vx += fx * dt
+            dot.vy += fy * dt
+            dot.x += dot.vx * dt
+            dot.y += dot.vy * dt
+
+        # Compute connections
+        connections = []
+        for i in range(len(self._dots)):
+            for j in range(i + 1, len(self._dots)):
+                a, b = self._dots[i], self._dots[j]
+                dx = a.x - b.x
+                dy = a.y - b.y
+                dist = math.sqrt(dx * dx + dy * dy)
+                if dist < CONNECTION_DISTANCE:
+                    alpha = 1.0 - dist / CONNECTION_DISTANCE
+                    connections.append((a, b, alpha))
+
+        self._view._connections = connections
+        self._view.setNeedsDisplay_(True)

@@ -53,6 +53,7 @@ class Recorder:
         self._frames: list[np.ndarray] = []
         self._lock = threading.Lock()
         self._recording = False
+        self._current_level: float = 0.0
 
         self._engine = AVFoundation.AVAudioEngine.alloc().init()
         input_node = self._engine.inputNode()
@@ -77,6 +78,7 @@ class Recorder:
             try:
                 data = _buffer_to_numpy(pcm_buffer)
                 self._frames.append(data)
+                self._current_level = float(np.sqrt(np.mean(data**2)))
             except Exception:
                 logger.exception("Error reading audio buffer")
 
@@ -84,6 +86,7 @@ class Recorder:
         """Begin capturing audio from the default microphone."""
         with self._lock:
             self._frames = []
+            self._current_level = 0.0
             self._recording = True
             success, error = self._engine.startAndReturnError_(None)
             if not success:
@@ -94,6 +97,7 @@ class Recorder:
         """Stop recording and return audio as a WAV BytesIO buffer."""
         with self._lock:
             self._recording = False
+            self._current_level = 0.0
             self._engine.stop()
 
             if not self._frames:
@@ -120,6 +124,10 @@ class Recorder:
     def close(self):
         """Release the audio tap. Call once at app shutdown."""
         self._engine.inputNode().removeTapOnBus_(0)
+
+    @property
+    def audio_level(self) -> float:
+        return self._current_level
 
     @property
     def is_recording(self) -> bool:
