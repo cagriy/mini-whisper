@@ -4,6 +4,7 @@ import logging
 import subprocess
 import threading
 import time
+from pathlib import Path
 
 import AppKit
 from Foundation import NSMakeRect
@@ -64,14 +65,15 @@ def _input_dialog(title: str, message: str, default_text: str = "") -> str | Non
     return tf.stringValue() if clicked_save else None
 
 
-TITLE_IDLE = "MW"
+TITLE_IDLE = ""
 TITLE_RECORDING = "🔴"
 TITLE_PROCESSING = "⏳"
+_ICON_PATH = str(Path(__file__).parent / "assets" / "mini-whisper.png")
 
 
 class MiniWhisperApp(rumps.App):
     def __init__(self):
-        super().__init__(TITLE_IDLE, quit_button=None)
+        super().__init__(TITLE_IDLE, icon=_ICON_PATH, quit_button=None)
 
         self.cfg = config.load()
         self.controller = Controller()
