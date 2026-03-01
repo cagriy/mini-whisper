@@ -25,8 +25,9 @@ DAMPING = 10.0
 AMBIENT_AMPLITUDE = 10.0
 AMBIENT_SPEED_X = 2.5  # rad/s — horizontal sinusoidal drift speed
 AMBIENT_SPEED_Y = 2.3  # rad/s — vertical sinusoidal drift speed
-AUDIO_AMPLITUDE = 90.0
-AUDIO_ANGLE_DRIFT = 2.0  # std dev of audio direction random walk (rad/s)
+AUDIO_AMPLITUDE = 130.0
+AUDIO_ANGLE_DRIFT = 2.0   # base std dev of audio direction random walk (rad/s)
+AUDIO_ANGLE_BOOST = 40.0  # multiplier on drift speed at max audio level
 
 # Audio level normalization (raw RMS range)
 LEVEL_FLOOR = 0.005
@@ -224,7 +225,7 @@ class DotsOverlayWindow:
 
             # Audio-driven displacement: coherent direction per dot that drifts
             # slowly (random walk in angle), so the spring can actually track it.
-            dot.audio_angle += random.gauss(0, AUDIO_ANGLE_DRIFT) * dt
+            dot.audio_angle += random.gauss(0, AUDIO_ANGLE_DRIFT) * (1.0 + level * AUDIO_ANGLE_BOOST) * dt
             audio_x = level * AUDIO_AMPLITUDE * math.cos(dot.audio_angle)
             audio_y = level * AUDIO_AMPLITUDE * math.sin(dot.audio_angle)
 
