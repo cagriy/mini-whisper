@@ -46,9 +46,11 @@ class Dot:
         "radius", "phase", "audio_angle",
     )
 
-    def __init__(self, center_x: float, center_y: float):
+    def __init__(self, center_x: float, center_y: float, index: int = 0, total: int = 1):
+        # Random placement using sqrt(uniform) for even area distribution,
+        # which naturally fills the circle without clumping at center.
         angle = random.uniform(0, 2 * math.pi)
-        dist = random.uniform(0, DOT_AREA_RADIUS)
+        dist = DOT_AREA_RADIUS * math.sqrt(random.uniform(0, 1))
         self.home_x = center_x + dist * math.cos(angle)
         self.home_y = center_y + dist * math.sin(angle)
         self.x = self.home_x
@@ -152,7 +154,7 @@ class DotsOverlayWindow:
         # Create dots centered in the window
         cx = WINDOW_SIZE / 2
         cy = WINDOW_SIZE / 2
-        self._dots = [Dot(cx, cy) for _ in range(NUM_DOTS)]
+        self._dots = [Dot(cx, cy, i, NUM_DOTS) for i in range(NUM_DOTS)]
 
         # Timer target (must be NSObject for NSTimer selector dispatch)
         self._timer_target = _TimerTarget.alloc().init()
@@ -195,7 +197,7 @@ class DotsOverlayWindow:
         cy = WINDOW_SIZE / 2
         for dot in self._dots:
             angle = random.uniform(0, 2 * math.pi)
-            dist = random.uniform(0, DOT_AREA_RADIUS)
+            dist = DOT_AREA_RADIUS * math.sqrt(random.uniform(0, 1))
             dot.home_x = cx + dist * math.cos(angle)
             dot.home_y = cy + dist * math.sin(angle)
             dot.x = dot.home_x
