@@ -20,15 +20,19 @@ BG_CORNER_RADIUS = 20.0
 BG_ALPHA = 0.7
 
 # Physics
-SPRING_K = 8.0
-DAMPING = 5.0
+SPRING_K = 30.0
+DAMPING = 10.0
 AMBIENT_AMPLITUDE = 10.0
-AUDIO_AMPLITUDE = 60.0
+AMBIENT_SPEED_X = 2.5  # rad/s — horizontal sinusoidal drift speed
+AMBIENT_SPEED_Y = 2.3  # rad/s — vertical sinusoidal drift speed
+AUDIO_AMPLITUDE = 90.0
+AUDIO_ANGLE_DRIFT = 2.0  # std dev of audio direction random walk (rad/s)
 
 # Audio level normalization (raw RMS range)
 LEVEL_FLOOR = 0.005
-LEVEL_CEIL = 0.15
-SMOOTH_FACTOR = 0.3
+LEVEL_CEIL = 0.06
+SMOOTH_ATTACK = 0.6   # fast ramp-up when audio rises
+SMOOTH_DECAY = 0.08   # slow fade when audio drops
 
 FPS = 60.0
 
@@ -206,7 +210,8 @@ class DotsOverlayWindow:
         # Read and normalize audio level
         raw = self._recorder.audio_level
         normalized = max(0.0, min(1.0, (raw - LEVEL_FLOOR) / (LEVEL_CEIL - LEVEL_FLOOR)))
-        self._smoothed_level += SMOOTH_FACTOR * (normalized - self._smoothed_level)
+        smooth = SMOOTH_ATTACK if normalized > self._smoothed_level else SMOOTH_DECAY
+        self._smoothed_level += smooth * (normalized - self._smoothed_level)
         level = self._smoothed_level
 
         t = now  # for ambient sinusoidal motion
@@ -214,12 +219,12 @@ class DotsOverlayWindow:
         # Update each dot
         for dot in self._dots:
             # Ambient sinusoidal drift (always present, even at silence)
-            ambient_x = AMBIENT_AMPLITUDE * math.sin(t * 1.5 + dot.phase)
-            ambient_y = AMBIENT_AMPLITUDE * math.cos(t * 1.3 + dot.phase + 1.0)
+            ambient_x = AMBIENT_AMPLITUDE * math.sin(t * AMBIENT_SPEED_X + dot.phase)
+            ambient_y = AMBIENT_AMPLITUDE * math.cos(t * AMBIENT_SPEED_Y + dot.phase + 1.0)
 
             # Audio-driven displacement: coherent direction per dot that drifts
             # slowly (random walk in angle), so the spring can actually track it.
-            dot.audio_angle += random.gauss(0, 2.0) * dt
+            dot.audio_angle += random.gauss(0, AUDIO_ANGLE_DRIFT) * dt
             audio_x = level * AUDIO_AMPLITUDE * math.cos(dot.audio_angle)
             audio_y = level * AUDIO_AMPLITUDE * math.sin(dot.audio_angle)
 
