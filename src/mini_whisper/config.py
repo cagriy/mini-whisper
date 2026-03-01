@@ -21,8 +21,8 @@ KEYRING_SERVICE = "mini-whisper"
 KEYRING_USERNAME = "openai-api-key"
 
 DEFAULT_CONFIG = {
-    "hotkey": "cmd+shift+space",
-    "submit_hotkey": "cmd+shift+enter",
+    "hotkey": "shift+cmd_r",
+    "submit_hotkey": "cmd_r",
     "cleanup_enabled": True,
 }
 

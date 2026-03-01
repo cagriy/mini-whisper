@@ -13,6 +13,7 @@ import rumps
 from mini_whisper import config
 from mini_whisper.controller import Controller, UIEvent
 from mini_whisper.hotkey import HotkeyListener, format_hotkey
+from mini_whisper.overlay import DotsOverlayWindow
 
 logger = logging.getLogger(__name__)
 
@@ -104,7 +105,7 @@ class MiniWhisperApp(rumps.App):
 
         self.hotkey_listener = HotkeyListener()
 
-        paste_combo = self.cfg.get("hotkey", "cmd+shift+space")
+        paste_combo = self.cfg.get("hotkey", "shift+cmd_r")
         self.hotkey_listener.register(
             "paste",
             paste_combo,
@@ -112,7 +113,7 @@ class MiniWhisperApp(rumps.App):
             on_release=lambda: self.controller.on_hotkey_release("paste"),
         )
 
-        submit_combo = self.cfg.get("submit_hotkey", "cmd+shift+enter")
+        submit_combo = self.cfg.get("submit_hotkey", "cmd_r")
         self.hotkey_listener.register(
             "paste_submit",
             submit_combo,
@@ -120,6 +121,7 @@ class MiniWhisperApp(rumps.App):
             on_release=lambda: self.controller.on_hotkey_release("paste_submit"),
         )
 
+        self.overlay = DotsOverlayWindow(self.controller.recorder)
         self.poll_timer = rumps.Timer(self._poll_ui_events, 0.1)
 
     # ------------------------------------------------------------------
@@ -136,20 +138,25 @@ class MiniWhisperApp(rumps.App):
             if event.kind == "recording":
                 self.title = TITLE_RECORDING
                 self.status_item.title = "Status: Recording..."
+                self.overlay.show()
             elif event.kind == "processing":
                 self.title = TITLE_PROCESSING
                 self.status_item.title = "Status: Processing..."
+                self.overlay.hide()
             elif event.kind == "idle":
                 self.title = TITLE_IDLE
                 self.status_item.title = "Status: Idle"
+                self.overlay.hide()
             elif event.kind == "result":
                 self.title = TITLE_IDLE
                 self.status_item.title = "Status: Idle"
+                self.overlay.hide()
                 truncated = event.text[:50] + ("..." if len(event.text) > 50 else "")
                 self.last_item.title = f'Last: "{truncated}"'
             elif event.kind == "error":
                 self.title = TITLE_IDLE
                 self.status_item.title = "Status: Error"
+                self.overlay.hide()
                 _notify("Mini Whisper", "Error", event.text, sound=False)
 
     # ------------------------------------------------------------------
@@ -174,8 +181,13 @@ class MiniWhisperApp(rumps.App):
 
         captured = {}
 
+        _SIDED_MODIFIERS = {Key.cmd_r, Key.shift_r, Key.ctrl_r, Key.alt_r}
+
         def on_capture(modifiers, trigger):
-            if not modifiers:
+            # Allow modifier-trigger combos (e.g. cmd_r alone) even without modifiers.
+            # Reject bare non-modifier keys with no modifiers.
+            is_modifier_trigger = isinstance(trigger, Key) and trigger in _SIDED_MODIFIERS
+            if not modifiers and not is_modifier_trigger:
                 self.hotkey_listener.enter_capture_mode(on_capture)
                 return
             captured["modifiers"] = modifiers
@@ -191,7 +203,8 @@ class MiniWhisperApp(rumps.App):
         alert.setMessageText_(dialog_title)
         alert.setInformativeText_(
             "Press your desired shortcut now...\n\n"
-            "Must include ⌘ (Cmd) and/or ⇧ (Shift) with another key."
+            "Use modifier keys with another key, or\n"
+            "press and release a right-side modifier alone."
         )
         alert.addButtonWithTitle_("Cancel")
 
@@ -210,8 +223,17 @@ class MiniWhisperApp(rumps.App):
             display = format_hotkey(modifiers, trigger)
 
             reverse_mod = {Key.cmd: "cmd", Key.shift: "shift", Key.ctrl: "ctrl", Key.alt: "alt"}
+            reverse_mod_trigger = {
+                Key.cmd_r: "cmd_r",
+                Key.shift_r: "shift_r",
+                Key.ctrl_r: "ctrl_r",
+                Key.alt_r: "alt_r",
+            }
+
             parts = [reverse_mod.get(m, str(m)) for m in modifiers]
-            if isinstance(trigger, Key):
+            if trigger in reverse_mod_trigger:
+                parts.append(reverse_mod_trigger[trigger])
+            elif isinstance(trigger, Key):
                 parts.append(trigger.name)
             elif isinstance(trigger, KeyCode) and trigger.char:
                 parts.append(trigger.char)
@@ -251,6 +273,7 @@ class MiniWhisperApp(rumps.App):
         )
 
     def _quit(self, _):
+        self.overlay.cleanup()
         self.hotkey_listener.stop()
         self.controller.recorder.close()
         rumps.quit_application()

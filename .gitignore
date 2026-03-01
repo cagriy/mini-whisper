@@ -30,3 +30,4 @@ venv/
 # py2app
 dist/
 build/
+.claude
