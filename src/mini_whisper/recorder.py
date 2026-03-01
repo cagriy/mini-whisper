@@ -53,6 +53,7 @@ class Recorder:
         self._frames: list[np.ndarray] = []
         self._lock = threading.Lock()
         self._recording = False
+        self._amplitude: float = 0.0
 
         self._engine = AVFoundation.AVAudioEngine.alloc().init()
         input_node = self._engine.inputNode()
@@ -77,6 +78,7 @@ class Recorder:
             try:
                 data = _buffer_to_numpy(pcm_buffer)
                 self._frames.append(data)
+                self._amplitude = min(1.0, float(np.sqrt(np.mean(data**2))) * 5.0)
             except Exception:
                 logger.exception("Error reading audio buffer")
 
@@ -84,6 +86,7 @@ class Recorder:
         """Begin capturing audio from the default microphone."""
         with self._lock:
             self._frames = []
+            self._amplitude = 0.0
             self._recording = True
             success, error = self._engine.startAndReturnError_(None)
             if not success:
@@ -124,6 +127,11 @@ class Recorder:
     @property
     def is_recording(self) -> bool:
         return self._recording
+
+    @property
+    def amplitude(self) -> float:
+        """Current audio amplitude (0.0-1.0). Updated ~10x/sec from audio callback."""
+        return self._amplitude
 
     def duration_seconds(self) -> float:
         """Approximate duration of recorded audio so far."""

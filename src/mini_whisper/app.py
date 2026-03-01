@@ -13,6 +13,7 @@ import rumps
 from mini_whisper import config
 from mini_whisper.controller import Controller, UIEvent
 from mini_whisper.hotkey import HotkeyListener, format_hotkey
+from mini_whisper.overlay import WaveformOverlay
 
 logger = logging.getLogger(__name__)
 
@@ -120,6 +121,7 @@ class MiniWhisperApp(rumps.App):
             on_release=lambda: self.controller.on_hotkey_release("paste_submit"),
         )
 
+        self.overlay = WaveformOverlay()
         self.poll_timer = rumps.Timer(self._poll_ui_events, 0.1)
 
     # ------------------------------------------------------------------
@@ -136,12 +138,15 @@ class MiniWhisperApp(rumps.App):
             if event.kind == "recording":
                 self.title = TITLE_RECORDING
                 self.status_item.title = "Status: Recording..."
+                self.overlay.show(lambda: self.controller.recorder.amplitude)
             elif event.kind == "processing":
                 self.title = TITLE_PROCESSING
                 self.status_item.title = "Status: Processing..."
+                self.overlay.hide()
             elif event.kind == "idle":
                 self.title = TITLE_IDLE
                 self.status_item.title = "Status: Idle"
+                self.overlay.hide()
             elif event.kind == "result":
                 self.title = TITLE_IDLE
                 self.status_item.title = "Status: Idle"
@@ -150,6 +155,7 @@ class MiniWhisperApp(rumps.App):
             elif event.kind == "error":
                 self.title = TITLE_IDLE
                 self.status_item.title = "Status: Error"
+                self.overlay.hide()
                 _notify("Mini Whisper", "Error", event.text, sound=False)
 
     # ------------------------------------------------------------------
@@ -251,6 +257,7 @@ class MiniWhisperApp(rumps.App):
         )
 
     def _quit(self, _):
+        self.overlay.hide()
         self.hotkey_listener.stop()
         self.controller.recorder.close()
         rumps.quit_application()
