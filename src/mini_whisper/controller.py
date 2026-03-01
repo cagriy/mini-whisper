@@ -17,6 +17,7 @@ from mini_whisper.paster import paste
 logger = logging.getLogger(__name__)
 
 MIN_RECORDING_SECONDS = 0.5
+SILENCE_RMS_THRESHOLD = 0.005
 
 
 @dataclass
@@ -53,8 +54,13 @@ class Controller:
 
         duration = self.recorder.duration_seconds()
         audio = self.recorder.stop()
+        avg_rms = self.recorder.average_rms
 
         if duration < MIN_RECORDING_SECONDS:
+            self.ui_queue.put(UIEvent("idle"))
+            return
+
+        if avg_rms < SILENCE_RMS_THRESHOLD:
             self.ui_queue.put(UIEvent("idle"))
             return
 

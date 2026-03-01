@@ -54,6 +54,9 @@ class Recorder:
         self._lock = threading.Lock()
         self._recording = False
         self._current_level: float = 0.0
+        self._rms_sum: float = 0.0
+        self._rms_count: int = 0
+        self._avg_rms: float = 0.0
 
         self._engine = AVFoundation.AVAudioEngine.alloc().init()
         input_node = self._engine.inputNode()
@@ -78,7 +81,10 @@ class Recorder:
             try:
                 data = _buffer_to_numpy(pcm_buffer)
                 self._frames.append(data)
-                self._current_level = float(np.sqrt(np.mean(data**2)))
+                rms = float(np.sqrt(np.mean(data**2)))
+                self._current_level = rms
+                self._rms_sum += rms
+                self._rms_count += 1
             except Exception:
                 logger.exception("Error reading audio buffer")
 
@@ -87,6 +93,8 @@ class Recorder:
         with self._lock:
             self._frames = []
             self._current_level = 0.0
+            self._rms_sum = 0.0
+            self._rms_count = 0
             self._recording = True
             success, error = self._engine.startAndReturnError_(None)
             if not success:
@@ -98,6 +106,7 @@ class Recorder:
         with self._lock:
             self._recording = False
             self._current_level = 0.0
+            self._avg_rms = self._rms_sum / self._rms_count if self._rms_count else 0.0
             self._engine.stop()
 
             if not self._frames:
@@ -124,6 +133,10 @@ class Recorder:
     def close(self):
         """Release the audio tap. Call once at app shutdown."""
         self._engine.inputNode().removeTapOnBus_(0)
+
+    @property
+    def average_rms(self) -> float:
+        return self._avg_rms
 
     @property
     def audio_level(self) -> float:

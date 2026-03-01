@@ -6,6 +6,7 @@ import httpx
 
 WHISPER_URL = "https://api.openai.com/v1/audio/transcriptions"
 TIMEOUT = 30.0
+NO_SPEECH_THRESHOLD = 0.7
 
 
 def transcribe(audio: io.BytesIO, api_key: str) -> str:
@@ -32,8 +33,16 @@ def transcribe(audio: io.BytesIO, api_key: str) -> str:
         WHISPER_URL,
         headers={"Authorization": f"Bearer {api_key}"},
         files={"file": ("audio.wav", audio, "audio/wav")},
-        data={"model": "whisper-1"},
+        data={"model": "whisper-1", "response_format": "verbose_json"},
         timeout=TIMEOUT,
     )
     response.raise_for_status()
-    return response.json()["text"]
+    result = response.json()
+
+    segments = result.get("segments", [])
+    if segments and all(
+        s.get("no_speech_prob", 0) > NO_SPEECH_THRESHOLD for s in segments
+    ):
+        return ""
+
+    return result["text"]
