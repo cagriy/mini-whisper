@@ -24,6 +24,7 @@ def _notify(title: str, subtitle: str, message: str, sound: bool = True):
 
 TITLE_IDLE = ""
 TITLE_RECORDING = "🔴"
+TITLE_RECORDING_TOGGLE = "🔴"
 TITLE_PROCESSING = "⏳"
 _ICON_PATH = str(Path(__file__).parent / "assets" / "mini-whisper.png")
 
@@ -85,6 +86,9 @@ class MiniWhisperApp(rumps.App):
                 self.title = TITLE_RECORDING
                 self.status_item.title = "Status: Recording..."
                 self.overlay.show()
+            elif event.kind == "recording_toggle":
+                self.title = TITLE_RECORDING_TOGGLE
+                self.status_item.title = "Status: Recording (tap to stop)..."
             elif event.kind == "processing":
                 self.title = TITLE_PROCESSING
                 self.status_item.title = "Status: Processing..."
@@ -124,8 +128,8 @@ class MiniWhisperApp(rumps.App):
             title="Mini Whisper",
             message=(
                 "Version 0.1.0\n\n"
-                "Hold your hotkey, speak, release —\n"
-                "transcribed text is pasted into the active app.\n\n"
+                "Hold your hotkey to talk, or tap to toggle recording.\n"
+                "Transcribed text is pasted into the active app.\n\n"
                 "Powered by OpenAI Whisper + GPT-4o-mini."
             ),
         )
