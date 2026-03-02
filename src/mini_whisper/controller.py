@@ -6,6 +6,7 @@ Orchestrates all components and communicates with the UI via a queue.
 import logging
 import queue
 import threading
+import time
 from dataclasses import dataclass
 
 from mini_whisper import config
@@ -18,13 +19,14 @@ logger = logging.getLogger(__name__)
 
 MIN_RECORDING_SECONDS = 0.5
 SILENCE_RMS_THRESHOLD = 0.005
+HOLD_THRESHOLD_SECONDS = 0.3
 
 
 @dataclass
 class UIEvent:
     """Event sent from controller to UI via queue."""
 
-    kind: str  # "recording", "processing", "idle", "result", "error"
+    kind: str  # "recording", "recording_toggle", "processing", "idle", "result", "error"
     text: str = ""
 
 
@@ -33,28 +35,40 @@ class Controller:
         self.recorder = Recorder()
         self.ui_queue: queue.Queue[UIEvent] = queue.Queue()
         self._worker: threading.Thread | None = None
-        self._submit_after_paste: bool = False
+        self._press_time: float = 0.0
+        self._toggle_active: bool = False
 
     def on_hotkey_press(self, hotkey_name: str):
-        """Called when a hotkey is pressed — start recording."""
+        """Called when a hotkey is pressed — start or stop recording."""
         if self.recorder.is_recording:
+            if self._toggle_active:
+                self._stop_and_process(hotkey_name)  # second tap → stop
             return
-        self._submit_after_paste = hotkey_name == "paste_submit"
+        self._toggle_active = False
         try:
             self.recorder.start()
+            self._press_time = time.monotonic()
             self.ui_queue.put(UIEvent("recording"))
         except Exception as e:
             logger.exception("Failed to start recording")
             self.ui_queue.put(UIEvent("error", f"Mic error: {e}"))
 
     def on_hotkey_release(self, hotkey_name: str):
-        """Called when a hotkey is released — stop and process."""
-        if not self.recorder.is_recording:
+        """Called when a hotkey is released — stop (hold mode) or arm toggle."""
+        if not self.recorder.is_recording or self._toggle_active:
             return
+        if time.monotonic() - self._press_time < HOLD_THRESHOLD_SECONDS:
+            self._toggle_active = True  # quick tap → toggle mode
+            self.ui_queue.put(UIEvent("recording_toggle"))
+            return
+        self._stop_and_process(hotkey_name)  # long hold → push-to-talk
 
+    def _stop_and_process(self, hotkey_name: str):
+        """Stop recording, validate, and kick off processing."""
         duration = self.recorder.duration_seconds()
         audio = self.recorder.stop()
         avg_rms = self.recorder.average_rms
+        self._toggle_active = False
 
         if duration < MIN_RECORDING_SECONDS:
             self.ui_queue.put(UIEvent("idle"))
@@ -66,10 +80,8 @@ class Controller:
 
         self.ui_queue.put(UIEvent("processing"))
 
-        # Capture flag before spawning thread
-        submit = self._submit_after_paste
+        submit = hotkey_name == "paste_submit"
 
-        # Process in background thread
         self._worker = threading.Thread(
             target=self._process, args=(audio, submit), daemon=True
         )
