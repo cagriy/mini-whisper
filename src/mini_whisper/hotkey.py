@@ -75,6 +75,29 @@ def parse_hotkey(combo: str) -> tuple[set, Key | KeyCode, bool]:
     return modifiers, trigger, is_modifier_trigger
 
 
+def build_combo_string(modifiers: set, trigger) -> str:
+    """Convert captured modifiers + trigger into a config combo string like 'shift+cmd_r'."""
+    reverse_mod = {Key.cmd: "cmd", Key.shift: "shift", Key.ctrl: "ctrl", Key.alt: "alt"}
+    reverse_mod_trigger = {
+        Key.cmd_r: "cmd_r",
+        Key.shift_r: "shift_r",
+        Key.ctrl_r: "ctrl_r",
+        Key.alt_r: "alt_r",
+    }
+
+    parts = [reverse_mod.get(m, str(m)) for m in modifiers]
+    if trigger in reverse_mod_trigger:
+        parts.append(reverse_mod_trigger[trigger])
+    elif isinstance(trigger, Key):
+        parts.append(trigger.name)
+    elif isinstance(trigger, KeyCode) and trigger.char:
+        parts.append(trigger.char)
+    else:
+        parts.append(str(trigger))
+
+    return "+".join(parts)
+
+
 def format_hotkey(modifiers: set, trigger: Key | KeyCode) -> str:
     """Format a hotkey for display (e.g. '⌘⇧Space' or '⇧Right ⌘')."""
     symbols = {
