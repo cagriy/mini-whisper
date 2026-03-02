@@ -164,7 +164,10 @@ class MiniWhisperApp(rumps.App):
 
 
 def main():
-    logging.basicConfig(level=logging.INFO)
+    import os
+    level = os.environ.get("LOG_LEVEL", "INFO").upper()
+    logging.basicConfig(level=getattr(logging, level, logging.INFO), force=True)
+    logging.getLogger("httpx").setLevel(logging.DEBUG if level == "DEBUG" else logging.WARNING)
     MiniWhisperApp().run()
 
 

@@ -84,9 +84,18 @@ class _HotkeyField(AppKit.NSTextField):
     def acceptsFirstResponder(self):
         return True
 
+    def becomeFirstResponder(self):
+        return True
+
     def mouseDown_(self, event):
+        # Grab focus away from whatever field currently has it (e.g. API key)
+        self.window().makeFirstResponder_(self)
         if self._settings_controller is not None and self._field_name is not None:
+            logger.debug("_HotkeyField mouseDown: field=%s", self._field_name)
             self._settings_controller._start_capture(self._field_name)
+        else:
+            logger.warning("_HotkeyField mouseDown: controller=%r field_name=%r",
+                           self._settings_controller, self._field_name)
 
 
 # -- Settings Window --------------------------------------------------------
@@ -344,6 +353,7 @@ class SettingsWindow:
 
     @objc.python_method
     def _start_capture(self, field_name):
+        logger.debug("_start_capture: field=%s", field_name)
         # Cancel any existing capture first
         if self._capturing_field is not None:
             self._cancel_capture()
@@ -361,6 +371,7 @@ class SettingsWindow:
     @objc.python_method
     def _on_capture(self, modifiers, trigger):
         """Called from pynput background thread when a combo is captured."""
+        logger.debug("_on_capture: modifiers=%s trigger=%r", modifiers, trigger)
         # Reject bare non-modifier keys (require a modifier or right-side modifier trigger)
         is_modifier_trigger = isinstance(trigger, Key) and trigger in _SIDED_MODIFIERS
         if not modifiers and not is_modifier_trigger:
