@@ -31,7 +31,7 @@ _ICON_PATH = str(Path(__file__).parent / "assets" / "mini-whisper.png")
 
 class MiniWhisperApp(rumps.App):
     def __init__(self):
-        super().__init__(TITLE_IDLE, icon=_ICON_PATH, quit_button=None)
+        super().__init__(TITLE_IDLE, icon=_ICON_PATH, template=True, quit_button=None)
 
         self.cfg = config.load()
         self.controller = Controller()
