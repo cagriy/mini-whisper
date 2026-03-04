@@ -325,7 +325,7 @@ class DotsOverlayWindow:
 
         self._view._connections = connections
         if self._mode == "processing":
-            self._view._duration_text = ""
+            self._view._duration_text = "processing..."
         else:
             elapsed = now - self._start_time
             self._view._duration_text = f"{elapsed:.1f}s"
