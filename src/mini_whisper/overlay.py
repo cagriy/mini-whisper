@@ -13,6 +13,9 @@ from Foundation import NSMakeRect, NSMakePoint
 NUM_DOTS = 24
 WINDOW_SIZE = 300
 DOT_AREA_RADIUS = 100
+NUM_RING_DOTS = 10
+RING_RADIAL_JITTER = 0.10    # ±10% of DOT_AREA_RADIUS
+RING_ANGULAR_JITTER = 0.15   # ±15% of one angular slot width
 DOT_RADIUS_MIN = 2.0
 DOT_RADIUS_MAX = 5.0
 CONNECTION_DISTANCE = 120.0
@@ -41,6 +44,18 @@ FPS = 60.0
 # -- Dot data -----------------------------------------------------------------
 
 
+def _random_dot_position(center_x, center_y, index, total):
+    if index < NUM_RING_DOTS:
+        slot_width = 2 * math.pi / NUM_RING_DOTS
+        base_angle = index * slot_width
+        angle = base_angle + random.uniform(-RING_ANGULAR_JITTER, RING_ANGULAR_JITTER) * slot_width
+        dist = DOT_AREA_RADIUS * (1.0 + random.uniform(-RING_RADIAL_JITTER, RING_RADIAL_JITTER))
+    else:
+        angle = random.uniform(0, 2 * math.pi)
+        dist = DOT_AREA_RADIUS * math.sqrt(random.uniform(0, 1))
+    return center_x + dist * math.cos(angle), center_y + dist * math.sin(angle)
+
+
 class Dot:
     __slots__ = (
         "home_x", "home_y", "x", "y", "vx", "vy",
@@ -48,12 +63,7 @@ class Dot:
     )
 
     def __init__(self, center_x: float, center_y: float, index: int = 0, total: int = 1):
-        # Random placement using sqrt(uniform) for even area distribution,
-        # which naturally fills the circle without clumping at center.
-        angle = random.uniform(0, 2 * math.pi)
-        dist = DOT_AREA_RADIUS * math.sqrt(random.uniform(0, 1))
-        self.home_x = center_x + dist * math.cos(angle)
-        self.home_y = center_y + dist * math.sin(angle)
+        self.home_x, self.home_y = _random_dot_position(center_x, center_y, index, total)
         self.x = self.home_x
         self.y = self.home_y
         self.vx = 0.0
@@ -203,11 +213,8 @@ class DotsOverlayWindow:
         # Reset dot positions
         cx = WINDOW_SIZE / 2
         cy = WINDOW_SIZE / 2
-        for dot in self._dots:
-            angle = random.uniform(0, 2 * math.pi)
-            dist = DOT_AREA_RADIUS * math.sqrt(random.uniform(0, 1))
-            dot.home_x = cx + dist * math.cos(angle)
-            dot.home_y = cy + dist * math.sin(angle)
+        for i, dot in enumerate(self._dots):
+            dot.home_x, dot.home_y = _random_dot_position(cx, cy, i, NUM_DOTS)
             dot.x = dot.home_x
             dot.y = dot.home_y
             dot.vx = 0.0
