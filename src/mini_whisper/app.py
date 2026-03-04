@@ -92,7 +92,7 @@ class MiniWhisperApp(rumps.App):
             elif event.kind == "processing":
                 self.title = TITLE_PROCESSING
                 self.status_item.title = "Status: Processing..."
-                self.overlay.hide()
+                self.overlay.set_mode("processing")
             elif event.kind == "idle":
                 self.title = TITLE_IDLE
                 self.status_item.title = "Status: Idle"

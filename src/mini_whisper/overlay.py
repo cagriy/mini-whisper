@@ -25,6 +25,7 @@ DAMPING = 10.0
 AMBIENT_AMPLITUDE = 10.0
 AMBIENT_SPEED = 1.2  # rad/s — orbital rotation speed for idle drift
 AUDIO_AMPLITUDE = 130.0
+PROCESSING_ROTATION_SPEED = 3.0  # rad/s (~0.5 rev/sec) for processing mode
 AUDIO_ANGLE_DRIFT = 2.0   # base std dev of audio direction random walk (rad/s)
 AUDIO_ANGLE_BOOST = 40.0  # multiplier on drift speed at max audio level
 
@@ -150,6 +151,8 @@ class DotsOverlayWindow:
         self._timer = None
         self._last_time = time.monotonic()
         self._start_time = 0.0
+        self._mode = "recording"
+        self._rotation_angle = 0.0
 
         # Create dots centered in the window
         cx = WINDOW_SIZE / 2
@@ -187,8 +190,13 @@ class DotsOverlayWindow:
         self._view._connections = []
         self._window.setContentView_(self._view)
 
+    def set_mode(self, mode: str):
+        self._mode = mode
+
     def show(self):
         self._smoothed_level = 0.0
+        self._mode = "recording"
+        self._rotation_angle = 0.0
         now = time.monotonic()
         self._last_time = now
         self._start_time = now
@@ -229,41 +237,72 @@ class DotsOverlayWindow:
         dt = min(now - self._last_time, 0.05)  # cap to avoid spiral on lag
         self._last_time = now
 
-        # Read and normalize audio level
-        raw = self._recorder.audio_level
-        normalized = max(0.0, min(1.0, (raw - LEVEL_FLOOR) / (LEVEL_CEIL - LEVEL_FLOOR)))
-        smooth = SMOOTH_ATTACK if normalized > self._smoothed_level else SMOOTH_DECAY
-        self._smoothed_level += smooth * (normalized - self._smoothed_level)
-        level = self._smoothed_level
-
         t = now  # for ambient sinusoidal motion
+        cx = WINDOW_SIZE / 2
+        cy = WINDOW_SIZE / 2
 
-        # Update each dot
-        for dot in self._dots:
-            # Ambient sinusoidal drift (always present, even at silence)
-            orbit_angle = t * AMBIENT_SPEED + dot.phase
-            ambient_x = AMBIENT_AMPLITUDE * math.cos(orbit_angle)
-            ambient_y = AMBIENT_AMPLITUDE * math.sin(orbit_angle)
+        if self._mode == "processing":
+            self._rotation_angle += PROCESSING_ROTATION_SPEED * dt
+            angle = self._rotation_angle
+            cos_a = math.cos(angle)
+            sin_a = math.sin(angle)
 
-            # Audio-driven displacement: coherent direction per dot that drifts
-            # slowly (random walk in angle), so the spring can actually track it.
-            dot.audio_angle += random.gauss(0, AUDIO_ANGLE_DRIFT) * (1.0 + level * AUDIO_ANGLE_BOOST) * dt
-            audio_x = level * AUDIO_AMPLITUDE * math.cos(dot.audio_angle)
-            audio_y = level * AUDIO_AMPLITUDE * math.sin(dot.audio_angle)
+            for dot in self._dots:
+                # Rotate home position around window center
+                dx = dot.home_x - cx
+                dy = dot.home_y - cy
+                rotated_x = cx + dx * cos_a - dy * sin_a
+                rotated_y = cy + dx * sin_a + dy * cos_a
 
-            # Target = home + ambient + audio
-            target_x = dot.home_x + ambient_x + audio_x
-            target_y = dot.home_y + ambient_y + audio_y
+                # Ambient drift on top of rotated position
+                orbit_angle = t * AMBIENT_SPEED + dot.phase
+                ambient_x = AMBIENT_AMPLITUDE * math.cos(orbit_angle)
+                ambient_y = AMBIENT_AMPLITUDE * math.sin(orbit_angle)
 
-            # Spring-damper force
-            fx = SPRING_K * (target_x - dot.x) - DAMPING * dot.vx
-            fy = SPRING_K * (target_y - dot.y) - DAMPING * dot.vy
+                target_x = rotated_x + ambient_x
+                target_y = rotated_y + ambient_y
 
-            # Euler integration
-            dot.vx += fx * dt
-            dot.vy += fy * dt
-            dot.x += dot.vx * dt
-            dot.y += dot.vy * dt
+                fx = SPRING_K * (target_x - dot.x) - DAMPING * dot.vx
+                fy = SPRING_K * (target_y - dot.y) - DAMPING * dot.vy
+
+                dot.vx += fx * dt
+                dot.vy += fy * dt
+                dot.x += dot.vx * dt
+                dot.y += dot.vy * dt
+
+        else:  # recording mode
+            # Read and normalize audio level
+            raw = self._recorder.audio_level
+            normalized = max(0.0, min(1.0, (raw - LEVEL_FLOOR) / (LEVEL_CEIL - LEVEL_FLOOR)))
+            smooth = SMOOTH_ATTACK if normalized > self._smoothed_level else SMOOTH_DECAY
+            self._smoothed_level += smooth * (normalized - self._smoothed_level)
+            level = self._smoothed_level
+
+            for dot in self._dots:
+                # Ambient sinusoidal drift (always present, even at silence)
+                orbit_angle = t * AMBIENT_SPEED + dot.phase
+                ambient_x = AMBIENT_AMPLITUDE * math.cos(orbit_angle)
+                ambient_y = AMBIENT_AMPLITUDE * math.sin(orbit_angle)
+
+                # Audio-driven displacement: coherent direction per dot that drifts
+                # slowly (random walk in angle), so the spring can actually track it.
+                dot.audio_angle += random.gauss(0, AUDIO_ANGLE_DRIFT) * (1.0 + level * AUDIO_ANGLE_BOOST) * dt
+                audio_x = level * AUDIO_AMPLITUDE * math.cos(dot.audio_angle)
+                audio_y = level * AUDIO_AMPLITUDE * math.sin(dot.audio_angle)
+
+                # Target = home + ambient + audio
+                target_x = dot.home_x + ambient_x + audio_x
+                target_y = dot.home_y + ambient_y + audio_y
+
+                # Spring-damper force
+                fx = SPRING_K * (target_x - dot.x) - DAMPING * dot.vx
+                fy = SPRING_K * (target_y - dot.y) - DAMPING * dot.vy
+
+                # Euler integration
+                dot.vx += fx * dt
+                dot.vy += fy * dt
+                dot.x += dot.vx * dt
+                dot.y += dot.vy * dt
 
         # Compute connections
         connections = []
@@ -278,6 +317,9 @@ class DotsOverlayWindow:
                     connections.append((a, b, alpha))
 
         self._view._connections = connections
-        elapsed = now - self._start_time
-        self._view._duration_text = f"{elapsed:.1f}s"
+        if self._mode == "processing":
+            self._view._duration_text = ""
+        else:
+            elapsed = now - self._start_time
+            self._view._duration_text = f"{elapsed:.1f}s"
         self._view.setNeedsDisplay_(True)
