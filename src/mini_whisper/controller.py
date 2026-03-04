@@ -97,6 +97,7 @@ class Controller:
 
             # Transcribe
             raw_text = transcribe(audio, api_key)
+            logger.debug("Whisper raw: %s", raw_text)
             if not raw_text.strip():
                 self.ui_queue.put(UIEvent("idle"))
                 return
@@ -108,6 +109,7 @@ class Controller:
                 final_text = clean(raw_text, api_key, prompt)
             else:
                 final_text = raw_text
+            logger.debug("Final text: %s", final_text)
 
             # Paste into active app
             paste(final_text, submit=submit)

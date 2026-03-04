@@ -172,6 +172,8 @@ def main():
     level = os.environ.get("LOG_LEVEL", "INFO").upper()
     logging.basicConfig(level=getattr(logging, level, logging.INFO), force=True)
     logging.getLogger("httpx").setLevel(logging.DEBUG if level == "DEBUG" else logging.WARNING)
+    logging.getLogger("mini_whisper.hotkey").setLevel(logging.WARNING)
+    logging.getLogger("httpcore.http11").setLevel(logging.WARNING)
     MiniWhisperApp().run()
 
 
