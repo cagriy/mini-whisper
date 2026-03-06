@@ -335,6 +335,8 @@ class SettingsWindow:
         )
         content.addSubview_(self.volume_slider)
 
+        self.window.setInitialFirstResponder_(content)
+
     def _volume_changed(self, value: float):
         from mini_whisper import sounds
         self.cfg["sound_volume"] = round(value, 2)
