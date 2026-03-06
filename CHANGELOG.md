@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-03-06
+
+### Added
+- Sound effects on recording start/stop (`on.mp3` / `off.mp3`) via AppKit NSSound
+- Volume slider in Settings → Sound section (0–100%)
+- Volume preference persisted in config (`sound_volume`)
+- Preview sound plays on slider release so user can hear the chosen volume
+
 ## [0.1.2] - 2026-02-28
 
 ### Changed

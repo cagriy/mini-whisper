@@ -5,7 +5,7 @@ from pathlib import Path
 
 import rumps
 
-from mini_whisper import config
+from mini_whisper import config, sounds
 from mini_whisper.controller import Controller, UIEvent
 from mini_whisper.hotkey import HotkeyListener
 from mini_whisper.overlay import DotsOverlayWindow
@@ -34,6 +34,7 @@ class MiniWhisperApp(rumps.App):
         super().__init__(TITLE_IDLE, icon=_ICON_PATH, template=True, quit_button=None)
 
         self.cfg = config.load()
+        sounds.set_volume(self.cfg.get("sound_volume", 1.0))
         self.controller = Controller()
 
         self.status_item = rumps.MenuItem("Status: Idle")
@@ -122,6 +123,7 @@ class MiniWhisperApp(rumps.App):
 
     def _on_settings_changed(self, new_cfg):
         self.cfg = new_cfg
+        sounds.set_volume(new_cfg.get("sound_volume", 1.0))
 
     def _about(self, _):
         rumps.alert(

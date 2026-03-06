@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 _SIDED_MODIFIERS = {Key.cmd_r, Key.shift_r, Key.ctrl_r, Key.alt_r}
 
 WINDOW_WIDTH = 480
-WINDOW_HEIGHT = 420
+WINDOW_HEIGHT = 475
 
 
 # -- Helper: dispatch from pynput background thread to main thread ----------
@@ -96,6 +96,22 @@ class _HotkeyField(AppKit.NSTextField):
         else:
             logger.warning("_HotkeyField mouseDown: controller=%r field_name=%r",
                            self._settings_controller, self._field_name)
+
+
+# -- Volume slider target (NSObject required for slider target/action) -------
+
+class _VolumeSliderTarget(NSObject):
+    _callback = None
+
+    def initWithCallback_(self, cb):
+        self = objc.super(_VolumeSliderTarget, self).init()
+        if self is not None:
+            self._callback = cb
+        return self
+
+    def sliderChanged_(self, sender):
+        if self._callback is not None:
+            self._callback(sender.doubleValue())
 
 
 # -- Settings Window --------------------------------------------------------
@@ -289,6 +305,43 @@ class SettingsWindow:
             objc.selector(self._open_in_editor, signature=b"v@:@")
         )
         content.addSubview_(open_editor_btn)
+
+        # -- Sound ----------------------------------------------------------
+        y -= 40
+        self._add_section_label(content, "Sound", y)
+
+        y -= 30
+        vol_label = AppKit.NSTextField.alloc().initWithFrame_(NSMakeRect(20, y, 60, 22))
+        vol_label.setStringValue_("Volume")
+        vol_label.setBezeled_(False)
+        vol_label.setDrawsBackground_(False)
+        vol_label.setEditable_(False)
+        vol_label.setSelectable_(False)
+        content.addSubview_(vol_label)
+
+        self.volume_slider = AppKit.NSSlider.alloc().initWithFrame_(
+            NSMakeRect(90, y, 280, 22)
+        )
+        self.volume_slider.setMinValue_(0.0)
+        self.volume_slider.setMaxValue_(1.0)
+        self.volume_slider.setDoubleValue_(self.cfg.get("sound_volume", 1.0))
+        self.volume_slider.setContinuous_(False)
+        self._vol_target = _VolumeSliderTarget.alloc().initWithCallback_(
+            self._volume_changed
+        )
+        self.volume_slider.setTarget_(self._vol_target)
+        self.volume_slider.setAction_(
+            objc.selector(_VolumeSliderTarget.sliderChanged_, signature=b"v@:@")
+        )
+        content.addSubview_(self.volume_slider)
+
+    def _volume_changed(self, value: float):
+        from mini_whisper import sounds
+        self.cfg["sound_volume"] = round(value, 2)
+        config.save(self.cfg)
+        self.on_save(self.cfg)
+        sounds.set_volume(value)
+        sounds.play("on")
 
     # -- Helpers ------------------------------------------------------------
 

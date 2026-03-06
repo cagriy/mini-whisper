@@ -11,6 +11,7 @@ from dataclasses import dataclass
 
 from mini_whisper import config
 from mini_whisper.recorder import Recorder
+from mini_whisper.sounds import play as play_sound
 from mini_whisper.transcriber import transcribe
 from mini_whisper.cleaner import clean
 from mini_whisper.paster import paste
@@ -46,6 +47,7 @@ class Controller:
             return
         self._toggle_active = False
         try:
+            play_sound("on")
             self.recorder.start()
             self._press_time = time.monotonic()
             self.ui_queue.put(UIEvent("recording"))
@@ -71,10 +73,12 @@ class Controller:
         self._toggle_active = False
 
         if duration < MIN_RECORDING_SECONDS:
+            play_sound("off")
             self.ui_queue.put(UIEvent("idle"))
             return
 
         if avg_rms < SILENCE_RMS_THRESHOLD:
+            play_sound("off")
             self.ui_queue.put(UIEvent("idle"))
             return
 
@@ -99,6 +103,7 @@ class Controller:
             raw_text = transcribe(audio, api_key)
             logger.debug("Whisper raw: %s", raw_text)
             if not raw_text.strip():
+                play_sound("off")
                 self.ui_queue.put(UIEvent("idle"))
                 return
 
@@ -113,8 +118,10 @@ class Controller:
 
             # Paste into active app
             paste(final_text, submit=submit)
+            play_sound("off")
             self.ui_queue.put(UIEvent("result", final_text))
 
         except Exception as e:
             logger.exception("Processing failed")
+            play_sound("off")
             self.ui_queue.put(UIEvent("error", str(e)))

@@ -24,6 +24,7 @@ DEFAULT_CONFIG = {
     "hotkey": "shift+cmd_r",
     "submit_hotkey": "cmd_r",
     "cleanup_enabled": True,
+    "sound_volume": 1.0,
 }
 
 
