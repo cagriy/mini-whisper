@@ -10,6 +10,7 @@ APP = ["src/mini_whisper/app.py"]
 DATA_FILES = []
 OPTIONS = {
     "argv_emulation": False,
+    "iconfile": "src/mini_whisper/assets/AppIcon.icns",
     "plist": {
         "CFBundleName": "Mini Whisper",
         "CFBundleIdentifier": "com.cagri.mini-whisper",
