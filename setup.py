@@ -25,7 +25,7 @@ OPTIONS = {
             "and paste text."
         ),
     },
-    "packages": ["mini_whisper"],
+    "packages": ["mini_whisper", "_soundfile_data"],
     "includes": [
         "rumps",
         "pynput",
