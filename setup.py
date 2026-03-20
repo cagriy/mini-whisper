@@ -1,6 +1,10 @@
 """py2app build configuration for Mini Whisper."""
 
+import os
+
 from setuptools import setup
+
+_version = os.environ.get("APP_VERSION", "0.1.3")
 
 APP = ["src/mini_whisper/app.py"]
 DATA_FILES = []
@@ -9,8 +13,8 @@ OPTIONS = {
     "plist": {
         "CFBundleName": "Mini Whisper",
         "CFBundleIdentifier": "com.cagri.mini-whisper",
-        "CFBundleVersion": "0.1.0",
-        "CFBundleShortVersionString": "0.1.0",
+        "CFBundleVersion": _version,
+        "CFBundleShortVersionString": _version,
         "LSUIElement": True,
         "NSMicrophoneUsageDescription": (
             "Mini Whisper needs microphone access to record your dictation."
