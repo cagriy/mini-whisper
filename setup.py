@@ -40,5 +40,5 @@ setup(
     app=APP,
     data_files=DATA_FILES,
     options={"py2app": OPTIONS},
-    setup_requires=["py2app"],
+    install_requires=[],  # Override pyproject.toml deps; py2app 0.28.9+ rejects non-empty
 )

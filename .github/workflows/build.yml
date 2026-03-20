@@ -48,13 +48,22 @@ jobs:
           uv venv
           uv pip install -e .
           uv pip install py2app
+          # Patch py2app for uv-installed Python where zlib is a built-in module
+          # (no __file__ attribute). See: https://github.com/ronaldoussoren/py2app/issues/555
+          SITE=$(.venv/bin/python -c "import site; print(site.getsitepackages()[0])")
+          sed -i '' 's/self.copy_file(zlib.__file__, os.path.dirname(arcdir))/hasattr(zlib, "__file__") and self.copy_file(zlib.__file__, os.path.dirname(arcdir))/' \
+            "$SITE/py2app/build_app.py"
 
       - name: Build .app with py2app
         env:
           APP_VERSION: ${{ steps.version.outputs.version }}
         run: |
           source .venv/bin/activate
+          # Hide pyproject.toml so setuptools doesn't populate install_requires
+          # (py2app 0.28.9+ rejects non-empty install_requires)
+          mv pyproject.toml pyproject.toml.bak
           python setup.py py2app
+          mv pyproject.toml.bak pyproject.toml
 
       - name: Verify .app
         run: |
