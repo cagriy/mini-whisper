@@ -13,7 +13,7 @@ OPTIONS = {
     "iconfile": "src/mini_whisper/assets/AppIcon.icns",
     "plist": {
         "CFBundleName": "Mini Whisper",
-        "CFBundleIdentifier": "com.cagri.mini-whisper",
+        "CFBundleIdentifier": "com.ips.mini-whisper",
         "CFBundleVersion": _version,
         "CFBundleShortVersionString": _version,
         "LSUIElement": True,

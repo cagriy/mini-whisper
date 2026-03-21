@@ -166,7 +166,8 @@ class MiniWhisperApp(rumps.App):
         """Request Input Monitoring and Accessibility permissions if missing."""
         from Quartz import CGPreflightListenEventAccess, CGRequestListenEventAccess
 
-        if not CGPreflightListenEventAccess():
+        has_listen = CGPreflightListenEventAccess()
+        if not has_listen:
             CGRequestListenEventAccess()
 
         try:
@@ -176,9 +177,12 @@ class MiniWhisperApp(rumps.App):
             options = {
                 "AXTrustedCheckOptionPrompt": kCFBooleanTrue,
             }
-            AXIsProcessTrustedWithOptions(options)
+            has_ax = AXIsProcessTrustedWithOptions(options)
         except Exception:
             logger.debug("Could not check accessibility trust", exc_info=True)
+            has_ax = True  # assume OK if check fails
+
+        return has_listen, has_ax
 
     def _first_run_prompt(self, timer):
         timer.stop()

@@ -197,6 +197,7 @@ class HotkeyListener:
         self._capture_modifiers: set = set()
         self._capture_non_modifier_pressed: bool = False
         self._watchdog_timer: threading.Timer | None = None
+        self._event_count: int = 0
 
     def register(
         self,
@@ -226,7 +227,12 @@ class HotkeyListener:
             trigger_canonical=trigger_canonical,
         )
 
+    def has_received_events(self) -> bool:
+        """Return True if the listener has received any key events."""
+        return self._event_count > 0
+
     def _on_key_press(self, key):
+        self._event_count += 1
         try:
             self._handle_press(key)
         except Exception:
