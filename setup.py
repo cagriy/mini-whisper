@@ -29,6 +29,10 @@ OPTIONS = {
     "includes": [
         "rumps",
         "pynput",
+        "pynput.keyboard._darwin",
+        "pynput.mouse._darwin",
+        "pynput._util.darwin",
+        "pynput._util.darwin_vks",
         "AVFoundation",
         "soundfile",
         "httpx",
