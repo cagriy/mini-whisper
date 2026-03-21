@@ -26,7 +26,8 @@ TITLE_IDLE = ""
 TITLE_RECORDING = "🔴"
 TITLE_RECORDING_TOGGLE = "🔴"
 TITLE_PROCESSING = "⏳"
-_ICON_PATH = str(Path(__file__).parent / "assets" / "mini-whisper.png")
+_PKG_DIR = Path(__import__("mini_whisper").__file__).parent
+_ICON_PATH = str(_PKG_DIR / "assets" / "mini-whisper.png")
 
 
 class MiniWhisperApp(rumps.App):
