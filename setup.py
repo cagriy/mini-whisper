@@ -37,6 +37,7 @@ OPTIONS = {
         "soundfile",
         "httpx",
         "keyring",
+        "keyring.backends.macOS",
         "numpy",
     ],
 }
