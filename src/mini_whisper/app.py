@@ -154,10 +154,35 @@ class MiniWhisperApp(rumps.App):
         self.poll_timer.start()
         if not config.get_api_key():
             rumps.Timer(self._first_run_prompt, 1).start()
+        else:
+            rumps.Timer(self._check_permissions, 1).start()
         super().run(**kwargs)
+
+    def _check_permissions(self, timer):
+        timer.stop()
+        self._request_permissions()
+
+    def _request_permissions(self):
+        """Request Input Monitoring and Accessibility permissions if missing."""
+        from Quartz import CGPreflightListenEventAccess, CGRequestListenEventAccess
+
+        if not CGPreflightListenEventAccess():
+            CGRequestListenEventAccess()
+
+        try:
+            from ApplicationServices import AXIsProcessTrustedWithOptions
+            from CoreFoundation import kCFBooleanTrue
+
+            options = {
+                "AXTrustedCheckOptionPrompt": kCFBooleanTrue,
+            }
+            AXIsProcessTrustedWithOptions(options)
+        except Exception:
+            logger.debug("Could not check accessibility trust", exc_info=True)
 
     def _first_run_prompt(self, timer):
         timer.stop()
+        self._request_permissions()
         rumps.alert(
             title="Welcome to Mini Whisper!",
             message=(

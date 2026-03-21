@@ -43,6 +43,8 @@ OPTIONS = {
         "keyring",
         "keyring.backends.macOS",
         "numpy",
+        "Quartz",
+        "ApplicationServices",
     ],
 }
 
