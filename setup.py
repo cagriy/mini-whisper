@@ -24,6 +24,10 @@ OPTIONS = {
             "Mini Whisper needs accessibility access to detect hotkeys "
             "and paste text."
         ),
+        "NSInputMonitoringUsageDescription": (
+            "Mini Whisper needs Input Monitoring access to detect "
+            "global hotkeys."
+        ),
     },
     "packages": ["mini_whisper", "_soundfile_data"],
     "includes": [
