@@ -276,7 +276,7 @@ class SettingsWindow:
         self.prompt_view.setFont_(AppKit.NSFont.systemFontOfSize_(12))
 
         config.ensure_config_dir()
-        prompt_text = config.PROMPT_FILE.read_text() if config.PROMPT_FILE.exists() else ""
+        prompt_text = config.PROMPT_FILE.read_text(encoding="utf-8") if config.PROMPT_FILE.exists() else ""
         self.prompt_view.setString_(prompt_text)
 
         scroll.setDocumentView_(self.prompt_view)
@@ -490,7 +490,7 @@ class SettingsWindow:
     def _save_prompt(self, _sender):
         text = self.prompt_view.string()
         config.ensure_config_dir()
-        config.PROMPT_FILE.write_text(text)
+        config.PROMPT_FILE.write_text(text, encoding="utf-8")
 
     @objc.python_method
     def _open_in_editor(self, _sender):

@@ -41,7 +41,7 @@ def load() -> dict:
     """Load config from disk, creating defaults if needed."""
     ensure_config_dir()
     try:
-        return json.loads(CONFIG_FILE.read_text())
+        return json.loads(CONFIG_FILE.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, FileNotFoundError):
         save(DEFAULT_CONFIG)
         return DEFAULT_CONFIG.copy()
@@ -50,7 +50,7 @@ def load() -> dict:
 def save(config: dict):
     """Save config to disk."""
     CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-    CONFIG_FILE.write_text(json.dumps(config, indent=2) + "\n")
+    CONFIG_FILE.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
 
 
 def get_api_key() -> str | None:
@@ -66,4 +66,4 @@ def set_api_key(key: str):
 def get_prompt() -> str:
     """Read the cleanup prompt, re-reading from disk each time."""
     ensure_config_dir()
-    return PROMPT_FILE.read_text().strip()
+    return PROMPT_FILE.read_text(encoding="utf-8").strip()
