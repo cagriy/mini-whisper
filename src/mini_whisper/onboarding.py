@@ -143,19 +143,20 @@ class OnboardingWindow:
         # Subtitle
         y -= 22
         subtitle = self._make_label(
-            NSMakeRect(pad, y, WINDOW_WIDTH - 2 * pad, 16),
-            "Grant the permissions below so Mini Whisper can work properly.",
+            NSMakeRect(pad, y - 30, WINDOW_WIDTH - 2 * pad, 46),
+            "Grant the permissions Mini Whisper requires. Microphone access is needed to transcribe speech, and Accessibility access allows pasting the transcribed text into other apps.",
             AppKit.NSFont.systemFontOfSize_(12),
             AppKit.NSColor.secondaryLabelColor(),
         )
+        subtitle.cell().setWraps_(True)
         content.addSubview_(subtitle)
 
         # Permission rows
-        y -= 16
+        y -= 46
         self._indicators = {}
         self._open_buttons = {}
         for perm_key in PERM_ORDER:
-            y -= 52
+            y -= 38
             self._add_permission_row(content, perm_key, y)
 
         # Status label
@@ -200,17 +201,12 @@ class OnboardingWindow:
 
     def _add_permission_row(self, content, perm_key, y):
         pad = 30
-        # Row is 44px tall; y is the bottom edge.
-        # Vertically: label at top half, description at bottom half.
-        # Left side: indicator (14px) + gap(6) + icon (22px) + gap(10) + text
-        # Right side: Open Settings button, vertically centered.
-
-        icon_size = 22
+        icon_size = 30
         indicator_x = pad
         icon_x = pad + icon_size + 8
         text_x = icon_x + icon_size + 10
-        text_w = WINDOW_WIDTH - text_x - 130  # leave room for button
-        icon_y = y + 11  # vertically centered in 44px row
+        text_w = WINDOW_WIDTH - text_x - 130
+        icon_y = y + 8  # vertically centered in 38px row
 
         # Status indicator (tick/cross, same size & vertical position as icon)
         indicator = AppKit.NSImageView.alloc().initWithFrame_(
@@ -235,26 +231,17 @@ class OnboardingWindow:
         icon_view.setContentTintColor_(AppKit.NSColor.secondaryLabelColor())
         content.addSubview_(icon_view)
 
-        # Label (permission name) — top half of row
+        # Label (permission name) — vertically centered in row
         label = self._make_label(
-            NSMakeRect(text_x, y + 23, text_w, 18),
+            NSMakeRect(text_x, y + 10, text_w, 18),
             PERM_LABELS[perm_key],
             AppKit.NSFont.systemFontOfSize_weight_(13, AppKit.NSFontWeightMedium),
         )
         content.addSubview_(label)
 
-        # Description — bottom half of row
-        desc = self._make_label(
-            NSMakeRect(text_x, y + 5, text_w, 16),
-            PERM_DESCRIPTIONS[perm_key],
-            AppKit.NSFont.systemFontOfSize_(11),
-            AppKit.NSColor.secondaryLabelColor(),
-        )
-        content.addSubview_(desc)
-
         # Open Settings button — vertically centered in row
         btn = AppKit.NSButton.alloc().initWithFrame_(
-            NSMakeRect(WINDOW_WIDTH - pad - 110, y + 9, 100, 28)
+            NSMakeRect(WINDOW_WIDTH - pad - 130, y + 5, 100, 28)
         )
         btn.setTitle_("Open Settings")
         btn.setBezelStyle_(AppKit.NSBezelStyleRounded)
