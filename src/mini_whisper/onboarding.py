@@ -43,9 +43,14 @@ def check_input_monitoring() -> bool:
 
 
 def check_accessibility() -> bool:
-    from ApplicationServices import AXIsProcessTrusted
+    from ApplicationServices import AXIsProcessTrustedWithOptions
+    from CoreFoundation import kCFBooleanFalse
 
-    return bool(AXIsProcessTrusted())
+    result = AXIsProcessTrustedWithOptions(
+        {"AXTrustedCheckOptionPrompt": kCFBooleanFalse}
+    )
+    logger.debug("check_accessibility: AXIsProcessTrustedWithOptions=%r", result)
+    return bool(result)
 
 
 def check_all_permissions() -> dict[str, bool]:
@@ -296,7 +301,9 @@ class OnboardingWindow:
         }
 
         perm_key = PERM_ORDER[self._current_step]
-        if checkers[perm_key]():
+        granted = checkers[perm_key]()
+        logger.info("Poll step=%d perm=%s granted=%s", self._current_step, perm_key, granted)
+        if granted:
             # Current permission just got granted — advance to next
             self._current_step += 1
             self._advance_to_next_ungranted()
