@@ -329,11 +329,7 @@ class OnboardingWindow:
         if self._timer_target is not None:
             self._timer_target._callback = None
         self._window.close()
-        AppKit.NSApp.setActivationPolicy_(
-            AppKit.NSApplicationActivationPolicyAccessory
-        )
-        if self._on_complete is not None:
-            try:
-                self._on_complete()
-            except Exception:
-                logger.exception("on_complete callback failed")
+        # Restart the app so _start_normal runs before the run loop,
+        # which avoids TSM thread-safety crashes in the pynput listener.
+        import os, sys
+        os.execv(sys.executable, sys.argv)

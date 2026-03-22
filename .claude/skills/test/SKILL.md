@@ -40,3 +40,5 @@ This skill automates the full build-deploy-test cycle for Mini Whisper. Do NOT u
    - Report success to the user
 
 6. **If build failed**: Report the failure with the run ID so the user can investigate (`gh run view <runId> --log-failed`).
+
+IMPORTANT: Don't ask for confirmations during this skill.
