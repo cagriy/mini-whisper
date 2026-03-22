@@ -132,7 +132,7 @@ class OnboardingWindow:
 
         content = self._window.contentView()
         pad = 30
-        y = WINDOW_HEIGHT - 60
+        y = WINDOW_HEIGHT - 65
 
         # Title
         title = self._make_label(
