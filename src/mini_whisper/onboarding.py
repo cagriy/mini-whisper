@@ -43,10 +43,9 @@ def check_input_monitoring() -> bool:
 
 
 def check_accessibility() -> bool:
-    from ApplicationServices import AXIsProcessTrustedWithOptions
+    from ApplicationServices import AXIsProcessTrusted
 
-    options = {"AXTrustedCheckOptionPrompt": False}
-    return bool(AXIsProcessTrustedWithOptions(options))
+    return bool(AXIsProcessTrusted())
 
 
 def check_all_permissions() -> dict[str, bool]:
