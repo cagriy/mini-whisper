@@ -172,7 +172,7 @@ class OnboardingWindow:
         # Continue button — right-aligned, prominent style
         y -= 40
         self._continue_btn = AppKit.NSButton.alloc().initWithFrame_(
-            NSMakeRect(WINDOW_WIDTH - pad - 110, y, 110, 32)
+            NSMakeRect(WINDOW_WIDTH - pad - 130, y, 110, 32)
         )
         self._continue_btn.setTitle_("Continue")
         self._continue_btn.setBezelStyle_(AppKit.NSBezelStyleRounded)
@@ -233,7 +233,7 @@ class OnboardingWindow:
 
         # Label (permission name) — vertically centered in row
         label = self._make_label(
-            NSMakeRect(text_x, y + 10, text_w, 18),
+            NSMakeRect(text_x, y + 13, text_w, 18),
             PERM_LABELS[perm_key],
             AppKit.NSFont.systemFontOfSize_weight_(13, AppKit.NSFontWeightMedium),
         )
@@ -241,11 +241,10 @@ class OnboardingWindow:
 
         # Open Settings button — vertically centered in row
         btn = AppKit.NSButton.alloc().initWithFrame_(
-            NSMakeRect(WINDOW_WIDTH - pad - 130, y + 5, 100, 28)
+            NSMakeRect(WINDOW_WIDTH - pad - 130, y + 5, 110, 35)
         )
         btn.setTitle_("Open Settings")
         btn.setBezelStyle_(AppKit.NSBezelStyleRounded)
-        btn.setControlSize_(AppKit.NSControlSizeSmall)
         btn.setFont_(AppKit.NSFont.systemFontOfSize_(11))
 
         target = _OpenSettingsTarget.alloc().init()
