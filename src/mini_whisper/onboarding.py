@@ -9,7 +9,7 @@ from Foundation import NSMakeRect, NSObject
 logger = logging.getLogger(__name__)
 
 WINDOW_WIDTH = 460
-WINDOW_HEIGHT = 310
+WINDOW_HEIGHT = 275
 
 SETTINGS_URLS = {
     "microphone": "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone",
@@ -30,6 +30,8 @@ PERM_SYMBOLS = {
     "microphone": "mic.fill",
     "accessibility": "keyboard.fill",
 }
+
+SYMBOL_SIZE = 15  # SF Symbol visual point size (independent of layout cell size)
 
 
 # -- Permission checks --------------------------------------------------------
@@ -159,20 +161,21 @@ class OnboardingWindow:
             y -= 38
             self._add_permission_row(content, perm_key, y)
 
-        # Status label
-        y -= 36
+        # Status label + Continue button on the same row
+        y -= 44
+        btn_w, btn_h = 110, 32
+        btn_x = WINDOW_WIDTH - pad - btn_w - 20
         self._status_label = self._make_label(
-            NSMakeRect(pad, y, WINDOW_WIDTH - 2 * pad, 18),
+            NSMakeRect(pad, y + 7, btn_x - pad - 8, 18),
             "Grant all permissions to continue.",
             AppKit.NSFont.systemFontOfSize_(12),
             AppKit.NSColor.secondaryLabelColor(),
         )
         content.addSubview_(self._status_label)
 
-        # Continue button — right-aligned, prominent style
-        y -= 40
+        # Continue button — right-aligned, same row as status label
         self._continue_btn = AppKit.NSButton.alloc().initWithFrame_(
-            NSMakeRect(WINDOW_WIDTH - pad - 130, y, 110, 32)
+            NSMakeRect(btn_x, y, btn_w, btn_h)
         )
         self._continue_btn.setTitle_("Continue")
         self._continue_btn.setBezelStyle_(AppKit.NSBezelStyleRounded)
@@ -201,30 +204,30 @@ class OnboardingWindow:
 
     def _add_permission_row(self, content, perm_key, y):
         pad = 30
-        icon_size = 30
+        cell_size = 30  # layout container size
         indicator_x = pad
-        icon_x = pad + icon_size + 8
-        text_x = icon_x + icon_size + 10
+        icon_x = pad + cell_size + 8
+        text_x = icon_x + cell_size + 10
         text_w = WINDOW_WIDTH - text_x - 130
         icon_y = y + 8  # vertically centered in 38px row
 
         # Status indicator (tick/cross, same size & vertical position as icon)
         indicator = AppKit.NSImageView.alloc().initWithFrame_(
-            NSMakeRect(indicator_x, icon_y, icon_size, icon_size)
+            NSMakeRect(indicator_x, icon_y, cell_size, cell_size)
         )
         self._indicators[perm_key] = indicator
         content.addSubview_(indicator)
 
         # Icon (SF Symbol for the permission type, aligned with indicator)
         icon_view = AppKit.NSImageView.alloc().initWithFrame_(
-            NSMakeRect(icon_x, icon_y, icon_size, icon_size)
+            NSMakeRect(icon_x, icon_y, cell_size, cell_size)
         )
         symbol = AppKit.NSImage.imageWithSystemSymbolName_accessibilityDescription_(
             PERM_SYMBOLS[perm_key], PERM_LABELS[perm_key]
         )
         if symbol is not None:
             config = AppKit.NSImageSymbolConfiguration.configurationWithPointSize_weight_(
-                13, AppKit.NSFontWeightMedium
+                SYMBOL_SIZE, AppKit.NSFontWeightMedium
             )
             symbol = symbol.imageWithSymbolConfiguration_(config)
             icon_view.setImage_(symbol)
@@ -356,7 +359,7 @@ class OnboardingWindow:
             )
             if img is not None:
                 config = AppKit.NSImageSymbolConfiguration.configurationWithPointSize_weight_(
-                    13, AppKit.NSFontWeightMedium
+                    SYMBOL_SIZE, AppKit.NSFontWeightMedium
                 )
                 img = img.imageWithSymbolConfiguration_(config)
             self._indicators[perm_key].setImage_(img)
