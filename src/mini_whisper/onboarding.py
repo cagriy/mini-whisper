@@ -329,7 +329,9 @@ class OnboardingWindow:
         if self._timer_target is not None:
             self._timer_target._callback = None
         self._window.close()
-        # Restart the app so _start_normal runs before the run loop,
-        # which avoids TSM thread-safety crashes in the pynput listener.
-        import os, sys
-        os.execv(sys.executable, sys.argv)
+        # Relaunch via the bundle so _start_normal runs before the run loop,
+        # avoiding TSM thread-safety crashes in the pynput listener.
+        import subprocess, os
+        bundle = AppKit.NSBundle.mainBundle().bundlePath()
+        subprocess.Popen(["open", bundle])
+        os._exit(0)
