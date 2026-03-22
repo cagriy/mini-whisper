@@ -66,10 +66,13 @@ class MiniWhisperApp(rumps.App):
             from mini_whisper.hotkey import HotkeyListener
             from mini_whisper.overlay import DotsOverlayWindow
 
+            logger.info("_start_normal: creating Controller")
             self.controller = Controller()
+            logger.info("_start_normal: creating HotkeyListener")
             self.hotkey_listener = HotkeyListener()
 
             paste_combo = self.cfg.get("hotkey", "shift+cmd_r")
+            logger.info("_start_normal: registering paste hotkey: %s", paste_combo)
             self.hotkey_listener.register(
                 "paste",
                 paste_combo,
@@ -78,6 +81,7 @@ class MiniWhisperApp(rumps.App):
             )
 
             submit_combo = self.cfg.get("submit_hotkey", "cmd_r")
+            logger.info("_start_normal: registering submit hotkey: %s", submit_combo)
             self.hotkey_listener.register(
                 "paste_submit",
                 submit_combo,
@@ -85,11 +89,15 @@ class MiniWhisperApp(rumps.App):
                 on_release=lambda: self.controller.on_hotkey_release("paste_submit"),
             )
 
+            logger.info("_start_normal: creating overlay")
             self.overlay = DotsOverlayWindow(self.controller.recorder)
             self.poll_timer = rumps.Timer(self._poll_ui_events, 0.1)
 
+            logger.info("_start_normal: starting hotkey listener")
             self.hotkey_listener.start()
+            logger.info("_start_normal: starting poll timer")
             self.poll_timer.start()
+            logger.info("_start_normal: complete")
 
             if not config.get_api_key():
                 rumps.Timer(self._first_run_prompt, 1).start()
