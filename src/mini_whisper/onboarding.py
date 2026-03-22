@@ -43,14 +43,18 @@ def check_input_monitoring() -> bool:
 
 
 def check_accessibility() -> bool:
-    from ApplicationServices import AXIsProcessTrustedWithOptions
-    from CoreFoundation import kCFBooleanFalse
-
-    result = AXIsProcessTrustedWithOptions(
-        {"AXTrustedCheckOptionPrompt": kCFBooleanFalse}
+    # AXIsProcessTrusted caches per-process, so we probe with a live AX call
+    from ApplicationServices import (
+        AXUIElementCreateSystemWide,
+        AXUIElementCopyAttributeValue,
     )
-    logger.debug("check_accessibility: AXIsProcessTrustedWithOptions=%r", result)
-    return bool(result)
+
+    system_wide = AXUIElementCreateSystemWide()
+    err, _value = AXUIElementCopyAttributeValue(
+        system_wide, "AXFocusedApplication", None
+    )
+    # -25211 = kAXErrorAPIDisabled (not trusted), anything else = trusted
+    return err != -25211
 
 
 def check_all_permissions() -> dict[str, bool]:
