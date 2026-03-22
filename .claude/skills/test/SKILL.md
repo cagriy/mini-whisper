@@ -18,7 +18,6 @@ This skill automates the full build-deploy-test cycle for Mini Whisper. Do NOT u
    ```
    pkill -f "Mini Whisper" 2>/dev/null || true
    tccutil reset Microphone com.ips.mini-whisper
-   tccutil reset ListenEvent com.ips.mini-whisper
    tccutil reset Accessibility com.ips.mini-whisper
    hdiutil detach /Volumes/Mini\ Whisper 2>/dev/null || true
    rm -rf /Applications/Mini\ Whisper.app

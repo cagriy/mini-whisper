@@ -61,37 +61,40 @@ class MiniWhisperApp(rumps.App):
     # ------------------------------------------------------------------
 
     def _start_normal(self):
-        from mini_whisper.controller import Controller, UIEvent  # noqa: F811
-        from mini_whisper.hotkey import HotkeyListener
-        from mini_whisper.overlay import DotsOverlayWindow
+        try:
+            from mini_whisper.controller import Controller, UIEvent  # noqa: F811
+            from mini_whisper.hotkey import HotkeyListener
+            from mini_whisper.overlay import DotsOverlayWindow
 
-        self.controller = Controller()
-        self.hotkey_listener = HotkeyListener()
+            self.controller = Controller()
+            self.hotkey_listener = HotkeyListener()
 
-        paste_combo = self.cfg.get("hotkey", "shift+cmd_r")
-        self.hotkey_listener.register(
-            "paste",
-            paste_combo,
-            on_press=lambda: self.controller.on_hotkey_press("paste"),
-            on_release=lambda: self.controller.on_hotkey_release("paste"),
-        )
+            paste_combo = self.cfg.get("hotkey", "shift+cmd_r")
+            self.hotkey_listener.register(
+                "paste",
+                paste_combo,
+                on_press=lambda: self.controller.on_hotkey_press("paste"),
+                on_release=lambda: self.controller.on_hotkey_release("paste"),
+            )
 
-        submit_combo = self.cfg.get("submit_hotkey", "cmd_r")
-        self.hotkey_listener.register(
-            "paste_submit",
-            submit_combo,
-            on_press=lambda: self.controller.on_hotkey_press("paste_submit"),
-            on_release=lambda: self.controller.on_hotkey_release("paste_submit"),
-        )
+            submit_combo = self.cfg.get("submit_hotkey", "cmd_r")
+            self.hotkey_listener.register(
+                "paste_submit",
+                submit_combo,
+                on_press=lambda: self.controller.on_hotkey_press("paste_submit"),
+                on_release=lambda: self.controller.on_hotkey_release("paste_submit"),
+            )
 
-        self.overlay = DotsOverlayWindow(self.controller.recorder)
-        self.poll_timer = rumps.Timer(self._poll_ui_events, 0.1)
+            self.overlay = DotsOverlayWindow(self.controller.recorder)
+            self.poll_timer = rumps.Timer(self._poll_ui_events, 0.1)
 
-        self.hotkey_listener.start()
-        self.poll_timer.start()
+            self.hotkey_listener.start()
+            self.poll_timer.start()
 
-        if not config.get_api_key():
-            rumps.Timer(self._first_run_prompt, 1).start()
+            if not config.get_api_key():
+                rumps.Timer(self._first_run_prompt, 1).start()
+        except Exception:
+            logger.exception("Failed to start normal operation")
 
     # ------------------------------------------------------------------
     # UI polling (runs on main thread via rumps Timer)
@@ -204,7 +207,14 @@ class MiniWhisperApp(rumps.App):
 def main():
     import os
     level = os.environ.get("LOG_LEVEL", "INFO").upper()
-    logging.basicConfig(level=getattr(logging, level, logging.INFO), force=True)
+    logging.basicConfig(
+        level=getattr(logging, level, logging.INFO),
+        force=True,
+        handlers=[
+            logging.StreamHandler(),
+            logging.FileHandler("/tmp/mini-whisper.log"),
+        ],
+    )
     logging.getLogger("httpx").setLevel(logging.DEBUG if level == "DEBUG" else logging.WARNING)
     logging.getLogger("mini_whisper.hotkey").setLevel(logging.WARNING)
     logging.getLogger("httpcore.http11").setLevel(logging.WARNING)

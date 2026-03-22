@@ -9,17 +9,15 @@ from Foundation import NSMakeRect, NSObject
 logger = logging.getLogger(__name__)
 
 WINDOW_WIDTH = 420
-WINDOW_HEIGHT = 300
+WINDOW_HEIGHT = 260
 
 SETTINGS_URLS = {
     "microphone": "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone",
-    "input_monitoring": "x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent",
     "accessibility": "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility",
 }
 
 PERM_LABELS = {
     "microphone": "Microphone",
-    "input_monitoring": "Input Monitoring",
     "accessibility": "Accessibility",
 }
 
@@ -36,12 +34,6 @@ def check_microphone() -> bool:
     return status == AVFoundation.AVAuthorizationStatusAuthorized
 
 
-def check_input_monitoring() -> bool:
-    from Quartz import CGPreflightListenEventAccess
-
-    return bool(CGPreflightListenEventAccess())
-
-
 def check_accessibility() -> bool:
     from ApplicationServices import AXIsProcessTrusted
 
@@ -53,7 +45,6 @@ def check_accessibility() -> bool:
 def check_all_permissions() -> dict[str, bool]:
     return {
         "microphone": check_microphone(),
-        "input_monitoring": check_input_monitoring(),
         "accessibility": check_accessibility(),
     }
 
@@ -96,7 +87,7 @@ class _ContinueTarget(NSObject):
 # -- Onboarding Window -------------------------------------------------------
 
 
-PERM_ORDER = ("microphone", "accessibility", "input_monitoring")
+PERM_ORDER = ("microphone", "accessibility")
 
 
 class OnboardingWindow:
@@ -141,7 +132,7 @@ class OnboardingWindow:
         # Permission rows
         y -= 15
         self._indicators = {}
-        for perm_key in ("microphone", "accessibility", "input_monitoring"):
+        for perm_key in PERM_ORDER:
             y -= 35
             self._add_permission_row(content, perm_key, y)
 
@@ -241,7 +232,6 @@ class OnboardingWindow:
         checkers = {
             "microphone": check_microphone,
             "accessibility": check_accessibility,
-            "input_monitoring": check_input_monitoring,
         }
         while self._current_step < len(PERM_ORDER):
             perm_key = PERM_ORDER[self._current_step]
@@ -279,11 +269,6 @@ class OnboardingWindow:
             except Exception:
                 logger.debug("Could not request accessibility trust", exc_info=True)
 
-        elif perm_key == "input_monitoring":
-            from Quartz import CGRequestListenEventAccess
-
-            CGRequestListenEventAccess()
-
     def _poll(self):
         """Called by timer — check if current permission was granted, advance if so."""
         self._update_indicators()
@@ -294,7 +279,6 @@ class OnboardingWindow:
         checkers = {
             "microphone": check_microphone,
             "accessibility": check_accessibility,
-            "input_monitoring": check_input_monitoring,
         }
 
         perm_key = PERM_ORDER[self._current_step]
@@ -312,7 +296,6 @@ class OnboardingWindow:
         checkers = {
             "microphone": check_microphone,
             "accessibility": check_accessibility,
-            "input_monitoring": check_input_monitoring,
         }
         all_granted = True
         for perm_key in PERM_ORDER:
@@ -350,12 +333,7 @@ class OnboardingWindow:
             AppKit.NSApplicationActivationPolicyAccessory
         )
         if self._on_complete is not None:
-            # Schedule on next run loop iteration to avoid issues
-            # when called from inside a button callback
-            cb = self._on_complete
-            completion_target = _PollTimerTarget.alloc().init()
-            completion_target._callback = cb
-            self._completion_target = completion_target  # prevent GC
-            AppKit.NSTimer.scheduledTimerWithTimeInterval_target_selector_userInfo_repeats_(
-                0.1, completion_target, "fire:", None, False
-            )
+            try:
+                self._on_complete()
+            except Exception:
+                logger.exception("on_complete callback failed")
