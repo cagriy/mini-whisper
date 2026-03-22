@@ -43,23 +43,11 @@ def check_input_monitoring() -> bool:
 
 
 def check_accessibility() -> bool:
-    # AXIsProcessTrusted caches per-process, so we probe with a live AX call
-    from ApplicationServices import (
-        AXUIElementCreateSystemWide,
-        AXUIElementCopyAttributeValue,
-    )
+    from ApplicationServices import AXIsProcessTrusted
 
-    system_wide = AXUIElementCreateSystemWide()
-    err, _value = AXUIElementCopyAttributeValue(
-        system_wide, "AXFocusedApplication", None
-    )
-    logger.debug("check_accessibility: AX probe err=%d", err)
-    # 0 = kAXErrorSuccess (trusted and got a value)
-    # -25205 = kAXErrorNoValue (trusted but no focused app)
-    # -25211 = kAXErrorAPIDisabled (not trusted)
-    # -25200 = kAXErrorFailure (not trusted on some macOS versions)
-    # Only return True for known "trusted" error codes
-    return err in (0, -25205)
+    result = bool(AXIsProcessTrusted())
+    logger.debug("check_accessibility: AXIsProcessTrusted=%s", result)
+    return result
 
 
 def check_all_permissions() -> dict[str, bool]:
