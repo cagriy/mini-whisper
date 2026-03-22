@@ -46,6 +46,7 @@ jobs:
 
       - name: Set up Python and install dependencies
         run: |
+          export PATH="$HOME/.local/bin:$PATH"
           uv python install 3.13
           uv venv
           uv pip install -e .
