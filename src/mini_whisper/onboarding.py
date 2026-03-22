@@ -8,8 +8,8 @@ from Foundation import NSMakeRect, NSObject
 
 logger = logging.getLogger(__name__)
 
-WINDOW_WIDTH = 420
-WINDOW_HEIGHT = 260
+WINDOW_WIDTH = 460
+WINDOW_HEIGHT = 310
 
 SETTINGS_URLS = {
     "microphone": "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone",
@@ -19,6 +19,16 @@ SETTINGS_URLS = {
 PERM_LABELS = {
     "microphone": "Microphone",
     "accessibility": "Accessibility",
+}
+
+PERM_DESCRIPTIONS = {
+    "microphone": "Record audio for speech-to-text",
+    "accessibility": "Type transcribed text into any app",
+}
+
+PERM_SYMBOLS = {
+    "microphone": "mic.fill",
+    "accessibility": "keyboard.fill",
 }
 
 
@@ -101,12 +111,16 @@ class OnboardingWindow:
         self._build_window()
 
     def _build_window(self):
-        style = AppKit.NSTitledWindowMask
+        style = (
+            AppKit.NSTitledWindowMask
+            | AppKit.NSFullSizeContentViewWindowMask
+        )
         frame = NSMakeRect(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT)
         self._window = AppKit.NSWindow.alloc().initWithContentRect_styleMask_backing_defer_(
             frame, style, AppKit.NSBackingStoreBuffered, False
         )
         self._window.setTitle_("Mini Whisper — Setup")
+        self._window.setTitlebarAppearsTransparent_(True)
         self._window.setReleasedWhenClosed_(False)
         self._window.center()
 
@@ -115,45 +129,49 @@ class OnboardingWindow:
         self._window.setDelegate_(delegate)
 
         content = self._window.contentView()
-        y = WINDOW_HEIGHT - 50
+        pad = 30
+        y = WINDOW_HEIGHT - 60
 
         # Title
-        title = AppKit.NSTextField.alloc().initWithFrame_(
-            NSMakeRect(20, y, WINDOW_WIDTH - 40, 24)
+        title = self._make_label(
+            NSMakeRect(pad, y, WINDOW_WIDTH - 2 * pad, 28),
+            "Mini Whisper needs a few permissions",
+            AppKit.NSFont.boldSystemFontOfSize_(18),
         )
-        title.setStringValue_("Mini Whisper needs a few permissions")
-        title.setBezeled_(False)
-        title.setDrawsBackground_(False)
-        title.setEditable_(False)
-        title.setSelectable_(False)
-        title.setFont_(AppKit.NSFont.boldSystemFontOfSize_(15))
         content.addSubview_(title)
 
+        # Subtitle
+        y -= 22
+        subtitle = self._make_label(
+            NSMakeRect(pad, y, WINDOW_WIDTH - 2 * pad, 16),
+            "Grant the permissions below so Mini Whisper can work properly.",
+            AppKit.NSFont.systemFontOfSize_(12),
+            AppKit.NSColor.secondaryLabelColor(),
+        )
+        content.addSubview_(subtitle)
+
         # Permission rows
-        y -= 15
+        y -= 16
         self._indicators = {}
+        self._open_buttons = {}
         for perm_key in PERM_ORDER:
-            y -= 35
+            y -= 52
             self._add_permission_row(content, perm_key, y)
 
         # Status label
-        y -= 40
-        self._status_label = AppKit.NSTextField.alloc().initWithFrame_(
-            NSMakeRect(20, y, WINDOW_WIDTH - 40, 20)
+        y -= 36
+        self._status_label = self._make_label(
+            NSMakeRect(pad, y, WINDOW_WIDTH - 2 * pad, 18),
+            "Grant all permissions to continue.",
+            AppKit.NSFont.systemFontOfSize_(12),
+            AppKit.NSColor.secondaryLabelColor(),
         )
-        self._status_label.setStringValue_("Grant all permissions to continue.")
-        self._status_label.setBezeled_(False)
-        self._status_label.setDrawsBackground_(False)
-        self._status_label.setEditable_(False)
-        self._status_label.setSelectable_(False)
-        self._status_label.setFont_(AppKit.NSFont.systemFontOfSize_(12))
-        self._status_label.setTextColor_(AppKit.NSColor.secondaryLabelColor())
         content.addSubview_(self._status_label)
 
-        # Continue button
-        y -= 35
+        # Continue button — right-aligned, prominent style
+        y -= 40
         self._continue_btn = AppKit.NSButton.alloc().initWithFrame_(
-            NSMakeRect(WINDOW_WIDTH - 120, y, 100, 30)
+            NSMakeRect(WINDOW_WIDTH - pad - 110, y, 110, 32)
         )
         self._continue_btn.setTitle_("Continue")
         self._continue_btn.setBezelStyle_(AppKit.NSBezelStyleRounded)
@@ -167,37 +185,71 @@ class OnboardingWindow:
         self._continue_btn.setAction_(objc.selector(_ContinueTarget.continue_, signature=b"v@:@"))
         content.addSubview_(self._continue_btn)
 
-    def _add_permission_row(self, content, perm_key, y):
-        # Status indicator
-        indicator = AppKit.NSTextField.alloc().initWithFrame_(
-            NSMakeRect(20, y, 24, 24)
-        )
-        indicator.setStringValue_("❌")
-        indicator.setBezeled_(False)
-        indicator.setDrawsBackground_(False)
-        indicator.setEditable_(False)
-        indicator.setSelectable_(False)
-        indicator.setFont_(AppKit.NSFont.systemFontOfSize_(14))
-        content.addSubview_(indicator)
-        self._indicators[perm_key] = indicator
-
-        # Label
-        label = AppKit.NSTextField.alloc().initWithFrame_(
-            NSMakeRect(48, y, 160, 24)
-        )
-        label.setStringValue_(PERM_LABELS[perm_key])
+    @staticmethod
+    def _make_label(frame, text, font, color=None):
+        label = AppKit.NSTextField.alloc().initWithFrame_(frame)
+        label.setStringValue_(text)
         label.setBezeled_(False)
         label.setDrawsBackground_(False)
         label.setEditable_(False)
         label.setSelectable_(False)
+        label.setFont_(font)
+        if color is not None:
+            label.setTextColor_(color)
+        return label
+
+    def _add_permission_row(self, content, perm_key, y):
+        pad = 30
+        row_height = 44
+
+        # Icon (SF Symbol for the permission type)
+        icon_view = AppKit.NSImageView.alloc().initWithFrame_(
+            NSMakeRect(pad, y + 6, 28, 28)
+        )
+        symbol = AppKit.NSImage.imageWithSystemSymbolName_accessibilityDescription_(
+            PERM_SYMBOLS[perm_key], PERM_LABELS[perm_key]
+        )
+        if symbol is not None:
+            config = AppKit.NSImageSymbolConfiguration.configurationWithPointSize_weight_(
+                16, AppKit.NSFontWeightMedium
+            )
+            symbol = symbol.imageWithSymbolConfiguration_(config)
+            icon_view.setImage_(symbol)
+        icon_view.setContentTintColor_(AppKit.NSColor.secondaryLabelColor())
+        content.addSubview_(icon_view)
+
+        # Status indicator (small circle)
+        indicator = AppKit.NSImageView.alloc().initWithFrame_(
+            NSMakeRect(pad + 32, y + row_height - 14, 12, 12)
+        )
+        self._indicators[perm_key] = indicator
+        content.addSubview_(indicator)
+
+        # Label (permission name)
+        label = self._make_label(
+            NSMakeRect(pad + 50, y + 22, 200, 18),
+            PERM_LABELS[perm_key],
+            AppKit.NSFont.systemFontOfSize_weight_(13, AppKit.NSFontWeightMedium),
+        )
         content.addSubview_(label)
+
+        # Description
+        desc = self._make_label(
+            NSMakeRect(pad + 50, y + 4, 220, 16),
+            PERM_DESCRIPTIONS[perm_key],
+            AppKit.NSFont.systemFontOfSize_(11),
+            AppKit.NSColor.secondaryLabelColor(),
+        )
+        content.addSubview_(desc)
 
         # Open Settings button
         btn = AppKit.NSButton.alloc().initWithFrame_(
-            NSMakeRect(WINDOW_WIDTH - 140, y, 120, 24)
+            NSMakeRect(WINDOW_WIDTH - pad - 110, y + 10, 100, 28)
         )
         btn.setTitle_("Open Settings")
         btn.setBezelStyle_(AppKit.NSBezelStyleRounded)
+        btn.setControlSize_(AppKit.NSControlSizeSmall)
+        btn.setFont_(AppKit.NSFont.systemFontOfSize_(11))
 
         target = _OpenSettingsTarget.alloc().init()
         target._perm_key = perm_key
@@ -206,6 +258,7 @@ class OnboardingWindow:
         btn.setTarget_(target)
         btn.setAction_(objc.selector(_OpenSettingsTarget.open_, signature=b"v@:@"))
         content.addSubview_(btn)
+        self._open_buttons[perm_key] = btn
 
     def show(self):
         # Skip past any permissions already granted
@@ -300,7 +353,19 @@ class OnboardingWindow:
         all_granted = True
         for perm_key in PERM_ORDER:
             granted = checkers[perm_key]()
-            self._indicators[perm_key].setStringValue_("✅" if granted else "❌")
+            symbol_name = "checkmark.circle.fill" if granted else "xmark.circle.fill"
+            color = AppKit.NSColor.systemGreenColor() if granted else AppKit.NSColor.systemRedColor()
+            img = AppKit.NSImage.imageWithSystemSymbolName_accessibilityDescription_(
+                symbol_name, "granted" if granted else "not granted"
+            )
+            if img is not None:
+                config = AppKit.NSImageSymbolConfiguration.configurationWithPointSize_weight_(
+                    10, AppKit.NSFontWeightRegular
+                )
+                img = img.imageWithSymbolConfiguration_(config)
+            self._indicators[perm_key].setImage_(img)
+            self._indicators[perm_key].setContentTintColor_(color)
+            self._open_buttons[perm_key].setHidden_(granted)
             if not granted:
                 all_granted = False
 
