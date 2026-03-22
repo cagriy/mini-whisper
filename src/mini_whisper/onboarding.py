@@ -200,51 +200,61 @@ class OnboardingWindow:
 
     def _add_permission_row(self, content, perm_key, y):
         pad = 30
-        row_height = 44
+        # Row is 44px tall; y is the bottom edge.
+        # Vertically: label at top half, description at bottom half.
+        # Left side: indicator (14px) + gap(6) + icon (22px) + gap(10) + text
+        # Right side: Open Settings button, vertically centered.
 
-        # Icon (SF Symbol for the permission type)
+        icon_size = 22
+        indicator_x = pad
+        icon_x = pad + icon_size + 8
+        text_x = icon_x + icon_size + 10
+        text_w = WINDOW_WIDTH - text_x - 130  # leave room for button
+        icon_y = y + 11  # vertically centered in 44px row
+
+        # Status indicator (tick/cross, same size & vertical position as icon)
+        indicator = AppKit.NSImageView.alloc().initWithFrame_(
+            NSMakeRect(indicator_x, icon_y, icon_size, icon_size)
+        )
+        self._indicators[perm_key] = indicator
+        content.addSubview_(indicator)
+
+        # Icon (SF Symbol for the permission type, aligned with indicator)
         icon_view = AppKit.NSImageView.alloc().initWithFrame_(
-            NSMakeRect(pad, y + 6, 28, 28)
+            NSMakeRect(icon_x, icon_y, icon_size, icon_size)
         )
         symbol = AppKit.NSImage.imageWithSystemSymbolName_accessibilityDescription_(
             PERM_SYMBOLS[perm_key], PERM_LABELS[perm_key]
         )
         if symbol is not None:
             config = AppKit.NSImageSymbolConfiguration.configurationWithPointSize_weight_(
-                16, AppKit.NSFontWeightMedium
+                13, AppKit.NSFontWeightMedium
             )
             symbol = symbol.imageWithSymbolConfiguration_(config)
             icon_view.setImage_(symbol)
         icon_view.setContentTintColor_(AppKit.NSColor.secondaryLabelColor())
         content.addSubview_(icon_view)
 
-        # Status indicator (small circle)
-        indicator = AppKit.NSImageView.alloc().initWithFrame_(
-            NSMakeRect(pad + 32, y + row_height - 14, 12, 12)
-        )
-        self._indicators[perm_key] = indicator
-        content.addSubview_(indicator)
-
-        # Label (permission name)
+        # Label (permission name) — top half of row
         label = self._make_label(
-            NSMakeRect(pad + 50, y + 22, 200, 18),
+            NSMakeRect(text_x, y + 23, text_w, 18),
             PERM_LABELS[perm_key],
             AppKit.NSFont.systemFontOfSize_weight_(13, AppKit.NSFontWeightMedium),
         )
         content.addSubview_(label)
 
-        # Description
+        # Description — bottom half of row
         desc = self._make_label(
-            NSMakeRect(pad + 50, y + 4, 220, 16),
+            NSMakeRect(text_x, y + 5, text_w, 16),
             PERM_DESCRIPTIONS[perm_key],
             AppKit.NSFont.systemFontOfSize_(11),
             AppKit.NSColor.secondaryLabelColor(),
         )
         content.addSubview_(desc)
 
-        # Open Settings button
+        # Open Settings button — vertically centered in row
         btn = AppKit.NSButton.alloc().initWithFrame_(
-            NSMakeRect(WINDOW_WIDTH - pad - 110, y + 10, 100, 28)
+            NSMakeRect(WINDOW_WIDTH - pad - 110, y + 9, 100, 28)
         )
         btn.setTitle_("Open Settings")
         btn.setBezelStyle_(AppKit.NSBezelStyleRounded)
@@ -360,7 +370,7 @@ class OnboardingWindow:
             )
             if img is not None:
                 config = AppKit.NSImageSymbolConfiguration.configurationWithPointSize_weight_(
-                    10, AppKit.NSFontWeightRegular
+                    13, AppKit.NSFontWeightMedium
                 )
                 img = img.imageWithSymbolConfiguration_(config)
             self._indicators[perm_key].setImage_(img)
