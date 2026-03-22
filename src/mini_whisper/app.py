@@ -6,9 +6,7 @@ from pathlib import Path
 import rumps
 
 from mini_whisper import config, sounds
-from mini_whisper.controller import Controller, UIEvent
-from mini_whisper.hotkey import HotkeyListener
-from mini_whisper.overlay import DotsOverlayWindow
+from mini_whisper.onboarding import OnboardingWindow, check_all_permissions
 from mini_whisper.settings import SettingsWindow
 
 logger = logging.getLogger(__name__)
@@ -36,7 +34,6 @@ class MiniWhisperApp(rumps.App):
 
         self.cfg = config.load()
         sounds.set_volume(self.cfg.get("sound_volume", 1.0))
-        self.controller = Controller()
 
         self.status_item = rumps.MenuItem("Status: Idle")
         self.last_item = rumps.MenuItem('Last: ""')
@@ -51,6 +48,24 @@ class MiniWhisperApp(rumps.App):
             rumps.MenuItem("Quit", callback=self._quit),
         ]
 
+        # These are created lazily in _start_normal()
+        self.controller = None
+        self.hotkey_listener = None
+        self.overlay = None
+        self.poll_timer = None
+        self._settings_window = None
+        self._onboarding_window = None
+
+    # ------------------------------------------------------------------
+    # Deferred initialization (after permissions are granted)
+    # ------------------------------------------------------------------
+
+    def _start_normal(self):
+        from mini_whisper.controller import Controller, UIEvent  # noqa: F811
+        from mini_whisper.hotkey import HotkeyListener
+        from mini_whisper.overlay import DotsOverlayWindow
+
+        self.controller = Controller()
         self.hotkey_listener = HotkeyListener()
 
         paste_combo = self.cfg.get("hotkey", "shift+cmd_r")
@@ -71,7 +86,12 @@ class MiniWhisperApp(rumps.App):
 
         self.overlay = DotsOverlayWindow(self.controller.recorder)
         self.poll_timer = rumps.Timer(self._poll_ui_events, 0.1)
-        self._settings_window = None
+
+        self.hotkey_listener.start()
+        self.poll_timer.start()
+
+        if not config.get_api_key():
+            rumps.Timer(self._first_run_prompt, 1).start()
 
     # ------------------------------------------------------------------
     # UI polling (runs on main thread via rumps Timer)
@@ -80,6 +100,7 @@ class MiniWhisperApp(rumps.App):
     def _poll_ui_events(self, _timer):
         while True:
             try:
+                from mini_whisper.controller import UIEvent
                 event: UIEvent = self.controller.ui_queue.get_nowait()
             except Exception:
                 break
@@ -116,6 +137,8 @@ class MiniWhisperApp(rumps.App):
     # ------------------------------------------------------------------
 
     def _open_settings(self, _):
+        if self.hotkey_listener is None:
+            return
         if self._settings_window is None:
             self._settings_window = SettingsWindow(
                 self.hotkey_listener, self.cfg, self._on_settings_changed
@@ -140,9 +163,12 @@ class MiniWhisperApp(rumps.App):
     def _quit(self, _):
         if self._settings_window is not None:
             self._settings_window.close()
-        self.overlay.cleanup()
-        self.hotkey_listener.stop()
-        self.controller.recorder.close()
+        if self.overlay is not None:
+            self.overlay.cleanup()
+        if self.hotkey_listener is not None:
+            self.hotkey_listener.stop()
+        if self.controller is not None:
+            self.controller.recorder.close()
         rumps.quit_application()
 
     # ------------------------------------------------------------------
@@ -150,50 +176,26 @@ class MiniWhisperApp(rumps.App):
     # ------------------------------------------------------------------
 
     def run(self, **kwargs):
-        self.hotkey_listener.start()
-        self.poll_timer.start()
-        if not config.get_api_key():
-            rumps.Timer(self._first_run_prompt, 1).start()
+        perms = check_all_permissions()
+        if all(perms.values()):
+            self._start_normal()
         else:
-            rumps.Timer(self._check_permissions, 1).start()
+            # Show onboarding after the run loop starts
+            rumps.Timer(self._show_onboarding, 0.5).start()
         super().run(**kwargs)
 
-    def _check_permissions(self, timer):
+    def _show_onboarding(self, timer):
         timer.stop()
-        self._request_permissions()
-
-    def _request_permissions(self):
-        """Request Input Monitoring and Accessibility permissions if missing."""
-        from Quartz import CGPreflightListenEventAccess, CGRequestListenEventAccess
-
-        has_listen = CGPreflightListenEventAccess()
-        if not has_listen:
-            CGRequestListenEventAccess()
-
-        try:
-            from ApplicationServices import AXIsProcessTrustedWithOptions
-            from CoreFoundation import kCFBooleanTrue
-
-            options = {
-                "AXTrustedCheckOptionPrompt": kCFBooleanTrue,
-            }
-            has_ax = AXIsProcessTrustedWithOptions(options)
-        except Exception:
-            logger.debug("Could not check accessibility trust", exc_info=True)
-            has_ax = True  # assume OK if check fails
-
-        return has_listen, has_ax
+        self._onboarding_window = OnboardingWindow(on_complete=self._start_normal)
+        self._onboarding_window.show()
 
     def _first_run_prompt(self, timer):
         timer.stop()
-        self._request_permissions()
         rumps.alert(
             title="Welcome to Mini Whisper!",
             message=(
                 "To get started, set your OpenAI API key.\n\n"
-                "You'll also need to grant Microphone, Accessibility,\n"
-                "and Input Monitoring access in:\n"
-                "System Settings → Privacy & Security."
+                "Open Settings from the menu bar icon."
             ),
         )
         self._open_settings(None)
