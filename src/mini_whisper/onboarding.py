@@ -53,8 +53,13 @@ def check_accessibility() -> bool:
     err, _value = AXUIElementCopyAttributeValue(
         system_wide, "AXFocusedApplication", None
     )
-    # -25211 = kAXErrorAPIDisabled (not trusted), anything else = trusted
-    return err != -25211
+    logger.debug("check_accessibility: AX probe err=%d", err)
+    # 0 = kAXErrorSuccess (trusted and got a value)
+    # -25205 = kAXErrorNoValue (trusted but no focused app)
+    # -25211 = kAXErrorAPIDisabled (not trusted)
+    # -25200 = kAXErrorFailure (not trusted on some macOS versions)
+    # Only return True for known "trusted" error codes
+    return err in (0, -25205)
 
 
 def check_all_permissions() -> dict[str, bool]:
