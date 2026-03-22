@@ -334,8 +334,7 @@ class OnboardingWindow:
             self._status_label.setTextColor_(AppKit.NSColor.secondaryLabelColor())
 
     def _open_settings(self, perm_key):
-        """Button click — request the permission and open its Settings pane."""
-        self._request_permission(perm_key)
+        """Button click — open the relevant Settings pane."""
         url_str = SETTINGS_URLS[perm_key]
         url = AppKit.NSURL.URLWithString_(url_str)
         AppKit.NSWorkspace.sharedWorkspace().openURL_(url)
@@ -351,4 +350,12 @@ class OnboardingWindow:
             AppKit.NSApplicationActivationPolicyAccessory
         )
         if self._on_complete is not None:
-            self._on_complete()
+            # Schedule on next run loop iteration to avoid issues
+            # when called from inside a button callback
+            cb = self._on_complete
+            completion_target = _PollTimerTarget.alloc().init()
+            completion_target._callback = cb
+            self._completion_target = completion_target  # prevent GC
+            AppKit.NSTimer.scheduledTimerWithTimeInterval_target_selector_userInfo_repeats_(
+                0.1, completion_target, "fire:", None, False
+            )

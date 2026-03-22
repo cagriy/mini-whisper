@@ -17,9 +17,9 @@ This skill automates the full build-deploy-test cycle for Mini Whisper. Do NOT u
 3. **Clean environment** while build runs — run these commands directly:
    ```
    pkill -f "Mini Whisper" 2>/dev/null || true
-   tccutil reset Microphone com.cagri.mini-whisper
-   tccutil reset ListenEvent com.cagri.mini-whisper
-   tccutil reset Accessibility com.cagri.mini-whisper
+   tccutil reset Microphone com.ips.mini-whisper
+   tccutil reset ListenEvent com.ips.mini-whisper
+   tccutil reset Accessibility com.ips.mini-whisper
    hdiutil detach /Volumes/Mini\ Whisper 2>/dev/null || true
    rm -rf /Applications/Mini\ Whisper.app
    rm -rf /tmp/mini-whisper-build
