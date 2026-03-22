@@ -136,7 +136,7 @@ class OnboardingWindow:
         # Permission rows
         y -= 15
         self._indicators = {}
-        for perm_key in ("microphone", "input_monitoring", "accessibility"):
+        for perm_key in ("microphone", "accessibility", "input_monitoring"):
             y -= 35
             self._add_permission_row(content, perm_key, y)
 
@@ -212,6 +212,8 @@ class OnboardingWindow:
         content.addSubview_(btn)
 
     def show(self):
+        # Request all permissions upfront so the app appears in System Settings
+        self._request_permissions()
         self._update_status()
 
         # Start polling timer
@@ -227,10 +229,38 @@ class OnboardingWindow:
         AppKit.NSApp.activateIgnoringOtherApps_(True)
         self._window.makeKeyAndOrderFront_(None)
 
+    def _request_permissions(self):
+        """Trigger system permission prompts so the app gets listed in System Settings."""
+        # 1. Microphone — request access (triggers native prompt if NotDetermined)
+        import AVFoundation
+
+        mic_status = AVFoundation.AVCaptureDevice.authorizationStatusForMediaType_(
+            AVFoundation.AVMediaTypeAudio
+        )
+        if mic_status == AVFoundation.AVAuthorizationStatusNotDetermined:
+            AVFoundation.AVCaptureDevice.requestAccessForMediaType_completionHandler_(
+                AVFoundation.AVMediaTypeAudio, lambda granted: None
+            )
+
+        # 2. Accessibility — request with prompt
+        try:
+            from ApplicationServices import AXIsProcessTrustedWithOptions
+            from CoreFoundation import kCFBooleanTrue
+
+            AXIsProcessTrustedWithOptions({"AXTrustedCheckOptionPrompt": kCFBooleanTrue})
+        except Exception:
+            logger.debug("Could not request accessibility trust", exc_info=True)
+
+        # 3. Input Monitoring — request access
+        from Quartz import CGRequestListenEventAccess
+
+        CGRequestListenEventAccess()
+
     def _update_status(self):
         perms = check_all_permissions()
         all_granted = True
-        for perm_key, granted in perms.items():
+        for perm_key in ("microphone", "accessibility", "input_monitoring"):
+            granted = perms[perm_key]
             self._indicators[perm_key].setStringValue_("✅" if granted else "❌")
             if not granted:
                 all_granted = False
@@ -256,6 +286,22 @@ class OnboardingWindow:
                     AVFoundation.AVMediaTypeAudio, lambda granted: None
                 )
                 return
+
+        # For accessibility, request with prompt if not yet trusted
+        if perm_key == "accessibility" and not check_accessibility():
+            try:
+                from ApplicationServices import AXIsProcessTrustedWithOptions
+                from CoreFoundation import kCFBooleanTrue
+
+                AXIsProcessTrustedWithOptions({"AXTrustedCheckOptionPrompt": kCFBooleanTrue})
+            except Exception:
+                pass
+
+        # For input monitoring, request if not yet granted
+        if perm_key == "input_monitoring" and not check_input_monitoring():
+            from Quartz import CGRequestListenEventAccess
+
+            CGRequestListenEventAccess()
 
         url_str = SETTINGS_URLS[perm_key]
         url = AppKit.NSURL.URLWithString_(url_str)
