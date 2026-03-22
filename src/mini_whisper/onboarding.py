@@ -95,12 +95,16 @@ class _ContinueTarget(NSObject):
 # -- Onboarding Window -------------------------------------------------------
 
 
+PERM_ORDER = ("microphone", "accessibility", "input_monitoring")
+
+
 class OnboardingWindow:
     def __init__(self, on_complete):
         self._on_complete = on_complete
         self._timer = None
         self._timer_target = None
         self._button_targets = []  # prevent GC
+        self._current_step = 0  # index into PERM_ORDER
 
         self._build_window()
 
@@ -212,13 +216,15 @@ class OnboardingWindow:
         content.addSubview_(btn)
 
     def show(self):
-        # Request all permissions upfront so the app appears in System Settings
-        self._request_permissions()
-        self._update_status()
+        # Skip past any permissions already granted
+        self._advance_to_next_ungranted()
+        # Request the first ungranted permission
+        self._request_current_permission()
+        self._update_indicators()
 
         # Start polling timer
         self._timer_target = _PollTimerTarget.alloc().init()
-        self._timer_target._callback = self._update_status
+        self._timer_target._callback = self._poll
         self._timer = AppKit.NSTimer.scheduledTimerWithTimeInterval_target_selector_userInfo_repeats_(
             1.5, self._timer_target, "fire:", None, True
         )
@@ -229,52 +235,29 @@ class OnboardingWindow:
         AppKit.NSApp.activateIgnoringOtherApps_(True)
         self._window.makeKeyAndOrderFront_(None)
 
-    def _request_permissions(self):
-        """Trigger system permission prompts so the app gets listed in System Settings."""
-        # 1. Microphone — request access (triggers native prompt if NotDetermined)
-        import AVFoundation
+    def _advance_to_next_ungranted(self):
+        """Move _current_step forward past any already-granted permissions."""
+        checkers = {
+            "microphone": check_microphone,
+            "accessibility": check_accessibility,
+            "input_monitoring": check_input_monitoring,
+        }
+        while self._current_step < len(PERM_ORDER):
+            perm_key = PERM_ORDER[self._current_step]
+            if checkers[perm_key]():
+                self._current_step += 1
+            else:
+                break
 
-        mic_status = AVFoundation.AVCaptureDevice.authorizationStatusForMediaType_(
-            AVFoundation.AVMediaTypeAudio
-        )
-        if mic_status == AVFoundation.AVAuthorizationStatusNotDetermined:
-            AVFoundation.AVCaptureDevice.requestAccessForMediaType_completionHandler_(
-                AVFoundation.AVMediaTypeAudio, lambda granted: None
-            )
+    def _request_current_permission(self):
+        """Trigger the system prompt for the current permission only."""
+        if self._current_step >= len(PERM_ORDER):
+            return
+        perm_key = PERM_ORDER[self._current_step]
+        self._request_permission(perm_key)
 
-        # 2. Accessibility — request with prompt
-        try:
-            from ApplicationServices import AXIsProcessTrustedWithOptions
-            from CoreFoundation import kCFBooleanTrue
-
-            AXIsProcessTrustedWithOptions({"AXTrustedCheckOptionPrompt": kCFBooleanTrue})
-        except Exception:
-            logger.debug("Could not request accessibility trust", exc_info=True)
-
-        # 3. Input Monitoring — request access
-        from Quartz import CGRequestListenEventAccess
-
-        CGRequestListenEventAccess()
-
-    def _update_status(self):
-        perms = check_all_permissions()
-        all_granted = True
-        for perm_key in ("microphone", "accessibility", "input_monitoring"):
-            granted = perms[perm_key]
-            self._indicators[perm_key].setStringValue_("✅" if granted else "❌")
-            if not granted:
-                all_granted = False
-
-        self._continue_btn.setEnabled_(all_granted)
-        if all_granted:
-            self._status_label.setStringValue_("All permissions granted!")
-            self._status_label.setTextColor_(AppKit.NSColor.systemGreenColor())
-        else:
-            self._status_label.setStringValue_("Grant all permissions to continue.")
-            self._status_label.setTextColor_(AppKit.NSColor.secondaryLabelColor())
-
-    def _open_settings(self, perm_key):
-        # For microphone, trigger native prompt if not yet determined
+    def _request_permission(self, perm_key):
+        """Trigger the macOS system prompt for a specific permission."""
         if perm_key == "microphone":
             import AVFoundation
 
@@ -285,24 +268,71 @@ class OnboardingWindow:
                 AVFoundation.AVCaptureDevice.requestAccessForMediaType_completionHandler_(
                     AVFoundation.AVMediaTypeAudio, lambda granted: None
                 )
-                return
 
-        # For accessibility, request with prompt if not yet trusted
-        if perm_key == "accessibility" and not check_accessibility():
+        elif perm_key == "accessibility":
             try:
                 from ApplicationServices import AXIsProcessTrustedWithOptions
                 from CoreFoundation import kCFBooleanTrue
 
                 AXIsProcessTrustedWithOptions({"AXTrustedCheckOptionPrompt": kCFBooleanTrue})
             except Exception:
-                pass
+                logger.debug("Could not request accessibility trust", exc_info=True)
 
-        # For input monitoring, request if not yet granted
-        if perm_key == "input_monitoring" and not check_input_monitoring():
+        elif perm_key == "input_monitoring":
             from Quartz import CGRequestListenEventAccess
 
             CGRequestListenEventAccess()
 
+    def _poll(self):
+        """Called by timer — check if current permission was granted, advance if so."""
+        self._update_indicators()
+
+        if self._current_step >= len(PERM_ORDER):
+            return  # all done
+
+        checkers = {
+            "microphone": check_microphone,
+            "accessibility": check_accessibility,
+            "input_monitoring": check_input_monitoring,
+        }
+
+        perm_key = PERM_ORDER[self._current_step]
+        if checkers[perm_key]():
+            # Current permission just got granted — advance to next
+            self._current_step += 1
+            self._advance_to_next_ungranted()
+            self._request_current_permission()
+            self._update_indicators()
+
+    def _update_indicators(self):
+        """Refresh all indicator icons and the Continue button state."""
+        checkers = {
+            "microphone": check_microphone,
+            "accessibility": check_accessibility,
+            "input_monitoring": check_input_monitoring,
+        }
+        all_granted = True
+        for perm_key in PERM_ORDER:
+            granted = checkers[perm_key]()
+            self._indicators[perm_key].setStringValue_("✅" if granted else "❌")
+            if not granted:
+                all_granted = False
+
+        self._continue_btn.setEnabled_(all_granted)
+        if all_granted:
+            self._status_label.setStringValue_("All permissions granted!")
+            self._status_label.setTextColor_(AppKit.NSColor.systemGreenColor())
+        else:
+            if self._current_step < len(PERM_ORDER):
+                current = PERM_LABELS[PERM_ORDER[self._current_step]]
+                self._status_label.setStringValue_(f"Please grant {current} access.")
+            else:
+                self._status_label.setStringValue_("Grant all permissions to continue.")
+            self._status_label.setTextColor_(AppKit.NSColor.secondaryLabelColor())
+
+    def _open_settings(self, perm_key):
+        """Button click — request the permission and open its Settings pane."""
+        self._request_permission(perm_key)
         url_str = SETTINGS_URLS[perm_key]
         url = AppKit.NSURL.URLWithString_(url_str)
         AppKit.NSWorkspace.sharedWorkspace().openURL_(url)
