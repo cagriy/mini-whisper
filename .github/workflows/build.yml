@@ -102,9 +102,14 @@ jobs:
         if: >-
           (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v'))
           || (github.event.inputs.sign == 'true')
+        env:
+          TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
           IDENTITY="Developer ID Application"
           APP_PATH="dist/Mini Whisper.app"
+
+          # Inject Team ID into entitlements
+          sed -i '' "s/\$(TEAM_ID)/$TEAM_ID/g" entitlements.plist
 
           # Sign embedded frameworks and dylibs first
           find "$APP_PATH" -type f \( -name "*.dylib" -o -name "*.so" \) \
