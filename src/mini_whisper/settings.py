@@ -132,6 +132,36 @@ class _VolumeSliderTarget(NSObject):
 
 # -- Settings Window --------------------------------------------------------
 
+def _ensure_edit_menu():
+    """Add a standard Edit menu so Cmd+C/V/X/A work in text fields."""
+    main_menu = AppKit.NSApp.mainMenu()
+    if main_menu is None:
+        main_menu = AppKit.NSMenu.alloc().init()
+        AppKit.NSApp.setMainMenu_(main_menu)
+
+    # Check if Edit menu already exists
+    for i in range(main_menu.numberOfItems()):
+        if main_menu.itemAtIndex_(i).title() == "Edit":
+            return
+
+    edit_menu = AppKit.NSMenu.alloc().initWithTitle_("Edit")
+    for title, action, key in [
+        ("Cut", "cut:", "x"),
+        ("Copy", "copy:", "c"),
+        ("Paste", "paste:", "v"),
+        ("Select All", "selectAll:", "a"),
+    ]:
+        item = AppKit.NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(
+            title, action, key
+        )
+        edit_menu.addItem_(item)
+
+    edit_item = AppKit.NSMenuItem.alloc().init()
+    edit_item.setTitle_("Edit")
+    edit_item.setSubmenu_(edit_menu)
+    main_menu.addItem_(edit_item)
+
+
 class SettingsWindow:
     """Consolidated settings window for Mini Whisper."""
 
@@ -145,6 +175,7 @@ class SettingsWindow:
         self._capturing_field = None  # "record" or "submit"
         self._previous_combo_text = None
 
+        _ensure_edit_menu()
         self._build_window()
 
     def _build_window(self):
