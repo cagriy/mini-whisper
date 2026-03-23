@@ -1,4 +1,4 @@
-"""Mini Whisper menu bar application."""  # keychain persistence test
+"""Mini Whisper menu bar application."""  # keychain persistence test 2
 
 import logging
 from pathlib import Path
