@@ -3,6 +3,7 @@
 Settings stored in ~/.config/mini-whisper/:
 - config.json: hotkey, cleanup toggle
 - prompt.txt: LLM cleanup prompt (editable by user)
+- API key: stored in macOS Keychain (persists across app updates)
 - API key: macOS Keychain via keyring (never on disk)
 """
 
