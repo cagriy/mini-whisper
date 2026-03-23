@@ -15,7 +15,6 @@ from mini_whisper import config
 from mini_whisper.recorder import Recorder
 from mini_whisper.sounds import play as play_sound
 from mini_whisper.transcriber import transcribe
-from mini_whisper.cleaner import clean
 from mini_whisper.paster import paste
 
 logger = logging.getLogger(__name__)
@@ -94,29 +93,22 @@ class Controller:
         self._worker.start()
 
     def _process(self, audio, submit: bool = False):
-        """Background worker: transcribe → clean → paste."""
+        """Background worker: transcribe → paste."""
         try:
             api_key = config.get_api_key()
             if not api_key:
                 self.ui_queue.put(UIEvent("error", "No API key configured"))
                 return
 
-            # Transcribe
-            raw_text = transcribe(audio, api_key)
-            logger.debug("Whisper raw: %s", raw_text)
-            if not raw_text.strip():
+            # Transcribe (with cleanup prompt if enabled)
+            cfg = config.load()
+            prompt = config.get_prompt() if cfg.get("cleanup_enabled", True) else ""
+            final_text = transcribe(audio, api_key, prompt)
+            logger.debug("Transcribed: %s", final_text)
+            if not final_text.strip():
                 play_sound("off")
                 self.ui_queue.put(UIEvent("idle"))
                 return
-
-            # Clean (if enabled)
-            cfg = config.load()
-            if cfg.get("cleanup_enabled", True):
-                prompt = config.get_prompt()
-                final_text = clean(raw_text, api_key, prompt)
-            else:
-                final_text = raw_text
-            logger.debug("Final text: %s", final_text)
 
             # Paste into active app
             paste(final_text, submit=submit)
