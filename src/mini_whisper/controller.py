@@ -9,6 +9,8 @@ import threading
 import time
 from dataclasses import dataclass
 
+import httpx
+
 from mini_whisper import config
 from mini_whisper.recorder import Recorder
 from mini_whisper.sounds import play as play_sound
@@ -121,6 +123,16 @@ class Controller:
             play_sound("off")
             self.ui_queue.put(UIEvent("result", final_text))
 
+        except httpx.HTTPStatusError as e:
+            logger.exception("API request failed")
+            if e.response.status_code == 401:
+                msg = "Invalid API key — please update in Settings."
+            elif e.response.status_code == 429:
+                msg = "Rate limited — please wait and try again."
+            else:
+                msg = f"API error ({e.response.status_code})."
+            play_sound("off")
+            self.ui_queue.put(UIEvent("error", msg))
         except Exception as e:
             logger.exception("Processing failed")
             play_sound("off")

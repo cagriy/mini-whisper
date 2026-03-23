@@ -84,6 +84,7 @@ class DotsView(AppKit.NSView):
         self._dots: list[Dot] = []
         self._connections: list[tuple[Dot, Dot, float]] = []
         self._duration_text: str = ""
+        self._error_text: str = ""
         return self
 
     def isFlipped(self):
@@ -99,6 +100,30 @@ class DotsView(AppKit.NSView):
             0.0, 0.0, 0.0, BG_ALPHA
         ).setFill()
         bg_path.fill()
+
+        # In error mode, only draw the error text (no dots/connections)
+        if self._error_text:
+            paragraph = AppKit.NSMutableParagraphStyle.alloc().init()
+            paragraph.setAlignment_(AppKit.NSTextAlignmentCenter)
+            paragraph.setLineBreakMode_(AppKit.NSLineBreakByWordWrapping)
+            attrs = {
+                AppKit.NSFontAttributeName: AppKit.NSFont.systemFontOfSize_weight_(14.0, AppKit.NSFontWeightMedium),
+                AppKit.NSForegroundColorAttributeName: AppKit.NSColor.whiteColor(),
+                AppKit.NSParagraphStyleAttributeName: paragraph,
+            }
+            text_str = AppKit.NSAttributedString.alloc().initWithString_attributes_(
+                self._error_text, attrs
+            )
+            text_size = text_str.size()
+            margin = 20
+            draw_rect = NSMakeRect(
+                margin,
+                (bounds.size.height - text_size.height) / 2 - 30,
+                bounds.size.width - margin * 2,
+                text_size.height + 20,
+            )
+            text_str.drawInRect_(draw_rect)
+            return
 
         # Draw connection lines
         white = AppKit.NSColor.whiteColor()
@@ -135,6 +160,7 @@ class DotsView(AppKit.NSView):
             text_str.drawAtPoint_(text_point)
 
 
+
 # -- Timer callback target (NSObject so NSTimer can send it a selector) -------
 
 
@@ -163,6 +189,7 @@ class DotsOverlayWindow:
         self._start_time = 0.0
         self._mode = "recording"
         self._rotation_angle = 0.0
+        self._error_dismiss_time = 0.0
 
         # Create dots centered in the window
         cx = WINDOW_SIZE / 2
@@ -227,10 +254,24 @@ class DotsOverlayWindow:
                 1.0 / FPS, self._timer_target, "fire:", None, True
             )
 
+    def show_error(self, message: str, duration: float = 3.0):
+        """Show error message in the overlay, then auto-hide after duration."""
+        self._mode = "error"
+        self._error_dismiss_time = time.monotonic() + duration
+        self._view._error_text = message
+        self._view._duration_text = ""
+        self._view.setNeedsDisplay_(True)
+        self._window.orderFront_(None)
+        if self._timer is None:
+            self._timer = AppKit.NSTimer.scheduledTimerWithTimeInterval_target_selector_userInfo_repeats_(
+                1.0 / FPS, self._timer_target, "fire:", None, True
+            )
+
     def hide(self):
         if self._timer is not None:
             self._timer.invalidate()
             self._timer = None
+        self._view._error_text = ""
         self._window.orderOut_(None)
 
     def cleanup(self):
@@ -247,6 +288,11 @@ class DotsOverlayWindow:
         t = now  # for ambient sinusoidal motion
         cx = WINDOW_SIZE / 2
         cy = WINDOW_SIZE / 2
+
+        if self._mode == "error":
+            if now >= self._error_dismiss_time:
+                self.hide()
+            return
 
         if self._mode == "processing":
             self._rotation_angle += PROCESSING_ROTATION_SPEED * dt

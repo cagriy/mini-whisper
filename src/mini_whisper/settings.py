@@ -98,6 +98,22 @@ class _HotkeyField(AppKit.NSTextField):
                            self._settings_controller, self._field_name)
 
 
+# -- Button target (NSObject required for button target/action) --------------
+
+class _ButtonTarget(NSObject):
+    _callback = None
+
+    def initWithCallback_(self, cb):
+        self = objc.super(_ButtonTarget, self).init()
+        if self is not None:
+            self._callback = cb
+        return self
+
+    def clicked_(self, sender):
+        if self._callback is not None:
+            self._callback(sender)
+
+
 # -- Volume slider target (NSObject required for slider target/action) -------
 
 class _VolumeSliderTarget(NSObject):
@@ -166,13 +182,14 @@ class SettingsWindow:
         self.api_key_field.setPlaceholderString_("sk-...")
         content.addSubview_(self.api_key_field)
 
+        self._save_key_target = _ButtonTarget.alloc().initWithCallback_(self._save_api_key)
         save_key_btn = AppKit.NSButton.alloc().initWithFrame_(
             NSMakeRect(330, y, 80, 24)
         )
         save_key_btn.setTitle_("Save")
         save_key_btn.setBezelStyle_(AppKit.NSBezelStyleRounded)
-        save_key_btn.setTarget_(self)
-        save_key_btn.setAction_(objc.selector(self._save_api_key, signature=b"v@:@"))
+        save_key_btn.setTarget_(self._save_key_target)
+        save_key_btn.setAction_("clicked:")
         content.addSubview_(save_key_btn)
 
         y -= 20
@@ -252,10 +269,9 @@ class SettingsWindow:
         self.cleanup_checkbox.setState_(
             1 if self.cfg.get("cleanup_enabled", True) else 0
         )
-        self.cleanup_checkbox.setTarget_(self)
-        self.cleanup_checkbox.setAction_(
-            objc.selector(self._toggle_cleanup, signature=b"v@:@")
-        )
+        self._cleanup_target = _ButtonTarget.alloc().initWithCallback_(self._toggle_cleanup)
+        self.cleanup_checkbox.setTarget_(self._cleanup_target)
+        self.cleanup_checkbox.setAction_("clicked:")
         content.addSubview_(self.cleanup_checkbox)
 
         y -= 110
@@ -289,10 +305,9 @@ class SettingsWindow:
         )
         save_prompt_btn.setTitle_("Save Prompt")
         save_prompt_btn.setBezelStyle_(AppKit.NSBezelStyleRounded)
-        save_prompt_btn.setTarget_(self)
-        save_prompt_btn.setAction_(
-            objc.selector(self._save_prompt, signature=b"v@:@")
-        )
+        self._save_prompt_target = _ButtonTarget.alloc().initWithCallback_(self._save_prompt)
+        save_prompt_btn.setTarget_(self._save_prompt_target)
+        save_prompt_btn.setAction_("clicked:")
         content.addSubview_(save_prompt_btn)
 
         open_editor_btn = AppKit.NSButton.alloc().initWithFrame_(
@@ -300,10 +315,9 @@ class SettingsWindow:
         )
         open_editor_btn.setTitle_("Open in Editor")
         open_editor_btn.setBezelStyle_(AppKit.NSBezelStyleRounded)
-        open_editor_btn.setTarget_(self)
-        open_editor_btn.setAction_(
-            objc.selector(self._open_in_editor, signature=b"v@:@")
-        )
+        self._open_editor_target = _ButtonTarget.alloc().initWithCallback_(self._open_in_editor)
+        open_editor_btn.setTarget_(self._open_editor_target)
+        open_editor_btn.setAction_("clicked:")
         content.addSubview_(open_editor_btn)
 
         # -- Sound ----------------------------------------------------------
@@ -393,14 +407,21 @@ class SettingsWindow:
 
     @objc.python_method
     def _save_api_key(self, _sender):
+        logger.info("_save_api_key called")
         key = self.api_key_field.stringValue().strip()
+        logger.info("API key input: %s (len=%d)", key[:6] + "..." if len(key) > 6 else key, len(key))
         if not key or key.startswith("sk-..."):
             self.api_key_error.setStringValue_("Enter a new API key to save.")
             return
         if not key.startswith("sk-"):
             self.api_key_error.setStringValue_("Invalid key — must start with 'sk-'.")
             return
-        config.set_api_key(key)
+        try:
+            config.set_api_key(key)
+        except Exception as e:
+            logger.exception("Failed to save API key")
+            self.api_key_error.setStringValue_(str(e))
+            return
         self.api_key_error.setStringValue_("")
         self.api_key_field.setStringValue_(f"sk-...{key[-4:]}")
 

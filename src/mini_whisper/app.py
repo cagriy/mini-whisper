@@ -140,8 +140,7 @@ class MiniWhisperApp(rumps.App):
             elif event.kind == "error":
                 self.title = TITLE_IDLE
                 self.status_item.title = "Status: Error"
-                self.overlay.hide()
-                _notify("Mini Whisper", "Error", event.text, sound=False)
+                self.overlay.show_error(event.text)
 
     # ------------------------------------------------------------------
     # Menu callbacks
