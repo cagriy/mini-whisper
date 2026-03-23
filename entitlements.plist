@@ -7,9 +7,5 @@
     <true/>
     <key>com.apple.security.automation</key>
     <true/>
-    <key>keychain-access-groups</key>
-    <array>
-        <string>$(TEAM_ID).com.ips.mini-whisper</string>
-    </array>
 </dict>
 </plist>

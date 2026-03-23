@@ -40,8 +40,6 @@ OPTIONS = {
         "AVFoundation",
         "soundfile",
         "httpx",
-        "keyring",
-        "keyring.backends.macOS",
         "numpy",
         "Quartz",
         "ApplicationServices",
