@@ -4,6 +4,7 @@ import logging
 import subprocess
 from pathlib import Path
 
+import AppKit
 import rumps
 
 from mini_whisper import __version__, config, sounds
@@ -169,6 +170,10 @@ class MiniWhisperApp(rumps.App):
         sounds.set_volume(new_cfg.get("sound_volume", 1.0))
 
     def _about(self, _):
+        AppKit.NSApp.setActivationPolicy_(
+            AppKit.NSApplicationActivationPolicyRegular
+        )
+        AppKit.NSApp.activateIgnoringOtherApps_(True)
         rumps.alert(
             title="Mini Whisper",
             message=(
@@ -177,6 +182,9 @@ class MiniWhisperApp(rumps.App):
                 "Transcribed text is pasted into the active app.\n\n"
                 "Powered by OpenAI gpt-4o-mini-transcribe."
             ),
+        )
+        AppKit.NSApp.setActivationPolicy_(
+            AppKit.NSApplicationActivationPolicyAccessory
         )
 
     def _quit(self, _):
