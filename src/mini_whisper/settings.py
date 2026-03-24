@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 _SIDED_MODIFIERS = {Key.cmd_r, Key.shift_r, Key.ctrl_r, Key.alt_r}
 
 WINDOW_WIDTH = 480
-WINDOW_HEIGHT = 475
+WINDOW_HEIGHT = 645
 
 
 # -- Helper: dispatch from pynput background thread to main thread ----------
@@ -287,6 +287,55 @@ class SettingsWindow:
         self._set_hotkey_display(self.submit_field, self.cfg.get("submit_hotkey", "cmd_r"))
         content.addSubview_(self.submit_field)
 
+        # -- Transcription section ------------------------------------------
+        y -= 35
+        y = self._add_section_label(content, "Transcription Instructions", y)
+        y -= 110
+
+        transcribe_scroll = AppKit.NSScrollView.alloc().initWithFrame_(
+            NSMakeRect(20, y, 440, 100)
+        )
+        transcribe_scroll.setHasVerticalScroller_(True)
+        transcribe_scroll.setBorderType_(AppKit.NSBezelBorder)
+
+        transcribe_text_frame = NSMakeRect(0, 0, 440, 100)
+        self.transcribe_prompt_view = AppKit.NSTextView.alloc().initWithFrame_(transcribe_text_frame)
+        self.transcribe_prompt_view.setMinSize_((0, 100))
+        self.transcribe_prompt_view.setMaxSize_((1e7, 1e7))
+        self.transcribe_prompt_view.setVerticallyResizable_(True)
+        self.transcribe_prompt_view.setHorizontallyResizable_(False)
+        self.transcribe_prompt_view.textContainer().setWidthTracksTextView_(True)
+        self.transcribe_prompt_view.setFont_(AppKit.NSFont.systemFontOfSize_(12))
+
+        config.ensure_config_dir()
+        transcribe_prompt_text = config.TRANSCRIBE_PROMPT_FILE.read_text(encoding="utf-8") if config.TRANSCRIBE_PROMPT_FILE.exists() else ""
+        self.transcribe_prompt_view.setString_(transcribe_prompt_text)
+
+        transcribe_scroll.setDocumentView_(self.transcribe_prompt_view)
+        content.addSubview_(transcribe_scroll)
+
+        y -= 30
+
+        save_transcribe_btn = AppKit.NSButton.alloc().initWithFrame_(
+            NSMakeRect(20, y, 110, 24)
+        )
+        save_transcribe_btn.setTitle_("Save Prompt")
+        save_transcribe_btn.setBezelStyle_(AppKit.NSBezelStyleRounded)
+        self._save_transcribe_target = _ButtonTarget.alloc().initWithCallback_(self._save_transcribe_prompt)
+        save_transcribe_btn.setTarget_(self._save_transcribe_target)
+        save_transcribe_btn.setAction_("clicked:")
+        content.addSubview_(save_transcribe_btn)
+
+        open_transcribe_btn = AppKit.NSButton.alloc().initWithFrame_(
+            NSMakeRect(140, y, 130, 24)
+        )
+        open_transcribe_btn.setTitle_("Open in Editor")
+        open_transcribe_btn.setBezelStyle_(AppKit.NSBezelStyleRounded)
+        self._open_transcribe_target = _ButtonTarget.alloc().initWithCallback_(self._open_transcribe_in_editor)
+        open_transcribe_btn.setTarget_(self._open_transcribe_target)
+        open_transcribe_btn.setAction_("clicked:")
+        content.addSubview_(open_transcribe_btn)
+
         # -- Text Cleanup section -------------------------------------------
         y -= 35
         y = self._add_section_label(content, "Text Cleanup", y)
@@ -528,6 +577,19 @@ class SettingsWindow:
         field.setTextColor_(AppKit.NSColor.controlTextColor())
         self._capturing_field = None
         self._previous_combo_text = None
+
+    # -- Transcription prompt callbacks -------------------------------------
+
+    @objc.python_method
+    def _save_transcribe_prompt(self, _sender):
+        text = self.transcribe_prompt_view.string()
+        config.ensure_config_dir()
+        config.TRANSCRIBE_PROMPT_FILE.write_text(text, encoding="utf-8")
+
+    @objc.python_method
+    def _open_transcribe_in_editor(self, _sender):
+        self._save_transcribe_prompt(None)
+        subprocess.run(["open", str(config.TRANSCRIBE_PROMPT_FILE)])
 
     # -- Text cleanup callbacks ---------------------------------------------
 

@@ -3,6 +3,7 @@
 Settings stored in ~/.config/mini-whisper/:
 - config.json: hotkey, cleanup toggle
 - prompt.txt: LLM cleanup prompt (editable by user)
+- transcribe_prompt.txt: transcription instructions (editable by user)
 - API key: macOS Keychain via keyring (never on disk)
 """
 
@@ -18,7 +19,9 @@ logger = logging.getLogger(__name__)
 CONFIG_DIR = Path.home() / ".config" / "mini-whisper"
 CONFIG_FILE = CONFIG_DIR / "config.json"
 PROMPT_FILE = CONFIG_DIR / "prompt.txt"
+TRANSCRIBE_PROMPT_FILE = CONFIG_DIR / "transcribe_prompt.txt"
 BUNDLED_PROMPT = Path(__file__).parent / "resources" / "default_prompt.txt"
+BUNDLED_TRANSCRIBE_PROMPT = Path(__file__).parent / "resources" / "default_transcribe_prompt.txt"
 
 KEYRING_SERVICE = "mini-whisper"
 KEYRING_USERNAME = "openai-api-key"
@@ -38,6 +41,8 @@ def ensure_config_dir():
         save(DEFAULT_CONFIG)
     if not PROMPT_FILE.exists():
         shutil.copy(BUNDLED_PROMPT, PROMPT_FILE)
+    if not TRANSCRIBE_PROMPT_FILE.exists():
+        shutil.copy(BUNDLED_TRANSCRIBE_PROMPT, TRANSCRIBE_PROMPT_FILE)
 
 
 def load() -> dict:
@@ -77,3 +82,9 @@ def get_prompt() -> str:
     """Read the cleanup prompt, re-reading from disk each time."""
     ensure_config_dir()
     return PROMPT_FILE.read_text(encoding="utf-8").strip()
+
+
+def get_transcribe_prompt() -> str:
+    """Read the transcription instructions, re-reading from disk each time."""
+    ensure_config_dir()
+    return TRANSCRIBE_PROMPT_FILE.read_text(encoding="utf-8").strip()

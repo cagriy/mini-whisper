@@ -102,8 +102,9 @@ class Controller:
                 return
 
             # Transcribe
-            raw_text = transcribe(audio, api_key)
-            logger.debug("Whisper raw: %s", raw_text)
+            transcribe_instructions = config.get_transcribe_prompt()
+            raw_text = transcribe(audio, api_key, transcribe_instructions)
+            logger.debug("Transcription raw: %s", raw_text)
             if not raw_text.strip():
                 play_sound("off")
                 self.ui_queue.put(UIEvent("idle"))
