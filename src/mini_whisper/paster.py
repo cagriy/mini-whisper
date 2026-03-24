@@ -28,6 +28,8 @@ def paste(text: str, submit: bool = False):
     _keyboard.release(Key.cmd)
 
     if submit:
-        time.sleep(0.05)
-        _keyboard.press(Key.enter)
-        _keyboard.release(Key.enter)
+        time.sleep(0.15)
+        subprocess.run([
+            "osascript", "-e",
+            "tell application \"System Events\" to key code 36",
+        ], check=True)
