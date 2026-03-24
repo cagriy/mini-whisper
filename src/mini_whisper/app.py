@@ -21,11 +21,6 @@ def _notify(title: str, subtitle: str, message: str, sound: bool = True):
         logger.debug("Notification failed (missing Info.plist?): %s", message)
 
 
-TITLE_IDLE = ""
-TITLE_RECORDING = "🔴"
-TITLE_RECORDING_TOGGLE = "🔴"
-TITLE_PROCESSING = "⏳"
-
 
 def _fmt_tokens(in_tok, out_tok) -> str:
     def fmt(n):
@@ -40,13 +35,13 @@ _ICON_PATH = str(_PKG_DIR / "assets" / "mini-whisper.png")
 
 class MiniWhisperApp(rumps.App):
     def __init__(self):
-        super().__init__(TITLE_IDLE, icon=_ICON_PATH, template=False, quit_button=None)
+        super().__init__("", icon=_ICON_PATH, template=False, quit_button=None)
 
         self.cfg = config.load()
         sounds.set_volume(self.cfg.get("sound_volume", 1.0))
 
         self._last_text = ""
-        self.status_item = rumps.MenuItem("Status: Idle")
+        self._last_item_visible = False
         self.last_item = rumps.MenuItem('Last: ""', callback=self._copy_last)
         today_usage = config.get_daily_usage()
         self.usage_item = rumps.MenuItem(
@@ -54,9 +49,7 @@ class MiniWhisperApp(rumps.App):
         )
 
         self.menu = [
-            self.status_item,
             self.usage_item,
-            self.last_item,
             None,
             rumps.MenuItem("Settings...", callback=self._open_settings),
             None,
@@ -133,33 +126,23 @@ class MiniWhisperApp(rumps.App):
                 break
 
             if event.kind == "recording":
-                self.title = TITLE_RECORDING
-                self.status_item.title = "Status: Recording..."
                 self.overlay.show()
-            elif event.kind == "recording_toggle":
-                self.title = TITLE_RECORDING_TOGGLE
-                self.status_item.title = "Status: Recording (tap to stop)..."
             elif event.kind == "processing":
-                self.title = TITLE_PROCESSING
-                self.status_item.title = "Status: Processing..."
                 self.overlay.set_mode("processing")
             elif event.kind == "idle":
-                self.title = TITLE_IDLE
-                self.status_item.title = "Status: Idle"
                 self.overlay.hide()
             elif event.kind == "result":
-                self.title = TITLE_IDLE
-                self.status_item.title = "Status: Idle"
                 self.overlay.hide()
                 self._last_text = event.text
                 truncated = event.text[:50] + ("..." if len(event.text) > 50 else "")
                 self.last_item.title = f'Last: "{truncated}"'
+                if not self._last_item_visible:
+                    self.menu.insert_after(self.usage_item.title, self.last_item)
+                    self._last_item_visible = True
             elif event.kind == "usage":
                 in_tok, out_tok = event.text.split(" / ")
                 self.usage_item.title = _fmt_tokens(in_tok, out_tok)
             elif event.kind == "error":
-                self.title = TITLE_IDLE
-                self.status_item.title = "Status: Error"
                 self.overlay.show_error(event.text)
 
     # ------------------------------------------------------------------
@@ -192,7 +175,7 @@ class MiniWhisperApp(rumps.App):
                 "Version 0.1.0\n\n"
                 "Hold your hotkey to talk, or tap to toggle recording.\n"
                 "Transcribed text is pasted into the active app.\n\n"
-                "Powered by OpenAI Whisper + GPT-4o-mini."
+                "Powered by OpenAI gpt-4o-mini-transcribe."
             ),
         )
 
