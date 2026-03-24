@@ -6,7 +6,7 @@ from pathlib import Path
 
 import rumps
 
-from mini_whisper import config, sounds
+from mini_whisper import __version__, config, sounds
 from mini_whisper.onboarding import OnboardingWindow, check_all_permissions
 from mini_whisper.settings import SettingsWindow
 
@@ -172,7 +172,7 @@ class MiniWhisperApp(rumps.App):
         rumps.alert(
             title="Mini Whisper",
             message=(
-                "Version 0.1.0\n\n"
+                f"Version {__version__}\n\n"
                 "Hold your hotkey to talk, or tap to toggle recording.\n"
                 "Transcribed text is pasted into the active app.\n\n"
                 "Powered by OpenAI gpt-4o-mini-transcribe."

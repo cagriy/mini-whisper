@@ -1,3 +1,8 @@
 """Mini Whisper — macOS menu bar dictation app."""
 
-__version__ = "0.1.3"
+from importlib.metadata import version, PackageNotFoundError
+
+try:
+    __version__ = version("mini-whisper")
+except PackageNotFoundError:
+    __version__ = "unknown"
