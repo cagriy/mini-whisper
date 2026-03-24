@@ -10,6 +10,7 @@ Settings stored in ~/.config/mini-whisper/:
 import json
 import logging
 import shutil
+from datetime import date
 from pathlib import Path
 
 import keyring
@@ -88,3 +89,22 @@ def get_transcribe_prompt() -> str:
     """Read the transcription instructions, re-reading from disk each time."""
     ensure_config_dir()
     return TRANSCRIBE_PROMPT_FILE.read_text(encoding="utf-8").strip()
+
+
+def get_daily_usage() -> dict:
+    """Return today's cumulative token usage from config."""
+    cfg = load()
+    today = date.today().isoformat()
+    return cfg.get("daily_usage", {}).get(today, {"input_tokens": 0, "output_tokens": 0})
+
+
+def add_daily_usage(input_tokens: int, output_tokens: int) -> dict:
+    """Add tokens to today's usage, prune old dates, save, and return updated totals."""
+    cfg = load()
+    today = date.today().isoformat()
+    today_usage = cfg.get("daily_usage", {}).get(today, {"input_tokens": 0, "output_tokens": 0})
+    today_usage["input_tokens"] += input_tokens
+    today_usage["output_tokens"] += output_tokens
+    cfg["daily_usage"] = {today: today_usage}  # prune old dates
+    save(cfg)
+    return today_usage

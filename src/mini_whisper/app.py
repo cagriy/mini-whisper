@@ -37,10 +37,15 @@ class MiniWhisperApp(rumps.App):
 
         self.status_item = rumps.MenuItem("Status: Idle")
         self.last_item = rumps.MenuItem('Last: ""')
+        today_usage = config.get_daily_usage()
+        self.usage_item = rumps.MenuItem(
+            f"Today: {today_usage['input_tokens']} in / {today_usage['output_tokens']} out"
+        )
 
         self.menu = [
             self.status_item,
             self.last_item,
+            self.usage_item,
             None,
             rumps.MenuItem("Settings...", callback=self._open_settings),
             None,
@@ -137,6 +142,9 @@ class MiniWhisperApp(rumps.App):
                 self.overlay.hide()
                 truncated = event.text[:50] + ("..." if len(event.text) > 50 else "")
                 self.last_item.title = f'Last: "{truncated}"'
+            elif event.kind == "usage":
+                in_tok, out_tok = event.text.split(" / ")
+                self.usage_item.title = f"Today: {in_tok} in / {out_tok} out"
             elif event.kind == "error":
                 self.title = TITLE_IDLE
                 self.status_item.title = "Status: Error"

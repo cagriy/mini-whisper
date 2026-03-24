@@ -46,4 +46,8 @@ def transcribe(audio: io.BytesIO, api_key: str, instructions: str = "") -> str:
     response.raise_for_status()
     result = response.json()
 
-    return result["text"]
+    usage = result.get("usage", {})
+    return result["text"], {
+        "input_tokens": usage.get("input_tokens", 0),
+        "output_tokens": usage.get("output_tokens", 0),
+    }
