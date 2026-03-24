@@ -25,6 +25,15 @@ TITLE_IDLE = ""
 TITLE_RECORDING = "🔴"
 TITLE_RECORDING_TOGGLE = "🔴"
 TITLE_PROCESSING = "⏳"
+
+
+def _fmt_tokens(in_tok, out_tok) -> str:
+    def fmt(n):
+        n = int(n)
+        return f"{n / 1000:.1f}k" if n >= 1000 else str(n)
+    return f"Today: {fmt(in_tok)}/{fmt(out_tok)}"
+
+
 _PKG_DIR = Path(__import__("mini_whisper").__file__).parent
 _ICON_PATH = str(_PKG_DIR / "assets" / "mini-whisper.png")
 
@@ -41,13 +50,13 @@ class MiniWhisperApp(rumps.App):
         self.last_item = rumps.MenuItem('Last: ""', callback=self._copy_last)
         today_usage = config.get_daily_usage()
         self.usage_item = rumps.MenuItem(
-            f"Today: {today_usage['input_tokens']} in / {today_usage['output_tokens']} out"
+            _fmt_tokens(today_usage['input_tokens'], today_usage['output_tokens'])
         )
 
         self.menu = [
             self.status_item,
-            self.last_item,
             self.usage_item,
+            self.last_item,
             None,
             rumps.MenuItem("Settings...", callback=self._open_settings),
             None,
@@ -147,7 +156,7 @@ class MiniWhisperApp(rumps.App):
                 self.last_item.title = f'Last: "{truncated}"'
             elif event.kind == "usage":
                 in_tok, out_tok = event.text.split(" / ")
-                self.usage_item.title = f"Today: {in_tok} in / {out_tok} out"
+                self.usage_item.title = _fmt_tokens(in_tok, out_tok)
             elif event.kind == "error":
                 self.title = TITLE_IDLE
                 self.status_item.title = "Status: Error"
