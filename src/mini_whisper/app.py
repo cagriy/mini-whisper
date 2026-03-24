@@ -1,6 +1,7 @@
 """Mini Whisper menu bar application."""  # keychain persistence test 2
 
 import logging
+import subprocess
 from pathlib import Path
 
 import rumps
@@ -35,8 +36,9 @@ class MiniWhisperApp(rumps.App):
         self.cfg = config.load()
         sounds.set_volume(self.cfg.get("sound_volume", 1.0))
 
+        self._last_text = ""
         self.status_item = rumps.MenuItem("Status: Idle")
-        self.last_item = rumps.MenuItem('Last: ""')
+        self.last_item = rumps.MenuItem('Last: ""', callback=self._copy_last)
         today_usage = config.get_daily_usage()
         self.usage_item = rumps.MenuItem(
             f"Today: {today_usage['input_tokens']} in / {today_usage['output_tokens']} out"
@@ -140,6 +142,7 @@ class MiniWhisperApp(rumps.App):
                 self.title = TITLE_IDLE
                 self.status_item.title = "Status: Idle"
                 self.overlay.hide()
+                self._last_text = event.text
                 truncated = event.text[:50] + ("..." if len(event.text) > 50 else "")
                 self.last_item.title = f'Last: "{truncated}"'
             elif event.kind == "usage":
@@ -153,6 +156,12 @@ class MiniWhisperApp(rumps.App):
     # ------------------------------------------------------------------
     # Menu callbacks
     # ------------------------------------------------------------------
+
+    def _copy_last(self, _):
+        if not self._last_text:
+            return
+        subprocess.run(["pbcopy"], input=self._last_text.encode("utf-8"), check=False)
+        sounds.play("on")
 
     def _open_settings(self, _):
         if self.hotkey_listener is None:
