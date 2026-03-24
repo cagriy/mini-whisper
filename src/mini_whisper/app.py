@@ -1,6 +1,7 @@
 """Mini Whisper menu bar application."""  # keychain persistence test 2
 
 import logging
+import subprocess
 from pathlib import Path
 
 import rumps
@@ -24,6 +25,15 @@ TITLE_IDLE = ""
 TITLE_RECORDING = "🔴"
 TITLE_RECORDING_TOGGLE = "🔴"
 TITLE_PROCESSING = "⏳"
+
+
+def _fmt_tokens(in_tok, out_tok) -> str:
+    def fmt(n):
+        n = int(n)
+        return f"{n / 1000:.1f}k" if n >= 1000 else str(n)
+    return f"Today: {fmt(in_tok)}/{fmt(out_tok)}"
+
+
 _PKG_DIR = Path(__import__("mini_whisper").__file__).parent
 _ICON_PATH = str(_PKG_DIR / "assets" / "mini-whisper.png")
 
@@ -35,11 +45,17 @@ class MiniWhisperApp(rumps.App):
         self.cfg = config.load()
         sounds.set_volume(self.cfg.get("sound_volume", 1.0))
 
+        self._last_text = ""
         self.status_item = rumps.MenuItem("Status: Idle")
-        self.last_item = rumps.MenuItem('Last: ""')
+        self.last_item = rumps.MenuItem('Last: ""', callback=self._copy_last)
+        today_usage = config.get_daily_usage()
+        self.usage_item = rumps.MenuItem(
+            _fmt_tokens(today_usage['input_tokens'], today_usage['output_tokens'])
+        )
 
         self.menu = [
             self.status_item,
+            self.usage_item,
             self.last_item,
             None,
             rumps.MenuItem("Settings...", callback=self._open_settings),
@@ -135,8 +151,12 @@ class MiniWhisperApp(rumps.App):
                 self.title = TITLE_IDLE
                 self.status_item.title = "Status: Idle"
                 self.overlay.hide()
+                self._last_text = event.text
                 truncated = event.text[:50] + ("..." if len(event.text) > 50 else "")
                 self.last_item.title = f'Last: "{truncated}"'
+            elif event.kind == "usage":
+                in_tok, out_tok = event.text.split(" / ")
+                self.usage_item.title = _fmt_tokens(in_tok, out_tok)
             elif event.kind == "error":
                 self.title = TITLE_IDLE
                 self.status_item.title = "Status: Error"
@@ -145,6 +165,12 @@ class MiniWhisperApp(rumps.App):
     # ------------------------------------------------------------------
     # Menu callbacks
     # ------------------------------------------------------------------
+
+    def _copy_last(self, _):
+        if not self._last_text:
+            return
+        subprocess.run(["pbcopy"], input=self._last_text.encode("utf-8"), check=False)
+        sounds.play("on")
 
     def _open_settings(self, _):
         if self.hotkey_listener is None:

@@ -102,8 +102,9 @@ class Controller:
                 return
 
             # Transcribe
-            raw_text = transcribe(audio, api_key)
-            logger.debug("Whisper raw: %s", raw_text)
+            transcribe_instructions = config.get_transcribe_prompt()
+            raw_text, transcribe_usage = transcribe(audio, api_key, transcribe_instructions)
+            logger.debug("Transcription raw: %s", raw_text)
             if not raw_text.strip():
                 play_sound("off")
                 self.ui_queue.put(UIEvent("idle"))
@@ -111,17 +112,24 @@ class Controller:
 
             # Clean (if enabled)
             cfg = config.load()
+            clean_usage = {"input_tokens": 0, "output_tokens": 0}
             if cfg.get("cleanup_enabled", True):
                 prompt = config.get_prompt()
-                final_text = clean(raw_text, api_key, prompt)
+                final_text, clean_usage = clean(raw_text, api_key, prompt)
             else:
                 final_text = raw_text
             logger.debug("Final text: %s", final_text)
+
+            # Track token usage
+            total_in = transcribe_usage["input_tokens"] + clean_usage["input_tokens"]
+            total_out = transcribe_usage["output_tokens"] + clean_usage["output_tokens"]
+            totals = config.add_daily_usage(total_in, total_out)
 
             # Paste into active app
             paste(final_text, submit=submit)
             play_sound("off")
             self.ui_queue.put(UIEvent("result", final_text))
+            self.ui_queue.put(UIEvent("usage", f"{totals['input_tokens']} / {totals['output_tokens']}"))
 
         except httpx.HTTPStatusError as e:
             logger.exception("API request failed")

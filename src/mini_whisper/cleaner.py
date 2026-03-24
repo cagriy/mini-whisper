@@ -38,4 +38,9 @@ def clean(text: str, api_key: str, prompt: str) -> str:
         timeout=TIMEOUT,
     )
     response.raise_for_status()
-    return response.json()["choices"][0]["message"]["content"].strip()
+    result = response.json()
+    usage = result.get("usage", {})
+    return result["choices"][0]["message"]["content"].strip(), {
+        "input_tokens": usage.get("prompt_tokens", 0),
+        "output_tokens": usage.get("completion_tokens", 0),
+    }

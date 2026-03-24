@@ -1,20 +1,20 @@
-"""Whisper API client for speech-to-text transcription."""
+"""OpenAI transcription API client using gpt-4o-mini-transcribe."""
 
 import io
 
 import httpx
 
-WHISPER_URL = "https://api.openai.com/v1/audio/transcriptions"
+TRANSCRIPTIONS_URL = "https://api.openai.com/v1/audio/transcriptions"
 TIMEOUT = 30.0
-NO_SPEECH_THRESHOLD = 0.7
 
 
-def transcribe(audio: io.BytesIO, api_key: str) -> str:
-    """Send audio to OpenAI Whisper API and return transcript text.
+def transcribe(audio: io.BytesIO, api_key: str, instructions: str = "") -> str:
+    """Send audio to OpenAI transcription API and return transcript text.
 
     Args:
         audio: WAV audio as BytesIO buffer (must have .name attribute).
         api_key: OpenAI API key.
+        instructions: Optional instructions to guide the transcription.
 
     Returns:
         Transcribed text string.
@@ -29,20 +29,25 @@ def transcribe(audio: io.BytesIO, api_key: str) -> str:
         raise ValueError("Audio buffer is empty")
     audio.seek(0)
 
+    payload = {
+        "model": "gpt-4o-mini-transcribe",
+        "response_format": "json",
+    }
+    if instructions:
+        payload["instructions"] = instructions
+
     response = httpx.post(
-        WHISPER_URL,
+        TRANSCRIPTIONS_URL,
         headers={"Authorization": f"Bearer {api_key}"},
         files={"file": ("audio.wav", audio, "audio/wav")},
-        data={"model": "whisper-1", "response_format": "verbose_json"},
+        data=payload,
         timeout=TIMEOUT,
     )
     response.raise_for_status()
     result = response.json()
 
-    segments = result.get("segments", [])
-    if segments and all(
-        s.get("no_speech_prob", 0) > NO_SPEECH_THRESHOLD for s in segments
-    ):
-        return ""
-
-    return result["text"]
+    usage = result.get("usage", {})
+    return result["text"], {
+        "input_tokens": usage.get("input_tokens", 0),
+        "output_tokens": usage.get("output_tokens", 0),
+    }
