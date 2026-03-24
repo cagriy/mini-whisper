@@ -40,7 +40,7 @@ _ICON_PATH = str(_PKG_DIR / "assets" / "mini-whisper.png")
 
 class MiniWhisperApp(rumps.App):
     def __init__(self):
-        super().__init__(TITLE_IDLE, icon=_ICON_PATH, template=True, quit_button=None)
+        super().__init__(TITLE_IDLE, icon=_ICON_PATH, template=False, quit_button=None)
 
         self.cfg = config.load()
         sounds.set_volume(self.cfg.get("sound_volume", 1.0))
