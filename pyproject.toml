@@ -30,3 +30,4 @@ dev = [
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = ["integration: tests that call real OpenAI APIs (require OPENAI_API_KEY)"]

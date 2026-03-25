@@ -15,7 +15,67 @@ permissions:
   contents: write
 
 jobs:
+  unit-tests:
+    runs-on: macos-15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Set up Python and install dependencies
+        run: |
+          uv python install 3.13
+          uv venv
+          uv pip install -e .
+          uv pip install pytest
+
+      - name: Run unit tests
+        run: |
+          source .venv/bin/activate
+          python -m pytest tests/ -v -m "not integration"
+
+  integration-tests:
+    runs-on: macos-15
+    if: vars.RUN_INTEGRATION_TESTS == 'true'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Set up Python and install dependencies
+        run: |
+          uv python install 3.13
+          uv venv
+          uv pip install -e .
+          uv pip install pytest
+
+      - name: Run integration tests
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          source .venv/bin/activate
+          python -m pytest tests/ -v -s -m integration
+
   build:
+    needs: [unit-tests, integration-tests]
+    if: >-
+      always() &&
+      needs.unit-tests.result == 'success' &&
+      (
+        needs.integration-tests.result == 'success' ||
+        needs.integration-tests.result == 'skipped' ||
+        (vars.REQUIRE_INTEGRATION_TESTS != 'true' && needs.integration-tests.result == 'failure')
+      )
     runs-on: macos-15
     env:
       APP_NAME: "Mini Whisper"
@@ -56,12 +116,6 @@ jobs:
           SITE=$(.venv/bin/python -c "import site; print(site.getsitepackages()[0])")
           sed -i '' 's/self.copy_file(zlib.__file__, os.path.dirname(arcdir))/hasattr(zlib, "__file__") and self.copy_file(zlib.__file__, os.path.dirname(arcdir))/' \
             "$SITE/py2app/build_app.py"
-
-      - name: Run tests
-        run: |
-          source .venv/bin/activate
-          uv pip install pytest
-          python -m pytest tests/ -v
 
       - name: Build .app with py2app
         env:
