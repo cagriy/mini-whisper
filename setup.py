@@ -12,7 +12,7 @@ def _read_pyproject_version():
     return m.group(1) if m else "0.0.0"
 
 
-_version = os.environ.get("APP_VERSION", _read_pyproject_version())
+_version = os.environ.get("APP_VERSION") or _read_pyproject_version()
 
 APP = ["src/mini_whisper/app.py"]
 DATA_FILES = []
