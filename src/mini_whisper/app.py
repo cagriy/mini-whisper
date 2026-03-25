@@ -1,4 +1,4 @@
-"""Mini Whisper menu bar application."""  # keychain persistence test 2
+"""Mini Whisper menu bar application."""
 
 import logging
 import subprocess

@@ -7,8 +7,10 @@ import httpx
 TRANSCRIPTIONS_URL = "https://api.openai.com/v1/audio/transcriptions"
 TIMEOUT = 30.0
 
+_client = httpx.Client()
 
-def transcribe(audio: io.BytesIO, api_key: str, instructions: str = "") -> str:
+
+def transcribe(audio: io.BytesIO, api_key: str, instructions: str = "") -> tuple[str, dict]:
     """Send audio to OpenAI transcription API and return transcript text.
 
     Args:
@@ -17,7 +19,7 @@ def transcribe(audio: io.BytesIO, api_key: str, instructions: str = "") -> str:
         instructions: Optional instructions to guide the transcription.
 
     Returns:
-        Transcribed text string.
+        Tuple of (transcribed text, usage dict with input_tokens/output_tokens).
 
     Raises:
         httpx.HTTPStatusError: On API errors.
@@ -36,7 +38,7 @@ def transcribe(audio: io.BytesIO, api_key: str, instructions: str = "") -> str:
     if instructions:
         payload["instructions"] = instructions
 
-    response = httpx.post(
+    response = _client.post(
         TRANSCRIPTIONS_URL,
         headers={"Authorization": f"Bearer {api_key}"},
         files={"file": ("audio.wav", audio, "audio/wav")},

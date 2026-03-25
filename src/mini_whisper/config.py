@@ -10,6 +10,7 @@ Settings stored in ~/.config/mini-whisper/:
 import json
 import logging
 import shutil
+import threading
 from datetime import date
 from pathlib import Path
 
@@ -26,6 +27,8 @@ BUNDLED_TRANSCRIBE_PROMPT = Path(__file__).parent / "resources" / "default_trans
 
 KEYRING_SERVICE = "mini-whisper"
 KEYRING_USERNAME = "openai-api-key"
+
+_lock = threading.Lock()
 
 DEFAULT_CONFIG = {
     "hotkey": "shift+cmd_r",
@@ -51,7 +54,16 @@ def load() -> dict:
     ensure_config_dir()
     try:
         return json.loads(CONFIG_FILE.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, FileNotFoundError):
+    except json.JSONDecodeError:
+        # Back up the corrupt file before overwriting with defaults
+        try:
+            CONFIG_FILE.rename(CONFIG_FILE.with_suffix(".json.bak"))
+        except OSError:
+            pass
+        logger.warning("config.json was corrupt; defaults restored (backup: config.json.bak)")
+        save(DEFAULT_CONFIG)
+        return DEFAULT_CONFIG.copy()
+    except FileNotFoundError:
         save(DEFAULT_CONFIG)
         return DEFAULT_CONFIG.copy()
 
@@ -66,8 +78,7 @@ def get_api_key() -> str | None:
     """Get OpenAI API key from macOS Keychain."""
     key = keyring.get_password(KEYRING_SERVICE, KEYRING_USERNAME)
     if key:
-        masked = key[:3] + "..." + key[-4:] if len(key) > 7 else "***"
-        logger.info("API key loaded from Keychain: %s", masked)
+        logger.debug("API key loaded from Keychain")
     else:
         logger.debug("No API key found in Keychain")
     return key
@@ -100,11 +111,12 @@ def get_daily_usage() -> dict:
 
 def add_daily_usage(input_tokens: int, output_tokens: int) -> dict:
     """Add tokens to today's usage, prune old dates, save, and return updated totals."""
-    cfg = load()
-    today = date.today().isoformat()
-    today_usage = cfg.get("daily_usage", {}).get(today, {"input_tokens": 0, "output_tokens": 0})
-    today_usage["input_tokens"] += input_tokens
-    today_usage["output_tokens"] += output_tokens
-    cfg["daily_usage"] = {today: today_usage}  # prune old dates
-    save(cfg)
-    return today_usage
+    with _lock:
+        cfg = load()
+        today = date.today().isoformat()
+        today_usage = cfg.get("daily_usage", {}).get(today, {"input_tokens": 0, "output_tokens": 0})
+        today_usage["input_tokens"] += input_tokens
+        today_usage["output_tokens"] += output_tokens
+        cfg["daily_usage"] = {today: today_usage}  # prune old dates
+        save(cfg)
+        return today_usage

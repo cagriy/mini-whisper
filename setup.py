@@ -4,7 +4,7 @@ import os
 
 from setuptools import setup
 
-_version = os.environ.get("APP_VERSION", "0.1.3")
+_version = os.environ.get("APP_VERSION", "0.1.2")
 
 APP = ["src/mini_whisper/app.py"]
 DATA_FILES = []

@@ -40,6 +40,7 @@ class Controller:
         self._worker: threading.Thread | None = None
         self._press_time: float = 0.0
         self._toggle_active: bool = False
+        self._generation: int = 0
 
     def on_hotkey_press(self, hotkey_name: str):
         """Called when a hotkey is pressed — start or stop recording."""
@@ -87,13 +88,15 @@ class Controller:
         self.ui_queue.put(UIEvent("processing"))
 
         submit = hotkey_name == "paste_submit"
+        self._generation += 1
+        gen = self._generation
 
         self._worker = threading.Thread(
-            target=self._process, args=(audio, submit), daemon=True
+            target=self._process, args=(audio, submit, gen), daemon=True
         )
         self._worker.start()
 
-    def _process(self, audio, submit: bool = False):
+    def _process(self, audio, submit: bool = False, generation: int = 0):
         """Background worker: transcribe → clean → paste."""
         try:
             api_key = config.get_api_key()
@@ -124,6 +127,13 @@ class Controller:
             total_in = transcribe_usage["input_tokens"] + clean_usage["input_tokens"]
             total_out = transcribe_usage["output_tokens"] + clean_usage["output_tokens"]
             totals = config.add_daily_usage(total_in, total_out)
+
+            # Discard if a newer recording has started since we began processing
+            if generation != self._generation:
+                logger.debug("Stale worker (gen %d, current %d) — discarding result", generation, self._generation)
+                play_sound("off")
+                self.ui_queue.put(UIEvent("idle"))
+                return
 
             # Paste into active app
             paste(final_text, submit=submit)

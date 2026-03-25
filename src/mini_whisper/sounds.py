@@ -30,8 +30,14 @@ def _load(name: str) -> NSSound | None:
 
 def play(name: str) -> None:
     """Play a sound asynchronously. name is 'on' or 'off'."""
+    from AppKit import NSThread
     sound = _load(name)
-    if sound:
-        sound.stop()
-        sound.setVolume_(_volume)
+    if not sound:
+        return
+    sound.stop()
+    sound.setVolume_(_volume)
+    if NSThread.isMainThread():
         sound.play()
+    else:
+        # NSSound should be used on the main thread; dispatch without blocking.
+        sound.performSelectorOnMainThread_withObject_waitUntilDone_(b"play", None, False)

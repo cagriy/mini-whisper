@@ -54,7 +54,7 @@ Download the latest `MiniWhisper-{version}-arm64.dmg` from the [GitHub Releases]
 
 ```bash
 # Prerequisites: Python 3.12+, uv (https://docs.astral.sh/uv/)
-git clone https://github.com/your-username/mini-whisper.git
+git clone https://github.com/cagriy/mini-whisper.git
 cd mini-whisper
 uv sync
 uv run mini-whisper

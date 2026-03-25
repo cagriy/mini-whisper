@@ -6,8 +6,10 @@ CHAT_URL = "https://api.openai.com/v1/chat/completions"
 MODEL = "gpt-4o-mini"
 TIMEOUT = 15.0
 
+_client = httpx.Client()
 
-def clean(text: str, api_key: str, prompt: str) -> str:
+
+def clean(text: str, api_key: str, prompt: str) -> tuple[str, dict]:
     """Clean up raw transcript using GPT-4o-mini.
 
     Args:
@@ -16,12 +18,12 @@ def clean(text: str, api_key: str, prompt: str) -> str:
         prompt: System prompt for cleanup instructions.
 
     Returns:
-        Cleaned text string.
+        Tuple of (cleaned text, usage dict with input_tokens/output_tokens).
 
     Raises:
         httpx.HTTPStatusError: On API errors.
     """
-    response = httpx.post(
+    response = _client.post(
         CHAT_URL,
         headers={
             "Authorization": f"Bearer {api_key}",

@@ -76,8 +76,10 @@ class Recorder:
         self._engine.prepare()
 
     def _tap_block(self, pcm_buffer, when):
-        """Callback from AVAudioEngine's input tap."""
-        if self._recording:
+        """Callback from AVAudioEngine's input tap (runs on audio thread)."""
+        with self._lock:
+            if not self._recording:
+                return
             try:
                 data = _buffer_to_numpy(pcm_buffer)
                 self._frames.append(data)
@@ -89,7 +91,11 @@ class Recorder:
                 logger.exception("Error reading audio buffer")
 
     def start(self):
-        """Begin capturing audio from the default microphone."""
+        """Begin capturing audio from the default microphone.
+
+        Raises:
+            RuntimeError: If AVAudioEngine fails to start.
+        """
         with self._lock:
             self._frames = []
             self._current_level = 0.0
@@ -99,7 +105,7 @@ class Recorder:
             success, error = self._engine.startAndReturnError_(None)
             if not success:
                 self._recording = False
-                logger.error("AVAudioEngine start failed: %s", error)
+                raise RuntimeError(f"AVAudioEngine start failed: {error}")
 
     def stop(self) -> io.BytesIO:
         """Stop recording and return audio as a WAV BytesIO buffer."""
@@ -107,15 +113,19 @@ class Recorder:
             self._recording = False
             self._current_level = 0.0
             self._avg_rms = self._rms_sum / self._rms_count if self._rms_count else 0.0
-            self._engine.stop()
-
-            if not self._frames:
-                buf = io.BytesIO()
-                buf.name = "audio.wav"
-                return buf
-
-            audio = np.concatenate(self._frames)
+            frames = self._frames
             self._frames = []
+
+        # Stop engine OUTSIDE the lock: engine.stop() may block until the current
+        # _tap_block invocation finishes, and _tap_block also acquires the lock.
+        self._engine.stop()
+
+        if not frames:
+            buf = io.BytesIO()
+            buf.name = "audio.wav"
+            return buf
+
+        audio = np.concatenate(frames)
 
         # Resample from hardware rate to 16kHz
         audio = _resample(audio, self._hw_sample_rate, TARGET_SAMPLE_RATE)

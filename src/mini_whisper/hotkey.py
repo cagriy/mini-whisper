@@ -198,6 +198,7 @@ class HotkeyListener:
         self._capture_non_modifier_pressed: bool = False
         self._watchdog_timer: threading.Timer | None = None
         self._event_count: int = 0
+        self._lock = threading.Lock()
 
     def register(
         self,
@@ -246,77 +247,93 @@ class HotkeyListener:
 
     def _handle_press(self, key):
         # Key capture mode
-        if self._capture_callback is not None:
-            self._handle_capture_press(key)
-            return
+        with self._lock:
+            if self._capture_callback is not None:
+                self._handle_capture_press(key)
+                return
 
         # Normal hotkey detection
         canonical = self._to_canonical(key)
         logger.debug("key_press: raw=%r canonical=%r modifiers=%s", key, canonical, self._pressed_modifiers)
-        if canonical in _MODIFIER_MAP.values():
-            self._pressed_modifiers.add(canonical)
 
-        for name, binding in self._bindings.items():
-            if binding.active:
-                continue
+        to_fire = []
+        start_watchdog = False
+        with self._lock:
+            if canonical in _MODIFIER_MAP.values():
+                self._pressed_modifiers.add(canonical)
 
-            if binding.is_modifier_trigger:
-                # Modifier-as-trigger: exact modifier set match + raw key match
-                if (
-                    key == binding.trigger
-                    and self._pressed_modifiers
-                    == binding.modifiers | {binding.trigger_canonical}
-                ):
-                    logger.debug("activate '%s': modifier_trigger match", name)
-                    binding.active = True
-                    binding.on_press()
-            else:
-                # Regular binding: superset match + canonical trigger match
-                if (
-                    self._pressed_modifiers >= binding.modifiers
-                    and canonical == binding.trigger
-                ):
-                    logger.debug("activate '%s': trigger match", name)
-                    binding.active = True
-                    binding.on_press()
-                    self._start_watchdog()
+            for name, binding in self._bindings.items():
+                if binding.active:
+                    continue
+
+                if binding.is_modifier_trigger:
+                    if (
+                        key == binding.trigger
+                        and self._pressed_modifiers
+                        == binding.modifiers | {binding.trigger_canonical}
+                    ):
+                        logger.debug("activate '%s': modifier_trigger match", name)
+                        binding.active = True
+                        to_fire.append(binding.on_press)
+                else:
+                    if (
+                        self._pressed_modifiers >= binding.modifiers
+                        and canonical == binding.trigger
+                    ):
+                        logger.debug("activate '%s': trigger match", name)
+                        binding.active = True
+                        to_fire.append(binding.on_press)
+                        start_watchdog = True
+
+        for cb in to_fire:
+            cb()
+        if start_watchdog:
+            self._start_watchdog()
 
     def _handle_release(self, key):
-        if self._capture_callback is not None:
-            self._handle_capture_release(key)
-            return
+        with self._lock:
+            if self._capture_callback is not None:
+                self._handle_capture_release(key)
+                return
 
         canonical = self._to_canonical(key)
         logger.debug("key_release: raw=%r canonical=%r modifiers=%s", key, canonical, self._pressed_modifiers)
 
-        for name, binding in self._bindings.items():
-            if not binding.active:
-                continue
+        to_fire = []
+        stop_watchdog = False
+        with self._lock:
+            for name, binding in self._bindings.items():
+                if not binding.active:
+                    continue
 
-            if binding.is_modifier_trigger:
-                # Deactivate when the raw trigger modifier or a required modifier is released
-                if key == binding.trigger or canonical in binding.modifiers:
-                    logger.debug("deactivate '%s': modifier_trigger release", name)
+                if binding.is_modifier_trigger:
+                    if key == binding.trigger or canonical in binding.modifiers:
+                        logger.debug("deactivate '%s': modifier_trigger release", name)
+                        binding.active = False
+                        to_fire.append(binding.on_release)
+                else:
+                    if canonical == binding.trigger or canonical in binding.modifiers:
+                        logger.debug("deactivate '%s': trigger/modifier release", name)
+                        binding.active = False
+                        to_fire.append(binding.on_release)
+
+            self._pressed_modifiers.discard(canonical)
+
+            # Safety net: deactivate any active binding whose modifiers are no longer held
+            for name, binding in self._bindings.items():
+                if not binding.active or binding.is_modifier_trigger:
+                    continue
+                if binding.modifiers and not (self._pressed_modifiers >= binding.modifiers):
+                    logger.debug("deactivate '%s': modifiers no longer held (safety net)", name)
                     binding.active = False
-                    binding.on_release()
-            else:
-                if canonical == binding.trigger or canonical in binding.modifiers:
-                    logger.debug("deactivate '%s': trigger/modifier release", name)
-                    binding.active = False
-                    binding.on_release()
+                    to_fire.append(binding.on_release)
 
-        self._pressed_modifiers.discard(canonical)
+            if not any(b.active for b in self._bindings.values()):
+                stop_watchdog = True
 
-        # Safety net: deactivate any active binding whose modifiers are no longer held
-        for name, binding in self._bindings.items():
-            if not binding.active or binding.is_modifier_trigger:
-                continue
-            if binding.modifiers and not (self._pressed_modifiers >= binding.modifiers):
-                logger.debug("deactivate '%s': modifiers no longer held (safety net)", name)
-                binding.active = False
-                binding.on_release()
-
-        if not any(b.active for b in self._bindings.values()):
+        for cb in to_fire:
+            cb()
+        if stop_watchdog:
             self._stop_watchdog()
 
     # -- Modifier watchdog (polls macOS for actual modifier state) ----------
@@ -333,20 +350,27 @@ class HotkeyListener:
 
     def _tick_watchdog(self):
         """Check OS modifier state; deactivate bindings whose modifiers dropped."""
+        to_fire = []
         try:
             held = _get_os_modifiers()
-            for name, binding in self._bindings.items():
-                if not binding.active or binding.is_modifier_trigger:
-                    continue
-                if binding.modifiers and not (held >= binding.modifiers):
-                    logger.debug("deactivate '%s': OS reports modifiers released (watchdog)", name)
-                    binding.active = False
-                    binding.on_release()
+            with self._lock:
+                for name, binding in self._bindings.items():
+                    if not binding.active or binding.is_modifier_trigger:
+                        continue
+                    if binding.modifiers and not (held >= binding.modifiers):
+                        logger.debug("deactivate '%s': OS reports modifiers released (watchdog)", name)
+                        binding.active = False
+                        to_fire.append(binding.on_release)
         except Exception:
             logger.exception("Error in watchdog tick")
 
+        for cb in to_fire:
+            cb()
+
         # Reschedule if any binding is still active
-        if any(b.active and not b.is_modifier_trigger for b in self._bindings.values()):
+        with self._lock:
+            still_active = any(b.active and not b.is_modifier_trigger for b in self._bindings.values())
+        if still_active:
             self._watchdog_timer = threading.Timer(_WATCHDOG_INTERVAL, self._tick_watchdog)
             self._watchdog_timer.daemon = True
             self._watchdog_timer.start()
@@ -396,18 +420,19 @@ class HotkeyListener:
 
     def update_hotkey(self, name: str, combo: str):
         """Change the hotkey combo for a named binding."""
-        binding = self._bindings.get(name)
-        if binding is None:
-            raise KeyError(f"No binding named '{name}'")
         modifiers, trigger, is_modifier_trigger = parse_hotkey(combo)
-        binding.modifiers = modifiers
-        binding.trigger = trigger
-        binding.is_modifier_trigger = is_modifier_trigger
-        binding.trigger_canonical = (
-            _TRIGGER_TO_CANONICAL.get(trigger) if is_modifier_trigger else None
-        )
-        binding.active = False
-        self._pressed_modifiers.clear()
+        with self._lock:
+            binding = self._bindings.get(name)
+            if binding is None:
+                raise KeyError(f"No binding named '{name}'")
+            binding.modifiers = modifiers
+            binding.trigger = trigger
+            binding.is_modifier_trigger = is_modifier_trigger
+            binding.trigger_canonical = (
+                _TRIGGER_TO_CANONICAL.get(trigger) if is_modifier_trigger else None
+            )
+            binding.active = False
+            self._pressed_modifiers.clear()
 
     def _handle_capture_press(self, key):
         """Handle a key press during capture mode."""
@@ -455,12 +480,14 @@ class HotkeyListener:
         Args:
             callback: Called with (modifiers_set, trigger_key) when a combo is captured.
         """
-        self._capture_modifiers = set()
-        self._capture_non_modifier_pressed = False
-        self._capture_callback = callback
+        with self._lock:
+            self._capture_modifiers = set()
+            self._capture_non_modifier_pressed = False
+            self._capture_callback = callback
 
     def cancel_capture(self):
         """Cancel key capture mode."""
-        self._capture_callback = None
-        self._capture_modifiers = set()
-        self._capture_non_modifier_pressed = False
+        with self._lock:
+            self._capture_callback = None
+            self._capture_modifiers = set()
+            self._capture_non_modifier_pressed = False
