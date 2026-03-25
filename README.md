@@ -2,32 +2,32 @@
 
 **Speak. Release. Done.**
 
-Mini Whisper is a lightweight macOS menu bar app that turns your voice into text — instantly, anywhere. Hold a hotkey, say what you want, release, and your words appear in whatever app is in focus. No copy-paste, no switching windows, no friction.
+Mini Whisper is a lightweight macOS menu bar app that turns your voice into text instantly, anywhere. Hold a hotkey, say what you want, release, and your words appear in whatever app is in focus. No copy-paste, no switching windows, no friction.
 
-Powered by OpenAI's `gpt-4o-mini-transcribe` for fast, accurate transcription and GPT-4o-mini for optional AI cleanup that silently strips filler words and fixes grammar before pasting.
+Powered by OpenAI's `gpt-4o-mini-transcribe` for fast, accurate transcription and GPT-4o-mini for optional AI cleanup that strips filler words and fixes grammar before pasting.
 
 ---
 
 ## Features
 
 ### Speak into any app
-Mini Whisper pastes transcribed text directly into the active app via clipboard simulation — works in browsers, editors, terminals, chat apps, IDEs, and anywhere else you type.
+Mini Whisper pastes transcribed text directly into the active app via clipboard simulation. Works in browsers, editors, terminals, chat apps, IDEs, and anywhere else you type.
 
 ### Push-to-talk and toggle modes
 - **Push-to-talk**: Hold the hotkey while speaking, release to transcribe and paste
-- **Toggle mode**: Tap the hotkey to start recording, tap again to stop — ideal for longer dictations
+- **Toggle mode**: Tap the hotkey to start recording, tap again to stop. Ideal for longer dictations.
 
 ### Auto-submit mode
 A second configurable hotkey transcribes, pastes, **and** presses Enter. Perfect for chat apps, Claude Code, shell terminals, and anywhere you'd hit Enter right after typing.
 
 ### AI text cleanup
-An optional GPT-4o-mini pass runs after transcription to silently remove filler words ("um", "uh", "you know"), fix grammar, and clean up false starts — so what gets pasted reads like you meant to write it. Fully customizable via your own system prompt.
+An optional GPT-4o-mini pass runs after transcription to silently remove filler words ("um", "uh", "you know"), fix grammar, and clean up false starts so what gets pasted reads like you meant to write it. Fully customizable via your own system prompt.
 
 ### Animated recording overlay
-A floating constellation of dots appears when you're recording — physics-driven, audio-reactive, 60 FPS. The dots pulse and react to your voice in real time so you always know the app is listening. Switches to a rotating animation while processing.
+A floating constellation of dots appears when you're recording: physics-driven, audio-reactive, 60 FPS. The dots pulse and react to your voice in real time so you always know the app is listening. Switches to a rotating animation while processing.
 
 ### Privacy-first
-- API key stored in the **macOS Keychain** — never written to disk
+- API key stored in the **macOS Keychain**, never written to disk
 - Audio goes only to OpenAI's API; nothing is stored locally after processing
 - No telemetry, no analytics, no phoning home
 
@@ -44,7 +44,13 @@ Built with PyObjC, AVFoundation, and AppKit. Near-instant recording start thanks
 
 ## Installation
 
-### Download (recommended)
+### Homebrew (recommended)
+
+```bash
+brew install cagriy/tap/mini-whisper
+```
+
+### Download
 
 Download the latest `MiniWhisper-{version}-arm64.dmg` from the [GitHub Releases](../../releases) page. Open the DMG, drag **Mini Whisper.app** to your Applications folder, and launch it.
 
@@ -68,8 +74,8 @@ uv run mini-whisper
 
 On first launch, Mini Whisper walks you through the two permissions it needs:
 
-- **Microphone** — to capture your voice
-- **Accessibility** — to paste text into other apps
+- **Microphone**: to capture your voice
+- **Accessibility**: to paste text into other apps
 
 The onboarding window guides you to the right macOS System Settings pane for each and waits until both are granted before continuing.
 
