@@ -57,6 +57,12 @@ jobs:
           sed -i '' 's/self.copy_file(zlib.__file__, os.path.dirname(arcdir))/hasattr(zlib, "__file__") and self.copy_file(zlib.__file__, os.path.dirname(arcdir))/' \
             "$SITE/py2app/build_app.py"
 
+      - name: Run tests
+        run: |
+          source .venv/bin/activate
+          uv pip install pytest
+          python -m pytest tests/ -v
+
       - name: Build .app with py2app
         env:
           APP_VERSION: ${{ steps.version.outputs.version }}
