@@ -229,15 +229,21 @@ class MiniWhisperApp(rumps.App):
 
 
 def main():
+    import argparse
     import os
-    level = os.environ.get("LOG_LEVEL", "INFO").upper()
+
+    parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument("--debug", action="store_true")
+    args, _ = parser.parse_known_args()
+
+    level = "DEBUG" if args.debug else os.environ.get("LOG_LEVEL", "INFO").upper()
+    handlers = [logging.StreamHandler()]
+    if args.debug:
+        handlers.append(logging.FileHandler("/tmp/mini-whisper.log"))
     logging.basicConfig(
         level=getattr(logging, level, logging.INFO),
         force=True,
-        handlers=[
-            logging.StreamHandler(),
-            logging.FileHandler("/tmp/mini-whisper.log"),
-        ],
+        handlers=handlers,
     )
     logging.getLogger("httpx").setLevel(logging.DEBUG if level == "DEBUG" else logging.WARNING)
     logging.getLogger("mini_whisper.hotkey").setLevel(logging.WARNING)

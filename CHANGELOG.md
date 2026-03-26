@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.1.5] - 2026-03-26
+
+### Changed
+- File logging to `/tmp/mini-whisper.log` now only happens when `--debug` flag is passed
+
 ## [0.1.3] - 2026-03-06
 
 ### Added
