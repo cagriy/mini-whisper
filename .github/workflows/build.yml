@@ -9,7 +9,7 @@ on:
       sign:
         description: "Sign and notarize the build"
         type: boolean
-        default: false
+        default: true
 
 permissions:
   contents: write
