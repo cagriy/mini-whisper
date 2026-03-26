@@ -5,8 +5,6 @@ __pycache__/
 *.egg-info/
 **/*.egg-info/
 *.egg
-dist/
-build/
 wheels/
 *.so
 
@@ -31,6 +29,5 @@ venv/
 # py2app
 dist/
 build/
-.claude
 .claude
 CLAUDE.md

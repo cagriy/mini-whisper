@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.1.7] - 2026-03-26
+
+### Fixed
+- Paste and submit no longer require System Events (AppleScript) permission -- switched from `osascript` to `CGEventPostToPid`, targeting the frontmost application directly via Quartz; only Accessibility permission is needed
+
 ## [0.1.6] - 2026-03-26
 
 ### Fixed

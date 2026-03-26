@@ -3,9 +3,23 @@
 import subprocess
 import time
 
-from pynput.keyboard import Controller, Key
+import Quartz
+from AppKit import NSWorkspace
 
-_keyboard = Controller()
+# Key codes
+_KEY_V = 9
+_KEY_ENTER = 36
+
+
+def _post_key(key_code: int, flags: int = 0):
+    """Post a key down+up event directly to the frontmost application's PID."""
+    pid = NSWorkspace.sharedWorkspace().frontmostApplication().processIdentifier()
+    src = Quartz.CGEventSourceCreate(Quartz.kCGEventSourceStateHIDSystemState)
+    for key_down in (True, False):
+        event = Quartz.CGEventCreateKeyboardEvent(src, key_code, key_down)
+        if flags:
+            Quartz.CGEventSetFlags(event, flags)
+        Quartz.CGEventPostToPid(pid, event)
 
 
 def paste(text: str, submit: bool = False):
@@ -15,21 +29,11 @@ def paste(text: str, submit: bool = False):
         text: The text to paste.
         submit: If True, press Enter after pasting to submit the text.
     """
-    # Copy to clipboard via pbcopy
     subprocess.run(["pbcopy"], input=text.encode("utf-8"), check=True)
-
-    # Small delay to ensure clipboard is ready
     time.sleep(0.05)
 
-    # Simulate Cmd+V
-    _keyboard.press(Key.cmd)
-    _keyboard.press("v")
-    _keyboard.release("v")
-    _keyboard.release(Key.cmd)
+    _post_key(_KEY_V, Quartz.kCGEventFlagMaskCommand)
 
     if submit:
         time.sleep(0.15)
-        subprocess.run([
-            "osascript", "-e",
-            "tell application \"System Events\" to key code 36",
-        ], check=True)
+        _post_key(_KEY_ENTER)
