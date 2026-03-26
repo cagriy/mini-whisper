@@ -273,6 +273,7 @@ jobs:
         if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
         env:
           HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          APP_VERSION: ${{ steps.version.outputs.version }}
         run: |
           SHA256=$(shasum -a 256 "${{ env.dmg_path }}" | awk '{print $1}')
           VERSION="${APP_VERSION}"
