@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.1.6] - 2026-03-26
+
+### Fixed
+- Keychain access broken in app bundle — `keyring.backends` was missing from py2app packages, causing `NoKeyringError` and preventing startup
+- Settings window opens automatically on first launch when no API key is set, instead of showing an alert that could cause the window to appear behind other apps
+- Settings window failure is now logged instead of silently swallowed
+
 ## [0.1.5] - 2026-03-26
 
 ### Changed

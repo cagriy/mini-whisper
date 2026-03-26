@@ -37,7 +37,7 @@ OPTIONS = {
             "global hotkeys."
         ),
     },
-    "packages": ["mini_whisper", "_soundfile_data"],
+    "packages": ["mini_whisper", "_soundfile_data", "keyring.backends"],
     "includes": [
         "rumps",
         "pynput",

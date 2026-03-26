@@ -159,11 +159,15 @@ class MiniWhisperApp(rumps.App):
     def _open_settings(self, _):
         if self.hotkey_listener is None:
             return
-        if self._settings_window is None:
-            self._settings_window = SettingsWindow(
-                self.hotkey_listener, self.cfg, self._on_settings_changed
-            )
-        self._settings_window.show()
+        try:
+            if self._settings_window is None:
+                self._settings_window = SettingsWindow(
+                    self.hotkey_listener, self.cfg, self._on_settings_changed
+                )
+            self._settings_window.show()
+        except Exception:
+            logger.exception("Failed to open settings window")
+            self._settings_window = None
 
     def _on_settings_changed(self, new_cfg):
         self.cfg = new_cfg
@@ -218,13 +222,6 @@ class MiniWhisperApp(rumps.App):
 
     def _first_run_prompt(self, timer):
         timer.stop()
-        rumps.alert(
-            title="Welcome to Mini Whisper!",
-            message=(
-                "To get started, set your OpenAI API key.\n\n"
-                "Open Settings from the menu bar icon."
-            ),
-        )
         self._open_settings(None)
 
 
