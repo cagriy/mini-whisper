@@ -261,7 +261,7 @@ jobs:
           path: ${{ env.dmg_path }}
 
       - name: Create GitHub Release
-        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+        if: startsWith(github.ref, 'refs/tags/v') && (github.event_name == 'push' || github.event.inputs.sign == 'true')
         uses: softprops/action-gh-release@v2
         with:
           files: ${{ env.dmg_path }}
@@ -270,7 +270,7 @@ jobs:
           prerelease: ${{ contains(github.ref, '-beta') || contains(github.ref, '-rc') }}
 
       - name: Update Homebrew tap
-        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+        if: startsWith(github.ref, 'refs/tags/v') && (github.event_name == 'push' || github.event.inputs.sign == 'true')
         env:
           HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
           APP_VERSION: ${{ steps.version.outputs.version }}
