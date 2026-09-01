@@ -949,7 +949,7 @@
         </span>
         <span class="step-label">Plan</span>
       </li>
-      <li class="step" data-stage="implement" data-state="pending">
+      <li class="step" data-stage="implement" data-state="complete">
         <span class="step-indicator" aria-hidden="true">
           <span class="step-check">&#10003;</span>
           <span class="step-number">4</span>
@@ -1302,16 +1302,77 @@
 
     <section class="panel" role="tabpanel"
              id="panel-implementation" aria-labelledby="tab-implementation" hidden>
-      <p class="section-timestamp">Awaiting /feature-implement</p>
+      <p class="section-timestamp">Updated 2026-09-01 15:59 UTC</p>
       <!-- usage:IMPLEMENTATION_USAGE_CHIP --><!-- /usage:IMPLEMENTATION_USAGE_CHIP -->
       <article class="panel-section">
         <h2 class="section-label">Highlights</h2>
-        <div class="bullets"><p class="empty">Not yet filled — pending /feature-implement.</p></div>
+        <div class="bullets"><ul>
+<li>Stages completed: 11/11, one commit per stage on main (not pushed)</li>
+<li>Tests: 151 passed, 1 skipped (API-key-gated integration test) — up from a 49-test baseline</li>
+<li>Design coverage: 18/18 requirements verified (UI-surface items via build check + pending manual pass)</li>
+<li>Pre-existing failures excluded: none — baseline was green</li>
+<li>py2app bundle built locally: Speech + websockets confirmed bundled, plist carries NSSpeechRecognitionUsageDescription</li>
+<li>Deviations from plan: 4, all recorded in the plan's "Deviations from plan" section</li>
+<li>Dead-code sweep: no analyzer configured — vulture recommended</li>
+<li>Pending human verification: caption bar/settings manual checklist + Stage 11 acceptance pass</li>
+<li>Final stage commit: dafe13a</li>
+</ul></div>
         <!-- usage:IMPLEMENTATION_USAGE --><!-- /usage:IMPLEMENTATION_USAGE -->
       </article>
       <article class="panel-section">
         <h2 class="section-label">Detail</h2>
-        <div class="prose"><p class="empty">Not yet filled — pending /feature-implement.</p></div>
+        <div class="prose">
+<h3>Stages completed</h3>
+<ul>
+<li>Stage 1 — Config data model and usage store — <code>6c8bc32</code></li>
+<li>Stage 2 — Pricing module and usage-row formatting — <code>d0e8898</code></li>
+<li>Stage 3 — Streaming foundations: protocol, transcript assembly, audio converter — <code>76014df</code></li>
+<li>Stage 4 — On-device engine (Apple Speech framework) — <code>755f16c</code></li>
+<li>Stage 5 — Websocket engine skeleton and OpenAI Realtime engine — <code>9663c2a</code></li>
+<li>Stage 6 — ElevenLabs and Speechmatics engines — <code>73d46ce</code></li>
+<li>Stage 7 — Engine factory and recorder buffer listener — <code>fb11d81</code></li>
+<li>Stage 8 — Controller streamed pipeline and batch fallback — <code>af3bb54</code></li>
+<li>Stage 9 — Caption bar window and app event wiring — <code>c629910</code></li>
+<li>Stage 10 — Settings "Live Streaming" section and menu usage rows — <code>9c7e8ee</code></li>
+<li>Stage 11 — Packaging: py2app plist and bundled dependencies — <code>dafe13a</code></li>
+</ul>
+<h3>Tests</h3>
+<p>Final: <strong>151 passed, 1 skipped</strong> (<code>uv run pytest -q</code>); the skip is the pre-existing API-key-gated integration test. Baseline was 49 passed / 1 skipped with zero failures, so no pre-existing failures were excluded from regression gating. Import build check (<code>overlay</code>, <code>settings</code>, <code>app</code>) exits 0. No lint/type/dead-code tooling is configured in this repo.</p>
+<h3>Design coverage</h3>
+<table>
+<tr><th>Requirement</th><th>Verified by</th></tr>
+<tr><td>R1 config keys</td><td>tests/test_config.py (defaults, round-trip)</td></tr>
+<tr><td>R2 streaming-off byte-identical</td><td>tests/test_controller.py — pre-existing assertions unmodified + off-toggle test</td></tr>
+<tr><td>R3 press starts session, partials while recording</td><td>tests/test_controller.py (caption events)</td></tr>
+<tr><td>R4 caption bar per mockup</td><td>platform-only — build check + pending manual pass</td></tr>
+<tr><td>R5 release → compound → cleanup → paste</td><td>tests/test_controller.py (happy streamed path skips batch)</td></tr>
+<tr><td>R6 any failure → batch fallback</td><td>tests/test_factory.py (None reasons) + tests/test_controller.py (every edge-table row)</td></tr>
+<tr><td>R7 Speech permission gate + one-per-run pointer</td><td>tests/test_on_device.py (auth matrix) + test_permission_denied_pointer_once_per_run</td></tr>
+<tr><td>R8 offline cleanup failure unchanged</td><td>tests/test_controller.py (cleanup-failure after streamed dictation)</td></tr>
+<tr><td>R9 provider-attributed usage, month retention</td><td>tests/test_config.py (add_usage, migration, pruning)</td></tr>
+<tr><td>R10 dollar cost + overrides</td><td>tests/test_pricing.py + controller wiring test</td></tr>
+<tr><td>R11 two menu rows</td><td>tests/test_pricing.py (format) + test_usage_event_carries_formatted_rows</td></tr>
+<tr><td>R12 settings section, keys in Keychain</td><td>tests/test_config.py (Keychain accessors) + pending manual settings round-trip</td></tr>
+<tr><td>R13 cloud engine selectable without key</td><td>tests/test_factory.py (no_key reason at dictation time)</td></tr>
+<tr><td>R14 toggle mode streams identically</td><td>tests/test_controller.py</td></tr>
+<tr><td>R15 lossless accumulation</td><td>tests/test_recorder_listener.py (raising listener leaves accumulation intact)</td></tr>
+<tr><td>R16 tap never blocks</td><td>tests/test_recorder_listener.py + buffer-until-open tests in test_websocket_engines.py</td></tr>
+<tr><td>R17 no new required accounts</td><td>tests/test_factory.py (cloud keys optional)</td></tr>
+<tr><td>R18 caption updates via ui_queue</td><td>tests/test_controller.py (events queued, never direct UI calls)</td></tr>
+</table>
+<h3>Deviations from plan</h3>
+<ul>
+<li>Stage 5: shared <code>FakeSink</code> hoisted to <code>tests/conftest.py</code>; finish handshake hardened with a post-terminal drain window (race caught red by the fixture test).</li>
+<li>Stage 7: <code>make_engine</code> returns <code>(engine, reason)</code> so the fallback reason is programmatic (R7), plus a defensive <code>unknown_engine</code> reason.</li>
+<li>Stage 9: a slow cursor-blink NSTimer, active only while partial text shows (R4 requires the blinking cursor); text redraws remain change-only.</li>
+<li>Stage 11: the documented py2app build needs <code>APP_VERSION</code> set and <code>py2app</code> installed while <code>pyproject.toml</code> is hidden — recorded in the plan.</li>
+</ul>
+<h3>Notes</h3>
+<ul>
+<li>Branch <code>main</code> is ahead of origin by the docs commit plus 11 stage commits and 4 docs commits — nothing pushed.</li>
+<li>Pending human verification: Stage 9/10 manual checklists (caption bar behaviour, settings round-trip, menu rows after dictation) and the Stage 11 acceptance pass on the built .app.</li>
+</ul>
+</div>
       </article>
     </section>
 
