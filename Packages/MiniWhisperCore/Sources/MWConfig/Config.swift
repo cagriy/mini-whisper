@@ -95,6 +95,9 @@ public struct Config: Equatable, Sendable {
     public var streamingEnabled = true
     /// Absent from `config.json` means "no explicit choice" — the platform default applies (F32).
     public var streamingEngine: EngineName? = .onDevice
+    /// Raw `streaming_engine` value that this build does not recognise, kept only so
+    /// that saving round-trips it (F2). Never honoured at runtime.
+    var unrecognisedStreamingEngine: String?
     public var pricingOverrides: [String: Double] = [:]
     public var usage: [String: DayUsage] = [:]
     public var historyRetentionDays = 7
@@ -179,6 +182,10 @@ extension Config: Codable {
 
         let engine: String? = try value(Key.streamingEngine)
         streamingEngine = engine.flatMap(EngineName.init(rawValue:))
+        // A value this build does not know — written by a newer one, or by hand. It is
+        // ignored at runtime (F32 picks the platform default) but kept so saving here
+        // does not destroy it (F2).
+        unrecognisedStreamingEngine = streamingEngine == nil ? engine : nil
 
         for key in container.allKeys where !Key.all.contains(key.stringValue) {
             extra[key.stringValue] = try container.decode(JSONValue.self, forKey: key)
@@ -192,7 +199,11 @@ extension Config: Codable {
         try container.encode(cleanupEnabled, forKey: AnyCodingKey(Key.cleanupEnabled))
         try container.encode(soundVolume, forKey: AnyCodingKey(Key.soundVolume))
         try container.encode(streamingEnabled, forKey: AnyCodingKey(Key.streamingEnabled))
-        try container.encodeIfPresent(streamingEngine, forKey: AnyCodingKey(Key.streamingEngine))
+        if let streamingEngine {
+            try container.encode(streamingEngine, forKey: AnyCodingKey(Key.streamingEngine))
+        } else if let unrecognisedStreamingEngine {
+            try container.encode(unrecognisedStreamingEngine, forKey: AnyCodingKey(Key.streamingEngine))
+        }
         try container.encode(pricingOverrides, forKey: AnyCodingKey(Key.pricingOverrides))
         try container.encode(usage, forKey: AnyCodingKey(Key.usage))
         try container.encode(historyRetentionDays, forKey: AnyCodingKey(Key.historyRetentionDays))

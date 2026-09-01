@@ -85,6 +85,24 @@ import Testing
         #expect(try decode(json).profiles.first?.submitKey == .enter)
     }
 
+    @Test func unrecognisedStreamingEngineIsIgnoredButPreserved() throws {
+        // A value written by a newer build: not honoured here, but F2 forbids
+        // destroying it on the next save.
+        let config = try decode(#"{"streaming_engine": "future_engine"}"#)
+        #expect(config.streamingEngine == nil)
+
+        let saved = try JSONSerialization.jsonObject(with: config.encoded()) as? [String: Any]
+        #expect(saved?["streaming_engine"] as? String == "future_engine")
+    }
+
+    @Test func chosenStreamingEngineReplacesAnUnrecognisedOne() throws {
+        var config = try decode(#"{"streaming_engine": "future_engine"}"#)
+        config.streamingEngine = .openai
+
+        let saved = try JSONSerialization.jsonObject(with: config.encoded()) as? [String: Any]
+        #expect(saved?["streaming_engine"] as? String == "openai")
+    }
+
     @Test func duplicateBundleIDKeepsFirstProfile() throws {
         let json = """
             {"profiles": [
