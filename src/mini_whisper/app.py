@@ -62,6 +62,7 @@ class MiniWhisperApp(rumps.App):
         self.controller = None
         self.hotkey_listener = None
         self.overlay = None
+        self.caption_bar = None
         self.poll_timer = None
         self._settings_window = None
         self._onboarding_window = None
@@ -74,7 +75,7 @@ class MiniWhisperApp(rumps.App):
         try:
             from mini_whisper.controller import Controller, UIEvent  # noqa: F811
             from mini_whisper.hotkey import HotkeyListener
-            from mini_whisper.overlay import DotsOverlayWindow
+            from mini_whisper.overlay import CaptionBarWindow, DotsOverlayWindow
 
             logger.info("_start_normal: creating Controller")
             self.controller = Controller()
@@ -101,6 +102,7 @@ class MiniWhisperApp(rumps.App):
 
             logger.info("_start_normal: creating overlay")
             self.overlay = DotsOverlayWindow(self.controller.recorder)
+            self.caption_bar = CaptionBarWindow(self.overlay)
             self.poll_timer = rumps.Timer(self._poll_ui_events, 0.1)
 
             logger.info("_start_normal: starting hotkey listener")
@@ -130,10 +132,16 @@ class MiniWhisperApp(rumps.App):
                 self.overlay.show()
             elif event.kind == "processing":
                 self.overlay.set_mode("processing")
+            elif event.kind == "caption":
+                self.caption_bar.set_text(event.text, event.partial, event.dimmed)
+            elif event.kind == "caption_unavailable":
+                self.caption_bar.show_unavailable()
             elif event.kind == "idle":
                 self.overlay.hide()
+                self.caption_bar.hide()
             elif event.kind == "result":
                 self.overlay.hide()
+                self.caption_bar.hide()
                 self._last_text = event.text
                 truncated = event.text[:50] + ("..." if len(event.text) > 50 else "")
                 self.last_item.title = f'Last: "{truncated}"'
@@ -145,6 +153,7 @@ class MiniWhisperApp(rumps.App):
                 self.usage_item.title = _fmt_tokens(in_tok, out_tok)
             elif event.kind == "error":
                 self.overlay.show_error(event.text)
+                self.caption_bar.hide()
 
     # ------------------------------------------------------------------
     # Menu callbacks
@@ -194,8 +203,12 @@ class MiniWhisperApp(rumps.App):
     def _quit(self, _):
         if self._settings_window is not None:
             self._settings_window.close()
+        if self.controller is not None:
+            self.controller.abort_stream()
         if self.overlay is not None:
             self.overlay.cleanup()
+        if self.caption_bar is not None:
+            self.caption_bar.cleanup()
         if self.hotkey_listener is not None:
             self.hotkey_listener.stop()
         if self.controller is not None:

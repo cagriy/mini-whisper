@@ -40,6 +40,24 @@ SMOOTH_DECAY = 0.08   # slow fade when audio drops
 
 FPS = 60.0
 
+# Caption bar (design §5 / accepted caption-bar mockup)
+CAPTION_WIDTH = 480.0
+CAPTION_HEIGHT = 92.0
+CAPTION_GAP = 14.0            # gap below the dots window
+CAPTION_CORNER_RADIUS = 16.0
+CAPTION_BG_ALPHA = 0.7
+CAPTION_FONT_SIZE = 14.0
+CAPTION_LINE_HEIGHT = 22.0
+CAPTION_PADDING_H = 16.0
+CAPTION_MAX_LINES = 3
+CAPTION_CURRENT_ALPHA = 0.92
+CAPTION_OLDER_ALPHA = 0.45
+CAPTION_DIMMED_ALPHA = 0.65   # processing: whole text dimmed, cursor removed
+CAPTION_DIMMED_OLDER_ALPHA = 0.40
+CAPTION_CURSOR = "▍"
+CAPTION_BLINK_SECONDS = 0.9   # slow blink while partial; no per-frame timer
+CAPTION_UNAVAILABLE_TEXT = "⚠ live transcript unavailable"
+
 
 # -- Dot data -----------------------------------------------------------------
 
@@ -376,3 +394,158 @@ class DotsOverlayWindow:
             elapsed = now - self._start_time
             self._view._duration_text = f"{elapsed:.1f}s"
         self._view.setNeedsDisplay_(True)
+
+
+# -- Caption bar ----------------------------------------------------------------
+
+
+class CaptionBarView(AppKit.NSView):
+    def initWithFrame_(self, frame):
+        self = objc.super(CaptionBarView, self).initWithFrame_(frame)
+        if self is None:
+            return None
+        self._lines: list[tuple[str, float]] = []  # (text, alpha), top to bottom
+        self._show_cursor = False
+        return self
+
+    def isFlipped(self):
+        return True  # y grows downward: lines stack naturally top-to-bottom
+
+    def drawRect_(self, rect):
+        bounds = self.bounds()
+        bg_path = AppKit.NSBezierPath.bezierPathWithRoundedRect_xRadius_yRadius_(
+            bounds, CAPTION_CORNER_RADIUS, CAPTION_CORNER_RADIUS
+        )
+        AppKit.NSColor.colorWithCalibratedRed_green_blue_alpha_(
+            0.0, 0.0, 0.0, CAPTION_BG_ALPHA
+        ).setFill()
+        bg_path.fill()
+
+        if not self._lines:
+            return
+        font = AppKit.NSFont.systemFontOfSize_(CAPTION_FONT_SIZE)
+        white = AppKit.NSColor.whiteColor()
+        block_height = len(self._lines) * CAPTION_LINE_HEIGHT
+        y = (bounds.size.height - block_height) / 2
+        for i, (text, alpha) in enumerate(self._lines):
+            if self._show_cursor and i == len(self._lines) - 1:
+                text += CAPTION_CURSOR
+            attrs = {
+                AppKit.NSFontAttributeName: font,
+                AppKit.NSForegroundColorAttributeName: white.colorWithAlphaComponent_(alpha),
+            }
+            text_str = AppKit.NSAttributedString.alloc().initWithString_attributes_(text, attrs)
+            text_str.drawAtPoint_(NSMakePoint(CAPTION_PADDING_H, y))
+            y += CAPTION_LINE_HEIGHT
+
+
+class CaptionBarWindow:
+    """Detached live-transcript bar below the dots card (design §5, R4/R18).
+
+    Redraws only on text change; the sole timer is a slow cursor blink,
+    active only while partial text is displayed.
+    """
+
+    def __init__(self, dots_overlay: DotsOverlayWindow):
+        self._blink_timer = None
+        self._last_state = None  # (text, partial, dimmed) of the last render
+
+        self._timer_target = _TimerTarget.alloc().init()
+        self._timer_target._callback = self._blink_tick
+
+        # 14pt below the dots window, horizontally centred on it
+        dots_frame = dots_overlay._window.frame()
+        wx = dots_frame.origin.x + (dots_frame.size.width - CAPTION_WIDTH) / 2
+        wy = dots_frame.origin.y - CAPTION_GAP - CAPTION_HEIGHT
+        frame = NSMakeRect(wx, wy, CAPTION_WIDTH, CAPTION_HEIGHT)
+
+        self._window = AppKit.NSWindow.alloc().initWithContentRect_styleMask_backing_defer_(
+            frame,
+            AppKit.NSWindowStyleMaskBorderless,
+            AppKit.NSBackingStoreBuffered,
+            False,
+        )
+        self._window.setLevel_(AppKit.NSFloatingWindowLevel)
+        self._window.setBackgroundColor_(AppKit.NSColor.clearColor())
+        self._window.setOpaque_(False)
+        self._window.setHasShadow_(False)
+        self._window.setIgnoresMouseEvents_(True)
+
+        self._view = CaptionBarView.alloc().initWithFrame_(
+            NSMakeRect(0, 0, CAPTION_WIDTH, CAPTION_HEIGHT)
+        )
+        self._window.setContentView_(self._view)
+
+    # -- public API -----------------------------------------------------------
+
+    def set_text(self, text: str, partial: bool = False, dimmed: bool = False):
+        state = (text, partial, dimmed)
+        if state == self._last_state:
+            return  # redraw only on change
+        self._last_state = state
+
+        current_alpha = CAPTION_DIMMED_ALPHA if dimmed else CAPTION_CURRENT_ALPHA
+        older_alpha = CAPTION_DIMMED_OLDER_ALPHA if dimmed else CAPTION_OLDER_ALPHA
+        lines = self._wrap(text)[-CAPTION_MAX_LINES:] or [""]
+        self._view._lines = [(t, older_alpha) for t in lines[:-1]] + [
+            (lines[-1], current_alpha)
+        ]
+        self._set_cursor_active(partial)
+        self._view.setNeedsDisplay_(True)
+        self._window.orderFront_(None)
+
+    def show_unavailable(self):
+        self._last_state = None
+        self._view._lines = [(CAPTION_UNAVAILABLE_TEXT, CAPTION_CURRENT_ALPHA)]
+        self._set_cursor_active(False)
+        self._view.setNeedsDisplay_(True)
+        self._window.orderFront_(None)
+
+    def hide(self):
+        self._set_cursor_active(False)
+        self._last_state = None
+        self._view._lines = []
+        self._window.orderOut_(None)
+
+    def cleanup(self):
+        self.hide()
+        self._timer_target._callback = None
+
+    # -- internals --------------------------------------------------------------
+
+    def _set_cursor_active(self, active: bool):
+        self._view._show_cursor = active
+        if active and self._blink_timer is None:
+            self._blink_timer = AppKit.NSTimer.scheduledTimerWithTimeInterval_target_selector_userInfo_repeats_(
+                CAPTION_BLINK_SECONDS, self._timer_target, "fire:", None, True
+            )
+        elif not active and self._blink_timer is not None:
+            self._blink_timer.invalidate()
+            self._blink_timer = None
+
+    def _blink_tick(self):
+        self._view._show_cursor = not self._view._show_cursor
+        self._view.setNeedsDisplay_(True)
+
+    @staticmethod
+    def _wrap(text: str) -> list[str]:
+        """Word-wrap text to the bar's usable width (measured, not estimated)."""
+        max_width = CAPTION_WIDTH - 2 * CAPTION_PADDING_H
+        attrs = {
+            AppKit.NSFontAttributeName: AppKit.NSFont.systemFontOfSize_(CAPTION_FONT_SIZE)
+        }
+        lines: list[str] = []
+        current = ""
+        for word in text.split():
+            candidate = f"{current} {word}".strip()
+            width = AppKit.NSAttributedString.alloc().initWithString_attributes_(
+                candidate, attrs
+            ).size().width
+            if width <= max_width or not current:
+                current = candidate
+            else:
+                lines.append(current)
+                current = word
+        if current:
+            lines.append(current)
+        return lines
