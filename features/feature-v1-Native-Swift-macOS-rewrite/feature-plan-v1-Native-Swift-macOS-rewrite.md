@@ -351,6 +351,10 @@ Swift Testing output is also prefixed by an XCTest line `Executed 0 tests, with 
 
 **Definition of done:** Request shapes asserted field by field; F14 strings exact; no key text in logs (`CapturingLogSink` assertion).
 
+**Deviations taken during implementation:**
+- `TokenUsage` landed in `Sources/MWSupport/TokenUsage.swift` rather than MWTranscription: Stage 16's `Pricing.dictationCost` needs the same token pair, and §5.2's dependency edges forbid MWUsage → MWTranscription.
+- The `APIErrorTests` cases are named `invalidKeyMessage` / `rateLimitedMessage` / `otherStatusMessage`; a Swift identifier cannot start with a digit.
+
 **Risks specific to this stage:** None.
 
 ### Stage 16 — MWUsage: `Pricing` and `UsageStore`
@@ -365,6 +369,10 @@ Swift Testing output is also prefixed by an XCTest line `Executed 0 tests, with 
 4. Run — confirm fail. Implement `struct ProviderUsage`, `struct DayEntry`, `actor UsageStore { init(config: ConfigStore, today: () -> Date); add(_:) async throws -> DayEntry; totals() async -> (today, monthCost) }`, `protocol UsageRecording` (for the pipeline), `FakeUsageStore`. Run — confirm pass; `swift test` green.
 
 **Definition of done:** All 14 pricing cases plus the new rate; usage cases ported; month prune on write.
+
+**Deviations taken during implementation:**
+- `DayEntry` is a `public typealias` for `MWConfig.DayUsage` rather than a second struct: the config file's `usage` values already have exactly F35's four fields, so the stored type is reused.
+- `MWUsage` gains a direct `MWSupport` dependency in `Package.swift`, for `TokenUsage`.
 
 **Risks specific to this stage:** None.
 
