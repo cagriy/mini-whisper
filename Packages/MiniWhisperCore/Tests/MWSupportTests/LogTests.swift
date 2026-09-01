@@ -9,11 +9,24 @@ import MWTestSupport
             .appendingPathComponent("mw-log-\(UUID().uuidString).log")
     }
 
+    @Test func sinksAreScopedToTheCallingTask() async {
+        let sink = CapturingLogSink()
+
+        await Log.withSinks(debug: false, sinks: [sink]) {
+            // Work that did not inherit the scope — another suite running in
+            // parallel — must not reach this sink.
+            await Task.detached { Log.config.info("another suite") }.value
+            Log.audio.info("ours")
+        }
+
+        #expect(sink.lines == ["INFO audio ours"])
+    }
+
     @Test func debugFileSinkReceivesDebugLines() async throws {
         let url = makeTempFile()
         defer { try? FileManager.default.removeItem(at: url) }
 
-        try await LogCapture.run(debug: true, sinks: [FileLogSink(url: url)]) {
+        try await Log.withSinks(debug: true, sinks: [FileLogSink(url: url)]) {
             Log.hotkey.debug("tap installed")
         }
 
@@ -32,7 +45,7 @@ import MWTestSupport
     @Test func infoOnlyWhenDebugOff() async {
         let sink = CapturingLogSink()
 
-        await LogCapture.run(debug: false, sinks: [sink]) {
+        await Log.withSinks(debug: false, sinks: [sink]) {
             Log.audio.debug("engine graph")
             Log.audio.info("engine started")
         }
@@ -43,7 +56,7 @@ import MWTestSupport
     @Test func categoriesAreNamespaced() async {
         let sink = CapturingLogSink()
 
-        await LogCapture.run(debug: false, sinks: [sink]) {
+        await Log.withSinks(debug: false, sinks: [sink]) {
             Log.stream("openai").warning("socket closed")
         }
 

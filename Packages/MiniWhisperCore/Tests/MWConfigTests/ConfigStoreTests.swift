@@ -51,7 +51,7 @@ private final class FakeFileWatcher: FileWatcher, @unchecked Sendable {
         try "not valid json{{{".write(to: directory.file("config.json"), atomically: true, encoding: .utf8)
         let sink = CapturingLogSink()
 
-        let config = await LogCapture.run(sinks: [sink]) {
+        let config = await Log.withSinks(debug: false, sinks: [sink]) {
             await makeStore(directory.url).load()
         }
 

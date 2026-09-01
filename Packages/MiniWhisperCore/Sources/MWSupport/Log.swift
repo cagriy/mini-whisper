@@ -62,10 +62,24 @@ public enum Log {
 
     private static let storage = OSAllocatedUnfairLock(initialState: State())
 
-    static var state: State { storage.withLock { $0 } }
+    /// Set only by `withSinks`. Task-local rather than process-wide so concurrent
+    /// callers each observe their own sinks instead of one another's.
+    @TaskLocal static var scoped: State?
+
+    static var state: State { scoped ?? storage.withLock { $0 } }
 
     public static func configure(debug: Bool, sinks: [any LogSink]) {
         storage.withLock { $0 = State(debug: debug, sinks: sinks) }
+    }
+
+    /// Routes logging to `sinks` for the duration of `body` and any task it awaits,
+    /// leaving the process-wide configuration untouched.
+    public static func withSinks<T>(
+        debug: Bool,
+        sinks: [any LogSink],
+        _ body: () async throws -> T
+    ) async rethrows -> T {
+        try await $scoped.withValue(State(debug: debug, sinks: sinks), operation: body)
     }
 
     public static let hotkey = LogCategory(name: "hotkey")
