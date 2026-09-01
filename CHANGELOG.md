@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.1.8] - 2026-09-01
+
 ### Added
 - Live transcript: partial text streams into a caption bar below the recording dots while you speak
 - Engine picker in Settings — On-device Apple speech recognition (default, free, offline), OpenAI, ElevenLabs, or Speechmatics; any engine failure falls back to batch transcription
