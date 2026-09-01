@@ -79,6 +79,25 @@ private struct RecogniserFailure: Error, CustomStringConvertible {
         #expect(api.request.appended.last === second)
     }
 
+    @Test func bufferArrivingDuringFlushKeepsFeedOrder() {
+        let api = FakeSpeechRecognitionAPI()
+        let engine = SFSpeechEngine(api: api, clock: VirtualClock())
+        let first = PCMBufferFactory.make(samples: [0.1], sampleRate: 48000)
+        let second = PCMBufferFactory.make(samples: [0.2], sampleRate: 48000)
+        let late = PCMBufferFactory.make(samples: [0.3], sampleRate: 48000)
+
+        engine.feed(first)
+        engine.feed(second)
+        // The tap thread keeps delivering while `start` drains the backlog.
+        api.request.onFirstAppend { engine.feed(late) }
+
+        engine.start(sink: RecordingSink())
+
+        #expect(api.request.appended.map { $0 === first } == [true, false, false])
+        #expect(api.request.appended.map { $0 === second } == [false, true, false])
+        #expect(api.request.appended.map { $0 === late } == [false, false, true])
+    }
+
     @Test func partialAndFinalDriveSinkAndAssembler() async {
         let api = FakeSpeechRecognitionAPI()
         let session = started(api)

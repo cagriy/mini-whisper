@@ -50,12 +50,21 @@ public final class SFSpeechEngine: StreamingEngine, @unchecked Sendable {
         }
         log.info("engine started")
 
-        let pending = lock.withLock { () -> [AVAudioPCMBuffer] in
-            state.request = request
-            defer { state.preStart = [] }
-            return state.preStart
+        // Publish the request only in the same critical section that finds the backlog
+        // empty. A tap-thread `feed` racing this loop still enqueues, and is drained on
+        // the next pass, so buffers always reach the recogniser in the order they arrived.
+        while true {
+            let pending = lock.withLock { () -> [AVAudioPCMBuffer] in
+                guard !state.preStart.isEmpty else {
+                    state.request = request
+                    return []
+                }
+                defer { state.preStart = [] }
+                return state.preStart
+            }
+            guard !pending.isEmpty else { break }
+            for buffer in pending { request.append(buffer) }
         }
-        for buffer in pending { request.append(buffer) }
     }
 
     /// Called synchronously on the audio tap thread.

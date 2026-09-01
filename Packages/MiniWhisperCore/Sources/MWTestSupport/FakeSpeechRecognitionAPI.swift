@@ -7,13 +7,29 @@ public final class FakeRecognitionRequest: RecognitionRequestHandle, @unchecked 
     private let lock = NSLock()
     private var buffers: [AVAudioPCMBuffer] = []
     private var endCalls = 0
+    private var firstAppendHook: (() -> Void)?
 
     public init() {}
 
     public var appended: [AVAudioPCMBuffer] { lock.withLock { buffers } }
     public var endAudioCalls: Int { lock.withLock { endCalls } }
 
-    public func append(_ buffer: AVAudioPCMBuffer) { lock.withLock { buffers.append(buffer) } }
+    /// Runs once, after the first `append`, to stand in for a tap-thread buffer
+    /// arriving while the engine is draining its pre-start backlog.
+    public func onFirstAppend(_ hook: @escaping () -> Void) {
+        lock.withLock { firstAppendHook = hook }
+    }
+
+    public func append(_ buffer: AVAudioPCMBuffer) {
+        lock.withLock { buffers.append(buffer) }
+        // Fired outside the lock, and only once, so the hook may re-enter `append`.
+        let hook = lock.withLock { () -> (() -> Void)? in
+            defer { firstAppendHook = nil }
+            return firstAppendHook
+        }
+        hook?()
+    }
+
     public func endAudio() { lock.withLock { endCalls += 1 } }
 }
 
