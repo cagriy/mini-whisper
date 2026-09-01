@@ -331,6 +331,10 @@ Swift Testing output is also prefixed by an XCTest line `Executed 0 tests, with 
 
 **Definition of done:** Every F23 rule and the F32 default rule has a named test; the factory performs no I/O beyond the injected seams.
 
+**Deviations taken during implementation:**
+- `unknownEngineNameIsNoEngine` is not implementable as written: Stage 3's `Config.streamingEngine` is a typed `EngineName?`, so an unrecognised `streaming_engine` string decodes to `nil` and is indistinguishable from an absent key. F32's rule governs — the test landed as `unknownEngineNameFallsBackToPlatformDefault`, asserting the platform default rather than the Python app's `unknown_engine` batch fallback.
+- `Sources/MWTestSupport/FakePlatformInfo.swift` was not created: `PlatformInfo` is a plain value type with a public memberwise initialiser, so tests construct it directly.
+
 **Risks specific to this stage:** None.
 
 ### Stage 15 — MWTranscription: `OpenAIClient` and `APIError`
