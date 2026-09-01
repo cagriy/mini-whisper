@@ -20,6 +20,9 @@ Mini Whisper pastes transcribed text directly into the active app via clipboard 
 ### Auto-submit mode
 A second configurable hotkey transcribes, pastes, **and** presses Enter. Perfect for chat apps, Claude Code, shell terminals, and anywhere you'd hit Enter right after typing.
 
+### Live transcript while you speak
+A caption bar below the recording dots shows your words as you say them. Four engines to choose from: Apple's on-device speech recognition (default — free, offline), OpenAI, ElevenLabs, or Speechmatics. If the live engine ever fails, the dictation completes via the regular batch transcription — dictation never breaks.
+
 ### AI text cleanup
 An optional GPT-4o-mini pass runs after transcription to silently remove filler words ("um", "uh", "you know"), fix grammar, and clean up false starts so what gets pasted reads like you meant to write it. Fully customizable via your own system prompt.
 
@@ -38,7 +41,7 @@ Built with PyObjC, AVFoundation, and AppKit. Near-instant recording start thanks
 - Remap any hotkey (supports modifier keys like Right Cmd as standalone triggers)
 - Edit the transcription instructions and cleanup prompt from the Settings window
 - Adjust feedback sound volume
-- View daily token usage from the menu bar
+- View today's tokens, streamed minutes, and dollar cost — plus month-to-date cost — from the menu bar
 
 ---
 
@@ -79,6 +82,8 @@ On first launch, Mini Whisper walks you through the two permissions it needs:
 
 The onboarding window guides you to the right macOS System Settings pane for each and waits until both are granted before continuing.
 
+macOS asks for **Speech Recognition** permission separately, on your first dictation with the on-device live-transcript engine.
+
 ### 2. Add your OpenAI API key
 
 Open **Settings** from the menu bar icon and paste your OpenAI API key into the API Key field. The key is saved directly to the macOS Keychain.
@@ -96,7 +101,7 @@ Don't have an API key? Get one at [platform.openai.com](https://platform.openai.
 
 Both hotkeys support push-to-talk (hold) and toggle (tap) modes automatically based on how long you press.
 
-The menu bar icon shows a dropdown with your last transcription (click to copy it again), today's token usage, and links to Settings and About.
+The menu bar icon shows a dropdown with your last transcription (click to copy it again), today's usage and cost plus month-to-date cost, and links to Settings and About.
 
 ---
 
@@ -104,10 +109,10 @@ The menu bar icon shows a dropdown with your last transcription (click to copy i
 
 | Location | Purpose |
 |---|---|
-| `~/.config/mini-whisper/config.json` | Hotkeys, cleanup toggle, volume, token usage |
+| `~/.config/mini-whisper/config.json` | Hotkeys, cleanup and streaming toggles, engine choice, volume, usage |
 | `~/.config/mini-whisper/prompt.txt` | AI cleanup system prompt |
 | `~/.config/mini-whisper/transcribe_prompt.txt` | Transcription instructions |
-| macOS Keychain | OpenAI API key |
+| macOS Keychain | OpenAI API key; optional ElevenLabs / Speechmatics keys |
 
 All of these are editable from the **Settings** window inside the app.
 
@@ -128,4 +133,5 @@ The resulting `Mini Whisper.app` will be in the `dist/` folder.
 
 - macOS 13+, Apple Silicon
 - OpenAI API key (`gpt-4o-mini-transcribe` and `gpt-4o-mini` access)
+- Optional: ElevenLabs / Speechmatics API keys for their live-transcript engines
 - Python 3.12+ (if running from source)

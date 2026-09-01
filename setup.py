@@ -36,6 +36,10 @@ OPTIONS = {
             "Mini Whisper needs Input Monitoring access to detect "
             "global hotkeys."
         ),
+        "NSSpeechRecognitionUsageDescription": (
+            "Mini Whisper uses on-device speech recognition to show a "
+            "live transcript while you dictate."
+        ),
     },
     "packages": ["mini_whisper", "_soundfile_data", "keyring.backends"],
     "includes": [
@@ -51,6 +55,8 @@ OPTIONS = {
         "numpy",
         "Quartz",
         "ApplicationServices",
+        "Speech",
+        "websockets",
     ],
 }
 

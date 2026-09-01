@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+- Live transcript: partial text streams into a caption bar below the recording dots while you speak
+- Engine picker in Settings — On-device Apple speech recognition (default, free, offline), OpenAI, ElevenLabs, or Speechmatics; any engine failure falls back to batch transcription
+- macOS Speech Recognition permission prompt on first on-device dictation
+- Optional ElevenLabs / Speechmatics API keys, stored in the macOS Keychain
+- Menu bar cost rows: `Today: <in>/<out> tok · <N>m · $<x.xx>` and `Month: $<y.yy>`
+
 ## [0.1.7] - 2026-03-26
 
 ### Fixed
