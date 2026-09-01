@@ -1,0 +1,80 @@
+name: Mini Whisper
+options:
+  bundleIdPrefix: com.ips
+  deploymentTarget:
+    macOS: "14.0"
+  createIntermediateGroups: true
+
+packages:
+  MiniWhisperCore:
+    path: Packages/MiniWhisperCore
+
+settings:
+  base:
+    MACOSX_DEPLOYMENT_TARGET: "14.0"
+    SWIFT_VERSION: "6.0"
+    SWIFT_STRICT_CONCURRENCY: complete
+    DEVELOPMENT_TEAM: XPRCQRLN7Y
+    CODE_SIGN_STYLE: Manual
+    CODE_SIGN_IDENTITY: "-"
+
+targets:
+  MiniWhisper:
+    type: application
+    platform: macOS
+    sources:
+      - path: App
+    dependencies:
+      - package: MiniWhisperCore
+        product: MWSupport
+      - package: MiniWhisperCore
+        product: MWConfig
+      - package: MiniWhisperCore
+        product: MWHotkeys
+      - package: MiniWhisperCore
+        product: MWAudio
+      - package: MiniWhisperCore
+        product: MWStreaming
+      - package: MiniWhisperCore
+        product: MWTranscription
+      - package: MiniWhisperCore
+        product: MWUsage
+      - package: MiniWhisperCore
+        product: MWHistory
+      - package: MiniWhisperCore
+        product: MWProfiles
+      - package: MiniWhisperCore
+        product: MWPaste
+      - package: MiniWhisperCore
+        product: MWOverlaySim
+      - package: MiniWhisperCore
+        product: MWPipeline
+    settings:
+      base:
+        PRODUCT_NAME: Mini Whisper
+        PRODUCT_MODULE_NAME: MiniWhisper
+        PRODUCT_BUNDLE_IDENTIFIER: com.ips.mini-whisper
+        MARKETING_VERSION: "0.2.0"
+        CURRENT_PROJECT_VERSION: "0.2.0"
+        INFOPLIST_FILE: App/Info.plist
+        CODE_SIGN_ENTITLEMENTS: App/MiniWhisper.entitlements
+        ENABLE_HARDENED_RUNTIME: YES
+    scheme:
+      testTargets:
+        - AppTests
+
+  AppTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: AppTests
+    dependencies:
+      - target: MiniWhisper
+    settings:
+      base:
+        # xcodegen otherwise derives a MiniWhisper.app host that does not exist,
+        # because PRODUCT_NAME is "Mini Whisper".
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/Mini Whisper.app/Contents/MacOS/Mini Whisper"
+        BUNDLE_LOADER: "$(TEST_HOST)"
+        PRODUCT_BUNDLE_IDENTIFIER: com.ips.mini-whisper.AppTests
+        GENERATE_INFOPLIST_FILE: YES

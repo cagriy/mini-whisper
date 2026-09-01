@@ -18,3 +18,7 @@ xcuserdata/
 
 # Claude
 .claude/.last
+
+# xcodegen output
+*.xcodeproj
+.dd/
