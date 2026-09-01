@@ -46,7 +46,10 @@ let package = Package(
                 "MWSupport", "MWConfig", "MWHotkeys", "MWAudio", "MWStreaming",
                 "MWTranscription", "MWUsage", "MWHistory", "MWProfiles", "MWPaste",
                 "MWOverlaySim",
-            ]
+            ],
+            // The WAV fixtures several test targets share, reached through
+            // `TestFixtures.wav(_:)`.
+            resources: [.copy("Fixtures")]
         ),
 
         .testTarget(name: "MWSupportTests", dependencies: ["MWSupport", "MWTestSupport"]),

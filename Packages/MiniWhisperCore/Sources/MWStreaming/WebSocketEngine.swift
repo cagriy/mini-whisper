@@ -16,51 +16,6 @@ public enum WebSocketEngineError: Error, CustomStringConvertible {
     }
 }
 
-/// A latch that many tasks can await and one can raise, cancellation-safe so the
-/// racing task group in `finish` can always unwind.
-private final class Latch: @unchecked Sendable {
-    private let lock = NSLock()
-    private var raised = false
-    private var waiters: [UInt64: CheckedContinuation<Void, Never>] = [:]
-    private var cancelled: Set<UInt64> = []
-    private var nextID: UInt64 = 0
-
-    func raise() {
-        let pending = lock.withLock { () -> [CheckedContinuation<Void, Never>] in
-            raised = true
-            defer { waiters.removeAll() }
-            return Array(waiters.values)
-        }
-        for waiter in pending { waiter.resume() }
-    }
-
-    func wait() async {
-        let id = lock.withLock { () -> UInt64 in
-            nextID += 1
-            return nextID
-        }
-        await withTaskCancellationHandler {
-            await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
-                let resumeNow = lock.withLock { () -> Bool in
-                    if raised || cancelled.remove(id) != nil { return true }
-                    waiters[id] = continuation
-                    return false
-                }
-                if resumeNow { continuation.resume() }
-            }
-        } onCancel: {
-            let waiter = lock.withLock { () -> CheckedContinuation<Void, Never>? in
-                guard let waiter = waiters.removeValue(forKey: id) else {
-                    cancelled.insert(id)
-                    return nil
-                }
-                return waiter
-            }
-            waiter?.resume()
-        }
-    }
-}
-
 /// The shared cloud streaming skeleton (F20, F21), a port of
 /// `../mini-whisper/src/mini_whisper/streaming/websocket_engine.py`: buffer-until-open
 /// with a 60 s cap, send and receive loops, the end-of-audio gate before a terminal
@@ -170,7 +125,7 @@ public final class WebSocketEngine<Adapter: EngineAdapter>: StreamingEngine, @un
         queueContinuation.yield(.end)
         queueContinuation.finish()
 
-        if await !completedBefore(timeout) {
+        if await !done.raised(within: timeout, on: clock) {
             log.info("finish timeout after \(timeout.seconds)s")
             state.withLock { $0.failed = true }
         }
@@ -315,22 +270,6 @@ public final class WebSocketEngine<Adapter: EngineAdapter>: StreamingEngine, @un
                 return first
             }
             guard let received, (try? apply(received)) != nil else { return }
-        }
-    }
-
-    private func completedBefore(_ timeout: Duration) async -> Bool {
-        await withTaskGroup(of: Bool.self) { group in
-            group.addTask {
-                await self.done.wait()
-                return true
-            }
-            group.addTask {
-                try? await self.clock.sleep(for: timeout)
-                return false
-            }
-            let first = await group.next() ?? false
-            group.cancelAll()
-            return first
         }
     }
 
