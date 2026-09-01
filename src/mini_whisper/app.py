@@ -7,7 +7,7 @@ from pathlib import Path
 import AppKit
 import rumps
 
-from mini_whisper import __version__, config, sounds
+from mini_whisper import __version__, config, pricing, sounds
 from mini_whisper.onboarding import OnboardingWindow, check_all_permissions
 from mini_whisper.settings import SettingsWindow
 
@@ -20,14 +20,6 @@ def _notify(title: str, subtitle: str, message: str, sound: bool = True):
         rumps.notification(title, subtitle, message, sound=sound)
     except RuntimeError:
         logger.debug("Notification failed (missing Info.plist?): %s", message)
-
-
-
-def _fmt_tokens(in_tok, out_tok) -> str:
-    def fmt(n):
-        n = int(n)
-        return f"{n / 1000:.1f}k" if n >= 1000 else str(n)
-    return f"Today: {fmt(in_tok)}/{fmt(out_tok)}"
 
 
 _PKG_DIR = Path(__import__("mini_whisper").__file__).parent
@@ -44,13 +36,16 @@ class MiniWhisperApp(rumps.App):
         self._last_text = ""
         self._last_item_visible = False
         self.last_item = rumps.MenuItem('Last: ""', callback=self._copy_last)
-        today_usage = config.usage_totals()["today"]
-        self.usage_item = rumps.MenuItem(
-            _fmt_tokens(today_usage['input_tokens'], today_usage['output_tokens'])
+        totals = config.usage_totals()
+        today_row, month_row = pricing.format_usage_rows(
+            totals["today"], totals["month_cost_usd"]
         )
+        self.usage_item = rumps.MenuItem(today_row)
+        self.month_item = rumps.MenuItem(month_row)
 
         self.menu = [
             self.usage_item,
+            self.month_item,
             None,
             rumps.MenuItem("Settings...", callback=self._open_settings),
             None,
@@ -146,11 +141,11 @@ class MiniWhisperApp(rumps.App):
                 truncated = event.text[:50] + ("..." if len(event.text) > 50 else "")
                 self.last_item.title = f'Last: "{truncated}"'
                 if not self._last_item_visible:
-                    self.menu.insert_after(self.usage_item.title, self.last_item)
+                    self.menu.insert_after(self.month_item.title, self.last_item)
                     self._last_item_visible = True
             elif event.kind == "usage":
-                in_tok, out_tok = event.text.split(" / ")
-                self.usage_item.title = _fmt_tokens(in_tok, out_tok)
+                self.usage_item.title = event.text
+                self.month_item.title = event.text2
             elif event.kind == "error":
                 self.overlay.show_error(event.text)
                 self.caption_bar.hide()

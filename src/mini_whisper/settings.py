@@ -21,7 +21,18 @@ logger = logging.getLogger(__name__)
 _SIDED_MODIFIERS = {Key.cmd_r, Key.shift_r, Key.ctrl_r, Key.alt_r}
 
 WINDOW_WIDTH = 480
-WINDOW_HEIGHT = 645
+WINDOW_HEIGHT = 825
+
+# Streaming engine popup: (config value, menu label), in menu order
+_ENGINE_OPTIONS = [
+    ("on_device", "On-device (free, offline)"),
+    ("openai", "OpenAI"),
+    ("elevenlabs", "ElevenLabs"),
+    ("speechmatics", "Speechmatics"),
+]
+
+# Shown in a key field once a key is stored — the key itself is never echoed
+_KEY_PLACEHOLDER = "••••••••••••"
 
 
 # -- Helper: dispatch from pynput background thread to main thread ----------
@@ -242,15 +253,7 @@ class SettingsWindow:
         y -= 30
 
         # Record hotkey
-        record_label = AppKit.NSTextField.alloc().initWithFrame_(
-            NSMakeRect(20, y, 120, 24)
-        )
-        record_label.setStringValue_("Record Hotkey")
-        record_label.setBezeled_(False)
-        record_label.setDrawsBackground_(False)
-        record_label.setEditable_(False)
-        record_label.setSelectable_(False)
-        content.addSubview_(record_label)
+        self._add_field_label(content, "Record Hotkey", y)
 
         self.record_field = _HotkeyField.alloc().initWithFrame_(
             NSMakeRect(150, y, 200, 24)
@@ -266,15 +269,7 @@ class SettingsWindow:
         y -= 30
 
         # Submit hotkey
-        submit_label = AppKit.NSTextField.alloc().initWithFrame_(
-            NSMakeRect(20, y, 120, 24)
-        )
-        submit_label.setStringValue_("Submit Hotkey")
-        submit_label.setBezeled_(False)
-        submit_label.setDrawsBackground_(False)
-        submit_label.setEditable_(False)
-        submit_label.setSelectable_(False)
-        content.addSubview_(submit_label)
+        self._add_field_label(content, "Submit Hotkey", y)
 
         self.submit_field = _HotkeyField.alloc().initWithFrame_(
             NSMakeRect(150, y, 200, 24)
@@ -400,6 +395,66 @@ class SettingsWindow:
         open_editor_btn.setAction_("clicked:")
         content.addSubview_(open_editor_btn)
 
+        # -- Live Streaming section -------------------------------------------
+        y -= 35
+        y = self._add_section_label(content, "Live Streaming", y)
+        y -= 28
+
+        self.streaming_checkbox = AppKit.NSButton.alloc().initWithFrame_(
+            NSMakeRect(20, y, 200, 20)
+        )
+        self.streaming_checkbox.setButtonType_(AppKit.NSSwitchButton)
+        self.streaming_checkbox.setTitle_("Enable Live Transcript")
+        self.streaming_checkbox.setState_(
+            1 if self.cfg.get("streaming_enabled", True) else 0
+        )
+        self._streaming_target = _ButtonTarget.alloc().initWithCallback_(
+            self._toggle_streaming
+        )
+        self.streaming_checkbox.setTarget_(self._streaming_target)
+        self.streaming_checkbox.setAction_("clicked:")
+        content.addSubview_(self.streaming_checkbox)
+
+        y -= 32
+        self._add_field_label(content, "Engine", y)
+        self.engine_popup = AppKit.NSPopUpButton.alloc().initWithFrame_pullsDown_(
+            NSMakeRect(148, y - 2, 220, 25), False
+        )
+        self.engine_popup.addItemsWithTitles_([label for _, label in _ENGINE_OPTIONS])
+        current_engine = self.cfg.get("streaming_engine", "on_device")
+        engine_names = [name for name, _ in _ENGINE_OPTIONS]
+        self.engine_popup.selectItemAtIndex_(
+            engine_names.index(current_engine) if current_engine in engine_names else 0
+        )
+        self._engine_target = _ButtonTarget.alloc().initWithCallback_(
+            self._engine_changed
+        )
+        self.engine_popup.setTarget_(self._engine_target)
+        self.engine_popup.setAction_("clicked:")
+        content.addSubview_(self.engine_popup)
+
+        y -= 34
+        self.elevenlabs_key_field, self._elevenlabs_save_target = (
+            self._add_streaming_key_row(content, y, "ElevenLabs Key", "elevenlabs")
+        )
+        y -= 30
+        self.speechmatics_key_field, self._speechmatics_save_target = (
+            self._add_streaming_key_row(content, y, "Speechmatics Key", "speechmatics")
+        )
+
+        y -= 20
+        self.streaming_key_error = AppKit.NSTextField.alloc().initWithFrame_(
+            NSMakeRect(20, y, 390, 16)
+        )
+        self.streaming_key_error.setStringValue_("")
+        self.streaming_key_error.setBezeled_(False)
+        self.streaming_key_error.setDrawsBackground_(False)
+        self.streaming_key_error.setEditable_(False)
+        self.streaming_key_error.setSelectable_(False)
+        self.streaming_key_error.setTextColor_(AppKit.NSColor.systemRedColor())
+        self.streaming_key_error.setFont_(AppKit.NSFont.systemFontOfSize_(11))
+        content.addSubview_(self.streaming_key_error)
+
         # -- Sound ----------------------------------------------------------
         y -= 40
         self._add_section_label(content, "Sound", y)
@@ -454,6 +509,43 @@ class SettingsWindow:
         view.addSubview_(label)
         return y
 
+    def _add_field_label(self, view, text, y):
+        label = AppKit.NSTextField.alloc().initWithFrame_(
+            NSMakeRect(20, y, 120, 24)
+        )
+        label.setStringValue_(text)
+        label.setBezeled_(False)
+        label.setDrawsBackground_(False)
+        label.setEditable_(False)
+        label.setSelectable_(False)
+        view.addSubview_(label)
+        return label
+
+    def _add_streaming_key_row(self, view, y, label_text, engine):
+        """One 'label / secure key field / Save' row; returns (field, target)."""
+        self._add_field_label(view, label_text, y)
+
+        field = AppKit.NSSecureTextField.alloc().initWithFrame_(
+            NSMakeRect(150, y, 200, 24)
+        )
+        if config.get_streaming_api_key(engine):
+            field.setStringValue_(_KEY_PLACEHOLDER)
+        field.setPlaceholderString_("not set")
+        view.addSubview_(field)
+
+        target = _ButtonTarget.alloc().initWithCallback_(
+            lambda _sender: self._save_streaming_key(engine, field)
+        )
+        save_btn = AppKit.NSButton.alloc().initWithFrame_(
+            NSMakeRect(360, y, 80, 24)
+        )
+        save_btn.setTitle_("Save")
+        save_btn.setBezelStyle_(AppKit.NSBezelStyleRounded)
+        save_btn.setTarget_(target)
+        save_btn.setAction_("clicked:")
+        view.addSubview_(save_btn)
+        return field, target
+
     def _set_hotkey_display(self, field, combo_str):
         try:
             modifiers, trigger, _is_mod = parse_hotkey(combo_str)
@@ -503,6 +595,36 @@ class SettingsWindow:
             return
         self.api_key_error.setStringValue_("")
         self.api_key_field.setStringValue_(f"sk-...{key[-4:]}")
+
+    # -- Live Streaming callbacks ---------------------------------------------
+
+    @objc.python_method
+    def _toggle_streaming(self, _sender):
+        self.cfg["streaming_enabled"] = self.streaming_checkbox.state() == 1
+        config.save(self.cfg)
+        self.on_save(self.cfg)
+
+    @objc.python_method
+    def _engine_changed(self, _sender):
+        idx = self.engine_popup.indexOfSelectedItem()
+        self.cfg["streaming_engine"] = _ENGINE_OPTIONS[idx][0]
+        config.save(self.cfg)
+        self.on_save(self.cfg)
+
+    @objc.python_method
+    def _save_streaming_key(self, engine, field):
+        key = field.stringValue().strip()
+        if not key or key == _KEY_PLACEHOLDER:
+            self.streaming_key_error.setStringValue_("Enter a new API key to save.")
+            return
+        try:
+            config.set_streaming_api_key(engine, key)
+        except Exception as e:
+            logger.exception("Failed to save %s API key", engine)
+            self.streaming_key_error.setStringValue_(str(e))
+            return
+        self.streaming_key_error.setStringValue_("")
+        field.setStringValue_(_KEY_PLACEHOLDER)
 
     # -- Hotkey capture callbacks -------------------------------------------
 

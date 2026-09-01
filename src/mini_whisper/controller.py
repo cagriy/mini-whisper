@@ -285,7 +285,7 @@ class Controller:
                               "cost_usd": cost}
             if engine_name is not None and stream_seconds > 0:
                 provider_usage["streamed_seconds"] = {engine_name: stream_seconds}
-            totals = config.add_usage(provider_usage)
+            config.add_usage(provider_usage)
 
             # Discard if a newer recording has started since we began processing
             if generation != self._generation:
@@ -298,7 +298,11 @@ class Controller:
             paste(final_text, submit=submit)
             play_sound("off")
             self.ui_queue.put(UIEvent("result", final_text))
-            self.ui_queue.put(UIEvent("usage", f"{totals['input_tokens']} / {totals['output_tokens']}"))
+            totals = config.usage_totals()
+            today_row, month_row = pricing.format_usage_rows(
+                totals["today"], totals["month_cost_usd"]
+            )
+            self.ui_queue.put(UIEvent("usage", today_row, text2=month_row))
 
         except httpx.HTTPStatusError as e:
             logger.exception("API request failed")

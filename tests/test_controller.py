@@ -427,6 +427,25 @@ def test_usage_recorded_with_cost(ctrl, monkeypatch):
     assert usage_call["output_tokens"] == 8
 
 
+def test_usage_event_carries_formatted_rows(ctrl, monkeypatch):
+    """Stage 10: the usage event carries the two pre-formatted menu rows."""
+    monkeypatch.setattr(
+        "mini_whisper.controller.config.usage_totals",
+        MagicMock(return_value={
+            "today": {"input_tokens": 1200, "output_tokens": 3400,
+                      "streamed_seconds": {"on_device": 720}, "cost_usd": 0.08},
+            "month_cost_usd": 1.42,
+        }),
+    )
+    ctrl._generation = 1
+    ctrl._process(_fake_audio(), submit=False, generation=1)
+
+    usage_events = [e for e in _drain(ctrl.ui_queue) if e.kind == "usage"]
+    assert len(usage_events) == 1
+    assert usage_events[0].text == "Today: 1.2k/3.4k tok · 12m · $0.08"
+    assert usage_events[0].text2 == "Month: $1.42"
+
+
 def test_permission_denied_pointer_once_per_run(ctrl):
     import mini_whisper.controller as mod
     mod.make_engine.return_value = (None, "permission_denied")
