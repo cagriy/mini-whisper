@@ -12,6 +12,7 @@ dependencies = [
     "numpy>=1.26.0",
     "keyring>=25.0.0",
     "pyobjc-framework-speech>=12",
+    "websockets>=17",
 ]
 
 [project.scripts]

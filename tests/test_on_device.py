@@ -6,6 +6,8 @@ import pytest
 
 from mini_whisper.streaming.on_device import OnDeviceEngine, ensure_authorized
 
+from .conftest import FakeSink
+
 
 class FakeSpeechAPI:
     """Stands in for _SpeechAPI: plain-Python boundary, no pyobjc."""
@@ -28,22 +30,6 @@ class FakeSpeechAPI:
             raise self.raise_on_start
         self.on_result = on_result
         return self.request
-
-
-class FakeSink:
-    def __init__(self):
-        self.partials: list[str] = []
-        self.finals: list[str] = []
-        self.errors: list[Exception] = []
-
-    def on_partial(self, text):
-        self.partials.append(text)
-
-    def on_final(self, text):
-        self.finals.append(text)
-
-    def on_engine_error(self, exc):
-        self.errors.append(exc)
 
 
 @pytest.fixture()
