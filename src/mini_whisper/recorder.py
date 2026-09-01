@@ -53,6 +53,7 @@ class Recorder:
         self._frames: list[np.ndarray] = []
         self._lock = threading.Lock()
         self._recording = False
+        self._buffer_listener = None
         self._current_level: float = 0.0
         self._rms_sum: float = 0.0
         self._rms_count: int = 0
@@ -75,6 +76,15 @@ class Recorder:
         # Preallocate hardware resources — no orange mic dot yet
         self._engine.prepare()
 
+    def set_buffer_listener(self, fn) -> None:
+        """Install (or clear with None) a non-blocking per-tap-buffer callable.
+
+        The listener receives each raw AVAudioPCMBuffer after it has been
+        appended to the local accumulation; exceptions are swallowed so
+        streaming can never affect the fallback recording (R15/R16).
+        """
+        self._buffer_listener = fn
+
     def _tap_block(self, pcm_buffer, when):
         """Callback from AVAudioEngine's input tap (runs on audio thread)."""
         with self._lock:
@@ -89,6 +99,12 @@ class Recorder:
                 self._rms_count += 1
             except Exception:
                 logger.exception("Error reading audio buffer")
+            listener = self._buffer_listener
+            if listener is not None:
+                try:
+                    listener(pcm_buffer)
+                except Exception:
+                    logger.exception("Buffer listener raised")
 
     def start(self):
         """Begin capturing audio from the default microphone.
