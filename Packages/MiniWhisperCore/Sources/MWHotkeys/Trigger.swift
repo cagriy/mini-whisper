@@ -5,6 +5,19 @@ public enum NamedKey: String, Codable, CaseIterable, Sendable {
     case enter
 
     public var displayName: String { rawValue.capitalized }
+
+    public var virtualKey: UInt16 {
+        switch self {
+        case .space: 49
+        case .tab: 48
+        case .enter: 36
+        }
+    }
+
+    public init?(virtualKey: UInt16) {
+        guard let match = Self.allCases.first(where: { $0.virtualKey == virtualKey }) else { return nil }
+        self = match
+    }
 }
 
 /// A right-hand modifier usable as a trigger (`_MODIFIER_TRIGGER_MAP`), carrying
@@ -36,6 +49,11 @@ public enum SidedModifier: String, Codable, CaseIterable, Sendable {
     }
 
     public var displayName: String { "Right \(canonical.symbol)" }
+
+    public init?(virtualKey: UInt16) {
+        guard let match = Self.allCases.first(where: { $0.virtualKey == virtualKey }) else { return nil }
+        self = match
+    }
 }
 
 public enum Trigger: Hashable, Sendable {
