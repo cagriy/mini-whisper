@@ -1,0 +1,107 @@
+<title>Overlay — Quiet</title>
+<style>
+*,*::before,*::after{box-sizing:border-box}
+:root{--page-bg:#1c1e22;--page-text:#e8e8ea;--page-muted:#9a9aa2;--accent:#7cc4ff;--banner:#26292f;--rule:#34383f}
+body{margin:0;background:var(--page-bg);color:var(--page-text);font:14px/1.45 -apple-system,BlinkMacSystemFont,"Helvetica Neue",sans-serif}
+.banner{background:var(--banner);border-bottom:1px solid var(--rule);padding:14px 22px;font-size:13px}
+.banner strong{color:#fff}.banner .axis{color:var(--accent)}
+.banner p{margin:4px 0 0;color:var(--page-muted);max-width:78ch}
+main{display:grid;grid-template-columns:minmax(560px,1fr) 300px;gap:24px;padding:22px;align-items:start}
+.desktop{position:relative;height:640px;border-radius:12px;overflow:hidden;background:linear-gradient(160deg,#2b3140,#141821)}
+.desktop .win{position:absolute;left:36px;top:40px;width:520px;height:560px;background:#f5f5f7;border-radius:10px;box-shadow:0 20px 50px rgba(0,0,0,.35);color:#1d1d1f;padding:52px 28px 28px;font-size:13px;line-height:1.6}
+.desktop .win::before{content:"";position:absolute;left:0;right:0;top:0;height:38px;border-radius:10px 10px 0 0;background:#e6e6ea;border-bottom:1px solid #d0d0d5}
+.desktop .win .dots{position:absolute;top:13px;left:14px;display:flex;gap:7px}.desktop .win .dots i{width:12px;height:12px;border-radius:50%;display:block}
+.desktop .win p{margin:0 0 10px;max-width:60ch;color:#3a3a3f}
+#stage{position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none}
+canvas{position:absolute;left:0;top:0}
+#card{left:50%;top:44%;transform:translate(-50%,-50%);width:300px;height:300px;position:absolute;opacity:0}
+#caption{left:50%;top:44%;position:absolute;width:480px;height:180px;transform:translate(-50%,calc(150px + 14px));border-radius:16px;background:rgba(0,0,0,.7);padding:13px 16px;font-size:14px;line-height:22px;color:#fff;opacity:0;overflow:hidden}
+#caption .ln{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#caption .old{opacity:.45}#caption .cur{opacity:.92}#caption.dim .cur{opacity:.65}#caption.dim .old{opacity:.4}
+#caption .cursor{display:inline-block;animation:blink .9s steps(1) infinite}@keyframes blink{50%{opacity:0}}
+.panel{background:var(--banner);border:1px solid var(--rule);border-radius:10px;padding:16px}
+.panel h3{margin:0 0 10px;font-size:13px;letter-spacing:.04em;text-transform:uppercase;color:var(--page-muted)}
+.panel button{display:block;width:100%;margin:0 0 8px;padding:9px 12px;border-radius:8px;border:1px solid var(--rule);background:#2e323a;color:#fff;font:13px -apple-system,sans-serif;text-align:left;cursor:pointer}
+.panel button:hover{background:#383d46}.panel button:focus-visible{outline:2px solid var(--accent)}
+.panel .st{margin-top:12px;font-variant-numeric:tabular-nums;color:var(--page-muted);font-size:12px}
+.panel .st b{color:#fff}
+.panel ul{margin:10px 0 0;padding-left:18px;color:var(--page-muted);font-size:12.5px}
+.panel li{margin:4px 0}
+@media (prefers-reduced-motion:reduce){#caption .cursor{animation:none}}
+</style>
+<div class="banner"><strong>Mockup — not shipping code · Feature v1 · “Overlay — Quiet” · Not chosen</strong>
+<p>Source physics untouched; polish limited to what the Python timer design could not do: 180 ms fade+scale on show, 150 ms on hide, a dimmed “starting…” state (dots at 35 % alpha, no connection lines, no audio) during a cold engine start, a 200 ms alpha ramp when capture goes live, dots fading out under the error text. <span class="axis">Axis vs. the other overlay alternatives: least motion — transitions only, no new choreography.</span> Design language: source overlay constants (300 pt card, 24 dots, k=30/c=10, lines &lt;120 pt, 480×180 caption) with white-on-translucent-black as in the Python app and the accepted v1 caption-bar mockup.</p></div>
+<main>
+<div class="desktop"><div class="win"><span class="dots"><i style="background:#ff5f57"></i><i style="background:#febc2e"></i><i style="background:#28c840"></i></span>
+<p>Placeholder document in the focused app. The overlay floats above it at NSFloatingWindowLevel, mouse-transparent, centred on the display holding this window.</p>
+<p>Sample text sample text sample text sample text sample text sample text sample text sample text sample text sample text sample text.</p></div>
+<div id="stage"><div id="card"><canvas id="cv" width="600" height="600" style="width:300px;height:300px"></canvas></div><div id="caption"></div></div></div>
+<aside class="panel"><h3>Drive the state machine</h3><p style="margin:0 0 10px;color:var(--page-muted);font-size:12px">The demo loops on its own: cold press → live → paste, then warm press → error. Buttons interrupt it.</p>
+<button data-a="cold">Press — cold engine (≈600 ms to live)</button>
+<button data-a="warm">Press — warm engine (live in ≈20 ms)</button>
+<button data-a="release">Release → processing → paste</button>
+<button data-a="error">Release → processing → error</button>
+<button data-a="auto">Auto demo (loops)</button>
+<div class="st">state <b id="s">hidden</b> · t <b id="t">0.0s</b> · level <b id="l">0.00</b></div>
+<ul><li>Starting state: dots dimmed, lines off, label “starting…”.</li><li>Live: alpha ramps to 0.9; lines return.</li><li>Processing: rigid 3 rad/s rotation as today.</li><li>Error: dots fade, message crossfades in; 3 s then hide.</li><li>Caption: opacity changes only.</li></ul></aside>
+</main>
+<script>
+(()=>{
+const VARIANT="quiet";
+const N=24,RING=10,R=100,KS=30,DAMP=10,AMB=10,AMBW=1.2,AUD=130,CONN=120,ROT=3.0,DRIFT=2.0,BOOST=40;
+const card=document.getElementById('card'),cv=document.getElementById('cv'),ctx=cv.getContext('2d'),cap=document.getElementById('caption');
+const sEl=document.getElementById('s'),tEl=document.getElementById('t'),lEl=document.getElementById('l');
+const rnd=(a,b)=>a+Math.random()*(b-a);const gauss=()=>{let u=0,v=0;while(!u)u=Math.random();while(!v)v=Math.random();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v)};
+let dots=[],state='hidden',t0=0,level=0,rot=0,last=0,stateT=0,cardA=0,cardS=1,dotA=0.9,shake=0,errText='',timers=[];
+const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+function seed(){dots=[];for(let i=0;i<N;i++){let x,y;if(i<RING){const slot=2*Math.PI/RING,a=i*slot+rnd(-.15,.15)*slot,r=R*(1+rnd(-.1,.1));x=150+r*Math.cos(a);y=150+r*Math.sin(a)}else{const d=R*Math.sqrt(Math.random()),a=rnd(0,2*Math.PI);x=150+d*Math.cos(a);y=150+d*Math.sin(a)}
+dots.push({hx:x,hy:y,x:VARIANT==='breathing'?150:x,y:VARIANT==='breathing'?150:y,vx:0,vy:0,r:rnd(2,5),ph:rnd(0,2*Math.PI),aa:rnd(0,2*Math.PI)})}}
+function clearTimers(){timers.forEach(clearTimeout);timers=[]}
+function after(ms,f){timers.push(setTimeout(f,ms))}
+function set(s){state=s;stateT=performance.now();sEl.textContent=s}
+function show(cold){clearTimers();seed();level=0;rot=0;t0=performance.now();shake=0;errText='';cap.className='';cap.innerHTML='';
+if(cold){set('starting');after(600,()=>{set('recording');captionStart()})}else{set('recording');after(20,captionStart)}}
+function release(err){if(state!=='recording')return;clearTimers();set('processing');cap.className='dim';renderCaption(false);
+after(1500,()=>{if(err){set('error');errText='Rate limited — please wait and try again.';cap.style.opacity=0;after(3000,hide)}else{set('result');after(VARIANT==='breathing'?260:120,hide)}})}
+function hide(){clearTimers();set('hidden');cap.style.opacity=0}
+const words='so the native rewrite keeps the same twenty four dots and the spring physics while adding native transitions'.split(' ');
+let capWords=0;function captionStart(){capWords=0;cap.style.opacity=1;const tick=()=>{if(state!=='recording')return;capWords=Math.min(words.length,capWords+1);renderCaption(true);if(capWords<words.length)after(220,tick)};tick()}
+function renderCaption(partial){const text=words.slice(0,capWords).join(' ');const lines=[];let cur='';text.split(' ').forEach(w=>{if((cur+' '+w).trim().length>52){lines.push(cur);cur=w}else cur=(cur+' '+w).trim()});lines.push(cur);
+const shown=lines.slice(-7);cap.innerHTML=shown.map((l,i)=>`<div class="ln ${i===shown.length-1?'cur':'old'}">${l}${i===shown.length-1&&partial?'<span class="cursor">▍</span>':''}</div>`).join('')}
+function step(now){const dt=Math.min((now-last)/1000||0,0.05);last=now;const el=(now-stateT)/1000;
+// audio level simulation
+let raw=0;if(state==='recording'){raw=Math.max(0,0.02+0.03*Math.sin(now/300)+0.02*Math.sin(now/137)+0.01*gauss())}
+const norm=Math.min(1,Math.max(0,(raw-0.005)/(0.06-0.005)));level+=(norm>level?0.6:0.08)*(norm-level);lEl.textContent=level.toFixed(2);
+// visibility & scale per variant
+const tgtA=state==='hidden'?0:1;const fadeIn=VARIANT==='breathing'?0.12:0.18,fadeOut=0.15;
+cardA+=(tgtA-cardA)*Math.min(1,dt/(tgtA?fadeIn:fadeOut)*1.2);if(Math.abs(tgtA-cardA)<0.01)cardA=tgtA;
+if(state==='hidden')cardS+=(0.98-cardS)*Math.min(1,dt/0.15);else cardS+=(1-cardS)*Math.min(1,dt/0.18);
+if(state==='processing')rot+=ROT*dt;
+const tDot=state==='starting'?(VARIANT==='breathing'?0.9:0.35):(state==='error'?0:0.9);dotA+=(tDot-dotA)*Math.min(1,dt/0.2);
+if(VARIANT==='breathing'&&state==='error'){shake=el<0.45?Math.sin(el*60)*6*(1-el/0.45):0}
+card.style.opacity=cardA.toFixed(3);card.style.transform=`translate(calc(-50% + ${shake.toFixed(1)}px),-50%) scale(${(VARIANT==='breathing'?1:cardS).toFixed(3)})`;
+// physics
+const tt=(now-t0)/1000;const breathe=state==='starting'&&VARIANT==='breathing';const collapse=VARIANT==='breathing'&&state==='result';
+for(const d of dots){let hx=d.hx,hy=d.hy;if(breathe){const a=Math.atan2(d.hy-150,d.hx-150),rr=30+6*Math.sin(tt*2*Math.PI);hx=150+rr*Math.cos(a);hy=150+rr*Math.sin(a)}
+if(collapse){hx=150;hy=150}
+if(state==='processing'){const c=Math.cos(rot),s=Math.sin(rot),dx=hx-150,dy=hy-150;hx=150+dx*c-dy*s;hy=150+dx*s+dy*c}
+const ax=AMB*Math.cos(AMBW*tt+d.ph),ay=AMB*Math.sin(AMBW*tt+d.ph);
+d.aa+=gauss()*DRIFT*(1+level*BOOST)*dt;const ux=level*AUD*Math.cos(d.aa),uy=level*AUD*Math.sin(d.aa);
+const txp=hx+ax+ux,typ=hy+ay+uy;const fx=KS*(txp-d.x)-DAMP*d.vx,fy=KS*(typ-d.y)-DAMP*d.vy;d.vx+=fx*dt;d.vy+=fy*dt;d.x+=d.vx*dt;d.y+=d.vy*dt}
+// draw
+ctx.setTransform(2,0,0,2,0,0);ctx.clearRect(0,0,300,300);
+if(VARIANT==='glass'){ctx.fillStyle='rgba(255,255,255,0.22)';rr(0,0,300,300,20);ctx.fill();ctx.strokeStyle='rgba(255,255,255,0.35)';ctx.lineWidth=1;rr(0.5,0.5,299,299,20);ctx.stroke()}else{ctx.fillStyle='rgba(0,0,0,0.7)';rr(0,0,300,300,20);ctx.fill()}
+if(state!=='error'){const lineOn=!(state==='starting'&&VARIANT!=='breathing');
+if(lineOn){ctx.lineWidth=1;for(let i=0;i<N;i++)for(let j=i+1;j<N;j++){const a=dots[i],b=dots[j],dd=Math.hypot(a.x-b.x,a.y-b.y);if(dd<CONN){ctx.strokeStyle=`rgba(255,255,255,${((1-dd/CONN)*0.6*dotA/0.9).toFixed(3)})`;ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke()}}}
+for(const d of dots){ctx.fillStyle=`rgba(255,255,255,${dotA.toFixed(3)})`;if(VARIANT==='glass'){ctx.shadowColor='rgba(0,0,0,.35)';ctx.shadowBlur=4}ctx.beginPath();ctx.arc(d.x,d.y,d.r,0,2*Math.PI);ctx.fill();ctx.shadowBlur=0}
+ctx.fillStyle='rgba(255,255,255,0.9)';ctx.font='11px ui-monospace,Menlo,monospace';ctx.textAlign='right';ctx.textBaseline='bottom';
+const label=state==='processing'||state==='result'?'processing...':state==='starting'?'starting…':`${tt.toFixed(1)}s`;ctx.fillText(label,288,290);tEl.textContent=`${tt.toFixed(1)}s`}
+else{ctx.fillStyle='#fff';ctx.font='500 14px -apple-system,sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';wrap(errText,150,120,260,18)}
+requestAnimationFrame(step)}
+function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath()}
+function wrap(s,x,y,w,lh){const ws=s.split(' ');let line='',lines=[];for(const wd of ws){const t=(line+' '+wd).trim();if(ctx.measureText(t).width>w&&line){lines.push(line);line=wd}else line=t}lines.push(line);lines.forEach((l,i)=>ctx.fillText(l,x,y+i*lh))}
+document.querySelectorAll('.panel button').forEach(b=>b.addEventListener('click',()=>{const a=b.dataset.a;if(a==='cold')show(true);else if(a==='warm')show(false);else if(a==='release')release(false);else if(a==='error')release(true);else auto()}));
+function auto(){show(true);after(3200,()=>release(false));after(3200+1500+400+1200,()=>{show(false);after(2600,()=>release(true));after(2600+1500+3000+1200,auto)})}
+seed();requestAnimationFrame(step);auto();
+})();
+</script>

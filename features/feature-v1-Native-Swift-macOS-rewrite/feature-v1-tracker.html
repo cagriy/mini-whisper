@@ -935,14 +935,14 @@
         </span>
         <span class="step-label">Storming</span>
       </li>
-      <li class="step" data-stage="design" data-state="pending">
+      <li class="step" data-stage="design" data-state="complete">
         <span class="step-indicator" aria-hidden="true">
           <span class="step-check">&#10003;</span>
           <span class="step-number">2</span>
         </span>
         <span class="step-label">Design</span>
       </li>
-      <li class="step" data-stage="plan" data-state="pending">
+      <li class="step" data-stage="plan" data-state="complete">
         <span class="step-indicator" aria-hidden="true">
           <span class="step-check">&#10003;</span>
           <span class="step-number">3</span>
@@ -1026,11 +1026,39 @@
     <section class="panel active" role="tabpanel"
              id="panel-brainstorming" aria-labelledby="tab-brainstorming">
       <p class="section-timestamp">Updated 2026-09-01 17:50 UTC</p>
-      {{BRAINSTORMING_USAGE_CHIP}}
+      <!-- usage:BRAINSTORMING_USAGE_CHIP --><span class="chip usage">58m 31s · 33,713 out · 41.0 tok/s</span><!-- /usage:BRAINSTORMING_USAGE_CHIP -->
       <article class="panel-section">
         <h2 class="section-label">Highlights</h2>
         <div class="bullets"><ul><li>Rewrite Mini Whisper as a native Swift macOS menu-bar app that is a drop-in replacement for the Python app: same bundle ID com.ips.mini-whisper, same ~/.config/mini-whisper/ files, same Keychain items, same Homebrew cask and signed/notarised DMG release pipeline — existing users upgrade in place.</li><li>Feature parity with v0.1.8 is the baseline: both hotkeys with hold/toggle, modifier-as-trigger capture, batch transcription + optional cleanup, four live-transcript engines (on-device, OpenAI Realtime, ElevenLabs, Speechmatics) with batch fallback, caption bar, sounds, onboarding, usage/cost rows, pricing_overrides honoured (no UI).</li><li>Latency is a first-class requirement: idle-stop audio-engine lifecycle (running after first use, stopped after idle) replaces per-press start/stop, and the UI is event-driven with no polling — press→visible-recording must drop from ~0.5 s to under ~50 ms on warm presses.</li><li>macOS 14 minimum; SpeechAnalyzer is an additional engine on macOS 26+ and the default there, SFSpeechRecognizer the default below.</li><li>Fix rather than reproduce: clipboard restored after paste, overlay/caption centred on the display holding the focused window, discarded dictations not billed (streamed minutes still counted), single-instance guard, toggle-mode safety cap (configurable, default 5 min).</li><li>Settings are redesigned so invalid states cannot be selected: a cloud engine is unselectable until its key is saved, Text Cleanup is disabled without an OpenAI key; with no key an on-device transcript is pasted raw, so the app works key-free.</li><li>New: local dictation history with retention 0–30 days (default 7, 0 = off), a History window with search/copy/re-paste/clear, and a manually maintained vocabulary list injected into transcription instructions and the cleanup prompt.</li><li>New: per-app profiles bound to bundle IDs (plus a Default profile) controlling cleanup prompt, cleanup on/off and submit-key behaviour (Enter / Shift+Enter / Cmd+Enter); per-app transcription instructions and built-in presets are deferred.</li><li>Animations reproduce the source physics numerically (24 dots, spring k=30/damping 10, audio mapping, 3 rad/s processing spin, 7-line caption with 0.9 s cursor) with native polish added; /feature-design presents 3–4 overlay alternatives.</li><li>Deferred by name: toggle-mode indicator, live typing into the target app, clipboard-free Accessibility insertion, Shortcuts/CLI service, automatic vocabulary learning, pricing UI. Design must close: SwiftUI vs AppKit per surface, overlay rendering path, TCC permission carry-over under a new binary, history storage, idle-timeout value.</li></ul></div>
-        {{BRAINSTORMING_USAGE}}
+        <!-- usage:BRAINSTORMING_USAGE --><div class="usage-pair">
+<table class="usage">
+<thead><tr><th>Metric</th><th>Main</th><th>Subagents</th><th>Total</th></tr></thead>
+<tbody>
+<tr class="grp"><td colspan="4">Time</td></tr>
+<tr><td>elapsed</td><td>—</td><td>—</td><td>58m 31s</td></tr>
+<tr><td>run time</td><td>—</td><td>—</td><td>14m 09s</td></tr>
+<tr class="grp"><td colspan="4">Requests</td></tr>
+<tr><td>model</td><td>26</td><td>13</td><td>39</td></tr>
+<tr><td>web_search</td><td>0</td><td>0</td><td>0</td></tr>
+<tr><td>web_fetch</td><td>0</td><td>0</td><td>0</td></tr>
+<tr class="grp"><td colspan="4">Throughput</td></tr>
+<tr class="tp"><td>output tok/s</td><td>—</td><td>—</td><td>41.0</td></tr>
+</tbody>
+</table>
+<table class="usage">
+<thead><tr><th>Metric</th><th>Main</th><th>Subagents</th><th>Total</th></tr></thead>
+<tbody>
+<tr class="grp"><td colspan="4">Tokens</td></tr>
+<tr><td>input_tokens</td><td>1,470</td><td>26</td><td>1,496</td></tr>
+<tr><td>output_tokens</td><td>33,613</td><td>100</td><td>33,713</td></tr>
+<tr class="sub"><td>thinking_tokens</td><td>9,284</td><td>0</td><td>9,284</td></tr>
+<tr><td>cache_write</td><td>91,872</td><td>128,714</td><td>220,586</td></tr>
+<tr class="sub"><td>ephemeral_1h</td><td>91,872</td><td>0</td><td>91,872</td></tr>
+<tr class="sub"><td>ephemeral_5m</td><td>0</td><td>128,714</td><td>128,714</td></tr>
+<tr><td>cache_read</td><td>2,922,775</td><td>868,845</td><td>3,791,620</td></tr>
+</tbody>
+</table>
+</div><!-- /usage:BRAINSTORMING_USAGE -->
       </article>
       <article class="panel-section">
         <h2 class="section-label">Detail</h2>
@@ -1077,42 +1105,107 @@
 
     <section class="panel" role="tabpanel"
              id="panel-design" aria-labelledby="tab-design" hidden>
-      <p class="section-timestamp">Awaiting /feature-design</p>
-      {{DESIGN_USAGE_CHIP}}
+      <p class="section-timestamp">Updated 2026-09-01 19:40 UTC</p>
+      <!-- usage:DESIGN_USAGE_CHIP --><span class="chip usage">38m 15s · 98,121 out · 98.8 tok/s</span><!-- /usage:DESIGN_USAGE_CHIP -->
       <article class="panel-section">
         <h2 class="section-label">Highlights</h2>
-        <div class="bullets"><p class="empty">Not yet filled — pending /feature-design.</p></div>
-        {{DESIGN_USAGE}}
+        <div class="bullets"><ul><li>Drop-in native replacement: same bundle ID, config files, Keychain items and cask; TCC grants carry over because the Developer ID signature reproduces the installed app's designated requirement.</li><li>Structure: xcodegen-generated app target plus a local Swift package (MiniWhisperCore) of twelve independently tested modules; AppKit shell for menu bar, overlay and caption panels; SwiftUI for Settings, History and onboarding.</li><li>Latency: one AVAudioEngine kept running with a configurable idle-stop (default 60 s), 1024-frame tap, capture gated by a flag; event-driven hotkey→overlay path with no polling; warm press→recording under 50 ms; tick sound only when capture is not live within 100 ms, on.mp3 when live.</li><li>Overlay follows the accepted Breathing mockup: source physics constants unchanged, dots spring from the centre, breathing ring during cold start, collapse on paste, shake on error; rendered by one custom CALayer from a preallocated frame at display refresh rate.</li><li>Engines: SpeechAnalyzer (macOS 26, opt-in model download at first launch, default when installed and no engine chosen), SFSpeechRecognizer, OpenAI Realtime, ElevenLabs, Speechmatics with the pinned wire protocols; every failure path downgrades to the next engine or batch.</li><li>Settings (sidebar, 780×560) makes invalid states unrepresentable: key-less cloud engines disabled inline, cleanup disabled without an OpenAI key; on-device transcripts paste raw without a key.</li><li>Fixes: clipboard snapshot/restore 300 ms after paste if unchanged, overlay placed on the display of the focused window, stale jobs stop before the next API call and bill only streamed seconds, single-instance guard, toggle cap (default 5 min).</li><li>History: history.jsonl with 0–30 day retention (0 deletes the file), day-grouped List window with Copy / Paste into previous app / Delete / Clear; vocabulary list appended to both prompts; per-app profiles (cleanup prompt, cleanup on/off, submit key) resolved at release time.</li><li>Tests: Swift Testing suites per module with fakes, websocket adapters replayed from the Python repo's JSON fixtures, controller state machine covered end to end; CI on macos-26 runs tests, signs, notarises, releases and updates the cask (URL switched to the new repo).</li><li>Risks: TCC or Keychain prompts on first launch, SpeechAnalyzer field behaviour, Swift 6 concurrency around audio callbacks, clipboard restore timing — each with a mitigation in §7.</li></ul></div>
+        <!-- usage:DESIGN_USAGE --><div class="usage-pair">
+<table class="usage">
+<thead><tr><th>Metric</th><th>Main</th><th>Subagents</th><th>Total</th></tr></thead>
+<tbody>
+<tr class="grp"><td colspan="4">Time</td></tr>
+<tr><td>elapsed</td><td>—</td><td>—</td><td>38m 15s</td></tr>
+<tr><td>run time</td><td>—</td><td>—</td><td>25m 42s</td></tr>
+<tr class="grp"><td colspan="4">Requests</td></tr>
+<tr><td>model</td><td>32</td><td>0</td><td>32</td></tr>
+<tr><td>web_search</td><td>0</td><td>0</td><td>0</td></tr>
+<tr><td>web_fetch</td><td>0</td><td>0</td><td>0</td></tr>
+<tr class="grp"><td colspan="4">Throughput</td></tr>
+<tr class="tp"><td>output tok/s</td><td>—</td><td>—</td><td>98.8</td></tr>
+</tbody>
+</table>
+<table class="usage">
+<thead><tr><th>Metric</th><th>Main</th><th>Subagents</th><th>Total</th></tr></thead>
+<tbody>
+<tr class="grp"><td colspan="4">Tokens</td></tr>
+<tr><td>input_tokens</td><td>18,017</td><td>0</td><td>18,017</td></tr>
+<tr><td>output_tokens</td><td>98,121</td><td>0</td><td>98,121</td></tr>
+<tr class="sub"><td>thinking_tokens</td><td>28,337</td><td>0</td><td>28,337</td></tr>
+<tr><td>cache_write</td><td>459,731</td><td>0</td><td>459,731</td></tr>
+<tr class="sub"><td>ephemeral_1h</td><td>459,731</td><td>0</td><td>459,731</td></tr>
+<tr class="sub"><td>ephemeral_5m</td><td>0</td><td>0</td><td>0</td></tr>
+<tr><td>cache_read</td><td>8,363,022</td><td>0</td><td>8,363,022</td></tr>
+</tbody>
+</table>
+</div><!-- /usage:DESIGN_USAGE -->
       </article>
       <article class="panel-section">
         <h2 class="section-label">Detail</h2>
-        <div class="prose"><p class="empty">Not yet filled — pending /feature-design.</p></div>
+        <div class="prose"><p><a href="./mockups/mockup-v1-overlay-breathing.html">Overlay — Breathing</a> (<a href="https://claude.ai/code/artifact/06c3f389-e0ed-49f7-ae69-bc7c8f462ffa">artifact</a>) · <a href="./mockups/mockup-v1-settings-sidebar.html">Settings — Sidebar</a> (<a href="https://claude.ai/code/artifact/4b8fd1e1-2e90-44f7-8077-826103e7e82e">artifact</a>) · <a href="./mockups/mockup-v1-history-list.html">History — List</a> (<a href="https://claude.ai/code/artifact/b9d0c016-1b2d-4301-b9c0-60feddf40148">artifact</a>)</p>
+<h3>Summary</h3><p>Native Swift menu-bar app replacing the Python app in place. Reproduces every user-visible behaviour, adopts an idle-stop audio lifecycle and event-driven UI for latency, fixes five latent defects, gates Settings on key presence, adds history, vocabulary and per-app profiles. Testable Core package plus thin app target, macOS 14+, SpeechAnalyzer on 26.</p>
+<h3>Goals and non-goals</h3><ul><li>Drop-in upgrade with TCC and Keychain continuity; behavioural parity with v0.1.8.</li><li>Warm press→recording &lt; 50 ms; 60 fps overlay without per-frame allocation.</li><li>Key-free operation via on-device engines; invalid Settings states unrepresentable.</li><li>Out: Python repo changes, deferred storm items, Intel builds.</li></ul>
+<h3>Architecture</h3><p>xcodegen <code>project.yml</code> → app target; <code>Packages/MiniWhisperCore</code> with modules MWConfig, MWHotkeys, MWAudio, MWStreaming, MWTranscription, MWPipeline, MWUsage, MWHistory, MWProfiles, MWPaste, MWOverlaySim, MWSupport. Platform adapters in the app implement Core protocols (key events, audio tap, key posting, pasteboard, sounds, clock).</p>
+<h4>Key components</h4><ul><li><code>HotkeyMatcher</code> — pure state machine reproducing the source grammar and matching rules; watchdog now covers modifier-trigger bindings.</li><li><code>AudioCaptureEngine</code> actor — engine lifecycle, idle stop, config-change and sleep handling, RMS, buffer fan-out.</li><li><code>WebSocketEngine</code> + three adapters, <code>SFSpeechEngine</code>, <code>SpeechAnalyzerEngine</code>, <code>EngineFactory</code> with downgrade rules.</li><li><code>DictationController</code> (main actor) — press/release, hold threshold, toggle cap, generation guard, billing, history.</li><li><code>ConstellationSimulation</code> — deterministic physics and choreography; <code>ConstellationLayer</code> draws it.</li><li><code>Paster</code> — pasteboard snapshot/restore, <code>CGEventPostToPid</code>, submit-key variants, AX check.</li></ul>
+<h3>Data</h3><ul><li><code>config.json</code> superset: history_retention_days, idle_stop_seconds, toggle_max_seconds, speech_model_prompted, vocabulary, profiles; unknown keys round-trip; atomic writes.</li><li><code>history.jsonl</code> (0600) with id, ts, text, app, bundle id, engine, seconds, cost.</li><li>Keychain generic passwords, service <code>mini-whisper</code>, login keychain.</li></ul>
+<h3>Failure handling</h3><p>Every engine failure degrades to the next engine or batch; device change ends the recording with an error; stale jobs stop before the next API call; Accessibility loss surfaces as an overlay error; clipboard restored only if unchanged.</p>
+<h3>Testing</h3><p>Swift Testing per module with fakes and fixture replay; app smoke tests via xcodebuild; opt-in integration tests against OpenAI; manual acceptance checklist covering upgrade-in-place, latency, engines, profiles, history, displays, sleep/wake.</p>
+<h3>Risks</h3><ul><li>TCC / Keychain first-launch prompts.</li><li>SpeechAnalyzer behaviour and asset download.</li><li>Swift 6 concurrency around AVAudioEngine and Speech callbacks.</li><li>Clipboard restore timing in slow targets.</li><li>Provider protocol drift.</li></ul>
+<h3>Rollout</h3><p>Core modules with tests → <code>v0.2.0-beta.1</code> pre-release installed over 0.1.8 for acceptance → <code>v0.2.0</code> tag updates the cask (URL, homepage, macOS ≥ Sonoma). Rollback via the 0.1.8 DMG; config compatible both ways.</p></div>
       </article>
     </section>
 
     <section class="panel" role="tabpanel"
              id="panel-plan" aria-labelledby="tab-plan" hidden>
-      <p class="section-timestamp">Awaiting /feature-plan</p>
-      {{PLAN_USAGE_CHIP}}
+      <p class="section-timestamp">Updated 2026-09-01 19:00 UTC</p>
+      <!-- usage:PLAN_USAGE_CHIP --><span class="chip usage">27m 55s · 19,780 out · 12.6 tok/s</span><!-- /usage:PLAN_USAGE_CHIP -->
       <article class="panel-section">
         <h2 class="section-label">Highlights</h2>
-        <div class="bullets"><p class="empty">Not yet filled — pending /feature-plan.</p></div>
-        {{PLAN_USAGE}}
+        <div class="bullets"><ul><li>31 stages in four phases: scaffold and CI (1), Core modules test-first in dependency order (2–22), app target one surface per stage (23–29), release pipeline and acceptance over 0.1.8 (30–31)</li><li>Greenfield conventions proven in the scratchpad: Swift Testing via <code>swift test</code>, xcodegen + <code>xcodebuild test</code> for AppTests, CI on <code>macos-26</code> / Xcode 26.6</li><li>Every platform API sits behind a protocol seam with a fake in <code>MWTestSupport</code>; live paths are opt-in via <code>MW_INTEGRATION=1</code></li><li>Pipeline lands as ProcessingJob (network/paste half, injected staleness) then DictationController (press/release state machine)</li><li>A dictating menu-bar app exists at Stage 24; overlay, onboarding, Settings and History follow one surface per stage</li><li>Signed/notarised release, GitHub Release and cask update in Stage 30, verified by <code>workflow_dispatch</code> before any tag</li><li>Design coverage 44/44 requirements mapped; three factual/contradiction corrections made in the design in place</li><li>Deviations from the design: none</li></ul></div>
+        <!-- usage:PLAN_USAGE --><div class="usage-pair">
+<table class="usage">
+<thead><tr><th>Metric</th><th>Main</th><th>Subagents</th><th>Total</th></tr></thead>
+<tbody>
+<tr class="grp"><td colspan="4">Time</td></tr>
+<tr><td>elapsed</td><td>—</td><td>—</td><td>27m 55s</td></tr>
+<tr><td>run time</td><td>—</td><td>—</td><td>27m 55s</td></tr>
+<tr class="grp"><td colspan="4">Requests</td></tr>
+<tr><td>model</td><td>9</td><td>13</td><td>22</td></tr>
+<tr><td>web_search</td><td>0</td><td>0</td><td>0</td></tr>
+<tr><td>web_fetch</td><td>0</td><td>0</td><td>0</td></tr>
+<tr class="grp"><td colspan="4">Throughput</td></tr>
+<tr class="tp"><td>output tok/s</td><td>—</td><td>—</td><td>12.6</td></tr>
+</tbody>
+</table>
+<table class="usage">
+<thead><tr><th>Metric</th><th>Main</th><th>Subagents</th><th>Total</th></tr></thead>
+<tbody>
+<tr class="grp"><td colspan="4">Tokens</td></tr>
+<tr><td>input_tokens</td><td>479</td><td>4,725</td><td>5,204</td></tr>
+<tr><td>output_tokens</td><td>18,074</td><td>1,706</td><td>19,780</td></tr>
+<tr class="sub"><td>thinking_tokens</td><td>418</td><td>0</td><td>418</td></tr>
+<tr><td>cache_write</td><td>27,771</td><td>493,004</td><td>520,775</td></tr>
+<tr class="sub"><td>ephemeral_1h</td><td>27,771</td><td>0</td><td>27,771</td></tr>
+<tr class="sub"><td>ephemeral_5m</td><td>0</td><td>493,004</td><td>493,004</td></tr>
+<tr><td>cache_read</td><td>696,119</td><td>1,803,036</td><td>2,499,155</td></tr>
+</tbody>
+</table>
+</div><!-- /usage:PLAN_USAGE -->
       </article>
       <article class="panel-section">
         <h2 class="section-label">Detail</h2>
-        <div class="prose"><p class="empty">Not yet filled — pending /feature-plan.</p></div>
+        <div class="prose"><h3>Overview</h3><p>Mini Whisper is rebuilt from an empty repository as a Swift package (<code>Packages/MiniWhisperCore</code>, twelve modules, one Swift Testing target each) plus a thin xcodegen-generated AppKit/SwiftUI app target, replacing the Python app v0.1.8 in place. The plan runs in four phases: scaffold, build system, CI and test conventions; the Core modules bottom-up in dependency order, each landed test-first against fakes and the Python repo's ported test cases and fixtures; the app target — shell, event tap and adapters, overlay/caption, onboarding, Settings, History — each verified by build plus the AppTests bundle and a stated manual check; and the signed/notarised release pipeline, cask update and the acceptance checklist from design §5.12.</p><h3>Stages</h3><h4>Phase A — Scaffold</h4><p><strong>Stage 1 — Repository scaffold, build system, CI and test conventions.</strong> Empty but complete skeleton: 12 placeholder suites under <code>swift test</code>, <code>xcodegen</code> + <code>xcodebuild test</code> for AppTests, CI on macos-26.<br><em>Touches:</em> Package.swift, project.yml, App/ shell + Info.plist + entitlements + resources, AppTests/, .github/workflows/build.yml, CLAUDE.md, README.md, CHANGELOG.md, .gitignore</p><h4>Phase B — Core modules (test-first)</h4><p><strong>Stage 2 — MWSupport and MWTestSupport.</strong> Clock/VirtualClock, Log facade with categories and the --debug file sink, AnyError.<br><em>Touches:</em> Sources/MWSupport, Sources/MWTestSupport, Tests/MWSupportTests</p><p><strong>Stage 3 — MWConfig: Config, ConfigStore, PromptFiles.</strong> Typed, validated, atomically written config.json with Python defaults, corrupt backup, daily_usage migration, unknown-key round-trip, new F4 keys; prompt files.<br><em>Touches:</em> Sources/MWConfig, Tests/MWConfigTests</p><p><strong>Stage 4 — MWConfig: KeychainStore.</strong> SecretStore over the three login-keychain accounts with caching; query logic tested on a SecItem fake, live path opt-in.<br><em>Touches:</em> Sources/MWConfig, Tests/MWConfigTests</p><p><strong>Stage 5 — MWHotkeys: HotkeyCombo.</strong> Parse / config string / display string identical to hotkey.py (13 ported cases).<br><em>Touches:</em> Sources/MWHotkeys, Tests/MWHotkeysTests</p><p><strong>Stage 6 — MWHotkeys: HotkeyMatcher.</strong> Pure matcher: exact-set modifier triggers, superset key triggers, release rules, safety net, watchdog for all bindings, capture mode.<br><em>Touches:</em> Sources/MWHotkeys, Tests/MWHotkeysTests</p><p><strong>Stage 7 — MWAudio: PCMConverter and WAVEncoder.</strong> Stateful chunked resampler equal to audio_convert.py; 16 kHz mono int16 WAV.<br><em>Touches:</em> Sources/MWAudio, Tests/MWAudioTests</p><p><strong>Stage 8 — MWAudio: AudioCaptureEngine.</strong> Single-engine idle-stop lifecycle actor over an AudioBackend seam; AVAudioEngine adapter build-verified plus opt-in live test.<br><em>Touches:</em> Sources/MWAudio, Sources/MWTestSupport, Tests/MWAudioTests</p><p><strong>Stage 9 — MWStreaming: seam types and TranscriptAssembler.</strong> StreamingEngine/TranscriptSink/StreamResult and the compound transcript with the restart heuristic.<br><em>Touches:</em> Sources/MWStreaming, Tests/MWStreamingTests</p><p><strong>Stage 10 — MWStreaming: WebSocketEngine and fixture replayer.</strong> Generic cloud engine: buffer-until-open with 60 s cap, end-of-audio gate, drain, single-shot failure, 5 s finish.<br><em>Touches:</em> Sources/MWStreaming, Sources/MWTestSupport, Tests/MWStreamingTests/Fixtures</p><p><strong>Stage 11 — MWStreaming: OpenAI, ElevenLabs, Speechmatics adapters.</strong> Exact message shapes from design §5.4, fixture-driven happy paths, usage and error mapping.<br><em>Touches:</em> Sources/MWStreaming/Adapters, Tests/MWStreamingTests</p><p><strong>Stage 12 — MWStreaming: SFSpeechEngine and SpeechPermission.</strong> On-device engine behind a SpeechRecognitionAPI seam (10 ported cases); live test opt-in; shared WAV fixtures land here.<br><em>Touches:</em> Sources/MWStreaming, Sources/MWTestSupport/Fixtures, Tests/MWStreamingTests</p><p><strong>Stage 13 — MWStreaming: SpeechAnalyzerEngine and SpeechModelAssets.</strong> macOS 26 engine behind a SpeechAnalyzerAPI seam; asset status/install; compiled under availability guards.<br><em>Touches:</em> Sources/MWStreaming, Tests/MWStreamingTests</p><p><strong>Stage 14 — MWStreaming: EngineFactory.</strong> Every F23 selection/downgrade rule, per-run notices, F32 default-engine rule.<br><em>Touches:</em> Sources/MWStreaming, Tests/MWStreamingTests</p><p><strong>Stage 15 — MWTranscription: OpenAIClient and APIError.</strong> Multipart transcription and chat cleanup with exact shapes, timeouts, ephemeral session, F14 messages; opt-in integration on the WAV fixtures.<br><em>Touches:</em> Sources/MWTranscription, Tests/MWTranscriptionTests</p><p><strong>Stage 16 — MWUsage: Pricing and UsageStore.</strong> Rate tables incl. speech_analyzer 0.0, overrides, cost maths, row formatting, per-day accumulation, month prune.<br><em>Touches:</em> Sources/MWUsage, Tests/MWUsageTests</p><p><strong>Stage 17 — MWHistory: HistoryStore.</strong> JSONL append/read/delete/clear/prune/search, retention 0, corrupt lines, 0600.<br><em>Touches:</em> Sources/MWHistory, Tests/MWHistoryTests</p><p><strong>Stage 18 — MWProfiles: ProfileResolver and PromptComposer.</strong> First-match profile resolution with implicit Default, vocabulary injection, effective cleanup.<br><em>Touches:</em> Sources/MWProfiles, Tests/MWProfilesTests</p><p><strong>Stage 19 — MWPaste: Paster.</strong> Snapshot / write / ⌘V / submit key / restore-if-unchanged / AX check through injected seams.<br><em>Touches:</em> Sources/MWPaste, Tests/MWPasteTests</p><p><strong>Stage 20 — MWPipeline: StreamSink and ProcessingJob.</strong> Streamed-vs-batch, no-key rule, effective cleanup, staleness at three checkpoints with stale billing, error mapping, history on delivery.<br><em>Touches:</em> Sources/MWPipeline, Tests/MWPipelineTests</p><p><strong>Stage 21 — MWPipeline: DictationController.</strong> Main-actor state machine: press/release, tick, hold vs toggle, cap, gate, engine selection, idle stop, device change, abort.<br><em>Touches:</em> Sources/MWPipeline, Tests/MWPipelineTests</p><p><strong>Stage 22 — MWOverlaySim: ConstellationSimulation and CaptionModel.</strong> Deterministic physics and Breathing choreography matching overlay.py; pure caption line model.<br><em>Touches:</em> Sources/MWOverlaySim, Tests/MWOverlaySimTests</p><h4>Phase C — App target</h4><p><strong>Stage 23 — App shell.</strong> Launchable menu-bar app: AppDelegate, single instance, permissions, sounds, --debug logging, status item with the F31 menu.<br><em>Touches:</em> App/, AppTests/</p><p><strong>Stage 24 — GlobalKeyListener, platform adapters, composition root.</strong> Hotkeys via CGEventTap with watchdog; real adapters wired; first end-to-end batch dictation.<br><em>Touches:</em> App/, AppTests/</p><p><strong>Stage 25 — Overlay and caption panels.</strong> Panels rendering simulation frames at refresh rate without per-frame allocation; caption layers; placement on the focused display.<br><em>Touches:</em> App/Overlay, AppTests/</p><p><strong>Stage 26 — Onboarding, first-run prompt, speech-model dialog.</strong> Parity wizard with in-process Continue; first-run Settings; F32 model download alert.<br><em>Touches:</em> App/Onboarding, AppTests/</p><p><strong>Stage 27 — Settings I — General, Hotkeys, Keys, Sound.</strong> Sidebar Settings with gating so key-less engines cannot be selected; hotkey capture; volume preview.<br><em>Touches:</em> App/Settings, AppTests/</p><p><strong>Stage 28 — Settings II — Cleanup, profiles, Vocabulary, History.</strong> Cleanup toggle and prompt editors, profiles table with unique bundle IDs, vocabulary chips, retention slider.<br><em>Touches:</em> App/Settings, AppTests/</p><p><strong>Stage 29 — History window and paste-from-history.</strong> List per accepted mockup: search, Copy, Paste into previous app, Delete, Clear History.<br><em>Touches:</em> App/History, AppTests/</p><h4>Phase D — Release</h4><p><strong>Stage 30 — Release pipeline, docs and cask.</strong> Signed, notarised DMG, GitHub Release and cask update from tags; CHANGELOG and README.<br><em>Touches:</em> .github/workflows/build.yml, scripts/, CHANGELOG.md, README.md</p><p><strong>Stage 31 — Acceptance over 0.1.8 and release.</strong> Beta installed over 0.1.8, §5.12 checklist incl. latency and TCC continuity, then v0.2.0.<br><em>Touches:</em> CHANGELOG.md, tags</p><h3>Requirements coverage map</h3><table><thead><tr><th>Design req</th><th>Stage(s)</th></tr></thead><tbody><tr><td>F1: bundle ID, LSUIElement, name, version 0.2.0</td><td>1, 30</td></tr><tr><td>F2: config.json / prompt files, defaults, backup, migration</td><td>3</td></tr><tr><td>F3: Keychain service/accounts, never on disk or logs</td><td>4, 24</td></tr><tr><td>F4: new config keys, speech_analyzer value</td><td>3</td></tr><tr><td>F5: combo grammar and display</td><td>5</td></tr><tr><td>F6: matching, release, safety net, watchdog</td><td>6, 24</td></tr><tr><td>F7: capture mode</td><td>6, 27</td></tr><tr><td>F8: paste / paste_submit bindings</td><td>6, 24</td></tr><tr><td>F9: press → starting → recording, on-sound, tick</td><td>21, 23, 25</td></tr><tr><td>F10: hold vs toggle, cap</td><td>21</td></tr><tr><td>F11: recording gate</td><td>21</td></tr><tr><td>F12: streamed vs batch, cleanup, paste, usage</td><td>20</td></tr><tr><td>F13: no OpenAI key rule</td><td>20</td></tr><tr><td>F14: HTTP error strings, overlay error</td><td>15, 20, 25</td></tr><tr><td>F15: generation guard, stale billing</td><td>20, 21</td></tr><tr><td>F16: press while recording ignored; mic error</td><td>21</td></tr><tr><td>F17: profile/target from frontmost app</td><td>21, 24</td></tr><tr><td>F18: one engine, 1024 tap, idle stop</td><td>8, 24</td></tr><tr><td>F19: configuration change</td><td>8, 21, 24</td></tr><tr><td>N1: ≤ 50 ms, one frame, no polling</td><td>21, 25, 31</td></tr><tr><td>N2: 16 kHz WAV, chunked conversion</td><td>7</td></tr><tr><td>F20: five engines, shapes, cap, gate, drain</td><td>10, 11, 12, 13</td></tr><tr><td>F21: 5 s finish, captionUnavailable once</td><td>10, 12, 13, 20</td></tr><tr><td>F22: transcript assembly</td><td>9</td></tr><tr><td>F23: engine selection rules</td><td>14, 21</td></tr><tr><td>F24: SpeechAnalyzer usage and assets</td><td>13</td></tr><tr><td>F25: paste sequence and restore</td><td>19, 24</td></tr><tr><td>F26: effective cleanup</td><td>18, 20, 28</td></tr><tr><td>F27: profiles</td><td>18, 28</td></tr><tr><td>F28: vocabulary</td><td>18, 20</td></tr><tr><td>F29: history storage and window</td><td>17, 20, 29</td></tr><tr><td>F30: paste from History</td><td>29</td></tr><tr><td>F31: menu</td><td>23</td></tr><tr><td>F32: model dialog, default engine</td><td>14, 26</td></tr><tr><td>F33: onboarding</td><td>26</td></tr><tr><td>F34: sounds</td><td>23, 27</td></tr><tr><td>F35: usage/cost</td><td>16, 20, 21</td></tr><tr><td>F36: single instance</td><td>23</td></tr><tr><td>F37: placement</td><td>25</td></tr><tr><td>F38: --debug logging</td><td>2, 23</td></tr><tr><td>N3: macOS 14, arm64, Swift 6, no deps</td><td>1</td></tr><tr><td>N4: hardened runtime, Developer ID, entitlement</td><td>1, 30</td></tr><tr><td>N5: unit tests per Core component</td><td>1, 2–22</td></tr><tr><td>N6: Python app reads the config</td><td>3</td></tr></tbody></table><h3>Cross-cutting concerns</h3><ul><li><strong>Security</strong> — secrets only via SecretStore; no key or transcript text at INFO (asserted with a capturing log sink); ephemeral URLSession and pinned vendor URLs; synthetic key events only to the resolved pid after the Accessibility check; history file 0600 and retention 0 leaves no file; hardened runtime, Developer ID, audio-input entitlement only.</li><li><strong>Performance</strong> — <code>.starting</code> emitted before the first await (tested); flag-flip capture and 1024-frame tap; config/secrets cached; preallocated overlay frame with reuse asserted; caption redraw on change only; no polling timers in the controller.</li><li><strong>Observability</strong> — Log categories and levels; press→live, finish, transcribe and clean timings at INFO; engine selection reasons; billing summary; <code>--debug</code> file sink; About shows the version.</li><li><strong>Compatibility / migration</strong> — config.json superset with unknown-key round-trip and the daily_usage migration; Keychain unchanged; bundle ID, Team ID and install path unchanged; cask raised to Sonoma and repo switched by the release job; rollback to 0.1.8 documented. The repo is buildable and green after every stage.</li></ul><h3>Verification</h3><p>After Stage 31: <code>swift test</code> and <code>xcodebuild test</code> green locally and in CI; the Stage 31 acceptance checklist ticked in CHANGELOG.md; F1–F38 / N1–N6 walked once against the installed 0.2.0 (identity via <code>codesign -dr</code>, config and Keychain continuity, hotkeys, warm-press latency from the debug log, gate/toggle/cap, each engine's caption and fallback, HTTP error strings, profiles, vocabulary, history, menu, onboarding, sounds, single instance, placement, <code>--debug</code>); <code>brew upgrade mini-whisper</code> installs 0.2.0 from the updated cask.</p><h3>Planning decisions taken</h3><ol><li>Test convention (greenfield): Swift Testing, one test target per module, shared fakes in Sources/MWTestSupport, fixtures inside the owning test target (shared WAVs under MWTestSupport) via Bundle.module; AppTests for app-only tests.</li><li>xcodegen: target MiniWhisper with PRODUCT_NAME "Mini Whisper", PRODUCT_MODULE_NAME MiniWhisper, explicit TEST_HOST/BUNDLE_LOADER on AppTests (observed failure without it).</li><li>Design fact correction: AnalyzerInputConverter does not exist in the macOS 26.5 SDK — design now uses AVAudioConverter into bestAvailableAudioFormat wrapped as AnalyzerInput(buffer:).</li><li>Design under-specification closed: beginCapture() + attachListener(_:) after engine.start(sink); pre-attachment buffers recorded but not streamed.</li><li>Design contradiction resolved by §3 precedence: processing order is stale check → bill → paste → append history (F15, F29 win over §5.5 prose).</li><li>Pipeline split: ProcessingJob (Stage 20) before DictationController (Stage 21).</li><li>Protocol seams with fakes for every platform API (AudioBackend, SecItemAPI, SpeechRecognitionAPI, SpeechAnalyzerAPI, HTTPTransport, WebSocketConnection, KeyPoster/PasteboardAccess/AccessibilityCheck/ProcessCheck, FrontmostAppProviding).</li><li>Opt-in integration tests gated by MW_INTEGRATION=1 (and OPENAI_API_KEY); the OpenAI fixture test asserts non-empty output without the source's LLM judge.</li><li>CaptionModel placed in MWOverlaySim so caption rules are host-tested.</li><li>CI in two steps: tests + unsigned build in Stage 1; signing, notarisation, release and cask in Stage 30 verified by workflow_dispatch.</li><li>Stage order follows design §9: Core in dependency order → app surfaces one per stage (dictating app at Stage 24) → beta → release.</li></ol><h3>Deviations from the design</h3><p>None — plan matches design v1 exactly (the three in-place corrections are factual/contradiction fixes recorded under planning decisions).</p></div>
       </article>
     </section>
 
     <section class="panel" role="tabpanel"
              id="panel-implementation" aria-labelledby="tab-implementation" hidden>
       <p class="section-timestamp">Awaiting /feature-implement</p>
-      {{IMPLEMENTATION_USAGE_CHIP}}
+      <!-- usage:IMPLEMENTATION_USAGE_CHIP --><!-- /usage:IMPLEMENTATION_USAGE_CHIP -->
       <article class="panel-section">
         <h2 class="section-label">Highlights</h2>
         <div class="bullets"><p class="empty">Not yet filled — pending /feature-implement.</p></div>
-        {{IMPLEMENTATION_USAGE}}
+        <!-- usage:IMPLEMENTATION_USAGE --><!-- /usage:IMPLEMENTATION_USAGE -->
       </article>
       <article class="panel-section">
         <h2 class="section-label">Detail</h2>

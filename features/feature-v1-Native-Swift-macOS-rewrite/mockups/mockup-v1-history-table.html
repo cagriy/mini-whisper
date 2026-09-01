@@ -1,0 +1,39 @@
+<title>History — Table</title>
+<style>
+*,*::before,*::after{box-sizing:border-box}
+:root{--page-bg:#1c1e22;--page-text:#e8e8ea;--page-muted:#9a9aa2;--accent:#7cc4ff;--banner:#26292f;--rule:#34383f;--win:#ececec;--win2:#fff;--txt:#1d1d1f;--mut:#6e6e73;--bd:#d2d2d7;--blue:#0a60ff}
+body{margin:0;background:var(--page-bg);color:var(--page-text);font:14px/1.45 -apple-system,BlinkMacSystemFont,"Helvetica Neue",sans-serif}
+.banner{background:var(--banner);border-bottom:1px solid var(--rule);padding:14px 22px;font-size:13px}.banner strong{color:#fff}.banner p{margin:4px 0 0;color:var(--page-muted);max-width:80ch}.banner .axis{color:var(--accent)}
+main{padding:26px 22px;display:flex;justify-content:center}
+.mac{width:680px;height:480px;background:var(--win);color:var(--txt);border-radius:11px;box-shadow:0 24px 60px rgba(0,0,0,.45);display:grid;grid-template-rows:52px 1fr;overflow:hidden;font-size:13px}
+.title{background:#e3e3e7;border-bottom:1px solid #cfcfd4;display:flex;align-items:center;padding:0 14px;gap:14px;position:relative}
+.title .lights{display:flex;gap:7px}.title .lights i{width:12px;height:12px;border-radius:50%}.title h1{font-size:13px;font-weight:600;margin:0;position:absolute;left:50%;transform:translateX(-50%);color:#3a3a3f}
+.search{margin-left:auto;width:220px;padding:5px 9px 5px 26px;border:1px solid #c3c3c8;border-radius:7px;background:#fff url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 16 16%27%3E%3Ccircle cx=%277%27 cy=%277%27 r=%275%27 fill=%27none%27 stroke=%27%23888%27 stroke-width=%271.6%27/%3E%3Cpath d=%27M11 11l3.5 3.5%27 stroke=%27%23888%27 stroke-width=%271.6%27/%3E%3C/svg%3E") 7px 50%/13px no-repeat;color:#9a9aa2;font-size:12px}
+.mini{font:12px -apple-system,sans-serif;padding:4px 10px;border-radius:6px;border:1px solid #c3c3c8;background:#fff;color:var(--txt);cursor:pointer}.mini.primary{background:var(--blue);color:#fff;border-color:var(--blue)}.mini.danger{color:#c62828}
+.app{display:inline-flex;align-items:center;gap:6px}.app i{width:16px;height:16px;border-radius:4px;display:inline-block}
+.num{font-variant-numeric:tabular-nums}.mut{color:var(--mut)}
+button:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+.body{display:grid;grid-template-rows:1fr auto;min-height:0}
+table{width:100%;border-collapse:collapse;background:#fff;font-size:12.5px}th{position:sticky;top:0;background:#f4f4f6;text-align:left;font-weight:600;color:var(--mut);padding:6px 10px;border-bottom:1px solid #d9d9de}
+td{padding:7px 10px;border-bottom:1px solid #ededf0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:0}td.txt{max-width:320px}
+tr.sel td{background:#dce9ff}.wrap{overflow:auto;min-height:0}
+.detail{border-top:1px solid #cfcfd4;background:#f6f6f8;padding:10px 14px;display:grid;grid-template-columns:1fr auto;gap:12px;align-items:start}
+.detail p{margin:0 0 6px;font-size:13px;line-height:1.45;max-width:66ch}.detail .meta{font-size:11.5px;color:var(--mut)}.detail .acts{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.foot{grid-column:1/-1;display:flex;justify-content:space-between;align-items:center;font-size:11.5px;color:var(--mut);padding-top:6px;border-top:1px solid #e3e3e7}
+</style>
+<div class="banner"><strong>Mockup — not shipping code · Feature v1 · “History — Table” · Not chosen</strong>
+<p>Dictation history as a sortable table (time, app, text, engine, cost) with a detail strip for the selected row carrying the actions. Search filters rows live; the footer shows retention and Clear. <span class="axis">Axis vs. the list alternative: density — more rows per screen, actions in one fixed place.</span> Design language: native NSTableView look, light appearance, 12–13 pt system type.</p></div>
+<main><div class="mac"><div class="title"><span class="lights"><i style="background:#ff5f57"></i><i style="background:#febc2e"></i><i style="background:#28c840"></i></span><h1>History</h1><span class="search">Search dictations</span></div>
+<div class="body"><div class="wrap"><table><thead><tr><th style="width:92px">Time</th><th style="width:118px">App</th><th>Text</th><th style="width:96px">Engine</th><th style="width:64px;text-align:right">Cost</th></tr></thead><tbody>
+<tr><td class="num">17:42</td><td><span class="app"><i style="background:#3b3b3b"></i>Terminal</span></td><td class="txt">git rebase interactive onto main and squash the last three commits</td><td>On-device</td><td class="num" style="text-align:right">$0.000</td></tr>
+<tr class="sel"><td class="num">17:38</td><td><span class="app"><i style="background:#4a154b"></i>Slack</span></td><td class="txt">Can we move the design review to Thursday afternoon, the mockups need one more pass</td><td>SpeechAnalyzer</td><td class="num" style="text-align:right">$0.001</td></tr>
+<tr><td class="num">17:31</td><td><span class="app"><i style="background:#1f6feb"></i>VS Code</span></td><td class="txt">Add a retention pruning test that inserts entries thirty one days old and asserts they are gone after launch</td><td>OpenAI Realtime</td><td class="num" style="text-align:right">$0.014</td></tr>
+<tr><td class="num">16:58</td><td><span class="app"><i style="background:#0b84ff"></i>Messages</span></td><td class="txt">Running ten minutes late, order me the usual</td><td>On-device</td><td class="num" style="text-align:right">$0.000</td></tr>
+<tr><td class="num mut">Yesterday</td><td><span class="app"><i style="background:#3b3b3b"></i>Terminal</span></td><td class="txt">uv run pytest tests slash test controller dot py dash k generation</td><td>On-device</td><td class="num" style="text-align:right">$0.000</td></tr>
+<tr><td class="num mut">Yesterday</td><td><span class="app"><i style="background:#e34c26"></i>Safari</span></td><td class="txt">Compare Developer ID notarisation timings for DMG versus zip uploads</td><td>ElevenLabs</td><td class="num" style="text-align:right">$0.003</td></tr>
+<tr><td class="num mut">Mon</td><td><span class="app"><i style="background:#4a154b"></i>Slack</span></td><td class="txt">Shipping the Swift build to the internal testers this evening</td><td>SpeechAnalyzer</td><td class="num" style="text-align:right">$0.001</td></tr>
+</tbody></table></div>
+<div class="detail"><div><p>Can we move the design review to Thursday afternoon, the mockups need one more pass</p><div class="meta">Today 17:38 · Slack · SpeechAnalyzer + cleanup · 6.2 s streamed · $0.001</div></div>
+<div class="acts"><button class="mini primary" type="button">Paste into Slack</button><button class="mini" type="button">Copy</button><button class="mini danger" type="button">Delete</button></div>
+<div class="foot"><span>Keeping 7 days · 23 dictations</span><button class="mini" type="button">Clear History…</button></div></div>
+</div></div></main>

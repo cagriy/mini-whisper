@@ -1,0 +1,144 @@
+<title>Settings — Toolbar tabs</title>
+<style>
+*,*::before,*::after{box-sizing:border-box}
+:root{--page-bg:#1c1e22;--page-text:#e8e8ea;--page-muted:#9a9aa2;--accent:#7cc4ff;--banner:#26292f;--rule:#34383f;
+--win:#ececec;--win2:#f6f6f6;--txt:#1d1d1f;--mut:#6e6e73;--bd:#d2d2d7;--blue:#0a60ff;--dis:#a8a8ad}
+body{margin:0;background:var(--page-bg);color:var(--page-text);font:14px/1.45 -apple-system,BlinkMacSystemFont,"Helvetica Neue",sans-serif}
+.banner{background:var(--banner);border-bottom:1px solid var(--rule);padding:14px 22px;font-size:13px}
+.banner strong{color:#fff}.banner p{margin:4px 0 0;color:var(--page-muted);max-width:80ch}.banner .axis{color:var(--accent)}
+.banner label.sim{display:inline-flex;gap:8px;align-items:center;margin-top:10px;color:#fff;font-size:12.5px;padding:6px 10px;border:1px solid var(--rule);border-radius:8px;cursor:pointer}
+main{padding:26px 22px;display:flex;justify-content:center}
+.mac{width:640px;height:560px;background:var(--win);color:var(--txt);border-radius:11px;box-shadow:0 24px 60px rgba(0,0,0,.45);display:grid;grid-template-rows:auto 1fr;overflow:hidden;font-size:13px}
+.title{height:52px;background:#e3e3e7;border-bottom:1px solid #cfcfd4;display:flex;align-items:center;padding:0 14px;gap:14px;position:relative}
+.title .lights{display:flex;gap:7px}.title .lights i{width:12px;height:12px;border-radius:50%}
+.title h1{font-size:13px;font-weight:600;margin:0;position:absolute;left:50%;transform:translateX(-50%);top:8px;color:#3a3a3f}
+.title{height:82px;flex-direction:column;align-items:stretch;padding:0}.title .lights{position:absolute;left:14px;top:14px}.title h1{top:12px}
+.tabs{display:flex;justify-content:center;gap:2px;margin-top:38px;padding:0 10px 6px}.tabs button{font:11px -apple-system,sans-serif;color:#3a3a3f;background:none;border:0;border-radius:7px;padding:4px 10px;display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;min-width:66px}
+.tabs button .ic{font-size:17px;line-height:22px;color:#4d4d55}.tabs button.on{background:#d3d3d9}
+.pane{display:none;padding:18px 22px 24px;overflow:auto}.pane.on{display:block}
+.pane h2{font-size:15px;margin:0 0 12px}.pane h3{font-size:13px;margin:18px 0 8px;color:var(--mut);text-transform:uppercase;letter-spacing:.04em}
+.group{background:var(--win2);border:1px solid var(--bd);border-radius:9px;padding:4px 12px;margin-bottom:12px}
+.row{display:flex;align-items:center;gap:10px;min-height:38px;padding:4px 0;border-bottom:1px solid #e3e3e7}.row:last-child{border-bottom:0}.row.top{align-items:flex-start;padding:10px 0}
+.row>label{flex:0 0 190px;color:var(--txt)}
+.foot{font-size:11.5px;color:var(--mut);padding:6px 0 10px 0;line-height:1.4}
+.sw{width:38px;height:22px;border-radius:11px;background:#cfcfd4;position:relative;display:inline-block}.sw::after{content:"";position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.3)}
+.sw.on{background:var(--blue)}.sw.on::after{left:18px}
+.mac:not(.has-openai) .sw.cleanup{background:#e2e2e6;opacity:.6;pointer-events:none}.mac:not(.has-openai) .sw.cleanup::after{left:2px}
+.mac.has-openai .foot.needopenai{display:none}
+.mac.has-openai .eng.openai input{pointer-events:auto}.mac.has-openai .eng.openai{opacity:1}.mac.has-openai .eng.openai .hint{display:none}
+.engines{display:flex;flex-direction:column;gap:6px;flex:1}
+.eng{display:flex;align-items:center;gap:10px;padding:7px 10px;border:1px solid var(--bd);border-radius:8px;background:#fff}
+.eng span{display:flex;flex-direction:column;flex:1}.eng small{color:var(--mut);font-size:11px}.eng.needkey{opacity:.55}.eng .hint{color:#b25000}
+.eng.sel{border-color:var(--blue);box-shadow:0 0 0 2px rgba(10,96,255,.15)}
+.mini{font:12px -apple-system,sans-serif;padding:4px 10px;border-radius:6px;border:1px solid #c3c3c8;background:#fff;color:var(--txt);cursor:pointer}
+.stepper{display:inline-flex;align-items:center;border:1px solid #c3c3c8;border-radius:6px;background:#fff;overflow:hidden}.stepper span{padding:3px 10px;font-variant-numeric:tabular-nums}.stepper i{width:18px;height:22px;border-left:1px solid #c3c3c8;background:linear-gradient(#fff,#f1f1f3)}
+.hk{padding:4px 12px;border:1px solid #c3c3c8;border-radius:6px;background:#fff;min-width:150px;text-align:center}
+.field{flex:1;max-width:260px;padding:4px 8px;border:1px solid #c3c3c8;border-radius:6px;background:#fff}.field.ph{color:#9a9aa2}.field.wide{max-width:none}.mono{font-family:ui-monospace,Menlo,monospace}
+.editor{flex:1;background:#fff;border:1px solid #c3c3c8;border-radius:6px;padding:8px 10px;min-height:96px;font-size:12px;color:#3a3a3f;position:relative;line-height:1.45}.editor.short{min-height:56px}.editor .btns{display:flex;gap:6px;margin-top:8px}
+.tbl{width:100%;border-collapse:collapse;font-size:12.5px;background:#fff;border:1px solid #d9d9de;border-radius:6px 6px 0 0;overflow:hidden}.tbl th{text-align:left;font-weight:600;color:var(--mut);padding:6px 8px;border-bottom:1px solid #d9d9de}.tbl td{padding:6px 8px;border-bottom:1px solid #eee}.tbl tr.sel td{background:#dce9ff}.muted{color:var(--mut)}
+.tblbtns{display:flex;gap:0;margin:0 0 10px}.tblbtns .mini{border-radius:0 0 6px 6px;width:28px;padding:2px 0}
+.sub{border-left:2px solid #d9d9de;padding-left:12px;margin:6px 0 4px}
+.chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center}.chips i{font-style:normal;padding:3px 9px;border-radius:12px;background:#dfe7f4;color:#1d3b6e;font-size:12px}.chips.big{padding:10px 0}
+.pop{padding:4px 10px;border:1px solid #c3c3c8;border-radius:6px;background:#fff}
+.slider{flex:1;max-width:260px;height:4px;background:#cfcfd4;border-radius:2px;position:relative}.slider i{position:absolute;top:-8px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.35)}.val{font-variant-numeric:tabular-nums;color:var(--mut);min-width:52px}
+a{color:var(--blue)}
+button:focus-visible,[role=switch]:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+</style>
+<div class="banner"><strong>Mockup — not shipping code · Feature v1 · “Settings — Toolbar tabs” · Not chosen</strong>
+<p>Classic macOS preferences window: a toolbar of seven tabs, one pane each, 640×560. Every gated control is visibly disabled with the reason in a footnote; cloud engines that lack a key cannot be selected. Profiles are a table with an inline detail form. <span class="axis">Axis vs. the other Settings alternative: navigation as a toolbar — familiar, compact window, one concern per pane.</span> Design language: native macOS controls and 12–13 pt system type as in the Python Settings window; light appearance on the dark review page as in the accepted v1 caption-bar mockup.</p>
+<label class="sim"><input type="checkbox" id="sim"> Simulate: OpenAI key saved (enables Text cleanup and OpenAI Realtime)</label></div>
+<main><div class="mac" id="mac">
+<div class="title"><span class="lights"><i style="background:#ff5f57"></i><i style="background:#febc2e"></i><i style="background:#28c840"></i></span><h1>Mini Whisper Settings</h1><div class="tabs"><button type="button" data-tab="general" class="on"><span class="ic">⚙︎</span>General</button><button type="button" data-tab="hotkeys" class=""><span class="ic">⌘</span>Hotkeys</button><button type="button" data-tab="keys" class=""><span class="ic">🔑</span>Keys</button><button type="button" data-tab="cleanup" class=""><span class="ic">✎</span>Cleanup</button><button type="button" data-tab="vocab" class=""><span class="ic">Aa</span>Vocabulary</button><button type="button" data-tab="history" class=""><span class="ic">🕘</span>History</button><button type="button" data-tab="sound" class=""><span class="ic">♪</span>Sound</button></div></div>
+<section class="pane on" data-pane="general">
+<h2>General</h2>
+<div class="group">
+<div class="row"><label>Live transcript</label><span class="sw on" role="switch" aria-checked="true"></span></div>
+<div class="row top"><label>Engine</label><div class="engines">
+<label class="eng sel" id="engSA"><input type="radio" name="e" checked><span><b>SpeechAnalyzer</b><small>On-device · macOS 26 · best accuracy</small></span><button class="mini" type="button">Download model…</button></label>
+<label class="eng"><input type="radio" name="e"><span><b>On-device (Apple Speech)</b><small>Free, offline</small></span></label>
+<label class="eng needkey openai"><input type="radio" name="e" disabled><span><b>OpenAI Realtime</b><small class="hint">Add an OpenAI key under Keys to enable</small></span></label>
+<label class="eng needkey"><input type="radio" name="e" disabled><span><b>ElevenLabs</b><small class="hint">Add an ElevenLabs key under Keys to enable</small></span></label>
+<label class="eng needkey"><input type="radio" name="e" disabled><span><b>Speechmatics</b><small class="hint">Add a Speechmatics key under Keys to enable</small></span></label>
+</div></div>
+</div>
+<div class="group">
+<div class="row"><label>Stop microphone after idle</label><span class="stepper"><span>60 s</span><i></i></span></div>
+<div class="foot">The mic indicator shows only while the engine runs. Lower values save power; higher values keep the next press instant.</div>
+<div class="row"><label>Stop tap-to-talk after</label><span class="stepper"><span>5 min</span><i></i></span></div>
+<div class="foot">A tap arms toggle mode; recording ends at the next tap or at this limit.</div>
+</div>
+</section>
+<section class="pane" data-pane="hotkeys">
+<h2>Hotkeys</h2>
+<div class="group">
+<div class="row"><label>Record</label><span class="hk">⇧ Right ⌘</span></div>
+<div class="row"><label>Record and submit</label><span class="hk">Right ⌘</span></div>
+<div class="foot">Click a field, then press the shortcut. Hold to record, release to paste; tap to toggle. Modifier-only shortcuts such as Right ⌘ are allowed.</div>
+</div>
+</section>
+<section class="pane" data-pane="keys">
+<h2>Keys</h2>
+<div class="group">
+<div class="row"><label>OpenAI</label><span class="field mono">sk-…ab12</span><button class="mini" type="button">Save</button></div>
+<div class="row"><label>ElevenLabs</label><span class="field ph">not set</span><button class="mini" type="button">Save</button></div>
+<div class="row"><label>Speechmatics</label><span class="field ph">not set</span><button class="mini" type="button">Save</button></div>
+<div class="foot">Keys are stored in the macOS Keychain (service “mini-whisper”) and never written to disk. Removing a key disables the features that need it.</div>
+</div>
+</section>
+<section class="pane" data-pane="cleanup">
+<h2>Cleanup</h2>
+<div class="group">
+<div class="row"><label>Text cleanup</label><span class="sw on cleanup" role="switch"></span></div>
+<div class="foot needopenai">Requires an OpenAI API key — add one under <a href="#">Keys</a>. Without a key, on-device transcripts are pasted as spoken.</div>
+</div>
+<div class="group">
+<div class="row top"><label>Cleanup prompt</label><div class="editor">You are a transcript cleaner. Your sole job is to clean up dictated speech…<div class="btns"><button class="mini" type="button">Save Prompt</button><button class="mini" type="button">Open in Editor</button></div></div></div>
+<div class="row top"><label>Transcription instructions</label><div class="editor short">Transcribe the audio accurately. Use proper punctuation and capitalization.<div class="btns"><button class="mini" type="button">Save Prompt</button><button class="mini" type="button">Open in Editor</button></div></div></div>
+</div>
+<h3>Per-app profiles</h3>
+<div class="group">
+<table class="tbl"><thead><tr><th>Profile</th><th>Apps</th><th>Cleanup</th><th>Submit key</th></tr></thead><tbody>
+<tr><td>Default</td><td class="muted">everything else</td><td>on</td><td>Enter</td></tr>
+<tr class="sel"><td>Terminal</td><td>Terminal, iTerm2</td><td>off</td><td>Enter</td></tr>
+<tr><td>Chat</td><td>Slack, Messages</td><td>on</td><td>Enter</td></tr>
+<tr><td>Editors</td><td>VS Code, Xcode</td><td>on</td><td>Shift+Enter</td></tr>
+</tbody></table>
+<div class="tblbtns"><button class="mini" type="button">+</button><button class="mini" type="button">−</button></div>
+<div class="sub">
+<div class="row"><label>Apps</label><span class="chips"><i>Terminal</i><i>iTerm2</i><button class="mini" type="button">Add…</button></span></div>
+<div class="row"><label>Cleanup</label><span class="sw cleanup" role="switch"></span></div>
+<div class="row"><label>Submit key</label><span class="pop">Enter ▾</span></div>
+<div class="row top"><label>Prompt</label><div class="editor short">Keep shell commands verbatim; strip filler words only.</div></div>
+</div>
+<div class="foot">An app belongs to one profile. “Add…” lists running apps or opens a chooser. The Default profile uses prompt.txt.</div>
+</div>
+</section>
+<section class="pane" data-pane="vocab">
+<h2>Vocabulary</h2>
+<div class="group">
+<div class="chips big"><i>Mini Whisper</i><i>PyObjC</i><i>Speechmatics</i><i>xcodegen</i><i>Tahoe</i></div>
+<div class="row"><span class="field ph wide">Add a word or name, then press Return</span></div>
+<div class="foot">Terms are passed to the transcription instructions and the cleanup prompt so names and jargon are kept as written.</div>
+</div>
+</section>
+<section class="pane" data-pane="history">
+<h2>History</h2>
+<div class="group">
+<div class="row"><label>Keep dictations for</label><span class="slider"><i style="left:23%"></i></span><span class="val">7 days</span></div>
+<div class="foot">0 days turns history off and writes nothing. Maximum 30 days. Stored only on this Mac.</div>
+<div class="row"><label></label><button class="mini" type="button">Open History…</button><button class="mini" type="button">Clear History</button></div>
+</div>
+</section>
+<section class="pane" data-pane="sound">
+<h2>Sound</h2>
+<div class="group">
+<div class="row"><label>Volume</label><span class="slider"><i style="left:11%"></i></span><span class="val">11 %</span></div>
+<div class="foot">Plays the start sound on release. A short tick precedes it only when the microphone needs to warm up.</div>
+</div>
+</section>
+
+</div></main>
+<script>
+document.getElementById('sim').addEventListener('change',e=>document.getElementById('mac').classList.toggle('has-openai',e.target.checked));
+document.querySelectorAll('[data-tab]').forEach(t=>t.addEventListener('click',()=>{document.querySelectorAll('[data-tab]').forEach(x=>x.classList.toggle('on',x===t));document.querySelectorAll('.pane').forEach(p=>p.classList.toggle('on',p.dataset.pane===t.dataset.tab))}));
+</script>
