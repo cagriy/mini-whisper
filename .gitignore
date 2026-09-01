@@ -1,0 +1,20 @@
+# Xcode / SwiftPM
+.build/
+DerivedData/
+*.xcuserstate
+xcuserdata/
+*.xcscmblueprint
+.swiftpm/xcode/
+
+# macOS
+.DS_Store
+*.app
+*.dmg
+
+# Environment / secrets
+.env
+.env.*
+*.p12
+
+# Claude
+.claude/.last
