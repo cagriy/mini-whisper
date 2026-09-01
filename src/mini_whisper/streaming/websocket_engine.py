@@ -26,6 +26,11 @@ MAX_PRECONNECT_SECONDS = 60.0
 
 OPENAI_REALTIME_URL = "wss://api.openai.com/v1/realtime"
 OPENAI_REALTIME_MODEL = "gpt-live-transcribe"
+ELEVENLABS_REALTIME_URL = (
+    "wss://api.elevenlabs.io/v1/speech-to-text/realtime"
+    "?model_id=scribe_v2_realtime&audio_format=pcm_16000"
+)
+SPEECHMATICS_REALTIME_URL = "wss://eu.rt.speechmatics.com/v2"
 
 
 class WebSocketEngine:
@@ -326,4 +331,104 @@ class OpenAIRealtimeEngine(WebSocketEngine):
             return True
         elif etype == "error":
             raise RuntimeError(f"openai realtime error: {event.get('error')}")
+        return False
+
+
+class ElevenLabsEngine(WebSocketEngine):
+    """ElevenLabs Scribe v2 Realtime websocket (design §4)."""
+
+    name = "elevenlabs"
+    target_rate = 16000
+    # A VAD-committed segment can race our committing chunk, same as OpenAI.
+    drain_after_complete = 0.2
+
+    def _url(self) -> str:
+        return ELEVENLABS_REALTIME_URL
+
+    def _headers(self) -> dict:
+        return {"xi-api-key": self._api_key}
+
+    def _open_messages(self) -> list:
+        return []  # session config travels in the URL query parameters
+
+    def _encode_chunk(self, pcm: bytes) -> str:
+        return json.dumps({
+            "message_type": "input_audio_chunk",
+            "audio_base_64": base64.b64encode(pcm).decode("ascii"),
+            "commit": False,
+            "sample_rate": self.target_rate,
+        })
+
+    def _end_messages(self) -> list:
+        return [json.dumps({
+            "message_type": "input_audio_chunk",
+            "audio_base_64": "",
+            "commit": True,
+            "sample_rate": self.target_rate,
+        })]
+
+    def _handle_event(self, raw) -> bool:
+        event = json.loads(raw)
+        mtype = event.get("message_type", "")
+        if mtype in ("partial_transcript", "final_transcript"):
+            # final_transcript is settled but not yet committed: still partial
+            self._emit_partial(event.get("text", ""))
+        elif mtype == "committed_transcript":
+            self._emit_final(event.get("text", ""))
+            return True
+        elif mtype == "input_error":
+            raise RuntimeError(f"elevenlabs error: {event}")
+        return False
+
+
+class SpeechmaticsEngine(WebSocketEngine):
+    """Speechmatics Real-Time v2 websocket (design §4)."""
+
+    name = "speechmatics"
+    target_rate = 16000
+    # EndOfTranscript is a hard terminal: nothing follows it, no drain needed.
+
+    def __init__(self, api_key: str, connect=None):
+        super().__init__(api_key, connect=connect)
+        self._seq_no = 0  # binary AddAudio frames sent, for EndOfStream
+
+    def _url(self) -> str:
+        return SPEECHMATICS_REALTIME_URL
+
+    def _headers(self) -> dict:
+        return {"Authorization": f"Bearer {self._api_key}"}
+
+    def _open_messages(self) -> list:
+        return [json.dumps({
+            "message": "StartRecognition",
+            "audio_format": {
+                "type": "raw",
+                "encoding": "pcm_s16le",
+                "sample_rate": self.target_rate,
+            },
+            "transcription_config": {"language": "en", "enable_partials": True},
+        })]
+
+    def _encode_chunk(self, pcm: bytes) -> bytes:
+        self._seq_no += 1
+        return pcm  # binary AddAudio frame
+
+    def _end_messages(self) -> list:
+        return [json.dumps({"message": "EndOfStream", "last_seq_no": self._seq_no})]
+
+    def _handle_event(self, raw) -> bool:
+        if isinstance(raw, (bytes, bytearray)):
+            return False
+        event = json.loads(raw)
+        mtype = event.get("message", "")
+        if mtype == "AddPartialTranscript":
+            self._emit_partial(event.get("metadata", {}).get("transcript", ""))
+        elif mtype == "AddTranscript":
+            self._emit_final(event.get("metadata", {}).get("transcript", ""))
+        elif mtype == "EndOfTranscript":
+            return True
+        elif mtype == "Error":
+            raise RuntimeError(
+                f"speechmatics error: {event.get('type')}: {event.get('reason')}"
+            )
         return False

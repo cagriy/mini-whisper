@@ -5,7 +5,8 @@ transcripts of provider events (tests/fixtures/streaming/*.json). Fixture
 steps, in order:
   {"await_client": "<type>"}  recv blocks until the client has sent a
                               message of that type ("__binary__" for binary
-                              frames; JSON "type"/"message"/"message_type")
+                              frames; JSON "type"/"message"/"message_type");
+                              a dict matches as a key/value subset instead
   {"server": {...}}           deliver this JSON event to the engine
   {"server_binary_ok": true}  (unused placeholder for binary server frames)
   {"server_error": "msg"}     recv raises RuntimeError(msg)
@@ -24,7 +25,9 @@ import pytest
 from mini_whisper.streaming.audio_convert import convert, make_state
 from mini_whisper.streaming.websocket_engine import (
     MAX_PRECONNECT_SECONDS,
+    ElevenLabsEngine,
     OpenAIRealtimeEngine,
+    SpeechmaticsEngine,
 )
 
 from .conftest import FakeSink
@@ -76,6 +79,15 @@ def message_type(message) -> str:
     return data.get("type") or data.get("message") or data.get("message_type") or ""
 
 
+def message_matches(message, want) -> bool:
+    if isinstance(want, str):
+        return message_type(message) == want
+    if isinstance(message, (bytes, bytearray)):
+        return False
+    data = json.loads(message)
+    return all(data.get(key) == value for key, value in want.items())
+
+
 class FakeSocket:
     """Scripted websocket: server events are gated on client sends."""
 
@@ -114,9 +126,9 @@ class FakeSocket:
                     raise RuntimeError(step["server_error"])
                 return json.dumps(step["server"])
 
-    def _consume_await(self, want: str) -> bool:
+    def _consume_await(self, want) -> bool:
         for i in range(self._cursor, len(self.sent)):
-            if message_type(self.sent[i]) == want:
+            if message_matches(self.sent[i], want):
                 self._cursor = i + 1
                 return True
         return False
@@ -277,3 +289,98 @@ def test_openai_session_update_shape():
     audio_input = session["audio"]["input"]
     assert audio_input["format"] == {"type": "audio/pcm", "rate": 24000}
     assert audio_input["transcription"]["model"] == "gpt-live-transcribe"
+
+
+# ---------------------------------------------------------------------------
+# ElevenLabs Scribe v2 Realtime protocol (fixture-driven)
+# ---------------------------------------------------------------------------
+
+def test_elevenlabs_happy_path_fixture():
+    sock = FakeSocket(load_steps("elevenlabs.json"))
+    engine = ElevenLabsEngine("xi-test", connect=ready_connect(sock))
+    sink = FakeSink()
+    engine.start(sink)
+
+    chunk = np.linspace(-0.5, 0.5, 4800, dtype=np.float32)
+    engine.feed(FakeBuffer(chunk, 48000))
+    result = engine.finish(timeout=5.0)
+
+    assert result.ok is True
+    assert result.text == "hello world again"
+    # partial and (settled, uncommitted) final transcripts both replace the partial
+    assert sink.partials == ["hello", "hello world", "hello world", "again"]
+    assert sink.finals == ["hello world", "again"]
+    assert result.usage["input_tokens"] == 0
+    assert result.usage["output_tokens"] == 0
+    assert result.usage["seconds"] == pytest.approx(0.1)
+
+
+def test_elevenlabs_message_shapes():
+    sock = FakeSocket(load_steps("elevenlabs.json"))
+    engine = ElevenLabsEngine("xi-test", connect=ready_connect(sock))
+    engine.start(FakeSink())
+
+    chunk = np.linspace(-0.5, 0.5, 4800, dtype=np.float32)
+    engine.feed(FakeBuffer(chunk, 48000))
+    engine.finish(timeout=5.0)
+
+    messages = [json.loads(m) for m in sock.sent]
+    # 16kHz PCM16 chunk, base64, not committed
+    first = messages[0]
+    assert first["message_type"] == "input_audio_chunk"
+    assert first["commit"] is False
+    assert first["sample_rate"] == 16000
+    expected, _ = convert(chunk, make_state(48000, 16000))
+    assert base64.b64decode(first["audio_base_64"]) == expected
+    # finish sends an empty committing chunk
+    last = messages[-1]
+    assert last["message_type"] == "input_audio_chunk"
+    assert last["commit"] is True
+    assert last["audio_base_64"] == ""
+
+
+# ---------------------------------------------------------------------------
+# Speechmatics Real-Time v2 protocol (fixture-driven)
+# ---------------------------------------------------------------------------
+
+def test_speechmatics_happy_path_fixture():
+    sock = FakeSocket(load_steps("speechmatics.json"))
+    engine = SpeechmaticsEngine("sm-test", connect=ready_connect(sock))
+    sink = FakeSink()
+    engine.start(sink)
+
+    chunk = np.linspace(-0.5, 0.5, 4800, dtype=np.float32)
+    engine.feed(FakeBuffer(chunk, 48000))
+    result = engine.finish(timeout=5.0)
+
+    assert result.ok is True
+    assert result.text == "hello world again"
+    assert sink.partials == ["hello", "hello world", "again"]
+    assert sink.finals == ["hello world ", "again"]
+    assert result.usage["input_tokens"] == 0
+    assert result.usage["output_tokens"] == 0
+    assert result.usage["seconds"] == pytest.approx(0.1)
+
+
+def test_speechmatics_message_shapes():
+    sock = FakeSocket(load_steps("speechmatics.json"))
+    engine = SpeechmaticsEngine("sm-test", connect=ready_connect(sock))
+    engine.start(FakeSink())
+
+    chunk = np.linspace(-0.5, 0.5, 4800, dtype=np.float32)
+    engine.feed(FakeBuffer(chunk, 48000))
+    engine.finish(timeout=5.0)
+
+    start = json.loads(sock.sent[0])
+    assert start["message"] == "StartRecognition"
+    assert start["audio_format"] == {
+        "type": "raw", "encoding": "pcm_s16le", "sample_rate": 16000,
+    }
+    assert start["transcription_config"]["enable_partials"] is True
+    # audio goes as raw binary AddAudio frames
+    binaries = [m for m in sock.sent if isinstance(m, (bytes, bytearray))]
+    expected, _ = convert(chunk, make_state(48000, 16000))
+    assert binaries == [expected]
+    # EndOfStream declares how many audio frames were sent
+    end = json.loads(sock.sent[-1])
+    assert end == {"message": "EndOfStream", "last_seq_no": 1}
