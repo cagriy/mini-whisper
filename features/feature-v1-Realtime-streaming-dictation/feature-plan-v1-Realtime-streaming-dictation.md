@@ -116,7 +116,7 @@ Test conventions: flat `tests/test_<module>.py` files (siblings: `tests/test_con
 ### Stage 5 — Websocket engine skeleton and OpenAI Realtime engine
 **Goal:** the shared cloud-engine skeleton (background thread + `websockets` loop, buffer-until-open with 60s cap, error propagation, finish handshake with timeout) plus the first concrete subclass, `OpenAIRealtimeEngine`.
 **Design references:** §5 `streaming/websocket_engine.py`, §4 external surfaces, §5 Performance.
-**Touches:** `pyproject.toml` (+`websockets>=17`, via `uv add`), `uv.lock`, `src/mini_whisper/streaming/websocket_engine.py` (new), `tests/test_websocket_engines.py` (new), `tests/fixtures/streaming/openai_realtime.json` (new).
+**Touches:** `pyproject.toml` (+`websockets>=17`, via `uv add`), `uv.lock`, `src/mini_whisper/streaming/websocket_engine.py` (new), `tests/test_websocket_engines.py` (new), `tests/fixtures/streaming/openai_realtime.json` (new), `tests/conftest.py` + `tests/test_on_device.py` (FakeSink hoisted to conftest, see Deviations).
 
 **Steps (TDD):**
 1. Add the dependency (`uv add "websockets>=17"`) — non-TDD (config-only) sub-step.
@@ -256,3 +256,8 @@ After Stage 11: run the acceptance pass from design §5 end-to-end on the built 
 ## Deviations from the design
 
 None — plan matches design v1 exactly.
+
+## Deviations from plan
+
+- **Stage 5** additionally touched `tests/conftest.py` and `tests/test_on_device.py`: the recording `FakeSink` test double, needed identically by the on-device and websocket engine tests, was hoisted into `tests/conftest.py` instead of being duplicated per file.
+- **Stage 5** hardened the skeleton's finish handshake beyond the stage wording: terminal events are honoured only after the end-of-audio message is on the wire, followed by a short subclass-tunable drain window (`drain_after_complete`, 0.2s for OpenAI) — a server-VAD `completed` racing the commit would otherwise end the recv loop and drop the trailing segment.
