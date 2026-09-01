@@ -44,7 +44,7 @@ class MiniWhisperApp(rumps.App):
         self._last_text = ""
         self._last_item_visible = False
         self.last_item = rumps.MenuItem('Last: ""', callback=self._copy_last)
-        today_usage = config.get_daily_usage()
+        today_usage = config.usage_totals()["today"]
         self.usage_item = rumps.MenuItem(
             _fmt_tokens(today_usage['input_tokens'], today_usage['output_tokens'])
         )

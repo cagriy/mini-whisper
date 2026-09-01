@@ -126,7 +126,7 @@ class Controller:
             # Track token usage
             total_in = transcribe_usage["input_tokens"] + clean_usage["input_tokens"]
             total_out = transcribe_usage["output_tokens"] + clean_usage["output_tokens"]
-            totals = config.add_daily_usage(total_in, total_out)
+            totals = config.add_usage({"input_tokens": total_in, "output_tokens": total_out})
 
             # Discard if a newer recording has started since we began processing
             if generation != self._generation:

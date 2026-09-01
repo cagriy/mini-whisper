@@ -43,8 +43,9 @@ def ctrl(monkeypatch):
     monkeypatch.setattr("mini_whisper.controller.config.load",
                         MagicMock(return_value={"cleanup_enabled": True}))
     monkeypatch.setattr("mini_whisper.controller.config.get_prompt", MagicMock(return_value="Clean up."))
-    monkeypatch.setattr("mini_whisper.controller.config.add_daily_usage",
-                        MagicMock(return_value={"input_tokens": 15, "output_tokens": 8}))
+    monkeypatch.setattr("mini_whisper.controller.config.add_usage",
+                        MagicMock(return_value={"input_tokens": 15, "output_tokens": 8,
+                                                "streamed_seconds": {}, "cost_usd": 0.0}))
     return Controller()
 
 

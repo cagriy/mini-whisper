@@ -27,6 +27,10 @@ BUNDLED_TRANSCRIBE_PROMPT = Path(__file__).parent / "resources" / "default_trans
 
 KEYRING_SERVICE = "mini-whisper"
 KEYRING_USERNAME = "openai-api-key"
+STREAMING_KEY_USERNAMES = {
+    "elevenlabs": "elevenlabs-api-key",
+    "speechmatics": "speechmatics-api-key",
+}
 
 _lock = threading.Lock()
 
@@ -35,6 +39,9 @@ DEFAULT_CONFIG = {
     "submit_hotkey": "cmd_r",
     "cleanup_enabled": True,
     "sound_volume": 1.0,
+    "streaming_enabled": True,
+    "streaming_engine": "on_device",
+    "pricing_overrides": {},
 }
 
 
@@ -53,7 +60,7 @@ def load() -> dict:
     """Load config from disk, creating defaults if needed."""
     ensure_config_dir()
     try:
-        return json.loads(CONFIG_FILE.read_text(encoding="utf-8"))
+        return _migrate_daily_usage(json.loads(CONFIG_FILE.read_text(encoding="utf-8")))
     except json.JSONDecodeError:
         # Back up the corrupt file before overwriting with defaults
         try:
@@ -90,6 +97,17 @@ def set_api_key(key: str):
     logger.info("API key saved to Keychain")
 
 
+def get_streaming_api_key(engine: str) -> str | None:
+    """Get a cloud streaming engine's API key from the macOS Keychain."""
+    return keyring.get_password(KEYRING_SERVICE, STREAMING_KEY_USERNAMES[engine])
+
+
+def set_streaming_api_key(engine: str, key: str):
+    """Store a cloud streaming engine's API key in the macOS Keychain."""
+    keyring.set_password(KEYRING_SERVICE, STREAMING_KEY_USERNAMES[engine], key)
+    logger.info("%s API key saved to Keychain", engine)
+
+
 def get_prompt() -> str:
     """Read the cleanup prompt, re-reading from disk each time."""
     ensure_config_dir()
@@ -102,21 +120,58 @@ def get_transcribe_prompt() -> str:
     return TRANSCRIBE_PROMPT_FILE.read_text(encoding="utf-8").strip()
 
 
-def get_daily_usage() -> dict:
-    """Return today's cumulative token usage from config."""
-    cfg = load()
+def _new_day_entry() -> dict:
+    return {"input_tokens": 0, "output_tokens": 0, "streamed_seconds": {}, "cost_usd": 0.0}
+
+
+def _migrate_daily_usage(cfg: dict) -> dict:
+    """One-shot migration of the legacy today-only `daily_usage` store into `usage`."""
+    if "daily_usage" not in cfg:
+        return cfg
     today = date.today().isoformat()
-    return cfg.get("daily_usage", {}).get(today, {"input_tokens": 0, "output_tokens": 0})
+    old_today = cfg.pop("daily_usage").get(today)
+    if old_today:
+        entry = _new_day_entry()
+        entry["input_tokens"] = int(old_today.get("input_tokens", 0))
+        entry["output_tokens"] = int(old_today.get("output_tokens", 0))
+        cfg.setdefault("usage", {})[today] = entry
+    save(cfg)
+    logger.info("Migrated daily_usage to usage store")
+    return cfg
 
 
-def add_daily_usage(input_tokens: int, output_tokens: int) -> dict:
-    """Add tokens to today's usage, prune old dates, save, and return updated totals."""
+def add_usage(provider_usage: dict) -> dict:
+    """Accumulate one dictation's provider-attributed usage into today's entry.
+
+    provider_usage keys (all optional): input_tokens, output_tokens,
+    streamed_seconds ({engine: seconds}), cost_usd. Entries outside the
+    current calendar month are pruned on write. Returns today's entry.
+    """
     with _lock:
         cfg = load()
         today = date.today().isoformat()
-        today_usage = cfg.get("daily_usage", {}).get(today, {"input_tokens": 0, "output_tokens": 0})
-        today_usage["input_tokens"] += input_tokens
-        today_usage["output_tokens"] += output_tokens
-        cfg["daily_usage"] = {today: today_usage}  # prune old dates
+        usage = cfg.get("usage", {})
+        entry = usage.get(today, _new_day_entry())
+        entry["input_tokens"] += int(provider_usage.get("input_tokens", 0))
+        entry["output_tokens"] += int(provider_usage.get("output_tokens", 0))
+        entry["cost_usd"] += float(provider_usage.get("cost_usd", 0.0))
+        seconds_by_engine = entry.setdefault("streamed_seconds", {})
+        for engine, seconds in provider_usage.get("streamed_seconds", {}).items():
+            seconds_by_engine[engine] = seconds_by_engine.get(engine, 0.0) + float(seconds)
+        usage[today] = entry
+        month = today[:7]
+        cfg["usage"] = {day: e for day, e in usage.items() if day[:7] == month}
         save(cfg)
-        return today_usage
+        return entry
+
+
+def usage_totals() -> dict:
+    """Return {"today": today's usage entry, "month_cost_usd": month-to-date cost}."""
+    cfg = load()
+    usage = cfg.get("usage", {})
+    today = date.today().isoformat()
+    month = today[:7]
+    month_cost = sum(
+        float(e.get("cost_usd", 0.0)) for day, e in usage.items() if day[:7] == month
+    )
+    return {"today": usage.get(today, _new_day_entry()), "month_cost_usd": month_cost}
