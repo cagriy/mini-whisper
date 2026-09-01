@@ -1,0 +1,13 @@
+{
+  "steps": [
+    {"server": {"message_type": "session_started", "session_id": "sess_1", "config": {"audio_format": "pcm_16000"}}},
+    {"await_client": {"message_type": "input_audio_chunk", "commit": false}},
+    {"server": {"message_type": "partial_transcript", "text": "hello"}},
+    {"server": {"message_type": "partial_transcript", "text": "hello world"}},
+    {"server": {"message_type": "final_transcript", "text": "hello world"}},
+    {"server": {"message_type": "committed_transcript", "text": "hello world"}},
+    {"await_client": {"message_type": "input_audio_chunk", "commit": true}},
+    {"server": {"message_type": "partial_transcript", "text": "again"}},
+    {"server": {"message_type": "committed_transcript", "text": "again"}}
+  ]
+}

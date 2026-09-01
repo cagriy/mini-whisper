@@ -1,0 +1,15 @@
+{
+  "steps": [
+    {"await_client": "StartRecognition"},
+    {"server": {"message": "RecognitionStarted", "id": "sess_1"}},
+    {"await_client": "__binary__"},
+    {"server": {"message": "AudioAdded", "seq_no": 1}},
+    {"server": {"message": "AddPartialTranscript", "metadata": {"transcript": "hello"}}},
+    {"server": {"message": "AddPartialTranscript", "metadata": {"transcript": "hello world"}}},
+    {"server": {"message": "AddTranscript", "metadata": {"transcript": "hello world "}}},
+    {"await_client": "EndOfStream"},
+    {"server": {"message": "AddPartialTranscript", "metadata": {"transcript": "again"}}},
+    {"server": {"message": "AddTranscript", "metadata": {"transcript": "again"}}},
+    {"server": {"message": "EndOfTranscript"}}
+  ]
+}

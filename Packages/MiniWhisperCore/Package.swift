@@ -53,7 +53,11 @@ let package = Package(
         .testTarget(name: "MWConfigTests", dependencies: ["MWConfig", "MWTestSupport"]),
         .testTarget(name: "MWHotkeysTests", dependencies: ["MWHotkeys", "MWTestSupport"]),
         .testTarget(name: "MWAudioTests", dependencies: ["MWAudio", "MWTestSupport"]),
-        .testTarget(name: "MWStreamingTests", dependencies: ["MWStreaming", "MWTestSupport"]),
+        .testTarget(
+            name: "MWStreamingTests",
+            dependencies: ["MWStreaming", "MWTestSupport"],
+            resources: [.copy("Fixtures")]
+        ),
         .testTarget(name: "MWTranscriptionTests", dependencies: ["MWTranscription", "MWTestSupport"]),
         .testTarget(name: "MWUsageTests", dependencies: ["MWUsage", "MWTestSupport"]),
         .testTarget(name: "MWHistoryTests", dependencies: ["MWHistory", "MWTestSupport"]),

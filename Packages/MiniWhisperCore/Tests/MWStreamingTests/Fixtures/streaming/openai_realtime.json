@@ -1,0 +1,12 @@
+{
+  "steps": [
+    {"await_client": "session.update"},
+    {"await_client": "input_audio_buffer.append"},
+    {"server": {"type": "conversation.item.input_audio_transcription.delta", "delta": "hello"}},
+    {"server": {"type": "conversation.item.input_audio_transcription.delta", "delta": " world"}},
+    {"server": {"type": "conversation.item.input_audio_transcription.completed", "transcript": "hello world", "usage": {"type": "tokens", "input_tokens": 12, "output_tokens": 4}}},
+    {"await_client": "input_audio_buffer.commit"},
+    {"server": {"type": "conversation.item.input_audio_transcription.delta", "delta": "again"}},
+    {"server": {"type": "conversation.item.input_audio_transcription.completed", "transcript": "again"}}
+  ]
+}
