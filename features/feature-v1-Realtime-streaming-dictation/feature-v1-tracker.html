@@ -1,0 +1,1429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Realtime streaming dictation</title>
+
+  <!--
+    ===================================================================
+    feature-tracker template
+    -------------------------------------------------------------------
+    Replace every {{TOKEN}} below with HTML. Each of the four panels
+    follows the same three-part shape:
+
+        timestamp chip  →  Highlights (≤10 bullets)  →  Detail (prose)
+
+    so a reader can pick up the section at a glance and then drill in.
+    Tokens for a panel are owned by the skill that produces that panel:
+
+      Brainstorming  ←  /feature-storm
+      Design         ←  /feature-design
+      Plan           ←  /feature-plan
+      Implementation ←  /feature-implement
+
+    A skill substitutes its own panel's tokens with real HTML. For
+    any panel whose owning skill has not yet run, the currently
+    running skill substitutes the placeholder values:
+
+      {{X_AT}}        → "Awaiting /feature-<step>"
+      {{X_BULLETS}}   → <p class="empty">Not yet filled — pending /feature-<step>.</p>
+      {{X_DETAILS}}   → <p class="empty">Not yet filled — pending /feature-<step>.</p>
+
+    Header tokens (any skill substitutes if still literal):
+      {{FEATURE_VERSION}}        integer, e.g. "3"
+      {{FEATURE_TITLE}}          readable title, max 10 words
+                                 (e.g. "Add payment checkout flow")
+      {{FEATURE_SLUG}}           "feature-v3-add-payment-checkout-flow"
+      {{GENERATED_AT}}           ISO date, e.g. "2026-05-26"
+
+    Per-panel tokens:
+      Brainstorming (owned by /feature-storm):
+        {{BRAINSTORMING_AT}}        chip text — "Updated <UTC ts>"
+                                    or "Awaiting /feature-storm"
+        {{BRAINSTORMING_BULLETS}}   <ul><li>…</li>…</ul>, ≤10 items
+        {{BRAINSTORMING_DETAILS}}   free-form HTML continuing the
+                                    requirement specifics
+
+      Design (owned by /feature-design):
+        {{DESIGN_AT}}               chip text — "Updated <UTC ts>"
+                                    or "Awaiting /feature-design"
+        {{DESIGN_BULLETS}}          <ul><li>…</li>…</ul>, ≤10 highlights
+        {{DESIGN_DETAILS}}          free-form HTML rendering the
+                                    design's key sections in
+                                    increasing detail
+
+      Plan (owned by /feature-plan):
+        {{PLAN_AT}}                 chip text — "Updated <UTC ts>"
+                                    or "Awaiting /feature-plan"
+        {{PLAN_BULLETS}}            <ul><li>…</li>…</ul>, ≤10 highlights
+        {{PLAN_DETAILS}}            free-form HTML rendering the
+                                    plan's stages, coverage map,
+                                    deviations, etc.
+
+      Implementation (owned by /feature-implement):
+        {{IMPLEMENTATION_AT}}       chip text — "Updated <UTC ts>"
+                                    or "Awaiting /feature-implement"
+        {{IMPLEMENTATION_BULLETS}}  <ul><li>…</li>…</ul>, ≤10 highlights
+        {{IMPLEMENTATION_DETAILS}}  free-form HTML — stage list,
+                                    test results, coverage,
+                                    deviations, etc.
+
+      Run usage (all eight owned by usage-report — never by the
+      panel's own skill):
+        {{BRAINSTORMING_USAGE_CHIP}}, {{DESIGN_USAGE_CHIP}},
+        {{PLAN_USAGE_CHIP}}, {{IMPLEMENTATION_USAGE_CHIP}}
+                                    headline chip beside the panel's
+                                    timestamp chip, e.g.
+                                    "8m 08s · 25,924 out · 76.0 tok/s"
+        {{BRAINSTORMING_USAGE}}, {{DESIGN_USAGE}},
+        {{PLAN_USAGE}}, {{IMPLEMENTATION_USAGE}}
+                                    <div class="usage-pair"> of two
+                                    <table class="usage"> halves, below
+                                    the panel's Highlights bullets
+
+      These eight are the one exception to the substitute-only-if-
+      literal rule: usage-report fills its own stage's pair and blanks
+      the other six on every run, so a re-run shows the latest figures
+      rather than a second table. Safe because they have exactly one
+      owner. Note the template has TWO consumers — usage-report and
+      bug-tracker-render, which blanks all twenty feature-panel
+      tokens — so adding or renaming one here is a two-skill change.
+
+    Progress stepper (Storming → Design → Plan → Implement):
+      The four <li class="step" data-stage="…"> elements track stage
+      lifecycle via data-state="pending|complete". The raw template
+      ships with every step set to "pending", which renders a grey
+      "nothing started yet" view. Each feature-* skill is responsible
+      for updating its own step:
+
+        data-stage="storm"      ← /feature-storm
+        data-stage="design"     ← /feature-design
+        data-stage="plan"       ← /feature-plan
+        data-stage="implement"  ← /feature-implement
+
+      The skill flips its own step pending → complete as part of its
+      tracker update step, only when its stage file is committed (or
+      finalised). There is no in-flight "current" state — a step is
+      either not done (grey) or done (green). Edits target both
+      attributes for uniqueness:
+
+        old: data-stage="design" data-state="pending"
+        new: data-stage="design" data-state="complete"
+
+      Do NOT touch sibling steps from another skill — the stepper is
+      an additive timeline, not a global state machine.
+
+    Tracker kind (feature view vs. bug tracker):
+      The page BODY element carries an optional data-tracker-kind attr.
+
+        (absent)            → feature view: stepper + the four feature
+                              tabs are shown; the Issues tab and its
+                              panel are hidden. This is the default the
+                              feature-* skills seed via feature-resolve.
+        data-tracker-kind   → bug tracker: the stepper and the four
+          ="bugs"             feature tabs/panels are hidden; only the
+                              Issues tab/panel is shown, and the header
+                              version chip + slug are hidden. /bug-submit
+                              sets this when it generates the repo-wide
+                              bugs/bugs-tracker.html from this template.
+
+    Issues panel (owned by /bug-submit, bug tracker only):
+      Unlike the four feature panels — each filled ONCE by its owning
+      skill via {{TOKEN}} substitution — the Issues panel is a LIVING
+      list regenerated wholesale on every /bug-submit run. Its content
+      lives between three pairs of HTML-comment markers (written with
+      real comment syntax in the panel markup below), NOT in {{tokens}}.
+      The marker names — each a :START / :END pair — are:
+
+        ISSUES_AT       the "Updated <UTC>" chip text
+        ISSUES_OPEN     one .issue card per open bug (folders in
+                        bugs/), else the empty placeholder
+        ISSUES_CLOSED   one .issue card per closed bug (folders in
+                        bugs/archive/), else the empty placeholder
+
+      (Note: do NOT paste those literal comment markers into THIS doc
+      block — an inner end-of-comment would close the doc comment early.)
+
+      /bug-submit replaces everything between each START/END pair. The
+      Open/Closed counts are computed at load time from the rendered
+      cards, so the skill never writes them. Each card is a
+      details.issue[data-status="open|closed"] with a summary
+      (#N, title, severity badge, filed date) and an expandable body
+      (report sections + img screenshots referenced by RELATIVE path).
+    ===================================================================
+  -->
+
+  <style>
+    :root {
+      --bg: #f9fafb;
+      --surface: #ffffff;
+      --surface-muted: #f3f4f6;
+      --border: #e5e7eb;
+      --text: #0f172a;
+      --text-muted: #6b7280;
+      --text-subtle: #9ca3af;
+      --accent: #4f46e5;
+      --accent-soft: #eef2ff;
+      --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04);
+      --shadow-md: 0 1px 2px rgba(15, 23, 42, 0.04), 0 12px 32px rgba(15, 23, 42, 0.06);
+      --radius: 14px;
+      --radius-sm: 8px;
+      --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+      --sans: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, system-ui, sans-serif;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0b0b0d;
+        --surface: #131316;
+        --surface-muted: #1a1a1f;
+        --border: #26262b;
+        --text: #f5f5f7;
+        --text-muted: #a1a1aa;
+        --text-subtle: #71717a;
+        --accent: #818cf8;
+        --accent-soft: rgba(129, 140, 248, 0.12);
+        --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+        --shadow-md: 0 1px 2px rgba(0, 0, 0, 0.4), 0 12px 32px rgba(0, 0, 0, 0.32);
+      }
+    }
+
+    *,
+    *::before,
+    *::after { box-sizing: border-box; }
+
+    html, body { margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      font-size: 16px;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    .container {
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 56px 32px 96px;
+    }
+
+    /* Header --------------------------------------------------------- */
+
+    .feature-header {
+      margin-bottom: 32px;
+      padding-bottom: 28px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .version-chip {
+      display: inline-flex;
+      align-items: center;
+      padding: 4px 10px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      border-radius: 999px;
+      font-size: 11.5px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .feature-title {
+      margin: 16px 0 10px;
+      font-size: 34px;
+      font-weight: 700;
+      letter-spacing: -0.022em;
+      line-height: 1.18;
+      color: var(--text);
+    }
+
+    .feature-slug {
+      font-family: var(--mono);
+      font-size: 13px;
+      color: var(--text-muted);
+      background: var(--surface-muted);
+      padding: 3px 9px;
+      border-radius: var(--radius-sm);
+      display: inline-block;
+      border: 1px solid var(--border);
+    }
+
+    /* Progress stepper ---------------------------------------------- */
+
+    .progress-stepper {
+      display: flex;
+      list-style: none;
+      margin: 0 0 36px;
+      padding: 0;
+      gap: 0;
+    }
+
+    .step {
+      position: relative;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    /* Connector line — drawn rightward from each step except the last.
+       Coloured by THIS step's state: a complete step extends an accent
+       line toward the next; anything else extends a muted line. */
+    .step::after {
+      content: "";
+      position: absolute;
+      top: 13px;
+      left: calc(50% + 18px);
+      right: calc(-50% + 18px);
+      height: 2px;
+      background: var(--border);
+      z-index: 0;
+      transition: background 0.2s ease;
+    }
+
+    .step:last-child::after { display: none; }
+
+    .step[data-state="complete"]::after { background: var(--accent); }
+
+    .step-indicator {
+      position: relative;
+      z-index: 1;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      border: 2px solid var(--border);
+      background: var(--surface);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-muted);
+      font-variant-numeric: tabular-nums;
+      transition: background 0.2s ease,
+                  border-color 0.2s ease,
+                  color 0.2s ease,
+                  box-shadow 0.2s ease;
+    }
+
+    .step-check { display: none; line-height: 1; }
+    .step-number { display: inline; line-height: 1; }
+
+    .step[data-state="complete"] .step-indicator {
+      border-color: var(--accent);
+      background: var(--accent);
+      color: #ffffff;
+    }
+
+    .step[data-state="complete"] .step-check { display: inline; }
+    .step[data-state="complete"] .step-number { display: none; }
+
+    .step-label {
+      font-size: 12.5px;
+      font-weight: 500;
+      color: var(--text-muted);
+      letter-spacing: 0.02em;
+      text-align: center;
+      line-height: 1.25;
+    }
+
+    .step[data-state="complete"] .step-label {
+      color: var(--text);
+      font-weight: 600;
+    }
+
+    /* Tabs ----------------------------------------------------------- */
+
+    .tabs {
+      position: sticky;
+      top: 0;
+      z-index: 5;
+      display: flex;
+      gap: 0;
+      margin-bottom: 28px;
+      border-bottom: 1px solid var(--border);
+      background: color-mix(in srgb, var(--bg) 88%, transparent);
+      backdrop-filter: saturate(180%) blur(10px);
+      -webkit-backdrop-filter: saturate(180%) blur(10px);
+      padding-top: 4px;
+    }
+
+    .tab {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 14px 18px;
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-family: inherit;
+      font-size: 14.5px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: color 0.15s ease;
+      border-radius: 0;
+      outline: none;
+    }
+
+    .tab:hover { color: var(--text); }
+
+    .tab:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: -4px;
+      border-radius: var(--radius-sm);
+    }
+
+    .tab[aria-selected="true"] {
+      color: var(--accent);
+      font-weight: 600;
+    }
+
+    .tab .tab-icon {
+      width: 16px;
+      height: 16px;
+      stroke-width: 2;
+      flex-shrink: 0;
+    }
+
+    .tab-indicator {
+      position: absolute;
+      left: 0;
+      bottom: -1px;
+      height: 2px;
+      width: 0;
+      background: var(--accent);
+      border-radius: 2px 2px 0 0;
+      transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+                  width 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+      pointer-events: none;
+    }
+
+    /* Panels --------------------------------------------------------- */
+
+    .panel { display: none; }
+
+    .panel.active {
+      display: block;
+      animation: panel-in 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    @keyframes panel-in {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .panel-section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 28px 32px;
+      margin-bottom: 16px;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .panel-section:last-child { margin-bottom: 0; }
+
+    .section-label {
+      margin: 0 0 18px;
+      font-size: 11.5px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--text-subtle);
+    }
+
+    /* Bullets -------------------------------------------------------- */
+
+    .bullets ul,
+    .prose ul {
+      list-style: none;
+      margin: 0;
+      padding-left: 0;
+    }
+
+    .bullets ol,
+    .prose ol {
+      margin: 0;
+      padding-left: 24px;
+    }
+
+    .bullets ul > li,
+    .prose ul > li {
+      position: relative;
+      padding-left: 22px;
+      margin-bottom: 10px;
+    }
+
+    .bullets ul > li::before,
+    .prose ul > li::before {
+      content: "";
+      position: absolute;
+      left: 6px;
+      top: 12px;
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: var(--accent);
+      opacity: 0.9;
+    }
+
+    .bullets ol > li,
+    .prose ol > li { margin-bottom: 10px; }
+
+    .bullets li:last-child,
+    .prose li:last-child { margin-bottom: 0; }
+
+    .bullets li > ul, .bullets li > ol,
+    .prose li > ul, .prose li > ol { margin-top: 8px; }
+
+    /* Prose ---------------------------------------------------------- */
+
+    .prose p { margin: 0 0 14px; }
+    .prose p:last-child { margin-bottom: 0; }
+    .prose strong { font-weight: 600; }
+
+    .prose a {
+      color: var(--accent);
+      text-decoration: none;
+      border-bottom: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
+      transition: border-color 0.15s ease;
+    }
+    .prose a:hover { border-bottom-color: var(--accent); }
+
+    .prose h2,
+    .prose h3,
+    .prose h4 {
+      margin: 28px 0 10px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      line-height: 1.3;
+    }
+    .prose h2 { font-size: 20px; }
+    .prose h3 { font-size: 16px; }
+    .prose h4 {
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+    }
+    .prose h2:first-child,
+    .prose h3:first-child,
+    .prose h4:first-child { margin-top: 0; }
+
+    .prose code {
+      font-family: var(--mono);
+      font-size: 0.9em;
+      background: var(--surface-muted);
+      color: var(--text);
+      padding: 1.5px 6px;
+      border-radius: 5px;
+      border: 1px solid var(--border);
+    }
+
+    .prose pre {
+      background: #0f172a;
+      color: #e2e8f0;
+      padding: 16px 18px;
+      border-radius: var(--radius-sm);
+      overflow-x: auto;
+      font-family: var(--mono);
+      font-size: 13px;
+      line-height: 1.55;
+      margin: 14px 0;
+    }
+    .prose pre code {
+      background: transparent;
+      border: none;
+      padding: 0;
+      color: inherit;
+      font-size: inherit;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      .prose pre { background: #05050a; }
+    }
+
+    .prose blockquote {
+      margin: 14px 0;
+      padding: 10px 16px;
+      border-left: 3px solid var(--accent);
+      background: var(--accent-soft);
+      color: var(--text);
+      border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+    }
+    .prose blockquote p:last-child { margin-bottom: 0; }
+
+    .prose table {
+      border-collapse: collapse;
+      width: 100%;
+      margin: 16px 0;
+      font-size: 14px;
+    }
+    .prose th,
+    .prose td {
+      text-align: left;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    .prose th {
+      font-weight: 600;
+      color: var(--text-muted);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      background: var(--surface-muted);
+    }
+
+    .empty {
+      color: var(--text-subtle);
+      font-style: italic;
+      margin: 0;
+    }
+
+    /* Section timestamp chip --------------------------------------- */
+
+    .section-timestamp {
+      margin: 0 0 16px;
+      display: inline-block;
+      padding: 4px 12px;
+      background: var(--surface-muted);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      font-family: var(--mono);
+      font-size: 11.5px;
+      font-weight: 500;
+      color: var(--text-muted);
+      letter-spacing: 0.02em;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* Run-usage chip and table (both filled by usage-report) --------- */
+
+    .chip.usage {
+      display: inline-block;
+      margin: 0 0 16px 8px;
+      padding: 4px 12px;
+      background: var(--accent-soft);
+      border: 1px solid var(--accent);
+      border-radius: 999px;
+      font-family: var(--mono);
+      font-size: 11.5px;
+      font-weight: 600;
+      color: var(--accent);
+      letter-spacing: 0.02em;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* The usage fragment is two halves side by side — the small total-only
+       groups beside the token breakdown — reflowing to stacked when the panel
+       is narrow. Each half is an ordinary table.usage, so every rule below
+       applies to both unchanged. */
+    .usage-pair {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0 28px;
+      align-items: flex-start;
+    }
+    .usage-pair > table.usage {
+      flex: 1 1 320px;
+      width: auto;
+      min-width: 0;
+    }
+
+    /* The usage fragment sits outside .prose, so it carries its own
+       table rules rather than inheriting the ones above. */
+    table.usage {
+      border-collapse: collapse;
+      width: 100%;
+      margin-top: 16px;
+      font-family: var(--mono);
+      font-size: 12px;
+      font-variant-numeric: tabular-nums;
+    }
+    table.usage th {
+      text-align: right;
+      padding: 5px 10px;
+      border-bottom: 1px solid var(--border);
+      font-weight: 600;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-subtle);
+    }
+    table.usage td {
+      text-align: right;
+      padding: 4px 10px;
+      border-bottom: 1px solid var(--surface-muted);
+      color: var(--text-muted);
+    }
+    table.usage th:first-child,
+    table.usage td:first-child { text-align: left; }
+    table.usage td:first-child { color: var(--text); }
+    table.usage tr.grp td {
+      padding-top: 12px;
+      border-bottom: none;
+      font-weight: 600;
+      font-size: 10.5px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-subtle);
+    }
+    table.usage tr.sub td:first-child {
+      padding-left: 24px;
+      color: var(--text-subtle);
+    }
+    table.usage tr.tp td {
+      background: var(--accent-soft);
+      font-weight: 600;
+      color: var(--accent);
+    }
+
+    /* Footer --------------------------------------------------------- */
+
+    .feature-footer {
+      margin-top: 40px;
+      padding-top: 20px;
+      border-top: 1px solid var(--border);
+      font-size: 12px;
+      color: var(--text-subtle);
+      text-align: center;
+      letter-spacing: 0.02em;
+    }
+
+    /* Responsive ----------------------------------------------------- */
+
+    @media (max-width: 720px) {
+      .container { padding: 32px 18px 64px; }
+      .feature-title { font-size: 26px; }
+      .tabs { overflow-x: auto; }
+      .tabs::-webkit-scrollbar { display: none; }
+      .tab {
+        white-space: nowrap;
+        padding: 12px 12px;
+        font-size: 13.5px;
+      }
+      .panel-section { padding: 20px 18px; }
+      .progress-stepper { margin-bottom: 24px; }
+      .step-label { font-size: 11px; }
+      .step-indicator { width: 26px; height: 26px; font-size: 12px; }
+      .step::after { top: 12px; left: calc(50% + 17px); right: calc(-50% + 17px); }
+    }
+
+    /* Tracker kind — feature view (default) vs. bug tracker --------- */
+
+    /* Feature view (no data-tracker-kind): hide the Issues tab + panel. */
+    body:not([data-tracker-kind="bugs"]) .tab[data-kind="issues"],
+    body:not([data-tracker-kind="bugs"]) #panel-issues { display: none !important; }
+
+    /* Bug tracker: only the Issues tab/panel; no stepper, no feature tabs,
+       no version chip/slug in the header. */
+    body[data-tracker-kind="bugs"] .progress-stepper,
+    body[data-tracker-kind="bugs"] .feature-header .version-chip,
+    body[data-tracker-kind="bugs"] .feature-header .feature-slug,
+    body[data-tracker-kind="bugs"] .tab:not([data-kind="issues"]) { display: none; }
+
+    body[data-tracker-kind="bugs"] .panel:not(#panel-issues) { display: none !important; }
+    body[data-tracker-kind="bugs"] #panel-issues { display: block; }
+
+    /* Issues panel --------------------------------------------------- */
+
+    .issue-filter {
+      display: inline-flex;
+      gap: 4px;
+      margin: 0 0 20px;
+      padding: 4px;
+      background: var(--surface-muted);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+    }
+
+    .issue-tab {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 6px 16px;
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      font-family: inherit;
+      font-size: 13.5px;
+      font-weight: 500;
+      border-radius: 999px;
+      cursor: pointer;
+      transition: background 0.15s ease, color 0.15s ease;
+    }
+
+    .issue-tab:hover { color: var(--text); }
+
+    .issue-tab:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    .issue-tab[aria-pressed="true"] {
+      background: var(--surface);
+      color: var(--accent);
+      font-weight: 600;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .issue-count {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 20px;
+      height: 18px;
+      padding: 0 6px;
+      border-radius: 999px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-size: 11.5px;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .issue-tab[aria-pressed="false"] .issue-count {
+      background: var(--border);
+      color: var(--text-muted);
+    }
+
+    .issue-list[hidden] { display: none; }
+
+    .issue {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      margin-bottom: 12px;
+      box-shadow: var(--shadow-sm);
+      overflow: hidden;
+    }
+    .issue:last-child { margin-bottom: 0; }
+
+    .issue-summary {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 16px 20px;
+      cursor: pointer;
+      list-style: none;
+      user-select: none;
+    }
+    .issue-summary::-webkit-details-marker { display: none; }
+
+    .issue-summary::before {
+      content: "";
+      width: 7px;
+      height: 7px;
+      border-right: 2px solid var(--text-subtle);
+      border-bottom: 2px solid var(--text-subtle);
+      transform: rotate(-45deg);
+      transition: transform 0.18s ease;
+      flex-shrink: 0;
+    }
+    .issue[open] > .issue-summary::before { transform: rotate(45deg); }
+
+    .issue-number {
+      font-family: var(--mono);
+      font-size: 12.5px;
+      font-weight: 600;
+      color: var(--text-subtle);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .issue-title {
+      flex: 1;
+      min-width: 0;
+      font-weight: 600;
+      font-size: 15px;
+      color: var(--text);
+    }
+
+    .issue-sev {
+      padding: 2px 9px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      flex-shrink: 0;
+    }
+    .sev-low      { background: #ecfdf5; color: #047857; }
+    .sev-medium   { background: #fffbeb; color: #b45309; }
+    .sev-high     { background: #fef2f2; color: #b91c1c; }
+    .sev-critical { background: #b91c1c; color: #ffffff; }
+
+    @media (prefers-color-scheme: dark) {
+      .sev-low      { background: rgba(16, 185, 129, 0.16); color: #34d399; }
+      .sev-medium   { background: rgba(245, 158, 11, 0.16); color: #fbbf24; }
+      .sev-high     { background: rgba(239, 68, 68, 0.16);  color: #f87171; }
+      .sev-critical { background: #dc2626; color: #ffffff; }
+    }
+
+    .issue-date {
+      font-family: var(--mono);
+      font-size: 11.5px;
+      color: var(--text-subtle);
+      font-variant-numeric: tabular-nums;
+      flex-shrink: 0;
+    }
+
+    .issue-body {
+      padding: 4px 20px 22px;
+      border-top: 1px solid var(--border);
+    }
+
+    .issue-body img {
+      max-width: 100%;
+      height: auto;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      margin: 10px 0;
+      display: block;
+    }
+
+    @media (max-width: 720px) {
+      .issue-summary { flex-wrap: wrap; gap: 8px; padding: 14px 16px; }
+      .issue-title { flex-basis: 100%; order: 3; }
+      .issue-body { padding: 4px 16px 18px; }
+    }
+
+    /* Print ---------------------------------------------------------- */
+
+    @media print {
+      .tabs,
+      .tab-indicator { display: none; }
+      body[data-tracker-kind="bugs"] .panel:not(#panel-issues) { display: none !important; }
+      .issue { break-inside: avoid; }
+      .panel {
+        display: block !important;
+        page-break-after: always;
+      }
+      .panel:last-of-type { page-break-after: auto; }
+      .container { max-width: none; padding: 24px; }
+      body { background: white; color: black; }
+      .panel-section {
+        box-shadow: none;
+        border: 1px solid #ccc;
+        break-inside: avoid;
+      }
+      .progress-stepper { break-inside: avoid; }
+    }
+  </style>
+</head>
+
+<body>
+  <main class="container">
+    <header class="feature-header">
+      <span class="version-chip">v1</span>
+      <h1 class="feature-title">Realtime streaming dictation</h1>
+      <code class="feature-slug">feature-v1-Realtime-streaming-dictation</code>
+    </header>
+
+    <ol class="progress-stepper" aria-label="Feature progress: Storming, Design, Plan, Implement">
+      <li class="step" data-stage="storm" data-state="complete">
+        <span class="step-indicator" aria-hidden="true">
+          <span class="step-check">&#10003;</span>
+          <span class="step-number">1</span>
+        </span>
+        <span class="step-label">Storming</span>
+      </li>
+      <li class="step" data-stage="design" data-state="complete">
+        <span class="step-indicator" aria-hidden="true">
+          <span class="step-check">&#10003;</span>
+          <span class="step-number">2</span>
+        </span>
+        <span class="step-label">Design</span>
+      </li>
+      <li class="step" data-stage="plan" data-state="complete">
+        <span class="step-indicator" aria-hidden="true">
+          <span class="step-check">&#10003;</span>
+          <span class="step-number">3</span>
+        </span>
+        <span class="step-label">Plan</span>
+      </li>
+      <li class="step" data-stage="implement" data-state="pending">
+        <span class="step-indicator" aria-hidden="true">
+          <span class="step-check">&#10003;</span>
+          <span class="step-number">4</span>
+        </span>
+        <span class="step-label">Implement</span>
+      </li>
+    </ol>
+
+    <nav class="tabs" role="tablist" aria-label="Feature sections">
+      <button class="tab" role="tab" aria-selected="true"
+              aria-controls="panel-brainstorming" id="tab-brainstorming" tabindex="0">
+        <svg class="tab-icon" xmlns="http://www.w3.org/2000/svg"
+             viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M9 18h6"/>
+          <path d="M10 22h4"/>
+          <path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5A4.61 4.61 0 0 1 8.91 14"/>
+        </svg>
+        <span>Brainstorming</span>
+      </button>
+
+      <button class="tab" role="tab" aria-selected="false"
+              aria-controls="panel-design" id="tab-design" tabindex="-1">
+        <svg class="tab-icon" xmlns="http://www.w3.org/2000/svg"
+             viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="10"/>
+          <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/>
+        </svg>
+        <span>Design</span>
+      </button>
+
+      <button class="tab" role="tab" aria-selected="false"
+              aria-controls="panel-plan" id="tab-plan" tabindex="-1">
+        <svg class="tab-icon" xmlns="http://www.w3.org/2000/svg"
+             viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <line x1="8" y1="6" x2="21" y2="6"/>
+          <line x1="8" y1="12" x2="21" y2="12"/>
+          <line x1="8" y1="18" x2="21" y2="18"/>
+          <line x1="3" y1="6" x2="3.01" y2="6"/>
+          <line x1="3" y1="12" x2="3.01" y2="12"/>
+          <line x1="3" y1="18" x2="3.01" y2="18"/>
+        </svg>
+        <span>Plan</span>
+      </button>
+
+      <button class="tab" role="tab" aria-selected="false"
+              aria-controls="panel-implementation" id="tab-implementation" tabindex="-1">
+        <svg class="tab-icon" xmlns="http://www.w3.org/2000/svg"
+             viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <polyline points="16 18 22 12 16 6"/>
+          <polyline points="8 6 2 12 8 18"/>
+        </svg>
+        <span>Implementation</span>
+      </button>
+
+      <button class="tab" role="tab" aria-selected="false" data-kind="issues"
+              aria-controls="panel-issues" id="tab-issues" tabindex="-1">
+        <svg class="tab-icon" xmlns="http://www.w3.org/2000/svg"
+             viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="9"/>
+          <line x1="12" y1="8" x2="12" y2="13"/>
+          <line x1="12" y1="16.5" x2="12.01" y2="16.5"/>
+        </svg>
+        <span>Issues</span>
+      </button>
+
+      <span class="tab-indicator" aria-hidden="true"></span>
+    </nav>
+
+    <section class="panel active" role="tabpanel"
+             id="panel-brainstorming" aria-labelledby="tab-brainstorming">
+      <p class="section-timestamp">Updated 2026-09-01 13:24 UTC</p>
+      <!-- usage:BRAINSTORMING_USAGE_CHIP --><span class="chip usage">10m 11s · 20,228 out · 60.0 tok/s</span><!-- /usage:BRAINSTORMING_USAGE_CHIP -->
+      <article class="panel-section">
+        <h2 class="section-label">Highlights</h2>
+        <div class="bullets"><ul>
+          <li>Mini Whisper gains live dictation: as the user speaks, transcribed text streams into an area under the recording animation in the overlay.</li>
+          <li>Two user-selectable streaming engines in Settings: OpenAI Realtime API (default) and Apple on-device speech recognition.</li>
+          <li>The streaming transcript is authoritative for both engines — the compound text goes straight to cleanup (if enabled) then paste, with no separate batch transcription call.</li>
+          <li>The feature is on by default; disabling it in Settings restores today's exact batch behaviour.</li>
+          <li>If the realtime connection fails or drops mid-recording, the dictation silently falls back to the existing batch pipeline using the locally accumulated audio — a dictation never fails because of streaming.</li>
+          <li>Daily token-usage tracking is extended to count realtime-session tokens.</li>
+          <li>On-device engine makes transcription fully offline and free, at lower accuracy, and requires the additional macOS Speech Recognition permission.</li>
+          <li>Key risk: on-by-default switches all existing users from batch to realtime pricing/behaviour; a second risk is on-device output quality falling below the app's current Whisper-class bar.</li>
+          <li>Deferred by name: type-at-cursor streaming, scratchpad confirm-before-paste, local dictation history, live translation mode, voice editing commands, stream-response-only cut.</li>
+          <li>Open for design: overlay text-area shape/size (mockup), incremental audio format conversion for the WebSocket, behaviour when on-device dictation completes but cleanup is unreachable offline (leaning: paste raw).</li>
+        </ul></div>
+        <!-- usage:BRAINSTORMING_USAGE --><div class="usage-pair">
+<table class="usage">
+<thead><tr><th>Metric</th><th>Main</th><th>Subagents</th><th>Total</th></tr></thead>
+<tbody>
+<tr class="grp"><td colspan="4">Time</td></tr>
+<tr><td>elapsed</td><td>—</td><td>—</td><td>10m 11s</td></tr>
+<tr><td>run time</td><td>—</td><td>—</td><td>6m 03s</td></tr>
+<tr class="grp"><td colspan="4">Requests</td></tr>
+<tr><td>model</td><td>24</td><td>0</td><td>24</td></tr>
+<tr><td>web_search</td><td>0</td><td>0</td><td>0</td></tr>
+<tr><td>web_fetch</td><td>0</td><td>0</td><td>0</td></tr>
+<tr class="grp"><td colspan="4">Throughput</td></tr>
+<tr class="tp"><td>output tok/s</td><td>—</td><td>—</td><td>60.0</td></tr>
+</tbody>
+</table>
+<table class="usage">
+<thead><tr><th>Metric</th><th>Main</th><th>Subagents</th><th>Total</th></tr></thead>
+<tbody>
+<tr class="grp"><td colspan="4">Tokens</td></tr>
+<tr><td>input_tokens</td><td>48</td><td>0</td><td>48</td></tr>
+<tr><td>output_tokens</td><td>20,228</td><td>0</td><td>20,228</td></tr>
+<tr class="sub"><td>thinking_tokens</td><td>5,979</td><td>0</td><td>5,979</td></tr>
+<tr><td>cache_write</td><td>66,945</td><td>0</td><td>66,945</td></tr>
+<tr class="sub"><td>ephemeral_1h</td><td>66,945</td><td>0</td><td>66,945</td></tr>
+<tr class="sub"><td>ephemeral_5m</td><td>0</td><td>0</td><td>0</td></tr>
+<tr><td>cache_read</td><td>2,259,394</td><td>0</td><td>2,259,394</td></tr>
+</tbody>
+</table>
+</div><!-- /usage:BRAINSTORMING_USAGE -->
+      </article>
+      <article class="panel-section">
+        <h2 class="section-label">Detail</h2>
+        <div class="prose">
+          <h3>Summary</h3>
+          <p>Mini Whisper currently transcribes only after the user releases the hotkey: the whole recording is POSTed to the batch transcription endpoint, optionally cleaned up, then pasted. This feature makes dictation live — as the user speaks, transcribed text streams into a text area under the recording animation in the overlay. The user chooses between two streaming engines in Settings: OpenAI's Realtime API (default) or Apple's on-device speech recognition. In both cases the compound streamed transcript is the final raw transcript — it feeds the cleanup model (if enabled) and is pasted, replacing the batch transcription call entirely when streaming is enabled.</p>
+          <h3>Scope</h3>
+          <p><strong>In scope:</strong></p>
+          <ul>
+            <li>Settings: streaming toggle (on by default) and engine picker (Realtime API default / on-device).</li>
+            <li>Live text area under the recording animation in the overlay, active while recording when streaming is enabled.</li>
+            <li>Realtime API engine: audio streamed over WebSocket to OpenAI's realtime transcription mode; partial text displayed live; compound transcript → cleanup (if enabled) → paste.</li>
+            <li>On-device engine: Apple speech recognition partials displayed live; its compound transcript is likewise authoritative (fully offline, zero transcription cost); requires the macOS Speech Recognition permission.</li>
+            <li>Fallback to the existing batch pipeline when the realtime connection fails or drops mid-recording.</li>
+            <li>Realtime-session token usage counted into the daily usage totals.</li>
+          </ul>
+          <p><strong>Out of scope / deferred:</strong> type-at-cursor streaming, scratchpad confirm-before-paste, local dictation history, live translation mode, voice editing commands, stream-response-only cut.</p>
+          <h3>Technical direction (constraints)</h3>
+          <ul>
+            <li>Engine one: OpenAI Realtime API transcription-only WebSocket mode (<code>intent=transcription</code>) with <code>gpt-4o-mini-transcribe</code> — verified available; partial text arrives as delta events; same API key as today.</li>
+            <li>Engine two: Apple on-device speech recognition via pyobjc, consistent with the app's programmatic-PyObjC approach; adds the Speech Recognition permission.</li>
+            <li>The recorder's existing live tap must feed the streaming engine incrementally while still accumulating audio locally for the batch fallback.</li>
+            <li>The overlay stays the single recording UI; the text area extends it (shape/size settled by the design mockup).</li>
+            <li>Cleanup is unchanged: one pass over the compound transcript after recording completes.</li>
+            <li>Streaming disabled restores current behaviour exactly, including duration/silence gates and stale-result discard.</li>
+          </ul>
+        </div>
+      </article>
+    </section>
+
+    <section class="panel" role="tabpanel"
+             id="panel-design" aria-labelledby="tab-design" hidden>
+      <p class="section-timestamp">Updated 2026-09-01 13:54 UTC</p>
+      <!-- usage:DESIGN_USAGE_CHIP --><span class="chip usage">28m 08s · 54,917 out · 105.8 tok/s</span><!-- /usage:DESIGN_USAGE_CHIP -->
+      <article class="panel-section">
+        <h2 class="section-label">Highlights</h2>
+        <div class="bullets"><ul>
+          <li>Four streaming engines behind one protocol seam: Apple on-device (default, free, offline), OpenAI Realtime, ElevenLabs Scribe v2, Speechmatics Real-Time.</li>
+          <li>Accepted "Caption Bar" mockup: the 300pt dots card stays untouched; a detached 480pt caption bar below it shows the last ~3 lines with a blinking partial cursor.</li>
+          <li>The compound streamed transcript is the final raw transcript — batch transcription is skipped when streaming succeeds; cleanup runs unchanged on the result.</li>
+          <li>Any engine-unavailable condition (missing key, denied permission, connection drop, finish timeout, empty transcript) falls back to the existing batch pipeline — a dictation never fails because of streaming.</li>
+          <li>Recorder keeps accumulating audio locally regardless of streaming; the tap hands buffers to the engine via a non-blocking listener.</li>
+          <li>Incremental stateful resampler converts hardware-rate float32 to each engine's PCM16 format without touching the batch path.</li>
+          <li>Speech Recognition permission requested on first on-device dictation; denial gives a one-per-run pointer and batch fallback.</li>
+          <li>Usage tracking extended: per-provider tokens, streamed minutes, and dollar costs (today + month-to-date) from pricing constants with config overrides; two menu-bar rows.</li>
+          <li>ElevenLabs and Speechmatics keys stored in the Keychain beside the OpenAI key; OpenAI remains the only required key.</li>
+          <li>New dependencies: websockets, pyobjc-framework-Speech; py2app Info.plist gains NSSpeechRecognitionUsageDescription.</li>
+        </ul></div>
+        <!-- usage:DESIGN_USAGE --><div class="usage-pair">
+<table class="usage">
+<thead><tr><th>Metric</th><th>Main</th><th>Subagents</th><th>Total</th></tr></thead>
+<tbody>
+<tr class="grp"><td colspan="4">Time</td></tr>
+<tr><td>elapsed</td><td>—</td><td>—</td><td>28m 08s</td></tr>
+<tr><td>run time</td><td>—</td><td>—</td><td>16m 21s</td></tr>
+<tr class="grp"><td colspan="4">Requests</td></tr>
+<tr><td>model</td><td>46</td><td>0</td><td>46</td></tr>
+<tr><td>web_search</td><td>0</td><td>0</td><td>0</td></tr>
+<tr><td>web_fetch</td><td>0</td><td>0</td><td>0</td></tr>
+<tr class="grp"><td colspan="4">Throughput</td></tr>
+<tr class="tp"><td>output tok/s</td><td>—</td><td>—</td><td>105.8</td></tr>
+</tbody>
+</table>
+<table class="usage">
+<thead><tr><th>Metric</th><th>Main</th><th>Subagents</th><th>Total</th></tr></thead>
+<tbody>
+<tr class="grp"><td colspan="4">Tokens</td></tr>
+<tr><td>input_tokens</td><td>92</td><td>0</td><td>92</td></tr>
+<tr><td>output_tokens</td><td>54,917</td><td>0</td><td>54,917</td></tr>
+<tr class="sub"><td>thinking_tokens</td><td>13,222</td><td>0</td><td>13,222</td></tr>
+<tr><td>cache_write</td><td>107,510</td><td>0</td><td>107,510</td></tr>
+<tr class="sub"><td>ephemeral_1h</td><td>107,510</td><td>0</td><td>107,510</td></tr>
+<tr class="sub"><td>ephemeral_5m</td><td>0</td><td>0</td><td>0</td></tr>
+<tr><td>cache_read</td><td>10,119,052</td><td>0</td><td>10,119,052</td></tr>
+</tbody>
+</table>
+</div><!-- /usage:DESIGN_USAGE -->
+      </article>
+      <article class="panel-section">
+        <h2 class="section-label">Detail</h2>
+        <div class="prose">
+          <p>Accepted mockup: <a href="./mockups/mockup-v1-caption-bar.html">Caption Bar</a> (<a href="https://claude.ai/code/artifact/5d1d4d9a-506b-485c-ad8f-ec0927df7961">artifact</a>). Full design: <a href="./feature-design-v1-Realtime-streaming-dictation.md">feature-design-v1-Realtime-streaming-dictation.md</a>.</p>
+          <h3>Summary</h3>
+          <p>While the user speaks, the selected streaming engine transcribes incrementally and partial text renders in a caption bar under the recording dots. The compound streamed transcript feeds cleanup (when enabled) and is pasted, replacing the batch transcription call. Streaming is on by default with the free on-device engine; disabling the toggle restores today's behaviour exactly.</p>
+          <h3>Architecture</h3>
+          <ul>
+            <li><code>streaming/base.py</code> — <code>StreamingEngine</code> protocol (<code>start</code>/<code>feed</code>/<code>finish</code>) and <code>TranscriptSink</code> callbacks; engines and controller are each testable with fakes.</li>
+            <li><code>streaming/audio_convert.py</code> — stateful chunked float32→PCM16 resampler.</li>
+            <li><code>streaming/websocket_engine.py</code> — shared cloud skeleton (background thread, buffer-until-open, finish handshake) with OpenAI / ElevenLabs / Speechmatics subclasses; <code>streaming/on_device.py</code> — SFSpeechRecognizer with on-device recognition and permission gate; <code>streaming/factory.py</code> — engine selection with fallback reasons.</li>
+            <li><code>pricing.py</code> — per-minute and per-token constants, <code>pricing_overrides</code> escape hatch, per-dictation cost.</li>
+            <li><code>CaptionBarWindow</code> in <code>overlay.py</code>; new <code>caption</code>/<code>caption_unavailable</code> UI events through the existing 100ms poll loop.</li>
+          </ul>
+          <h3>Failure handling</h3>
+          <p>Every streaming failure routes to the batch pipeline over the locally accumulated WAV; the bar shows "live transcript unavailable". Finish timeout (5s) discards partial streams rather than pasting truncated text. Cleanup failures keep today's error semantics, including for on-device offline dictations.</p>
+          <h3>Data &amp; usage</h3>
+          <p><code>config.json</code> gains <code>streaming_enabled</code>, <code>streaming_engine</code>, <code>pricing_overrides</code>, and a month-scoped <code>usage</code> map (migrated from <code>daily_usage</code>). Menu shows <em>Today: tokens · minutes · $</em> and <em>Month: $</em>.</p>
+          <h3>Testing</h3>
+          <p>Introduces pytest suite: converter equivalence, per-provider fixture transcripts, factory matrix, pricing maths, config migration, controller fallback matrix with fake engines. UI verified manually per acceptance criteria.</p>
+          <h3>Risks</h3>
+          <ul>
+            <li>Provider schema drift — isolated per subclass, fixture tests fail loudly, batch fallback covers the gap.</li>
+            <li>VAD segmentation fidelity vs batch — cleanup smooths seams; engines switchable.</li>
+            <li>Pricing constants rot — single file plus config overrides.</li>
+          </ul>
+        </div>
+      </article>
+    </section>
+
+    <section class="panel" role="tabpanel"
+             id="panel-plan" aria-labelledby="tab-plan" hidden>
+      <p class="section-timestamp">Updated 2026-09-01 14:01 UTC</p>
+      <!-- usage:PLAN_USAGE_CHIP --><span class="chip usage">11m 10s · 16,615 out · 25.2 tok/s</span><!-- /usage:PLAN_USAGE_CHIP -->
+      <article class="panel-section">
+        <h2 class="section-label">Highlights</h2>
+        <div class="bullets"><ul>
+          <li>Eleven stages in the design's rollout order: config/pricing foundations → four engines behind the protocol seam → controller pipeline swap → caption bar and settings UI → py2app packaging.</li>
+          <li>Stage 1: config data model — <code>streaming_enabled</code>/<code>streaming_engine</code> defaults, month-scoped <code>usage</code> store with one-shot <code>daily_usage</code> migration, Keychain accessors for the two new keys.</li>
+          <li>Stage 2: <code>pricing.py</code> cost maths with overrides plus the shared menu-row formatter.</li>
+          <li>Stages 3–6: streaming protocol + stateful PCM converter, on-device engine behind a fake-able Speech wrapper, websocket skeleton + OpenAI Realtime, then ElevenLabs + Speechmatics — every engine tested against per-provider fixture transcripts, no network.</li>
+          <li>Stage 7: engine factory selection matrix and the recorder's non-blocking buffer listener.</li>
+          <li>Stage 8: controller streamed pipeline with the full batch-fallback matrix — largest stage, kept atomic so streaming never lands without its fallback.</li>
+          <li>Stages 9–10: caption bar window + app wiring, settings "Live Streaming" section and two menu usage rows (platform-only/UI portions manually verified).</li>
+          <li>Stage 11: py2app plist (<code>NSSpeechRecognitionUsageDescription</code>) and dependency bundling, verified by a local build plus the design's acceptance pass.</li>
+          <li>All 18 design requirements mapped to stages; strict TDD on every host-testable stage against the existing pytest suite (baseline: 49 passed via <code>uv run pytest</code>).</li>
+          <li>Deviations from the design: none. One design fact corrected in place: the repo already has a test suite, so new tests extend it.</li>
+        </ul></div>
+        <!-- usage:PLAN_USAGE --><div class="usage-pair">
+<table class="usage">
+<thead><tr><th>Metric</th><th>Main</th><th>Subagents</th><th>Total</th></tr></thead>
+<tbody>
+<tr class="grp"><td colspan="4">Time</td></tr>
+<tr><td>elapsed</td><td>—</td><td>—</td><td>11m 10s</td></tr>
+<tr><td>run time</td><td>—</td><td>—</td><td>11m 10s</td></tr>
+<tr class="grp"><td colspan="4">Requests</td></tr>
+<tr><td>model</td><td>12</td><td>19</td><td>31</td></tr>
+<tr><td>web_search</td><td>0</td><td>0</td><td>0</td></tr>
+<tr><td>web_fetch</td><td>0</td><td>0</td><td>0</td></tr>
+<tr class="grp"><td colspan="4">Throughput</td></tr>
+<tr class="tp"><td>output tok/s</td><td>—</td><td>—</td><td>25.2</td></tr>
+</tbody>
+</table>
+<table class="usage">
+<thead><tr><th>Metric</th><th>Main</th><th>Subagents</th><th>Total</th></tr></thead>
+<tbody>
+<tr class="grp"><td colspan="4">Tokens</td></tr>
+<tr><td>input_tokens</td><td>24</td><td>38</td><td>62</td></tr>
+<tr><td>output_tokens</td><td>16,535</td><td>80</td><td>16,615</td></tr>
+<tr class="sub"><td>thinking_tokens</td><td>426</td><td>0</td><td>426</td></tr>
+<tr><td>cache_write</td><td>30,903</td><td>140,264</td><td>171,167</td></tr>
+<tr class="sub"><td>ephemeral_1h</td><td>30,903</td><td>0</td><td>30,903</td></tr>
+<tr class="sub"><td>ephemeral_5m</td><td>0</td><td>140,264</td><td>140,264</td></tr>
+<tr><td>cache_read</td><td>922,054</td><td>1,644,433</td><td>2,566,487</td></tr>
+</tbody>
+</table>
+</div><!-- /usage:PLAN_USAGE -->
+      </article>
+      <article class="panel-section">
+        <h2 class="section-label">Detail</h2>
+        <div class="prose">
+          <p>Full plan: <a href="./feature-plan-v1-Realtime-streaming-dictation.md">feature-plan-v1-Realtime-streaming-dictation.md</a> against <a href="./feature-design-v1-Realtime-streaming-dictation.md">design v1</a>.</p>
+          <h3>Overview</h3>
+          <p>The feature lands in eleven stages following the design's rollout order (§9): data and pricing foundations first, then the four streaming engines behind the <code>StreamingEngine</code> protocol, then the controller pipeline swap with batch fallback, then the two UI surfaces, and finally py2app packaging. Every stage leaves the app fully working — nothing calls the streaming package until Stage 8, which lands the streamed path and its fallback atomically, and <code>streaming_enabled: false</code> reproduces today's pipeline throughout. Test runner: <code>uv run pytest -q</code>; executed baseline 49 passed, 1 skipped.</p>
+          <h3>Stages</h3>
+          <h4>1 — Config data model and usage store</h4>
+          <p>Streaming defaults, month-retained provider-attributed <code>usage</code> store with <code>daily_usage</code> migration, Keychain accessors. Touches <code>config.py</code>, <code>controller.py</code>, <code>app.py</code>, <code>tests/test_config.py</code>.</p>
+          <h4>2 — Pricing module and usage-row formatting</h4>
+          <p>Cost constants, <code>dictation_cost</code> with overrides, shared menu-row formatter. New <code>pricing.py</code> + <code>tests/test_pricing.py</code>.</p>
+          <h4>3 — Streaming foundations</h4>
+          <p>Protocol seam, <code>CompoundTranscript</code> assembler, stateful float32→PCM16 converter proven equal to the batch resampler. New <code>streaming/base.py</code>, <code>streaming/audio_convert.py</code>.</p>
+          <h4>4 — On-device engine</h4>
+          <p><code>SFSpeechRecognizer</code> behind a fake-able thin wrapper; authorization matrix unit-tested. New <code>streaming/on_device.py</code>; adds <code>pyobjc-framework-Speech</code>.</p>
+          <h4>5 — Websocket skeleton + OpenAI Realtime</h4>
+          <p>Background-thread engine skeleton (buffer-until-open, 60s cap, finish timeout) and the OpenAI subclass, fixture-driven. New <code>streaming/websocket_engine.py</code>; adds <code>websockets</code>.</p>
+          <h4>6 — ElevenLabs and Speechmatics engines</h4>
+          <p>Remaining subclasses, one fixture transcript per provider.</p>
+          <h4>7 — Engine factory and recorder buffer listener</h4>
+          <p><code>make_engine</code> selection matrix (toggle/keys/permission → engine or None with reason); <code>Recorder.set_buffer_listener</code> — non-blocking, exception-swallowed, accumulation untouched.</p>
+          <h4>8 — Controller streamed pipeline and batch fallback</h4>
+          <p>Engine lifecycle on press/release, caption UIEvents, compound transcript → cleanup → paste, every failure row from the design's edge table taking the batch branch, usage/cost recording. Pre-existing controller tests pass unmodified (R2 guard).</p>
+          <h4>9 — Caption bar window and app event wiring</h4>
+          <p><code>CaptionBarWindow</code> in <code>overlay.py</code> per accepted mockup; poll-loop wiring. Platform-only/UI stage: build check + manual verification.</p>
+          <h4>10 — Settings section and menu usage rows</h4>
+          <p>Hybrid: usage-event payload change is TDD; "Live Streaming" AppKit section and two menu rows verified manually.</p>
+          <h4>11 — Packaging</h4>
+          <p>py2app plist + includes; local bundle build and the design's acceptance pass. Config-only / integration-verified.</p>
+          <h3>Requirements coverage</h3>
+          <table>
+            <thead><tr><th>Design req</th><th>Stage(s)</th></tr></thead>
+            <tbody>
+              <tr><td>R1 config keys</td><td>1</td></tr>
+              <tr><td>R2 off = today's pipeline</td><td>8</td></tr>
+              <tr><td>R3 live partials</td><td>8, 9</td></tr>
+              <tr><td>R4 caption bar</td><td>9</td></tr>
+              <tr><td>R5 compound → cleanup → paste</td><td>8</td></tr>
+              <tr><td>R6 batch fallback</td><td>7, 8</td></tr>
+              <tr><td>R7 Speech permission flow</td><td>4, 7, 8</td></tr>
+              <tr><td>R8 offline cleanup unchanged</td><td>8</td></tr>
+              <tr><td>R9 provider usage, month retention</td><td>1, 8</td></tr>
+              <tr><td>R10 dollar cost + overrides</td><td>2, 8</td></tr>
+              <tr><td>R11 two menu rows</td><td>2, 10</td></tr>
+              <tr><td>R12 settings section, Keychain</td><td>1, 10</td></tr>
+              <tr><td>R13 keyless engine selectable</td><td>7, 10</td></tr>
+              <tr><td>R14 toggle mode streams</td><td>8</td></tr>
+              <tr><td>R15–R18 (non-functional)</td><td>3, 7, 8, 9, 10</td></tr>
+            </tbody>
+          </table>
+          <h3>Cross-cutting concerns</h3>
+          <ul>
+            <li><strong>Security</strong> — keys Keychain-only, never echoed or logged; wss endpoints are module constants (no SSRF surface); transcripts stay on the existing paste path.</li>
+            <li><strong>Performance</strong> — non-blocking tap hand-off; 60s pre-connect buffer cap; 5s finish timeout; caption redraw only on text change.</li>
+            <li><strong>Observability</strong> — engine lifecycle at INFO with concrete fallback reasons; per-event DEBUG; cost rows as billing observability.</li>
+            <li><strong>Compatibility</strong> — one-shot lossless usage migration; silent config upgrade via defaults; the streaming toggle is the rollback at every stage.</li>
+          </ul>
+          <h3>Verification</h3>
+          <p>After Stage 11: acceptance pass on the built .app — live captions with all four engines, forced-network-loss fallback with correct batch paste, Speech-denial fallback with pointer, menu rows matching pricing rates, byte-for-byte legacy behaviour with streaming off.</p>
+          <h3>Planning decisions taken</h3>
+          <ul>
+            <li>Corrected a design grounding error in place: the repo already has a pytest suite (49 tests); new tests extend it and its conventions.</li>
+            <li><code>format_usage_rows</code> lives in <code>pricing.py</code> so controller and app share it without circular imports.</li>
+            <li>Dependencies added in the stage that first imports them; py2app registration deferred to Stage 11.</li>
+            <li><code>config.usage_totals()</code> added for the app's startup menu read; legacy menu format kept until Stage 10.</li>
+            <li>Compound-transcript state lives in a tested <code>CompoundTranscript</code> class in <code>streaming/base.py</code>.</li>
+            <li>Cloud engines split across two stages and factory paired with the recorder listener — staging-order choices the plan owns.</li>
+          </ul>
+          <h3>Deviations from the design</h3>
+          <p>None — plan matches design v1 exactly.</p>
+        </div>
+      </article>
+    </section>
+
+    <section class="panel" role="tabpanel"
+             id="panel-implementation" aria-labelledby="tab-implementation" hidden>
+      <p class="section-timestamp">Awaiting /feature-implement</p>
+      <!-- usage:IMPLEMENTATION_USAGE_CHIP --><!-- /usage:IMPLEMENTATION_USAGE_CHIP -->
+      <article class="panel-section">
+        <h2 class="section-label">Highlights</h2>
+        <div class="bullets"><p class="empty">Not yet filled — pending /feature-implement.</p></div>
+        <!-- usage:IMPLEMENTATION_USAGE --><!-- /usage:IMPLEMENTATION_USAGE -->
+      </article>
+      <article class="panel-section">
+        <h2 class="section-label">Detail</h2>
+        <div class="prose"><p class="empty">Not yet filled — pending /feature-implement.</p></div>
+      </article>
+    </section>
+
+    <section class="panel" role="tabpanel"
+             id="panel-issues" aria-labelledby="tab-issues" hidden>
+      <p class="section-timestamp"><!-- ISSUES_AT:START -->Awaiting /bug-submit<!-- ISSUES_AT:END --></p>
+
+      <div class="issue-filter" role="group" aria-label="Filter issues by status">
+        <button type="button" class="issue-tab" data-status="open" aria-pressed="true">
+          Open <span class="issue-count" data-for="open">0</span>
+        </button>
+        <button type="button" class="issue-tab" data-status="closed" aria-pressed="false">
+          Closed <span class="issue-count" data-for="closed">0</span>
+        </button>
+      </div>
+
+      <div class="issue-list" data-status="open">
+        <!-- ISSUES_OPEN:START -->
+        <p class="empty">No open issues.</p>
+        <!-- ISSUES_OPEN:END -->
+      </div>
+
+      <div class="issue-list" data-status="closed" hidden>
+        <!-- ISSUES_CLOSED:START -->
+        <p class="empty">No closed issues.</p>
+        <!-- ISSUES_CLOSED:END -->
+      </div>
+    </section>
+
+    <footer class="feature-footer">
+      Generated 2026-09-01
+    </footer>
+  </main>
+
+  <script>
+    (function () {
+      const tabs = Array.from(document.querySelectorAll('[role="tab"]'))
+        .filter((t) => getComputedStyle(t).display !== 'none');
+      const panels = Array.from(document.querySelectorAll('[role="tabpanel"]'));
+      const indicator = document.querySelector('.tab-indicator');
+
+      function positionIndicator(tab) {
+        if (!indicator || !tab) return;
+        const navRect = tab.parentElement.getBoundingClientRect();
+        const rect = tab.getBoundingClientRect();
+        indicator.style.transform = `translateX(${rect.left - navRect.left}px)`;
+        indicator.style.width = `${rect.width}px`;
+      }
+
+      function activate(tab, focus) {
+        if (!tab) return;
+        tabs.forEach((t) => {
+          const selected = t === tab;
+          t.setAttribute('aria-selected', selected ? 'true' : 'false');
+          t.setAttribute('tabindex', selected ? '0' : '-1');
+        });
+        panels.forEach((p) => {
+          const isActive = p.id === tab.getAttribute('aria-controls');
+          p.hidden = !isActive;
+          p.classList.toggle('active', isActive);
+        });
+        positionIndicator(tab);
+        if (focus) tab.focus();
+      }
+
+      tabs.forEach((tab) => {
+        tab.addEventListener('click', () => activate(tab));
+        tab.addEventListener('keydown', (e) => {
+          const i = tabs.indexOf(tab);
+          let target = null;
+          if (e.key === 'ArrowRight') target = tabs[(i + 1) % tabs.length];
+          else if (e.key === 'ArrowLeft') target = tabs[(i - 1 + tabs.length) % tabs.length];
+          else if (e.key === 'Home') target = tabs[0];
+          else if (e.key === 'End') target = tabs[tabs.length - 1];
+          if (target) {
+            e.preventDefault();
+            activate(target, true);
+          }
+        });
+      });
+
+      const initial = tabs.find((t) => t.getAttribute('aria-selected') === 'true') || tabs[0];
+      // Defer to next frame so layout is settled before placing the indicator
+      requestAnimationFrame(() => activate(initial));
+
+      window.addEventListener('resize', () => {
+        const selected = tabs.find((t) => t.getAttribute('aria-selected') === 'true');
+        if (selected) positionIndicator(selected);
+      });
+    })();
+
+    // Issues panel: Open/Closed filter + auto-computed counts.
+    (function () {
+      const filterBtns = Array.from(document.querySelectorAll('.issue-tab'));
+      const lists = Array.from(document.querySelectorAll('.issue-list'));
+      if (!filterBtns.length) return;
+
+      lists.forEach((list) => {
+        const status = list.getAttribute('data-status');
+        const badge = document.querySelector(`.issue-count[data-for="${status}"]`);
+        if (badge) badge.textContent = list.querySelectorAll('.issue').length;
+      });
+
+      function show(status) {
+        filterBtns.forEach((b) =>
+          b.setAttribute('aria-pressed', b.getAttribute('data-status') === status ? 'true' : 'false'));
+        lists.forEach((l) => { l.hidden = l.getAttribute('data-status') !== status; });
+      }
+
+      filterBtns.forEach((b) => b.addEventListener('click', () => show(b.getAttribute('data-status'))));
+      show('open');
+    })();
+  </script>
+</body>
+</html>
