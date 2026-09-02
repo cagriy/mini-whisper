@@ -433,6 +433,11 @@ Swift Testing output is also prefixed by an XCTest line `Executed 0 tests, with 
 4. Run — confirm fail. Implement `struct ProcessingInput { recording, engine, sink, profile, target: PasteTarget, binding, vocabulary }`, `struct Dependencies` (all protocol-typed) with `protocol SoundPlaying { playOn(); playOff(); playTick() }`, `struct ProcessingJob { func run(_: ProcessingInput, isStale: @Sendable () -> Bool, emit: @Sendable (UIEvent) -> Void) async }` with the corrected §5.5 order (finish → choose text → stale? → key rule → batch (stale check first) → cleanup (stale check first) → stale check → bill → paste → history → off → `.result` → `.usage`).
 5. Run — confirm pass; `swift test` green.
 
+**Deviations taken during implementation:**
+- `ProcessingInput` carries `config: Config` instead of a bare `vocabulary` field: the job also needs `cleanup_enabled` for F26's `EffectiveCleanup.isOn(config:…)` and `pricing_overrides` for F35, and one release-time snapshot keeps all three consistent for the life of the job.
+- `Dependencies` gains `prompts: any PromptProviding`, a protocol declared in MWPipeline that `MWConfig.PromptFiles` conforms to, so the job reads `transcribe_prompt.txt` through a seam rather than a config directory.
+- `Package.swift` adds an `MWPipeline` dependency to `MWTestSupport`, which the new `UIEventRecorder`, `FakeSoundPlayer` and (Stage 21) `FakeFrontmostApp` need.
+
 **Definition of done:** Every F12–F15 branch and each Python `_process` test has a Swift counterpart; the job never touches audio, hotkeys or timers.
 
 **Risks specific to this stage:** None beyond fake fidelity — `FakeStreamingEngine.finish` must honour the injected `VirtualClock` for the timeout test.
@@ -447,6 +452,14 @@ Swift Testing output is also prefixed by an XCTest line `Executed 0 tests, with 
 2. Run — confirm fail.
 3. Implement `protocol FrontmostAppProviding { func frontmost() -> PasteTarget? }`, `@MainActor final class DictationController { init(deps:, config: ConfigStore, clock:); hotkeyPressed(_:); hotkeyReleased(_:); abort() async; uiEvents: AsyncStream<UIEvent> }` composing `ProcessingJob`.
 4. Run — confirm pass; `swift test` green.
+
+**Deviations taken during implementation:**
+- The generation counter is bumped on **press as well as release**: F15 requires a press during processing to invalidate the in-flight job, and §5.5 requires the job to take a fresh generation at release. Both named tests (`generationIncrementsPerRelease`, `newPressDuringProcessingMakesJobStale`) hold with that.
+- `StreamBilling` is lifted out of `ProcessingJob` (same file) so the gate, device-change, abort and stale paths all bill streamed seconds through one implementation of F35.
+- `Dependencies` (Stage 20) grows `audio`, `engines` and `frontmost`; `ProcessingJobTests` passes unused fakes for the three.
+- `DictationController` exposes two internal test seams, `generation` and `settle()`; the tests use `@testable import`.
+- When `FrontmostAppProviding.frontmost()` returns nil the controller uses `PasteTarget(pid: 0, name: "")`, so the case falls through to §5.7's existing "Target app is no longer running" rather than inventing a new one.
+- `CaptureListener` — the tap fan-out that emits `.level` and forwards the buffer to the engine — lives in `DictationController.swift`; `AudioCapture` exposes no per-buffer RMS, so the controller computes it.
 
 **Definition of done:**
 - Every rule in F9–F11, F15–F19, F23 and §5.7 rows 1–4, 10–11, 13 has a named test; the controller uses `Clock` one-shots only (N1: no polling).
@@ -465,6 +478,11 @@ Swift Testing output is also prefixed by an XCTest line `Executed 0 tests, with 
 3. Run — confirm pass.
 4. Write test: `CaptionModelTests` (measure closure = 7 pt per character) → `wrapsAgainst448ptUsableWidth`, `keepsOnlyLastSevenLines`, `olderLinesDimCurrentBright` (0.45 / 0.92), `dimmedUsesProcessingAlphas` (0.40 / 0.65), `unavailableKeepsTranscribedText`, `unavailableAloneWhenNothingTranscribed`, `unavailableNotAppendedTwice`. Expected initial failure: `cannot find 'CaptionModel' in scope`.
 5. Run — confirm fail. Implement `struct CaptionModel { static func lines(text:dimmed:measure:) -> [CaptionLine]; static func withUnavailable(_:) }`. Run — confirm pass; `swift test` green.
+
+**Deviations taken during implementation:**
+- The error dwell is three seconds measured from the error's start with the 0.45 s shake inside it, matching F14 and `overlay.py:show_error`; §5.6 reads as though the 3 s begins after the shake.
+- `dtClampedTo50msNoNaN` asserts that a 5 s step produces exactly the same frame as a 50 ms one, rather than reading a clamp accessor that would exist only for the test.
+- `Constants` also carries the window, card and caption drawing values that MWOverlaySim itself does not use; the stage's definition of done asks for `overlay.py` value for value, and Stage 25 consumes them.
 
 **Definition of done:** Constants match `overlay.py` value for value (listed in a table in `Constants.swift` comments); simulation deterministic under a seed; no AppKit import in MWOverlaySim.
 
