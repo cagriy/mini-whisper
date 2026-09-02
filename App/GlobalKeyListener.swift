@@ -21,13 +21,14 @@ final class GlobalKeyListener: HotkeyCapturing, @unchecked Sendable {
     private let clock = SystemClock()
     private let errorShown = OSAllocatedUnfairLock(initialState: false)
 
-    /// `thread`, `runLoop`, `tap` and `watchdog` are touched from the caller, the tap
-    /// thread and the watchdog queue, so they live behind this lock.
+    /// `thread`, `runLoop` and `tap` are touched from the caller, the tap thread and
+    /// the watchdog queue, so they live behind this lock. `watchdog` does its own
+    /// locking.
     private let stateLock = NSLock()
     private var thread: Thread?
     private var runLoop: CFRunLoop?
     private var tap: CFMachPort?
-    private var watchdog: DispatchSourceTimer?
+    private lazy var watchdog = RepeatingTimer(queue: queue)
 
     init(
         bindings: [BindingName: HotkeyCombo],
@@ -186,24 +187,11 @@ final class GlobalKeyListener: HotkeyCapturing, @unchecked Sendable {
     }
 
     private func startWatchdog() {
-        let timer = DispatchSource.makeTimerSource(queue: queue)
-        let alreadyRunning = stateLock.withLock {
-            guard watchdog == nil else { return true }
-            watchdog = timer
-            return false
-        }
-        guard !alreadyRunning else { return }
-        timer.schedule(deadline: .now() + Self.watchdogInterval, repeating: Self.watchdogInterval)
-        timer.setEventHandler { [weak self] in self?.watchdogTick() }
-        timer.resume()
+        watchdog.start(interval: Self.watchdogInterval) { [weak self] in self?.watchdogTick() }
     }
 
     private func stopWatchdog() {
-        let timer = stateLock.withLock {
-            defer { watchdog = nil }
-            return watchdog
-        }
-        timer?.cancel()
+        watchdog.stop()
     }
 
     private func watchdogTick() {
