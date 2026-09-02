@@ -650,6 +650,16 @@ Swift Testing output is also prefixed by an XCTest line `Executed 0 tests, with 
 4. Build clean; `xcodebuild … test` green.
 5. Manual check: dictate twice, open History, search, copy, paste into TextEdit from History, delete one, clear with confirmation.
 
+**Deviations taken during implementation:**
+- The meta line has no `+ cleanup` half. F29 pins the `history.jsonl` record and it carries no cleanup flag — `ProcessingJob` writes `EngineName.rawValue` and nothing else — so showing it would mean adding a field to the record design §5.3 fixes. The line ends at the engine name, and the seconds are dropped when nothing was streamed (`17:42 · Terminal · On-device · $0.000`). The plan's `6.2s` spacing is used, not the mockup's `6.2 s`.
+- The search field is a header row inside the window rather than in the title bar as the mockup draws it: `.searchable` needs a navigation container this plain `NSWindow` does not have, and a silently dropped field could not be caught without launching the app.
+- Glyph letters are the app name's first two capitals (`VS Code` → `VS`, `Slack` → `S`, all-lowercase names → the first letter); the mockup's per-app art (`>_`, `Sf`) is not a derivable rule. The colour is FNV-1a over the bundle ID because `hashValue` is seeded per process and the colour has to survive a relaunch.
+- `Paste into <App>` names the previously frontmost app on every row — F30's rule — not the row's own app, which the mockup's single selected row could be read as. `previousApp` ignores Mini Whisper's own pid, so opening History from Settings does not offer to paste into ourselves.
+- The footer reads `History off · N dictations` at retention 0; the design's wording only covers a positive retention.
+- `StatusItemController` and `App/Settings/HistorySection.swift` needed no edit: both already call the closures Stages 23 and 28 left logging. The wiring is in `AppDelegate`, which also hoists `Paster` and `RunningProcessCheck` out of the pipeline `Dependencies` so the History window reuses the same paster and running-process check.
+- Row actions appear on hover or selection, with the selection held as view state; the model exposes no selection.
+- Paste, delete and clear failures are logged (never the dictated text, §5.8) rather than surfaced: after F30's hide there is no window left to show an alert in.
+
 **Definition of done:** Model tested; window matches the accepted mockup's structure; paste-from-history restores the clipboard (Stage 19 behaviour) and posts no submit key.
 
 **Risks specific to this stage:** None.
