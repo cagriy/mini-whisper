@@ -1,5 +1,4 @@
 import AppKit
-import MWSupport
 import SwiftUI
 
 /// Hosts `SettingsView`. Like the source, showing the window makes the app a

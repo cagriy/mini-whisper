@@ -1,6 +1,5 @@
 import AppKit
 import MWOverlaySim
-import MWSupport
 
 /// The constellation card: places the panel on the target display, runs the
 /// simulation at the display's refresh rate and hides itself when a mode's

@@ -1,4 +1,3 @@
-import MWConfig
 import SwiftUI
 
 /// The sidebar Settings window of design §5.4, matching the accepted mockup

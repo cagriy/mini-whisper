@@ -5,7 +5,6 @@ import MWHistory
 import MWHotkeys
 import MWPaste
 import MWPipeline
-import MWOverlaySim
 import MWStreaming
 import MWSupport
 import MWUsage

@@ -1,4 +1,3 @@
-import MWConfig
 import SwiftUI
 
 /// F26's toggle and footnote, the two prompt editors, and the per-app profiles
