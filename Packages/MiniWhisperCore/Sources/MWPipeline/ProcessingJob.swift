@@ -19,10 +19,12 @@ public struct ProcessingJob: Sendable {
     public static let finishTimeout = Duration.seconds(5)
 
     private let deps: Dependencies
+    private let billing: StreamBilling
     private let log = Log.pipeline
 
     public init(deps: Dependencies) {
         self.deps = deps
+        billing = StreamBilling(usage: deps.usage)
     }
 
     public func run(
@@ -134,7 +136,7 @@ public struct ProcessingJob: Sendable {
         if let engineName, streamedSeconds > 0 {
             usage.streamedSeconds = [engineName.rawValue: streamedSeconds]
         }
-        await add(usage)
+        await billing.add(usage)
 
         do {
             try await deps.paster.paste(
@@ -189,21 +191,37 @@ public struct ProcessingJob: Sendable {
     }
 
     private func bill(streamedSecondsOf input: ProcessingInput, seconds: TimeInterval) async {
-        guard let engine = input.engine?.name, seconds > 0 else { return }
+        await billing.record(
+            engine: input.engine?.name,
+            seconds: seconds,
+            overrides: input.config.pricingOverrides
+        )
+    }
+}
+
+/// Streamed seconds are billed whether or not the dictation is delivered — a discarded,
+/// gated, aborted or stale stream still costs its per-minute rate (F11, F15, F35).
+struct StreamBilling: Sendable {
+    let usage: any UsageRecording
+    private let log = Log.pipeline
+
+    init(usage: any UsageRecording) {
+        self.usage = usage
+    }
+
+    func record(engine: EngineName?, seconds: TimeInterval, overrides: [String: Double]) async {
+        guard let engine, seconds > 0 else { return }
         await add(ProviderUsage(
             streamedSeconds: [engine.rawValue: seconds],
             costUSD: Pricing.dictationCost(
-                engine: engine,
-                seconds: seconds,
-                tokensByModel: [:],
-                overrides: input.config.pricingOverrides
+                engine: engine, seconds: seconds, tokensByModel: [:], overrides: overrides
             )
         ))
     }
 
-    private func add(_ usage: ProviderUsage) async {
+    func add(_ providerUsage: ProviderUsage) async {
         do {
-            try await deps.usage.add(usage)
+            try await usage.add(providerUsage)
         } catch {
             log.warning("usage not recorded: \(AnyError(error).description)")
         }

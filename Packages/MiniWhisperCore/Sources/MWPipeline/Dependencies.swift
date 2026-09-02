@@ -1,6 +1,8 @@
+import MWAudio
 import MWConfig
 import MWHistory
 import MWPaste
+import MWStreaming
 import MWTranscription
 import MWUsage
 
@@ -8,6 +10,7 @@ import MWUsage
 /// without a config directory. `MWConfig.PromptFiles` is the production implementation.
 public protocol PromptProviding: Sendable {
     func transcribeInstructions() throws -> String
+    func cleanupPrompt() throws -> String
 }
 
 extension PromptFiles: PromptProviding {}
@@ -15,6 +18,9 @@ extension PromptFiles: PromptProviding {}
 /// Every side effect the pipeline has, protocol-typed so the whole state machine is
 /// testable with fakes (design §5.2).
 public struct Dependencies: Sendable {
+    public var audio: any AudioCapture
+    public var engines: any EngineProvider
+    public var frontmost: any FrontmostAppProviding
     public var transcriber: any Transcriber
     public var cleaner: any Cleaner
     public var paster: any Pasting
@@ -25,6 +31,9 @@ public struct Dependencies: Sendable {
     public var prompts: any PromptProviding
 
     public init(
+        audio: any AudioCapture,
+        engines: any EngineProvider,
+        frontmost: any FrontmostAppProviding,
         transcriber: any Transcriber,
         cleaner: any Cleaner,
         paster: any Pasting,
@@ -34,6 +43,9 @@ public struct Dependencies: Sendable {
         sounds: any SoundPlaying,
         prompts: any PromptProviding
     ) {
+        self.audio = audio
+        self.engines = engines
+        self.frontmost = frontmost
         self.transcriber = transcriber
         self.cleaner = cleaner
         self.paster = paster

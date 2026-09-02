@@ -60,6 +60,7 @@ import MWPipeline
 
     private struct StubPrompts: PromptProviding {
         func transcribeInstructions() throws -> String { ProcessingJobTests.transcribeBase }
+        func cleanupPrompt() throws -> String { ProcessingJobTests.cleanupBase }
     }
 
     private struct LocalisedFailure: LocalizedError {
@@ -126,6 +127,9 @@ import MWPipeline
             self.usage = usage
             secrets = FakeSecretStore(key.map { [.openai: $0] } ?? [:])
             job = ProcessingJob(deps: Dependencies(
+                audio: FakeAudioCapture(),
+                engines: FakeEngineProvider(),
+                frontmost: FakeFrontmostApp(),
                 transcriber: transcriberOverride ?? transcriber,
                 cleaner: cleanerOverride ?? cleaner,
                 paster: paster,
