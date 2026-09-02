@@ -40,6 +40,11 @@ final class CaptionLayerStack {
         cursor.font = font
         cursor.fontSize = Constants.captionFontSize
         cursor.foregroundColor = CGColor(gray: 1, alpha: 1)
+        // Without this the caret animates to each new position over CA's default
+        // quarter second, lagging visibly behind the text it follows.
+        cursor.actions = [
+            "position": NSNull(), "bounds": NSNull(), "contents": NSNull(), "hidden": NSNull(),
+        ]
         cursor.isHidden = true
         background.addSublayer(cursor)
     }
@@ -63,8 +68,13 @@ final class CaptionLayerStack {
             row.opacity = Float(line?.alpha ?? 0)
         }
 
-        if let last = lines.last, last.text != lastLineText {
-            animateNewLine(rows[Constants.captionMaxLines - 1], alpha: last.alpha)
+        if let last = lines.last {
+            // Only a genuinely new bottom line animates in. A live partial extends the
+            // current line word by word, and animating each change replayed the fade on
+            // every word, which read as flicker.
+            if CaptionModel.isNewLine(previous: lastLineText, current: last.text) {
+                animateNewLine(rows[Constants.captionMaxLines - 1], alpha: last.alpha)
+            }
             lastLineText = last.text
         }
         positionCursor(after: lines.last, visible: showCursor)

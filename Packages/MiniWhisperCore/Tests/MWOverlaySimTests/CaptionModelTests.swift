@@ -71,4 +71,32 @@ import MWOverlaySim
 
         #expect(CaptionModel.withUnavailable(once) == once)
     }
+
+    // The bottom row's entry animation belongs to a genuinely new line. A live partial
+    // extends the current line word by word, and replaying the 120 ms fade on every word
+    // is what made the caption flicker as if rewritten per word.
+
+    @Test func growingLineIsNotANewLine() {
+        #expect(!CaptionModel.isNewLine(previous: "hello", current: "hello world"))
+        #expect(!CaptionModel.isNewLine(previous: "hello world", current: "hello world how"))
+    }
+
+    @Test func firstTextIsANewLine() {
+        #expect(CaptionModel.isNewLine(previous: "", current: "hello"))
+    }
+
+    @Test func wrappedLineIsANewLine() {
+        #expect(CaptionModel.isNewLine(previous: "the end of a long line", current: "next"))
+    }
+
+    @Test func backtrackingRevisionIsNotANewLine() {
+        // The restart heuristic can shorten the live partial; that is the same line
+        // being revised, not a new one.
+        #expect(!CaptionModel.isNewLine(previous: "hello world", current: "hello"))
+    }
+
+    @Test func clearingIsNotANewLine() {
+        #expect(!CaptionModel.isNewLine(previous: "hello", current: ""))
+        #expect(!CaptionModel.isNewLine(previous: "", current: ""))
+    }
 }

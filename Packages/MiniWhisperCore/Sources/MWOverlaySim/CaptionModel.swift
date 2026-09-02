@@ -41,6 +41,18 @@ public struct CaptionModel {
         return Array((kept + [warning]).suffix(Constants.captionMaxLines))
     }
 
+    /// Whether the bottom row now holds a different line rather than a longer version of
+    /// the same one, which is what the row's entry animation is for (§5.6).
+    ///
+    /// A live partial extends the current line word by word, so animating on every text
+    /// change replays the fade on each word and reads as flicker. A revision that shortens
+    /// the line is the same line too.
+    public static func isNewLine(previous: String, current: String) -> Bool {
+        guard !current.isEmpty else { return false }
+        guard !previous.isEmpty else { return true }
+        return !current.hasPrefix(previous) && !previous.hasPrefix(current)
+    }
+
     /// Word wrap against the bar's usable width; a word wider than the line stands alone.
     public static func wrap(_ text: String, measure: (String) -> Double) -> [String] {
         var lines: [String] = []
