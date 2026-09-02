@@ -501,6 +501,13 @@ Swift Testing output is also prefixed by an XCTest line `Executed 0 tests, with 
 4. Run — confirm `** TEST SUCCEEDED **`; `swift test` unaffected.
 5. Manual check: launch the built app (`open ".dd/Build/Products/Debug/Mini Whisper.app"` or from Xcode); menu shows the F31 order; launching a second copy activates the first and exits; `--debug` creates `/tmp/mini-whisper.log`.
 
+**Deviations taken during implementation:**
+- Menu labels are `History...` and `Settings...` with three dots, not the typographic ellipsis this stage's prose uses: design §5.4 requires the source's labels verbatim and `app.py` builds `Settings...`.
+- `AppDelegate.applicationDidFinishLaunching` returns immediately when the process is hosting the `AppTests` bundle (`XCTestConfigurationFilePath` in the environment, or `XCTestCase` loaded). The test bundle's host **is** the app, so without the guard `xcodebuild … test` would start the real app against the user's `config.json`, login Keychain, event tap and microphone.
+- `LaunchArgumentsTests` was added beyond the two test files listed: `--debug` parsing and the `/tmp/mini-whisper.log` path are pure and worth a red-first test.
+- The status-item image is a template image, as this stage's step 3 says, where the source passes `template=False`.
+- Quit teardown lands incrementally: this stage terminates, Stage 24 adds the controller abort, listener stop and audio stop, and Stage 25's panels are torn down through `UIEventRouter.stop()`, keeping the stated order.
+
 **Definition of done:** AppTests green; manual checklist items above ticked; Quit tears down in the source's order (settings close → controller abort → panels → listener → audio stop).
 
 **Risks specific to this stage:** None.
@@ -518,6 +525,14 @@ Swift Testing output is also prefixed by an XCTest line `Executed 0 tests, with 
 4. Build check: `xcodebuild … build` → `** BUILD SUCCEEDED **`; `xcodebuild … test` green.
 5. Manual check (concrete): with Microphone and Accessibility granted and an OpenAI key in the Keychain from the Python app, hold `shift+cmd_r`, speak, release → text pastes into TextEdit; `cmd_r` variant pastes and presses Enter; `--debug` log shows `press→live` and `transcribe` timings; the Keychain read may show the one-time allow dialog (design §5.3).
 
+**Deviations taken during implementation:**
+- No `KeyEventSource` protocol: nothing in Core declares one and there is a single implementation, so `GlobalKeyListener` delivers actions through a `@MainActor @Sendable` closure instead of a seam with one conformer.
+- `RunningProcessCheck` (MWPaste's `ProcessCheck`, needed by `Paster`) lives in `NSWorkspaceFrontmostApp.swift`; the file list did not name it.
+- New file `App/KeyedOpenAIClient.swift`: `OpenAIClient` takes its key at `init`, so the app resolves the Keychain key per call rather than binding one at launch — a key saved in Settings then applies without a relaunch (§5.9 caches the read).
+- `AppDelegate` pushes a binding into the matcher only when it actually changed. `ConfigStore.changes` fires after every dictation (usage is written to `config.json`) and `HotkeyMatcher.update` resets matcher state, so pushing unconditionally could drop a live press.
+- The AX-lost message is reported through the listener's `onError` callback; Stage 25 routes it to the overlay.
+- The watchdog checks `CGEventTapIsEnabled` while a binding is active, but the always-live recovery path is the tap callback's `kCGEventTapDisabledByTimeout` / `…ByUserInput` events — an idle app runs no timer at all (N1).
+
 **Definition of done:** First end-to-end batch dictation works on the author's machine; both bindings honoured; the event tap recovers after being disabled (verified by `sudo killall -STOP` of the app for 3 s then `-CONT` and pressing the hotkey).
 
 **Risks specific to this stage:** TCC continuity for the unsigned Debug build differs from the Developer ID build — this stage grants TCC to the Debug bundle once; the drop-in TCC claim is verified only in Stage 31 with the notarised build.
@@ -534,6 +549,13 @@ Swift Testing output is also prefixed by an XCTest line `Executed 0 tests, with 
 3. Implement panels per §5.6 (`NSPanel` borderless non-activating, floating, clear, no shadow, ignores mouse, all-spaces/full-screen-auxiliary/stationary, `hidesOnDeactivate = false`), `ConstellationLayer: CALayer` (`draw(in:)` from a preallocated `Frame`, implicit animations disabled, `contentsScale` per screen), `DisplayLinkDriver` (`NSView.displayLink(target:selector:)`, `dt = min(elapsed, 0.05)`), `CaptionLayerStack` (7 `CATextLayer`s, cursor layer with 0.9 s step keyframe opacity, last-line 8→0 translate + alpha over 120 ms, wrap via `NSAttributedString.size()` fed into `CaptionModel`), `DisplayPlacement` (AX focused window → mouse screen → `NSScreen.main`; recomputed on every show; card 300×300 centred, caption at `card.minX − 90`, `card.minY − 14 − 180`), reduce-motion flag from `NSWorkspace.shared.accessibilityDisplayShouldReduceMotion`; router maps `.starting/.recording/.level/.caption/.captionUnavailable/.captionNotice/.processing/.result/.error/.idle` to the panels; panels built off-screen at launch (§5.5 Launch).
 4. Run — confirm `** TEST SUCCEEDED **`; build clean.
 5. Manual check: press the hotkey — card appears within one frame in the Breathing ring, expands on first buffer, reacts to voice, rotates while processing, collapses and fades on result; error text shakes then shows for 3 s; caption shows partials with a blinking cursor (on-device engine); with a second monitor, both panels appear on the display holding the focused window. Allocation check once with Instruments' Allocations template during 10 s of recording — result (no growth per frame) recorded in this stage's commit message and Stage 31's acceptance notes.
+
+**Deviations taken during implementation:**
+- `ConstellationLayer` copies the frame's contents element-wise into its own preallocated arrays rather than storing the returned `Frame`. Storing it would leave the simulation's arrays multiply referenced, so its next mutation would copy on write and allocate every frame — exactly what `frameBufferIsReusedAcrossDraws` forbids.
+- **Toolchain gotcha for later app stages:** `#expect` does not apply Swift's implicit `CGFloat`/`Double` conversion — `#expect(rect.width == someDouble)` fails on equal values, while the same comparison outside the macro is true. Geometry assertions convert explicitly.
+- `DisplayPlacement` is a struct over three provider protocols (`FocusedWindowProviding`, `PointerLocationProviding`, `ScreenListing`) plus static `cardFrame`/`captionFrame` helpers, and flips Accessibility coordinates using the primary screen's height. A fourth test, `cardAndCaptionGeometryMatchTheDesign`, pins the card and caption frames.
+- `.captionNotice` is rendered as one bright line appended to the transcript and capped at seven lines, mirroring `CaptionModel.withUnavailable`, which stays the tested path for F21's warning.
+- `UIEventRouter` owns the two panel controllers, and an error arriving while the card is already visible shakes it in place instead of restarting the show choreography.
 
 **Definition of done:** Smoke and placement tests green; manual checklist ticked; Instruments note recorded.
 
