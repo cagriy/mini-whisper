@@ -30,7 +30,7 @@ let package = Package(
         .target(name: "MWUsage", dependencies: ["MWConfig", "MWSupport"]),
         .target(name: "MWHistory", dependencies: ["MWSupport"]),
         .target(name: "MWProfiles", dependencies: ["MWConfig"]),
-        .target(name: "MWPaste", dependencies: ["MWSupport"]),
+        .target(name: "MWPaste", dependencies: ["MWConfig", "MWSupport"]),
         .target(name: "MWOverlaySim"),
         .target(
             name: "MWPipeline",
