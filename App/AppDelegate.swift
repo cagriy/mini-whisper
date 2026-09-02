@@ -28,6 +28,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var onboarding: OnboardingWindowController?
     private var settings: SettingsWindowController?
     private var settingsDependencies: SettingsModel.Dependencies?
+    private var historyWindow: HistoryWindowController?
+    private var historyDependencies: HistoryListModel.Dependencies?
     private var appliedBindings: [BindingName: HotkeyCombo] = [:]
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -41,7 +43,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let permitted = PermissionMonitor.allGranted
         statusItem = StatusItemController(
             sounds: sounds,
-            onHistory: { Log.ui.info("History window arrives in Stage 29") },
+            onHistory: { [weak self] in self?.openHistory() },
             onSettings: { [weak self] in self?.openSettings() },
             onQuit: { [weak self] in self?.quit() }
         )
@@ -90,19 +92,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         self.audio = audio
         let usage = UsageStore(config: configStore)
         let openAI = KeyedOpenAIClient(secrets: secrets)
+        let processes = RunningProcessCheck()
+        let paster = Paster(
+            pasteboard: NSPasteboardAccess(),
+            poster: CGEventKeyPoster(),
+            accessibility: AXTrustCheck(),
+            process: processes,
+            clock: SystemClock()
+        )
         let deps = Dependencies(
             audio: audio,
             engines: EngineFactory(),
             frontmost: NSWorkspaceFrontmostApp(),
             transcriber: openAI,
             cleaner: openAI,
-            paster: Paster(
-                pasteboard: NSPasteboardAccess(),
-                poster: CGEventKeyPoster(),
-                accessibility: AXTrustCheck(),
-                process: RunningProcessCheck(),
-                clock: SystemClock()
-            ),
+            paster: paster,
             secrets: secrets,
             usage: usage,
             history: history,
@@ -171,7 +175,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 try? await history.prune()
             },
             clearHistory: { try? await history.clear() },
-            openHistory: { Log.ui.info("History window arrives in Stage 29") }
+            openHistory: { [weak self] in self?.openHistory() }
+        )
+
+        historyDependencies = HistoryListModel.Dependencies(
+            history: history,
+            paster: paster,
+            pasteboard: NSPasteboardAccess(),
+            isRunning: { processes.isRunning(pid: $0) },
+            retentionDays: { [retentionDays] in retentionDays.withLock { $0 } },
+            clock: SystemClock(),
+            now: { Date() },
+            hide: { [weak self] in self?.historyWindow?.hide() },
+            activate: { target in NSRunningApplication(processIdentifier: target.pid)?.activate() }
         )
 
         configTask = Task { [weak self] in
@@ -199,6 +215,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func openSettings() {
         Task { await openSettingsWindow() }
+    }
+
+    /// Like Settings, History needs the stores, so it only opens once normal
+    /// operation has started (F29).
+    private func openHistory() {
+        guard let dependencies = historyDependencies else { return }
+        if historyWindow == nil {
+            historyWindow = HistoryWindowController(
+                model: HistoryListModel(deps: dependencies),
+                frontmost: NSWorkspaceFrontmostApp()
+            )
+        }
+        historyWindow?.show()
     }
 
     /// Settings needs the live listener and stores, so it only opens once normal
@@ -287,6 +316,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         Task { @MainActor in
             configTask?.cancel()
             settings?.close()
+            historyWindow?.hide()
             await controller?.abort()
             router?.stop()
             listener?.stop()
