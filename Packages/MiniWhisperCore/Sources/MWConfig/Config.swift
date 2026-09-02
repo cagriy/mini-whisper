@@ -93,8 +93,10 @@ public struct Config: Equatable, Sendable {
     public var cleanupEnabled = true
     public var soundVolume = 1.0
     public var streamingEnabled = true
-    /// Absent from `config.json` means "no explicit choice" — the platform default applies (F32).
-    public var streamingEngine: EngineName? = .onDevice
+    /// Absent from `config.json` means "no explicit choice" — the platform default
+    /// applies (F32). First run leaves it absent, so a new install follows the model
+    /// rather than pinning `on_device` before the model is even downloaded.
+    public var streamingEngine: EngineName?
     /// Raw `streaming_engine` value that this build does not recognise, kept only so
     /// that saving round-trips it (F2). Never honoured at runtime.
     var unrecognisedStreamingEngine: String?

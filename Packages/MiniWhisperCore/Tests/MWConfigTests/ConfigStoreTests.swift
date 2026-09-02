@@ -46,6 +46,21 @@ private final class FakeFileWatcher: FileWatcher, @unchecked Sendable {
         #expect(try Data(contentsOf: directory.file("config.json")) == Config().encoded())
     }
 
+    /// F32's platform default applies only while `streaming_engine` is absent, so a
+    /// first run must not pin one: a new install on macOS 26 takes SpeechAnalyzer as
+    /// soon as the model is installed, instead of being stuck on SFSpeechRecognizer.
+    @Test func firstRunWritesNoEngineChoice() async throws {
+        let directory = try TempDirectory()
+
+        let config = await makeStore(directory.url).load()
+
+        #expect(config.streamingEngine == nil)
+        let object = try JSONSerialization.jsonObject(
+            with: Data(contentsOf: directory.file("config.json"))
+        ) as? [String: Any]
+        #expect(object?.keys.contains("streaming_engine") == false)
+    }
+
     @Test func backsUpCorruptJSONAndRestoresDefaults() async throws {
         let directory = try TempDirectory()
         try "not valid json{{{".write(to: directory.file("config.json"), atomically: true, encoding: .utf8)

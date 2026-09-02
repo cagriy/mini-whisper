@@ -164,7 +164,8 @@ import Testing
 
         #expect(object["hotkey"] as? String == "shift+cmd_r")
         #expect(object["submit_hotkey"] as? String == "cmd_r")
-        #expect(object["streaming_engine"] as? String == "on_device")
+        // Written only once chosen; absent leaves F32's default in charge.
+        #expect(!object.keys.contains("streaming_engine"))
         #expect(CFGetTypeID(try #require(object["cleanup_enabled"] as CFTypeRef?)) == CFBooleanGetTypeID())
         #expect(CFGetTypeID(try #require(object["streaming_enabled"] as CFTypeRef?)) == CFBooleanGetTypeID())
         #expect(object["sound_volume"] as? Double == 1.0)

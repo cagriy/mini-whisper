@@ -145,6 +145,16 @@ final class SettingsModel {
 
     // MARK: - General
 
+    /// The row the radio list marks. An absent `streaming_engine` — every config
+    /// written by the Python app — is not "no engine": a press would run F32's
+    /// platform default, so that is what the list shows.
+    var selectedEngine: EngineName {
+        config.streamingEngine ?? EngineFactory.defaultEngine(
+            platform: deps.platform,
+            assetsInstalled: speechModel == .installed
+        )
+    }
+
     var engineRows: [EngineRow] {
         var rows: [EngineRow] = []
         if deps.platform.osMajor >= 26, let accessory = analyzerAccessory {

@@ -47,10 +47,10 @@ struct GeneralSection: View {
             Button {
                 Task { await model.selectEngine(row.name) }
             } label: {
+                let isSelected = model.selectedEngine == row.name
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
-                    Image(systemName: model.config.streamingEngine == row.name
-                        ? "largecircle.fill.circle" : "circle")
-                        .foregroundStyle(model.config.streamingEngine == row.name ? Color.accentColor : .secondary)
+                    Image(systemName: isSelected ? "largecircle.fill.circle" : "circle")
+                        .foregroundStyle(isSelected ? Color.accentColor : .secondary)
                     VStack(alignment: .leading, spacing: 2) {
                         Text(row.title)
                         if let reason = row.disabledReason {

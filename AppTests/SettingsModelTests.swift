@@ -81,6 +81,13 @@ import Testing
         func cleanUp() {
             try? FileManager.default.removeItem(at: directory)
         }
+
+        /// A config.json as it exists on disk today: written by the Python app, so
+        /// without the `streaming_engine` key (design §5.1, F32).
+        func writeConfig(_ json: String) throws {
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            try Data(json.utf8).write(to: directory.appendingPathComponent("config.json"))
+        }
     }
 
     @Test func cloudEngineRowsDisabledWithoutKeyWithReason() async throws {
@@ -105,6 +112,26 @@ import Testing
         let elevenlabs = try #require(model.engineRows.first { $0.name == .elevenlabs })
         #expect(elevenlabs.isEnabled)
         #expect(elevenlabs.disabledReason == nil)
+    }
+
+    @Test func engineListMarksThePlatformDefaultWhenConfigNamesNoEngine() async throws {
+        let harness = Harness()
+        defer { harness.cleanUp() }
+        try harness.writeConfig(#"{"streaming_enabled": true}"#)
+
+        let old = await harness.model(osMajor: 14, speechModel: .notInstalled)
+        #expect(old.config.streamingEngine == nil)
+        #expect(old.selectedEngine == .onDevice)
+
+        let pending = await harness.model(osMajor: 26, speechModel: .notInstalled)
+        #expect(pending.selectedEngine == .onDevice)
+
+        let installed = await harness.model(osMajor: 26, speechModel: .installed)
+        #expect(installed.selectedEngine == .speechAnalyzer)
+
+        await installed.selectEngine(.onDevice)
+        #expect(installed.config.streamingEngine == .onDevice)
+        #expect(installed.selectedEngine == .onDevice)
     }
 
     @Test func speechAnalyzerRowOnlyOn26() async {
