@@ -20,7 +20,7 @@ protocol SoundLoading: Sendable {
 
 /// F34: the bundled `on`/`off` sounds plus the system `Tink` tick, all scaled by
 /// `sound_volume`. Sounds are preloaded so the first press pays no I/O.
-final class SoundPlayer: SoundPlaying {
+final class SoundPlayer: SoundPlaying, SoundPreviewing {
     private let on: (any SoundHandle)?
     private let off: (any SoundHandle)?
     private let tick: (any SoundHandle)?

@@ -26,6 +26,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var audio: AudioCaptureEngine?
     private var configTask: Task<Void, Never>?
     private var onboarding: OnboardingWindowController?
+    private var settings: SettingsWindowController?
+    private var settingsDependencies: SettingsModel.Dependencies?
     private var appliedBindings: [BindingName: HotkeyCombo] = [:]
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -40,7 +42,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem = StatusItemController(
             sounds: sounds,
             onHistory: { Log.ui.info("History window arrives in Stage 29") },
-            onSettings: { Log.ui.info("Settings window arrives in Stage 27") },
+            onSettings: { [weak self] in self?.openSettings() },
             onQuit: { [weak self] in self?.quit() }
         )
 
@@ -74,6 +76,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         apply(config)
 
         let secrets = KeychainStore()
+        let analyzer = SpeechAnalyzerBridge()
         let audio = AudioCaptureEngine(backend: AVAudioEngineBackend())
         self.audio = audio
         let usage = UsageStore(config: configStore)
@@ -134,18 +137,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         let listener = GlobalKeyListener(
             bindings: Self.bindings(from: config),
-            onAction: { [weak controller] action in
+            onAction: { [weak self, weak controller] action in
                 switch action {
                 case .pressed(let name): controller?.hotkeyPressed(name)
                 case .released(let name): controller?.hotkeyReleased(name)
-                // Capture belongs to the Settings hotkey fields (Stage 27).
-                case .captured, .captureRejected: break
+                case .captured, .captureRejected:
+                    // Capture belongs to the Settings hotkey fields (F7).
+                    guard let model = self?.settings?.model else { return }
+                    Task { await model.handle(action) }
                 }
             },
             onError: { [weak self] message in self?.showHotkeyError(message) }
         )
         self.listener = listener
         listener.start()
+
+        settingsDependencies = SettingsModel.Dependencies(
+            store: configStore,
+            secrets: secrets,
+            hotkeys: listener,
+            sounds: sounds,
+            platform: PlatformInfo(),
+            assetStatus: { await SpeechModelAssets.status(api: analyzer) },
+            installAssets: { try await SpeechModelAssets.install(api: analyzer) }
+        )
 
         configTask = Task { [weak self] in
             for await updated in configStore.changes {
@@ -165,8 +180,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func firstRunSettings() {
         Task { @MainActor in
             try? await Task.sleep(for: .seconds(1))
-            Log.ui.info("No OpenAI key stored; Settings auto-open arrives in Stage 27")
+            Log.ui.info("No OpenAI key stored; opening Settings")
+            await openSettingsWindow()
         }
+    }
+
+    private func openSettings() {
+        Task { await openSettingsWindow() }
+    }
+
+    /// Settings needs the live listener and stores, so it only opens once normal
+    /// operation has started — the guard `app.py:_open_settings` also has.
+    private func openSettingsWindow() async {
+        guard let dependencies = settingsDependencies else { return }
+        if settings == nil {
+            settings = SettingsWindowController(
+                model: SettingsModel(config: await dependencies.store.load(), deps: dependencies)
+            )
+        }
+        settings?.show()
     }
 
     /// F32's one-time dialog, asked after normal start so the app is already usable.
@@ -242,6 +274,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func quit() {
         Task { @MainActor in
             configTask?.cancel()
+            settings?.close()
             await controller?.abort()
             router?.stop()
             listener?.stop()

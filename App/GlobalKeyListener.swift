@@ -10,7 +10,7 @@ import os
 /// lock, and the resulting actions delivered on the main actor. A 100 ms watchdog runs
 /// only while a binding is active (F6) and the tap is re-enabled whenever the system
 /// disables it (§5.7).
-final class GlobalKeyListener: @unchecked Sendable {
+final class GlobalKeyListener: HotkeyCapturing, @unchecked Sendable {
     private static let watchdogInterval = DispatchTimeInterval.milliseconds(100)
     private static let accessibilityLostMessage = "Accessibility permission lost — re-enable in System Settings"
 
@@ -60,6 +60,16 @@ final class GlobalKeyListener: @unchecked Sendable {
         }
         if let tap { CGEvent.tapEnable(tap: tap, enable: false) }
         if let runLoop { CFRunLoopStop(runLoop) }
+    }
+
+    /// F7: the Settings hotkey fields put the live matcher into capture mode, so
+    /// there is exactly one matcher in the process.
+    func beginCapture() {
+        matcher.withLock { $0.beginCapture() }
+    }
+
+    func cancelCapture() {
+        matcher.withLock { $0.cancelCapture() }
     }
 
     func update(binding: BindingName, combo: HotkeyCombo) {
