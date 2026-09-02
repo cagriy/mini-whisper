@@ -25,6 +25,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var listener: GlobalKeyListener?
     private var audio: AudioCaptureEngine?
     private var configTask: Task<Void, Never>?
+    private var onboarding: OnboardingWindowController?
     private var appliedBindings: [BindingName: HotkeyCombo] = [:]
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -48,10 +49,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         } else {
             Log.ui.info(
                 "Permissions missing (microphone \(PermissionMonitor.microphoneGranted),"
-                    + " accessibility \(PermissionMonitor.accessibilityGranted));"
-                    + " onboarding arrives in Stage 26"
+                    + " accessibility \(PermissionMonitor.accessibilityGranted)); onboarding"
             )
+            showOnboarding()
         }
+    }
+
+    /// F33: the wizard owns the launch until every permission is granted, then
+    /// Continue starts normal operation in this process.
+    private func showOnboarding() {
+        let onboarding = OnboardingWindowController { [weak self] in
+            self?.onboarding = nil
+            Task { await self?.startNormal() }
+        }
+        self.onboarding = onboarding
+        onboarding.show()
     }
 
     // MARK: - Composition root
@@ -141,6 +153,37 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
         Log.ui.info("Started; bindings \(config.hotkey) / \(config.submitHotkey)")
+
+        if (try? secrets.secret(for: .openai))?.isEmpty ?? true {
+            firstRunSettings()
+        }
+        await promptForSpeechModelIfNeeded(configStore: configStore)
+    }
+
+    /// §5.5 Launch: with no OpenAI key stored, the source opens Settings a second
+    /// after normal start.
+    private func firstRunSettings() {
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(1))
+            Log.ui.info("No OpenAI key stored; Settings auto-open arrives in Stage 27")
+        }
+    }
+
+    /// F32's one-time dialog, asked after normal start so the app is already usable.
+    private func promptForSpeechModelIfNeeded(configStore: ConfigStore) async {
+        let analyzer = SpeechAnalyzerBridge()
+        let status = await SpeechModelAssets.status(api: analyzer)
+        guard SpeechModelPrompt.shouldPrompt(
+            osMajor: ProcessInfo.processInfo.operatingSystemVersion.majorVersion,
+            status: status,
+            alreadyPrompted: await configStore.load().speechModelPrompted
+        ) else { return }
+
+        let prompt = SpeechModelPrompt(
+            install: { try await SpeechModelAssets.install(api: analyzer) },
+            markPrompted: { try? await configStore.update { $0.speechModelPrompted = true } }
+        )
+        await prompt.choose(SpeechModelPrompt.ask())
     }
 
     /// Every config value the app itself holds a copy of (F19). The stores read the
