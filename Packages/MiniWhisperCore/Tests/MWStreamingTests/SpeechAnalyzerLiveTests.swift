@@ -31,9 +31,12 @@ struct SpeechAnalyzerLiveTests {
         engine.start(sink: sink)
 
         let file = try AVAudioFile(forReading: TestFixtures.wav("filler_words"))
-        while true {
+        // Bounded by framePosition: on macOS 26 a read at end-of-file throws
+        // _GenericObjCError.nilError instead of returning zero frames.
+        while file.framePosition < file.length {
             let buffer = try #require(AVAudioPCMBuffer(pcmFormat: file.processingFormat, frameCapacity: 4096))
-            try file.read(into: buffer)
+            let remaining = AVAudioFrameCount(file.length - file.framePosition)
+            try file.read(into: buffer, frameCount: min(4096, remaining))
             guard buffer.frameLength > 0 else { break }
             engine.feed(buffer)
         }

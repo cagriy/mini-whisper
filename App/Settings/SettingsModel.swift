@@ -80,7 +80,8 @@ final class SettingsModel {
         var text: String {
             switch self {
             case .download: "Download model…"
-            case .installing(let fraction): "Downloading… \(Int((fraction * 100).rounded()))%"
+            case .installing(let fraction):
+                fraction > 0 ? "Downloading… \(Int((fraction * 100).rounded()))%" : "Downloading…"
             case .installed: "Installed"
             }
         }
@@ -228,6 +229,9 @@ final class SettingsModel {
     }
 
     func installSpeechModel() async {
+        // The row reports the download from the press, not from its completion:
+        // `installAssets` only returns once the model is on disk.
+        speechModel = .installing(fractionCompleted: 0)
         do {
             try await deps.installAssets()
         } catch {

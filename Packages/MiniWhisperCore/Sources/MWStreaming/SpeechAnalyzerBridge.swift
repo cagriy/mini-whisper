@@ -23,6 +23,12 @@ public final class SpeechAnalyzerBridge: SpeechAnalyzerAPI, @unchecked Sendable 
         return await SpeechTranscriber.supportedLocale(equivalentTo: locale)
     }
 
+    public func isInstalled(locale: Locale) async -> Bool {
+        guard #available(macOS 26, *) else { return false }
+        let wanted = locale.identifier(.bcp47)
+        return await SpeechTranscriber.installedLocales.contains { $0.identifier(.bcp47) == wanted }
+    }
+
     public func installationRequest(for locale: Locale) async throws -> (any AssetInstallation)? {
         guard #available(macOS 26, *) else { throw SpeechAnalyzerError.unavailable }
         guard let request = try await AssetInventory.assetInstallationRequest(

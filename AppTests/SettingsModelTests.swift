@@ -52,7 +52,12 @@ import Testing
         }
 
         @MainActor
-        func model(osMajor: Int = 14, speechModel: AssetStatus = .unavailable) async -> SettingsModel {
+        func model(
+            osMajor: Int = 14,
+            speechModel: AssetStatus = .unavailable,
+            status: (@Sendable () async -> AssetStatus)? = nil,
+            installAssets: @escaping @Sendable () async throws -> Void = {}
+        ) async -> SettingsModel {
             let model = SettingsModel(
                 config: await store.load(),
                 deps: SettingsModel.Dependencies(
@@ -61,8 +66,8 @@ import Testing
                     hotkeys: hotkeys,
                     sounds: sounds,
                     platform: PlatformInfo(osMajor: osMajor, locale: Locale(identifier: "en_US")),
-                    assetStatus: { speechModel },
-                    installAssets: {},
+                    assetStatus: status ?? { speechModel },
+                    installAssets: installAssets,
                     prompts: PromptFiles(
                         directory: directory,
                         bundledCleanup: directory.appendingPathComponent("default_prompt.txt"),
@@ -132,6 +137,66 @@ import Testing
         await installed.selectEngine(.onDevice)
         #expect(installed.config.streamingEngine == .onDevice)
         #expect(installed.selectedEngine == .onDevice)
+    }
+
+    /// One-shot cross-task signal; a send before the wait is still delivered.
+    private final class Signal: @unchecked Sendable {
+        private let stream: AsyncStream<Void>
+        private let continuation: AsyncStream<Void>.Continuation
+
+        init() { (stream, continuation) = AsyncStream.makeStream(bufferingPolicy: .unbounded) }
+
+        func send() { continuation.yield(()) }
+
+        func wait() async {
+            var iterator = stream.makeAsyncIterator()
+            _ = await iterator.next()
+        }
+    }
+
+    private final class StatusBox: @unchecked Sendable {
+        private let lock = NSLock()
+        private var status: AssetStatus
+
+        init(_ status: AssetStatus) { self.status = status }
+
+        var value: AssetStatus {
+            get { lock.withLock { status } }
+            set { lock.withLock { status = newValue } }
+        }
+    }
+
+    /// Pressing Download used to leave the row saying "Download model…" for the whole
+    /// download, which reads as a dead button.
+    @Test func downloadReportsProgressUntilTheModelIsInstalled() async throws {
+        let harness = Harness()
+        defer { harness.cleanUp() }
+        let started = Signal()
+        let release = Signal()
+        let status = StatusBox(.notInstalled)
+        let model = await harness.model(
+            osMajor: 26,
+            status: { status.value },
+            installAssets: {
+                started.send()
+                await release.wait()
+                status.value = .installed
+            }
+        )
+        #expect(model.engineRows.first?.accessory == .download)
+
+        let install = Task { await model.installSpeechModel() }
+        await started.wait()
+        #expect(model.engineRows.first?.accessory == .installing(fraction: 0))
+
+        release.send()
+        await install.value
+        #expect(model.engineRows.first?.accessory == .installed)
+    }
+
+    @Test func downloadingWithoutProgressOmitsThePercentage() {
+        #expect(SettingsModel.EngineAccessory.installing(fraction: 0).text == "Downloading…")
+        #expect(SettingsModel.EngineAccessory.installing(fraction: 0.45).text == "Downloading… 45%")
     }
 
     @Test func speechAnalyzerRowOnlyOn26() async {

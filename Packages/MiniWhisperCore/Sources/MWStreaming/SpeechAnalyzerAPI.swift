@@ -55,7 +55,11 @@ public protocol SpeechAnalyzerAPI: Sendable {
     /// False below macOS 26 and when `SpeechTranscriber` is unavailable.
     var isAvailable: Bool { get }
     func supportedLocale(equivalentTo locale: Locale) async -> Locale?
-    /// Non-nil while assets are still needed for `locale`.
+    /// `SpeechTranscriber.installedLocales` — the only reliable "is the model here"
+    /// answer; the installation request is non-nil either way.
+    func isInstalled(locale: Locale) async -> Bool
+    /// The pending download for `locale`. Present even once the model is installed,
+    /// so it answers "how far along", never "is it needed".
     func installationRequest(for locale: Locale) async throws -> (any AssetInstallation)?
     /// `SpeechAnalyzer.bestAvailableAudioFormat(compatibleWith:)`.
     func bestAudioFormat(locale: Locale) async -> AVAudioFormat?

@@ -79,7 +79,18 @@ struct GeneralSection: View {
             }
             .controlSize(.small)
         case .installing(let fraction):
-            ProgressView(value: fraction).frame(width: 90)
+            // The system reports no fraction until the transfer starts, so the bar
+            // only replaces the spinner once there is something to show.
+            HStack(spacing: 6) {
+                if fraction > 0 {
+                    ProgressView(value: fraction).frame(width: 90)
+                } else {
+                    ProgressView().controlSize(.small)
+                }
+                Text(SettingsModel.EngineAccessory.installing(fraction: fraction).text)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
         case .installed:
             Text(SettingsModel.EngineAccessory.installed.text)
                 .font(.caption)

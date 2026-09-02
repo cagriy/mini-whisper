@@ -4,6 +4,7 @@ import Foundation
 public enum SpeechModelAssets {
     public static func status(api: any SpeechAnalyzerAPI, locale: Locale = .current) async -> AssetStatus {
         guard let supported = await supportedLocale(api: api, locale: locale) else { return .unavailable }
+        if await api.isInstalled(locale: supported) { return .installed }
         do {
             guard let request = try await api.installationRequest(for: supported) else { return .installed }
             let fraction = request.fractionCompleted

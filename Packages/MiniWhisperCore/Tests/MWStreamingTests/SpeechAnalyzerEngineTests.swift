@@ -154,6 +154,20 @@ private struct AnalyzerFailure: Error, CustomStringConvertible {
             == .installing(fractionCompleted: 0.3))
     }
 
+    /// macOS 26.6 hands back an installation request for a locale whose model is
+    /// already installed (en_GB: request non-nil, progress 0 of 0), so the request
+    /// alone cannot answer "installed" — `installedLocales` does. Without this the
+    /// row never left "Download model…" and `EngineFactory` downgraded every
+    /// dictation to SFSpeechRecognizer.
+    @Test func installedWhenTheLocaleIsInstalledDespiteAPendingRequest() async {
+        let api = FakeSpeechAnalyzerAPI(
+            installation: FakeAssetInstallation(fractionCompleted: 0),
+            installedLocales: [locale]
+        )
+
+        #expect(await SpeechModelAssets.status(api: api, locale: locale) == .installed)
+    }
+
     @Test func installDownloadsTheRequest() async throws {
         let installation = FakeAssetInstallation(fractionCompleted: 0)
         let api = FakeSpeechAnalyzerAPI(installation: installation)

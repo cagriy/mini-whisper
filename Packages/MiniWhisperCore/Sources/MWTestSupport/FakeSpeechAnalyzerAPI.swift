@@ -65,6 +65,9 @@ public final class FakeSpeechAnalyzerAPI: SpeechAnalyzerAPI, @unchecked Sendable
     public let isAvailable: Bool
     public let session: FakeAnalyzerSession
     public let installation: FakeAssetInstallation?
+    /// What `SpeechTranscriber.installedLocales` reports; the installation request
+    /// stays non-nil regardless, as the real API does.
+    public var installedLocales: [Locale]
 
     private let locale: Locale?
     private let bestFormat: AVAudioFormat
@@ -76,6 +79,7 @@ public final class FakeSpeechAnalyzerAPI: SpeechAnalyzerAPI, @unchecked Sendable
         isAvailable: Bool = true,
         supportedLocale: Locale? = Locale(identifier: "en_US"),
         installation: FakeAssetInstallation? = FakeAssetInstallation(fractionCompleted: 0),
+        installedLocales: [Locale] = [],
         bestFormat: AVAudioFormat = AVAudioFormat(standardFormatWithSampleRate: 16000, channels: 1)!,
         sessionError: (any Error)? = nil,
         endsResultsOnFinish: Bool = true
@@ -83,6 +87,7 @@ public final class FakeSpeechAnalyzerAPI: SpeechAnalyzerAPI, @unchecked Sendable
         self.isAvailable = isAvailable
         locale = supportedLocale
         self.installation = installation
+        self.installedLocales = installedLocales
         self.bestFormat = bestFormat
         self.sessionError = sessionError
         session = FakeAnalyzerSession(endsResultsOnFinish: endsResultsOnFinish)
@@ -91,6 +96,10 @@ public final class FakeSpeechAnalyzerAPI: SpeechAnalyzerAPI, @unchecked Sendable
     public var conversions: [Conversion] { lock.withLock { records } }
 
     public func supportedLocale(equivalentTo locale: Locale) async -> Locale? { self.locale }
+
+    public func isInstalled(locale: Locale) async -> Bool {
+        installedLocales.contains { $0.identifier == locale.identifier }
+    }
 
     public func installationRequest(for locale: Locale) async throws -> (any AssetInstallation)? {
         installation
