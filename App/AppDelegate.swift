@@ -77,6 +77,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         let secrets = KeychainStore()
         let analyzer = SpeechAnalyzerBridge()
+        let prompts = PromptFiles(
+            directory: Self.configDirectory,
+            bundledCleanup: Self.bundledPrompt("default_prompt"),
+            bundledTranscribe: Self.bundledPrompt("default_transcribe_prompt")
+        )
+        let history = HistoryStore(
+            url: Self.configDirectory.appendingPathComponent("history.jsonl"),
+            retention: { [retentionDays] in retentionDays.withLock { $0 } }
+        )
         let audio = AudioCaptureEngine(backend: AVAudioEngineBackend())
         self.audio = audio
         let usage = UsageStore(config: configStore)
@@ -96,16 +105,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             ),
             secrets: secrets,
             usage: usage,
-            history: HistoryStore(
-                url: Self.configDirectory.appendingPathComponent("history.jsonl"),
-                retention: { [retentionDays] in retentionDays.withLock { $0 } }
-            ),
+            history: history,
             sounds: sounds,
-            prompts: PromptFiles(
-                directory: Self.configDirectory,
-                bundledCleanup: Self.bundledPrompt("default_prompt"),
-                bundledTranscribe: Self.bundledPrompt("default_transcribe_prompt")
-            )
+            prompts: prompts
         )
 
         let controller = DictationController(deps: deps, config: configStore)
@@ -159,7 +161,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             sounds: sounds,
             platform: PlatformInfo(),
             assetStatus: { await SpeechModelAssets.status(api: analyzer) },
-            installAssets: { try await SpeechModelAssets.install(api: analyzer) }
+            installAssets: { try await SpeechModelAssets.install(api: analyzer) },
+            prompts: prompts,
+            apps: NSWorkspaceApps(),
+            pruneHistory: { [retentionDays] days in
+                // The retention the store reads is applied here rather than waiting for
+                // the config-change stream, so retention 0 deletes the file at once (F29).
+                retentionDays.withLock { $0 = days }
+                try? await history.prune()
+            },
+            clearHistory: { try? await history.clear() },
+            openHistory: { Log.ui.info("History window arrives in Stage 29") }
         )
 
         configTask = Task { [weak self] in

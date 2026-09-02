@@ -34,6 +34,12 @@ final class SettingsModel {
         var platform: PlatformInfo
         var assetStatus: @Sendable () async -> AssetStatus
         var installAssets: @Sendable () async throws -> Void
+        var prompts: PromptFiles
+        var apps: any AppListing
+        /// Applies the new retention and prunes; retention 0 deletes the file (F29).
+        var pruneHistory: @Sendable (Int) async -> Void
+        var clearHistory: @Sendable () async -> Void
+        var openHistory: @MainActor () -> Void
     }
 
     enum Section: String, CaseIterable, Identifiable {
@@ -92,6 +98,7 @@ final class SettingsModel {
     }
 
     static let idleStopSecondsRange = 10...600
+    static let retentionDaysRange = 0...30
     static let toggleCapMinutesRange = 1...30
     static let capturePlaceholder = "Press shortcut..."
     static let dotMask = "••••••••••••"
@@ -107,6 +114,14 @@ final class SettingsModel {
     var volume: Double
     var selection: Section = .general
 
+    let vocabulary: VocabularyModel
+    let profiles: ProfilesEditorModel
+
+    /// The two prompt files, read when the Cleanup pane first appears.
+    var cleanupPromptDraft = ""
+    var transcribeDraft = ""
+    private(set) var promptError: String?
+
     private var masks: [KeyAccount: String] = [:]
     private var displays: [BindingName: String] = [:]
     private var previousDisplay: String?
@@ -115,6 +130,13 @@ final class SettingsModel {
         self.config = config
         self.deps = deps
         volume = config.soundVolume
+        vocabulary = VocabularyModel(terms: config.vocabulary, store: deps.store)
+        profiles = ProfilesEditorModel(
+            config: config,
+            store: deps.store,
+            apps: deps.apps,
+            defaultPrompt: { (try? deps.prompts.cleanupPrompt()) ?? "" }
+        )
         refreshKeys()
         for binding in BindingName.allCases {
             displays[binding] = Self.displayString(of: stored(binding))
@@ -214,6 +236,54 @@ final class SettingsModel {
     func setCleanupEnabled(_ enabled: Bool) async {
         guard cleanupToggleEnabled else { return }
         await write { $0.cleanupEnabled = enabled }
+    }
+
+    // MARK: - Prompts (F26 editors)
+
+    var cleanupPromptURL: URL { deps.prompts.cleanupPromptURL }
+    var transcribeInstructionsURL: URL { deps.prompts.transcribeInstructionsURL }
+
+    func loadPrompts() {
+        cleanupPromptDraft = (try? deps.prompts.cleanupPrompt()) ?? ""
+        transcribeDraft = (try? deps.prompts.transcribeInstructions()) ?? ""
+    }
+
+    func saveCleanupPrompt() {
+        save { try deps.prompts.write(cleanupPrompt: cleanupPromptDraft) }
+    }
+
+    func saveTranscribeInstructions() {
+        save { try deps.prompts.write(transcribeInstructions: transcribeDraft) }
+    }
+
+    private func save(_ write: () throws -> Void) {
+        do {
+            try write()
+            promptError = nil
+        } catch {
+            promptError = AnyError(error).description
+            Log.config.error("Could not save prompt: \(AnyError(error).description)")
+        }
+    }
+
+    // MARK: - History (F29)
+
+    static func retentionLabel(days: Int) -> String {
+        days == 0 ? "Off" : "\(days) days"
+    }
+
+    func setRetentionDays(_ days: Int) async {
+        let value = days.clamped(to: Self.retentionDaysRange)
+        await write { $0.historyRetentionDays = value }
+        await deps.pruneHistory(value)
+    }
+
+    func clearHistory() async {
+        await deps.clearHistory()
+    }
+
+    func openHistory() {
+        deps.openHistory()
     }
 
     // MARK: - Keys (F3)
@@ -334,6 +404,7 @@ final class SettingsModel {
             Log.config.error("Could not save settings: \(AnyError(error).description)")
         }
         config = await deps.store.load()
+        profiles.setDefaultCleanup(config.cleanupEnabled)
     }
 }
 

@@ -13,8 +13,10 @@ public struct PromptFiles: Sendable {
         self.bundledTranscribe = bundledTranscribe
     }
 
-    private var cleanupPromptURL: URL { directory.appendingPathComponent("prompt.txt") }
-    private var transcribeInstructionsURL: URL {
+    /// Exposed so Settings' “Open in Editor” can hand the file to the user's editor
+    /// without duplicating the file names.
+    public var cleanupPromptURL: URL { directory.appendingPathComponent("prompt.txt") }
+    public var transcribeInstructionsURL: URL {
         directory.appendingPathComponent("transcribe_prompt.txt")
     }
 

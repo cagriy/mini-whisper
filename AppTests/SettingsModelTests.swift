@@ -25,6 +25,11 @@ import Testing
         func update(binding: BindingName, combo: HotkeyCombo) { updates[binding] = combo }
     }
 
+    private struct NoApps: AppListing {
+        func runningApps() -> [AppChoice] { [] }
+        func displayName(forBundleID bundleID: String) -> String? { nil }
+    }
+
     private final class FakeSounds: SoundPreviewing, @unchecked Sendable {
         var volume: Float = -1
         var onPlays = 0
@@ -57,7 +62,16 @@ import Testing
                     sounds: sounds,
                     platform: PlatformInfo(osMajor: osMajor, locale: Locale(identifier: "en_US")),
                     assetStatus: { speechModel },
-                    installAssets: {}
+                    installAssets: {},
+                    prompts: PromptFiles(
+                        directory: directory,
+                        bundledCleanup: directory.appendingPathComponent("default_prompt.txt"),
+                        bundledTranscribe: directory.appendingPathComponent("default_transcribe_prompt.txt")
+                    ),
+                    apps: NoApps(),
+                    pruneHistory: { _ in },
+                    clearHistory: {},
+                    openHistory: {}
                 )
             )
             await model.refreshSpeechModel()
