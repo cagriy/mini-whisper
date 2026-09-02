@@ -5,6 +5,7 @@ import MWHistory
 import MWHotkeys
 import MWPaste
 import MWPipeline
+import MWOverlaySim
 import MWStreaming
 import MWSupport
 import MWUsage
@@ -96,9 +97,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         self.controller = controller
 
         if let statusItem {
-            let router = UIEventRouter(statusItem: statusItem)
+            // §5.5: the panels exist off-screen before the first press.
+            let overlay = OverlayPanelController(
+                reduceMotion: NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+            )
+            let caption = CaptionPanelController()
+            let router = UIEventRouter(
+                statusItem: statusItem,
+                overlay: overlay,
+                caption: caption,
+                placement: DisplayPlacement(
+                    focused: AXFocusedWindow(),
+                    pointer: NSEventPointer(),
+                    screens: NSScreenList()
+                ),
+                frontmost: NSWorkspaceFrontmostApp()
+            )
             router.start(controller.uiEvents)
             self.router = router
+
             let totals = await usage.totals()
             statusItem.setUsage(today: totals.today, monthCost: totals.monthCost)
         }
@@ -164,8 +181,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func showHotkeyError(_ message: String) {
-        // The overlay panel that displays this arrives in Stage 25.
         Log.hotkey.error("\(message)")
+        router?.show(error: message)
     }
 
     // MARK: - Lifecycle
