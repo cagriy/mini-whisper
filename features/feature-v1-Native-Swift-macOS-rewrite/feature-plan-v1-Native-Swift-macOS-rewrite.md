@@ -574,6 +574,13 @@ Swift Testing output is also prefixed by an XCTest line `Executed 0 tests, with 
 4. Build clean; `xcodebuild … test` green.
 5. Manual check: revoke Accessibility in System Settings, relaunch → wizard appears, cannot be closed, advances as grants are made, Continue starts hotkeys without relaunch; on macOS 26 with assets absent the model dialog appears once.
 
+**Deviations taken during implementation:**
+- `onboarding.py` defines `PERM_DESCRIPTIONS` but never draws them; the wizard reproduces the source's window, so the descriptions are not shown and the strings are not carried over.
+- Accessibility is requested with the literal option key `"AXTrustedCheckOptionPrompt"`, as `onboarding.py` does: the `kAXTrustedCheckOptionPrompt` global is a `var` and Swift 6 strict concurrency refuses to read it.
+- `OnboardingModel.statusText` is only meaningful once `start()` has sampled the grants; the window's label carries the source's initial `Grant all permissions to continue.` literal until then, so the test asserts the three texts from `start()` onwards.
+- `SpeechModelPrompt.ask()` adds informative text under the design's dialog title — the Python app has no such dialog to port verbatim.
+- `PermissionMonitor` gained `granted(_:)` / `request(_:)` over `OnboardingPermission` (in `OnboardingWindowController.swift`), so the model's two seams have one AppKit implementation each.
+
 **Definition of done:** Models tested; manual checklist ticked; `speech_model_prompted` persisted.
 
 **Risks specific to this stage:** None.
@@ -591,6 +598,15 @@ Swift Testing output is also prefixed by an XCTest line `Executed 0 tests, with 
 4. Build clean; `xcodebuild … test` green.
 5. Manual check: each control writes through to `config.json` immediately; engine rows disabled until a key is saved; hotkey capture reproduces the source's field behaviour (`Press shortcut...`, modifier-only capture); volume preview plays on release.
 
+**Deviations taken during implementation:**
+- The SpeechAnalyzer row is **hidden**, not shown disabled, when the model reports `.unavailable` on macOS 26 (transcriber or locale unsupported): selecting it would silently downgrade to SFSpeechRecognizer (F23), which is exactly the invalid state §5.4 forbids. `osMajor >= 26` remains the necessary condition.
+- Key masks use the design's `sk-…` (ellipsis) rather than the source's `sk-...`; the "no new key" guard compares the field against the displayed mask instead of matching a prefix, so `sk-…1234` can never be saved as a key.
+- New file `App/Settings/EditMenu.swift` content lives in `SettingsWindowController.swift`: a port of `settings.py:_ensure_edit_menu`. An `LSUIElement` app has no menu bar, so without it ⌘V cannot paste an API key into the Keys fields.
+- Two App-local protocols carry the seams the model needs: `HotkeyCapturing` (implemented by `GlobalKeyListener`, which gained `beginCapture()` / `cancelCapture()` so the process keeps exactly one `HotkeyMatcher`) and `SoundPreviewing` (implemented by `SoundPlayer`).
+- Every write-through mutator is `async`; SwiftUI controls bind through `settingsBinding`, which spawns the write. This keeps the tests deterministic without a test-only flush API.
+- `CleanupSection.swift`, `VocabularySection.swift` and `HistorySection.swift` are created here as placeholders (Stage 28's file list names them) so `SettingsView`'s section switch is exhaustive.
+- The Keys footnote merges the mockup's wording with §5.10's note about the one-time Keychain allow dialog.
+
 **Definition of done:** Gating rules tested; the window matches the accepted mockup's structure; no control can select a key-less cloud engine.
 
 **Risks specific to this stage:** None.
@@ -607,6 +623,15 @@ Swift Testing output is also prefixed by an XCTest line `Executed 0 tests, with 
 3. Implement the sections: cleanup toggle (disabled + footnote without key), prompt editors backed by `PromptFiles` (`Open in Editor` → `NSWorkspace.shared.open(url)`), profiles table (+/−, detail: app chips with Add… listing `NSWorkspace.shared.runningApplications` or an `NSOpenPanel` on `/Applications` reading the bundle ID, cleanup toggle, submit popup, prompt editor; Default row "everything else"), vocabulary chips + entry, History section (slider 0–30 with label `Off` at 0, `Open History…` (Stage 29), `Clear History` with confirmation).
 4. Build clean; `xcodebuild … test` green.
 5. Manual check: a Terminal profile with cleanup off and Enter submit; a Slack profile with ⇧Enter; vocabulary terms appear in a `--debug` log dump of the composed prompts (DEBUG only); retention 0 deletes `history.jsonl`.
+
+**Deviations taken during implementation:**
+- `PromptFiles.cleanupPromptURL` and `transcribeInstructionsURL` were made public (a Core change outside this stage's file list) so `Open in Editor` hands the real file to `NSWorkspace` without duplicating the two file names in the App target.
+- History pruning and clearing reach `SettingsModel` as closures in `Dependencies`, not a `HistoryStore` reference: the store reads its retention through a lock `AppDelegate` owns, and retention 0 must delete `history.jsonl` immediately rather than after the config-change stream is observed.
+- Free-text fields (profile name, both prompt files, the profile prompt) and the retention slider commit on Return / Save / drag-end rather than per keystroke — a write-through per character would rewrite `config.json` on every key.
+- The profile prompt editor is seeded with the *effective* prompt (`prompt.txt` when the profile stores none) and cleared to fall back to `prompt.txt`, matching design §5.3's null rule.
+- `ProfilesEditorModel.selection` is `String?` because `Table`'s single-selection binding requires an optional ID; the synthetic Default row uses the sentinel id `__default__`.
+- Running apps are limited to `.regular` activation-policy apps; a bundle ID that is not running is named through `NSWorkspace.urlForApplication(withBundleIdentifier:)`, falling back to its last dot-component.
+- `AppTests/SettingsModelTests.swift` (Stage 27) was edited to supply the new dependencies.
 
 **Definition of done:** Models tested; every control writes through; a bundle ID belongs to at most one profile.
 
