@@ -71,7 +71,13 @@ public enum Pricing {
         count >= 1000 ? String(format: "%.1fk", Double(count) / 1000) : String(count)
     }
 
-    private static func dollars(_ amount: Double) -> String {
-        String(format: "$%.2f", amount)
+    /// `$1.50`, or `<$0.01` when the amount is real but too small to show at this
+    /// precision — a cleanup call costs about $0.00004, and `$0.000` reads as free.
+    public static func dollars(_ amount: Double, decimals: Int = 2) -> String {
+        let smallest = pow(10, -Double(decimals))
+        if amount > 0, amount < smallest / 2 {
+            return String(format: "<$%.\(decimals)f", smallest)
+        }
+        return String(format: "$%.\(decimals)f", amount)
     }
 }

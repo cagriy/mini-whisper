@@ -205,6 +205,19 @@ import Testing
         #expect(rows.last?.meta == "17:37 · Terminal · On-device · $0.000")
     }
 
+    /// Cleanup costs about $0.00004 a dictation; `$0.000` reads as free.
+    @Test func metaMarksACostTooSmallToShow() async throws {
+        let harness = Harness()
+        defer { harness.cleanUp() }
+        try await harness.add(Self.entry("cleaned up", at: harness.now, cost: 0.000042))
+
+        let model = harness.model()
+        await model.reload()
+
+        #expect(model.days.flatMap(\.rows).first?.meta
+            == "17:38 · Slack · SpeechAnalyzer · 6.2s · <$0.001")
+    }
+
     @Test func footerText() async throws {
         let harness = Harness()
         defer { harness.cleanUp() }

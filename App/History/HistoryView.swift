@@ -134,27 +134,43 @@ private struct HistoryRow: View {
                 Text(row.text)
                     .font(.system(size: 13))
                     .lineLimit(2)
-                Text(row.meta)
-                    .font(.system(size: 11))
-                    .foregroundStyle(.secondary)
-            }
+                    .frame(maxWidth: .infinity, alignment: .leading)
 
-            Spacer(minLength: 8)
-
-            if showsActions {
-                HStack(spacing: 6) {
-                    if let pasteTitle {
-                        Button(pasteTitle, action: onPaste)
-                            .buttonStyle(.borderedProminent)
-                            .disabled(!canPaste)
-                    }
-                    Button("Copy", action: onCopy)
-                    Button("Delete", action: onDelete)
-                        .tint(.red)
+                // The actions share the meta line and stay in the layout when hidden,
+                // so hovering a row changes nothing about its width or height and the
+                // text above never rewraps.
+                HStack(spacing: 8) {
+                    Text(row.meta)
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                    Spacer(minLength: 8)
+                    actions
+                        .opacity(showsActions ? 1 : 0)
+                        .allowsHitTesting(showsActions)
                 }
-                .controlSize(.small)
             }
         }
         .padding(.vertical, 4)
+    }
+
+    private var actions: some View {
+        // Colour the labels, not the buttons: a tinted bordered button also tints its
+        // background, and these three should read as one row of identical controls.
+        // An explicit label colour does not dim itself when disabled, so Paste picks
+        // its own.
+        HStack(spacing: 6) {
+            if let pasteTitle {
+                Button(action: onPaste) {
+                    Text(pasteTitle).foregroundStyle(canPaste ? Color.accentColor : Color.secondary)
+                }
+                .disabled(!canPaste)
+            }
+            Button("Copy", action: onCopy)
+            Button(action: onDelete) {
+                Text("Delete").foregroundStyle(Color.red)
+            }
+        }
+        .buttonStyle(.bordered)
+        .controlSize(.mini)
     }
 }

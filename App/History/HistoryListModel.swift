@@ -4,6 +4,7 @@ import MWHistory
 import MWPaste
 import MWPipeline
 import MWSupport
+import MWUsage
 import Observation
 
 /// Everything the History window decides (design §5.4, F29/F30): day grouping,
@@ -178,7 +179,7 @@ final class HistoryListModel {
         if entry.streamedSeconds > 0 {
             parts.append(String(format: "%.1fs", entry.streamedSeconds))
         }
-        parts.append(String(format: "$%.3f", entry.costUSD))
+        parts.append(Pricing.dollars(entry.costUSD, decimals: 3))
         return parts.joined(separator: " · ")
     }
 

@@ -115,13 +115,14 @@ private func close(_ lhs: Double, _ rhs: Double, tolerance: Double = 1e-9) -> Bo
         #expect(rows.month == "Month: $1.50")
     }
 
+    /// Fractions of a cent are marked, not rounded away — only a genuine zero is `$0.00`.
     @Test func formatSmallValues() {
         let today = DayEntry(inputTokens: 500, outputTokens: 40, costUSD: 0.004)
 
         let rows = Pricing.formatUsageRows(today: today, monthCost: 0.004)
 
-        #expect(rows.today == "Today: 500/40 tok · 0m · $0.00")
-        #expect(rows.month == "Month: $0.00")
+        #expect(rows.today == "Today: 500/40 tok · 0m · <$0.01")
+        #expect(rows.month == "Month: <$0.01")
     }
 
     @Test func formatZero() {
@@ -145,5 +146,25 @@ private func close(_ lhs: Double, _ rhs: Double, tolerance: Double = 1e-9) -> Bo
         let rows = Pricing.formatUsageRows(today: today, monthCost: 0)
 
         #expect(rows.today.hasPrefix("Today: 3.4k/1.0k tok"))
+    }
+
+    /// A cleanup call costs about $0.00004, so rounding it to `$0.000` reads as free
+    /// when it is not. Anything too small to show at the given precision says so.
+    @Test func amountsBelowThePrecisionAreMarkedRatherThanRoundedToZero() {
+        #expect(Pricing.dollars(0, decimals: 3) == "$0.000")
+        #expect(Pricing.dollars(0.000042, decimals: 3) == "<$0.001")
+        #expect(Pricing.dollars(0.0006, decimals: 3) == "$0.001")
+        #expect(Pricing.dollars(1.5) == "$1.50")
+        #expect(Pricing.dollars(0.00022) == "<$0.01")
+    }
+
+    @Test func menuRowsMarkASubCentDay() {
+        let rows = Pricing.formatUsageRows(
+            today: DayEntry(inputTokens: 1059, outputTokens: 103, costUSD: 0.000221),
+            monthCost: 0.0018
+        )
+
+        #expect(rows.today == "Today: 1.1k/103 tok · 0m · <$0.01")
+        #expect(rows.month == "Month: <$0.01")
     }
 }
