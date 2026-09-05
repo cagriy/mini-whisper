@@ -9,6 +9,7 @@ let package = Package(
     products: [
         .library(name: "MWSupport", targets: ["MWSupport"]),
         .library(name: "MWConfig", targets: ["MWConfig"]),
+        .library(name: "MWCorrections", targets: ["MWCorrections"]),
         .library(name: "MWHotkeys", targets: ["MWHotkeys"]),
         .library(name: "MWAudio", targets: ["MWAudio"]),
         .library(name: "MWStreaming", targets: ["MWStreaming"]),
@@ -23,6 +24,7 @@ let package = Package(
     targets: [
         .target(name: "MWSupport"),
         .target(name: "MWConfig", dependencies: ["MWSupport"]),
+        .target(name: "MWCorrections", dependencies: ["MWConfig"]),
         .target(name: "MWHotkeys"),
         .target(name: "MWAudio", dependencies: ["MWSupport"]),
         .target(name: "MWStreaming", dependencies: ["MWAudio", "MWConfig", "MWSupport"]),
@@ -43,9 +45,9 @@ let package = Package(
         .target(
             name: "MWTestSupport",
             dependencies: [
-                "MWSupport", "MWConfig", "MWHotkeys", "MWAudio", "MWStreaming",
-                "MWTranscription", "MWUsage", "MWHistory", "MWProfiles", "MWPaste",
-                "MWOverlaySim", "MWPipeline",
+                "MWSupport", "MWConfig", "MWCorrections", "MWHotkeys", "MWAudio",
+                "MWStreaming", "MWTranscription", "MWUsage", "MWHistory", "MWProfiles",
+                "MWPaste", "MWOverlaySim", "MWPipeline",
             ],
             // The WAV fixtures several test targets share, reached through
             // `TestFixtures.wav(_:)`.
@@ -54,6 +56,7 @@ let package = Package(
 
         .testTarget(name: "MWSupportTests", dependencies: ["MWSupport", "MWTestSupport"]),
         .testTarget(name: "MWConfigTests", dependencies: ["MWConfig", "MWTestSupport"]),
+        .testTarget(name: "MWCorrectionsTests", dependencies: ["MWCorrections", "MWTestSupport"]),
         .testTarget(name: "MWHotkeysTests", dependencies: ["MWHotkeys", "MWTestSupport"]),
         .testTarget(name: "MWAudioTests", dependencies: ["MWAudio", "MWTestSupport"]),
         .testTarget(

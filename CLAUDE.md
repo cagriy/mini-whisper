@@ -43,6 +43,7 @@ empty XCTest bundle, not the result. Read the `✔/✘ Test run with N tests in 
 |---|---|---|
 | `MWSupport` | Clock/Sleeper protocols, `Log` facade, `AnyError` mapping | — |
 | `MWConfig` | `Config`, `ConfigStore`, `PromptFiles`, `KeychainStore` | MWSupport |
+| `MWCorrections` | Correction rules, matching, hints | MWConfig |
 | `MWHotkeys` | `HotkeyCombo`, `HotkeyMatcher` | — |
 | `MWAudio` | `PCMConverter`, `WAVEncoder`, `AudioCaptureEngine` | MWSupport |
 | `MWStreaming` | Engine seam, `TranscriptAssembler`, WebSocket/SF/SpeechAnalyzer engines, `EngineFactory` | MWAudio, MWConfig, MWSupport |

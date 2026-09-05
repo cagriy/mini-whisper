@@ -30,6 +30,8 @@ targets:
       - package: MiniWhisperCore
         product: MWConfig
       - package: MiniWhisperCore
+        product: MWCorrections
+      - package: MiniWhisperCore
         product: MWHotkeys
       - package: MiniWhisperCore
         product: MWAudio
