@@ -1,0 +1,124 @@
+<title>Correction Window</title>
+<style>
+*,*::before,*::after{box-sizing:border-box}
+:root{--page-bg:#1c1e22;--page-text:#e8e8ea;--page-muted:#9a9aa2;--accent:#7cc4ff;--banner:#26292f;--rule:#34383f;
+--win:#ececec;--win2:#f6f6f6;--txt:#1d1d1f;--mut:#6e6e73;--bd:#d2d2d7;--blue:#0a60ff;--sel:#b8d4ff;--mark:#fff3b0;--ok:#1d7a3a;--err:#c62828}
+body{margin:0;background:var(--page-bg);color:var(--page-text);font:14px/1.45 -apple-system,BlinkMacSystemFont,"Helvetica Neue",sans-serif}
+.banner{background:var(--banner);border-bottom:1px solid var(--rule);padding:14px 22px;font-size:13px}
+.banner strong{color:#fff}.banner p{margin:4px 0 0;color:var(--page-muted);max-width:90ch}.banner .axis{color:var(--accent)}
+main{padding:26px 22px 40px;display:flex;flex-direction:column;align-items:center;gap:34px}
+.sec{width:100%;max-width:980px}
+.sec h2{font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--page-muted);margin:0 0 12px;font-weight:600}
+.sec .note{color:var(--page-muted);font-size:12.5px;margin:0 0 14px;max-width:80ch}
+.wrap{display:flex;gap:26px;flex-wrap:wrap;align-items:flex-start}
+.mac{background:var(--win);color:var(--txt);border-radius:11px;box-shadow:0 24px 60px rgba(0,0,0,.45);display:grid;grid-template-rows:52px 1fr;overflow:hidden;font-size:13px}
+.title{background:#e3e3e7;border-bottom:1px solid #cfcfd4;display:flex;align-items:center;padding:0 14px;gap:14px;position:relative}
+.title .lights{display:flex;gap:7px}.title .lights i{width:12px;height:12px;border-radius:50%}
+.title h1{font-size:13px;font-weight:600;margin:0;position:absolute;left:50%;transform:translateX(-50%);color:#3a3a3f}
+.body{padding:16px 18px 14px;display:flex;flex-direction:column;gap:12px;min-height:0}
+.src{display:flex;align-items:center;gap:9px;font-size:12px;color:var(--mut)}
+.src .ico{width:22px;height:22px;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:600}
+.box{background:#fff;border:1px solid #c3c3c8;border-radius:7px;padding:10px 12px;line-height:1.5;font-size:13px}
+.box.tx{min-height:64px;user-select:text}
+.box .sel{background:var(--sel);border-radius:2px;padding:0 1px}
+.box .mark{background:var(--mark);border-radius:2px;padding:0 1px;font-weight:600}
+.lbl{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--mut);margin:0 0 4px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px 14px}
+.field{padding:5px 8px;border:1px solid #c3c3c8;border-radius:6px;background:#fff;font-size:13px}
+.field.ro{background:#f1f1f3;color:#3a3a3f}
+.field .cur{display:inline-block;width:1px;height:14px;background:var(--blue);vertical-align:-2px;margin-left:1px}
+.help{font-size:11.5px;color:var(--mut);margin-top:3px;line-height:1.4}
+.seg{display:inline-flex;border:1px solid #c3c3c8;border-radius:7px;overflow:hidden;background:#fff}
+.seg span{padding:4px 12px;font-size:12.5px;border-right:1px solid #c3c3c8}.seg span:last-child{border-right:0}.seg span.on{background:var(--blue);color:#fff}
+.seg.dis span{color:#9a9aa2}.seg.dis span.on{background:#8e8e95}
+.rowl{display:flex;align-items:center;gap:12px}
+.sw{width:38px;height:22px;border-radius:11px;background:#cfcfd4;position:relative;display:inline-block;flex:0 0 auto}.sw::after{content:"";position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.3)}
+.sw.on{background:var(--blue)}.sw.on::after{left:18px}
+.impact{font-size:12px;color:var(--mut);line-height:1.5}
+.impact b{color:var(--txt);font-weight:600}
+.impact ul{margin:4px 0 0;padding-left:16px}.impact li{margin:1px 0}.impact li em{font-style:normal;background:var(--mark);border-radius:2px;padding:0 1px}
+.err{font-size:12px;color:var(--err)}
+.foot{display:flex;justify-content:flex-end;gap:8px;padding-top:6px;margin-top:auto;border-top:1px solid #d9d9de}
+.mini{font:12.5px -apple-system,sans-serif;padding:5px 12px;border-radius:6px;border:1px solid #c3c3c8;background:#fff;color:var(--txt);cursor:pointer}
+.mini.primary{background:var(--blue);color:#fff;border-color:var(--blue)}.mini.left{margin-right:auto}
+.done{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;flex:1;text-align:center;padding:20px 0}
+.done .tick{width:44px;height:44px;border-radius:50%;background:#e2f3e7;color:var(--ok);display:flex;align-items:center;justify-content:center;font-size:22px}
+.done h3{margin:0;font-size:15px}.done p{margin:0;color:var(--mut);font-size:12.5px;max-width:44ch}
+.small{width:420px}
+.menu{width:250px;background:#f4f4f6;border:1px solid #c9c9ce;border-radius:8px;box-shadow:0 10px 30px rgba(0,0,0,.35);padding:5px;font-size:13px;color:var(--txt)}
+.menu div{padding:4px 22px 4px 10px;border-radius:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.menu div.mut{color:#8e8e95}.menu hr{border:0;border-top:1px solid #d5d5da;margin:5px 10px}
+.menu div.new{background:var(--blue);color:#fff}
+.hist{width:540px;background:#fff;border-radius:8px;border:1px solid #c9c9ce;box-shadow:0 10px 30px rgba(0,0,0,.35);font-size:13px;color:var(--txt);overflow:hidden}
+.item{display:grid;grid-template-columns:34px 1fr;gap:12px;padding:10px 16px;border-bottom:1px solid #ededf0;align-items:start}.item:last-child{border-bottom:0}.item.sel{background:#eef4ff}
+.item .ico{width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:600}
+.item p{margin:0;font-size:13px;line-height:1.4}
+.item .meta{display:flex;align-items:center;gap:8px;font-size:11.5px;color:var(--mut);margin-top:4px}.item .meta .acts{margin-left:auto;display:flex;gap:6px}
+.item .acts .mini{padding:2px 8px;font-size:11px}.mini.danger{color:var(--err)}.mini.new{border-color:var(--blue);color:var(--blue)}
+.cap{font-size:12px;color:var(--page-muted);margin-top:8px;max-width:60ch}
+button:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+</style>
+<div class="banner"><strong>Mockup — not shipping code · Feature v2 · “Correction Window” · Accepted 2026-09-05</strong>
+<p>One window, opened from the menu bar (“Correct Last Dictation…”) or from a History row (“Correct…”). The delivered transcript is selectable; the selection snaps to whole words and becomes Heard. Write and Sounds like are prefilled from it, scope defaults to the dictation’s app, and the preview and impact line update live. <span class="axis">Shown: the editing state, the confirmation state after Save, the two degraded variants (no bundle ID, history off), and both entry points.</span> Design language: the app’s light macOS window on the dark review page, 13 pt system type, grouped controls and blue #0a60ff accent as in the accepted v1 Settings and History mockups.</p></div>
+<main>
+
+<section class="sec"><h2>1 · Editing state — opened from the menu after a Slack dictation</h2>
+<p class="note">560×520. The user dragged over “eefa” in the transcript; the selection snapped to the whole word. Write and Sounds like start as copies of Heard; the user has typed the spelling and one extra variant. Everything below the transcript re-renders as they type.</p>
+<div class="mac" style="width:560px;height:520px"><div class="title"><span class="lights"><i style="background:#ff5f57"></i><i style="background:#febc2e"></i><i style="background:#28c840"></i></span><h1>Correct Dictation</h1></div>
+<div class="body">
+<div class="src"><span class="ico" style="background:#4a154b">S</span>Slack · Today 17:38 · SpeechAnalyzer + cleanup</div>
+<div><p class="lbl">Transcript — select the misheard phrase</p>
+<div class="box tx">Can <span class="sel">eefa</span> review the release notes before Thursday, the get hub action is still red.</div></div>
+<div class="grid">
+<div><p class="lbl">Heard</p><div class="field ro">eefa</div></div>
+<div><p class="lbl">Write</p><div class="field">Aoife<span class="cur"></span></div></div>
+<div><p class="lbl">Sounds like</p><div class="field">eefa, eva</div><div class="help">Comma-separated spellings the recognizer may produce. Sent as hints and matched by the rule.</div></div>
+<div><p class="lbl">Scope</p><span class="seg"><span class="on">This app · Slack</span><span>All apps</span></span><div class="help">Replaces exact whole-phrase matches in future dictations to Slack.</div></div>
+</div>
+<div class="rowl"><span class="sw on" role="switch" aria-checked="true"></span><span>Remember this correction</span></div>
+<div><p class="lbl">Preview</p>
+<div class="box">Can <span class="mark">Aoife</span> review the release notes before Thursday, the get hub action is still red.</div></div>
+<div class="impact"><b>Would have changed 3 of 41</b> past dictations in Slack
+<ul><li>…ask <em>eefa</em> whether the retro moved…</li><li>…<em>eefa</em> and Tom own the on-call rota…</li><li>…ping <em>Eefa</em> about the invoice…</li></ul></div>
+<div class="foot"><button class="mini left" type="button">Copy corrected text</button><button class="mini" type="button">Cancel</button><button class="mini primary" type="button">Save</button></div>
+</div></div>
+<p class="cap">Validation replaces the impact line with a red sentence: “Nothing to remember — Write is the same as Heard.” or “‘eefa’ is already remembered for Slack as ‘Aoife’.” Save stays enabled and shows the error on click; Copy is never blocked.</p>
+</section>
+
+<section class="sec"><h2>2 · Confirmation state — after Save</h2>
+<p class="note">The rule is persisted before this appears. Copy is offered again because the paste already happened and the app never overwrites it.</p>
+<div class="mac" style="width:560px;height:300px"><div class="title"><span class="lights"><i style="background:#ff5f57"></i><i style="background:#febc2e"></i><i style="background:#28c840"></i></span><h1>Correct Dictation</h1></div>
+<div class="body">
+<div class="done"><div class="tick">✓</div><h3>Remembered for Slack</h3><p>“eefa” will be written as “Aoife” in future dictations to Slack. Edit or disable it any time under Settings → Vocabulary.</p></div>
+<div class="foot"><button class="mini left" type="button">Copy corrected text</button><button class="mini primary" type="button">Done</button></div>
+</div></div>
+</section>
+
+<section class="sec"><h2>3 · Degraded variants</h2>
+<div class="wrap">
+<div><div class="mac small" style="height:250px"><div class="title"><span class="lights"><i style="background:#ff5f57"></i><i style="background:#febc2e"></i><i style="background:#28c840"></i></span><h1>Correct Dictation</h1></div>
+<div class="body">
+<div class="src"><span class="ico" style="background:#8e8e95">?</span>Unknown app · Today 12:04 · On-device</div>
+<div class="grid">
+<div><p class="lbl">Heard</p><div class="field ro">x code gen</div></div>
+<div><p class="lbl">Write</p><div class="field">xcodegen</div></div>
+<div><p class="lbl">Sounds like</p><div class="field">x code gen</div></div>
+<div><p class="lbl">Scope</p><span class="seg dis"><span>This app</span><span class="on">All apps</span></span><div class="help">This dictation’s app has no bundle ID, so the rule can only apply everywhere.</div></div>
+</div>
+</div></div><p class="cap">No bundle ID: “This app” is disabled and All apps is the only choice. Remembering still requires the explicit Save.</p></div>
+<div><div class="mac small" style="height:250px"><div class="title"><span class="lights"><i style="background:#ff5f57"></i><i style="background:#febc2e"></i><i style="background:#28c840"></i></span><h1>Correct Dictation</h1></div>
+<div class="body">
+<div><p class="lbl">Preview</p><div class="box">Merge the <span class="mark">GitHub</span> action fix before the standup.</div></div>
+<div class="impact">History is off — no preview of past dictations.</div>
+<div class="foot"><button class="mini left" type="button">Copy corrected text</button><button class="mini" type="button">Cancel</button><button class="mini primary" type="button">Save</button></div>
+</div></div><p class="cap">History retention 0: the last dictation is still held in memory, so the window works; only the impact line degrades.</p></div>
+</div></section>
+
+<section class="sec"><h2>4 · Entry points</h2>
+<div class="wrap">
+<div><div class="menu"><div class="mut">Today: 1.2k/340 tok · 3m · $0.02</div><div class="mut">Month: $0.41</div><div>Last: "Can eefa review the release notes before…"</div><div class="new">Correct Last Dictation…</div><hr><div>History...</div><div>Settings...</div><hr><div>About Mini Whisper</div><div>Quit</div></div><p class="cap">Menu bar: the new row sits directly under Last and appears with it after the first delivered dictation.</p></div>
+<div><div class="hist">
+<div class="item sel"><span class="ico" style="background:#4a154b">S</span><div><p>Can eefa review the release notes before Thursday, the get hub action is still red.</p><div class="meta">17:38 · Slack · SpeechAnalyzer + cleanup · 6.2 s · $0.001<span class="acts"><button class="mini primary" type="button">Paste into Slack</button><button class="mini new" type="button">Correct…</button><button class="mini" type="button">Copy</button><button class="mini danger" type="button">Delete</button></span></div></div></div>
+<div class="item"><span class="ico" style="background:#3b3b3b">&gt;_</span><div><p>x code gen generate then build the app scheme</p><div class="meta">17:31 · Terminal · On-device · $0.000</div></div></div>
+</div><p class="cap">History: “Correct…” joins the hover actions and opens the same window with that entry’s text and app.</p></div>
+</div></section>
+</main>

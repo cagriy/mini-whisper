@@ -1,0 +1,1525 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Remembered corrections</title>
+
+  <!--
+    ===================================================================
+    feature-tracker template
+    -------------------------------------------------------------------
+    Replace every {{TOKEN}} below with HTML. Each of the four panels
+    follows the same three-part shape:
+
+        timestamp chip  →  Highlights (≤10 bullets)  →  Detail (prose)
+
+    so a reader can pick up the section at a glance and then drill in.
+    Tokens for a panel are owned by the skill that produces that panel:
+
+      Brainstorming  ←  /feature-storm
+      Design         ←  /feature-design
+      Plan           ←  /feature-plan
+      Implementation ←  /feature-implement
+
+    A skill substitutes its own panel's tokens with real HTML. For
+    any panel whose owning skill has not yet run, the currently
+    running skill substitutes the placeholder values:
+
+      {{X_AT}}        → "Awaiting /feature-<step>"
+      {{X_BULLETS}}   → <p class="empty">Not yet filled — pending /feature-<step>.</p>
+      {{X_DETAILS}}   → <p class="empty">Not yet filled — pending /feature-<step>.</p>
+
+    Header tokens (any skill substitutes if still literal):
+      {{FEATURE_VERSION}}        integer, e.g. "3"
+      {{FEATURE_TITLE}}          readable title, max 10 words
+                                 (e.g. "Add payment checkout flow")
+      {{FEATURE_SLUG}}           "feature-v3-add-payment-checkout-flow"
+      {{GENERATED_AT}}           ISO date, e.g. "2026-05-26"
+
+    Per-panel tokens:
+      Brainstorming (owned by /feature-storm):
+        {{BRAINSTORMING_AT}}        chip text — "Updated <UTC ts>"
+                                    or "Awaiting /feature-storm"
+        {{BRAINSTORMING_BULLETS}}   <ul><li>…</li>…</ul>, ≤10 items
+        {{BRAINSTORMING_DETAILS}}   free-form HTML continuing the
+                                    requirement specifics
+
+      Design (owned by /feature-design):
+        {{DESIGN_AT}}               chip text — "Updated <UTC ts>"
+                                    or "Awaiting /feature-design"
+        {{DESIGN_BULLETS}}          <ul><li>…</li>…</ul>, ≤10 highlights
+        {{DESIGN_DETAILS}}          free-form HTML rendering the
+                                    design's key sections in
+                                    increasing detail
+
+      Plan (owned by /feature-plan):
+        {{PLAN_AT}}                 chip text — "Updated <UTC ts>"
+                                    or "Awaiting /feature-plan"
+        {{PLAN_BULLETS}}            <ul><li>…</li>…</ul>, ≤10 highlights
+        {{PLAN_DETAILS}}            free-form HTML rendering the
+                                    plan's stages, coverage map,
+                                    deviations, etc.
+
+      Implementation (owned by /feature-implement):
+        {{IMPLEMENTATION_AT}}       chip text — "Updated <UTC ts>"
+                                    or "Awaiting /feature-implement"
+        {{IMPLEMENTATION_BULLETS}}  <ul><li>…</li>…</ul>, ≤10 highlights
+        {{IMPLEMENTATION_DETAILS}}  free-form HTML — stage list,
+                                    test results, coverage,
+                                    deviations, etc.
+
+      Run usage (all eight owned by usage-report — never by the
+      panel's own skill):
+        {{BRAINSTORMING_USAGE_CHIP}}, {{DESIGN_USAGE_CHIP}},
+        {{PLAN_USAGE_CHIP}}, {{IMPLEMENTATION_USAGE_CHIP}}
+                                    headline chip beside the panel's
+                                    timestamp chip, e.g.
+                                    "8m 08s · 25,924 out · 76.0 tok/s"
+        {{BRAINSTORMING_USAGE}}, {{DESIGN_USAGE}},
+        {{PLAN_USAGE}}, {{IMPLEMENTATION_USAGE}}
+                                    <div class="usage-pair"> of two
+                                    <table class="usage"> halves, below
+                                    the panel's Highlights bullets
+
+      These eight are the one exception to the substitute-only-if-
+      literal rule: usage-report fills its own stage's pair and blanks
+      the other six on every run, so a re-run shows the latest figures
+      rather than a second table. Safe because they have exactly one
+      owner. Note the template has TWO consumers — usage-report and
+      bug-tracker-render, which blanks all twenty feature-panel
+      tokens — so adding or renaming one here is a two-skill change.
+
+    Progress stepper (Storming → Design → Plan → Implement):
+      The four <li class="step" data-stage="…"> elements track stage
+      lifecycle via data-state="pending|complete". The raw template
+      ships with every step set to "pending", which renders a grey
+      "nothing started yet" view. Each feature-* skill is responsible
+      for updating its own step:
+
+        data-stage="storm"      ← /feature-storm
+        data-stage="design"     ← /feature-design
+        data-stage="plan"       ← /feature-plan
+        data-stage="implement"  ← /feature-implement
+
+      The skill flips its own step pending → complete as part of its
+      tracker update step, only when its stage file is committed (or
+      finalised). There is no in-flight "current" state — a step is
+      either not done (grey) or done (green). Edits target both
+      attributes for uniqueness:
+
+        old: data-stage="design" data-state="pending"
+        new: data-stage="design" data-state="complete"
+
+      Do NOT touch sibling steps from another skill — the stepper is
+      an additive timeline, not a global state machine.
+
+    Tracker kind (feature view vs. bug tracker):
+      The page BODY element carries an optional data-tracker-kind attr.
+
+        (absent)            → feature view: stepper + the four feature
+                              tabs are shown; the Issues tab and its
+                              panel are hidden. This is the default the
+                              feature-* skills seed via feature-resolve.
+        data-tracker-kind   → bug tracker: the stepper and the four
+          ="bugs"             feature tabs/panels are hidden; only the
+                              Issues tab/panel is shown, and the header
+                              version chip + slug are hidden. /bug-submit
+                              sets this when it generates the repo-wide
+                              bugs/bugs-tracker.html from this template.
+
+    Issues panel (owned by /bug-submit, bug tracker only):
+      Unlike the four feature panels — each filled ONCE by its owning
+      skill via {{TOKEN}} substitution — the Issues panel is a LIVING
+      list regenerated wholesale on every /bug-submit run. Its content
+      lives between three pairs of HTML-comment markers (written with
+      real comment syntax in the panel markup below), NOT in {{tokens}}.
+      The marker names — each a :START / :END pair — are:
+
+        ISSUES_AT       the "Updated <UTC>" chip text
+        ISSUES_OPEN     one .issue card per open bug (folders in
+                        bugs/), else the empty placeholder
+        ISSUES_CLOSED   one .issue card per closed bug (folders in
+                        bugs/archive/), else the empty placeholder
+
+      (Note: do NOT paste those literal comment markers into THIS doc
+      block — an inner end-of-comment would close the doc comment early.)
+
+      /bug-submit replaces everything between each START/END pair. The
+      Open/Closed counts are computed at load time from the rendered
+      cards, so the skill never writes them. Each card is a
+      details.issue[data-status="open|closed"] with a summary
+      (#N, title, severity badge, filed date) and an expandable body
+      (report sections + img screenshots referenced by RELATIVE path).
+    ===================================================================
+  -->
+
+  <style>
+    :root {
+      --bg: #f9fafb;
+      --surface: #ffffff;
+      --surface-muted: #f3f4f6;
+      --border: #e5e7eb;
+      --text: #0f172a;
+      --text-muted: #6b7280;
+      --text-subtle: #9ca3af;
+      --accent: #4f46e5;
+      --accent-soft: #eef2ff;
+      --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04);
+      --shadow-md: 0 1px 2px rgba(15, 23, 42, 0.04), 0 12px 32px rgba(15, 23, 42, 0.06);
+      --radius: 14px;
+      --radius-sm: 8px;
+      --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+      --sans: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, system-ui, sans-serif;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0b0b0d;
+        --surface: #131316;
+        --surface-muted: #1a1a1f;
+        --border: #26262b;
+        --text: #f5f5f7;
+        --text-muted: #a1a1aa;
+        --text-subtle: #71717a;
+        --accent: #818cf8;
+        --accent-soft: rgba(129, 140, 248, 0.12);
+        --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+        --shadow-md: 0 1px 2px rgba(0, 0, 0, 0.4), 0 12px 32px rgba(0, 0, 0, 0.32);
+      }
+    }
+
+    *,
+    *::before,
+    *::after { box-sizing: border-box; }
+
+    html, body { margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      font-size: 16px;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    .container {
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 56px 32px 96px;
+    }
+
+    /* Header --------------------------------------------------------- */
+
+    .feature-header {
+      margin-bottom: 32px;
+      padding-bottom: 28px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .version-chip {
+      display: inline-flex;
+      align-items: center;
+      padding: 4px 10px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      border-radius: 999px;
+      font-size: 11.5px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .feature-title {
+      margin: 16px 0 10px;
+      font-size: 34px;
+      font-weight: 700;
+      letter-spacing: -0.022em;
+      line-height: 1.18;
+      color: var(--text);
+    }
+
+    .feature-slug {
+      font-family: var(--mono);
+      font-size: 13px;
+      color: var(--text-muted);
+      background: var(--surface-muted);
+      padding: 3px 9px;
+      border-radius: var(--radius-sm);
+      display: inline-block;
+      border: 1px solid var(--border);
+    }
+
+    /* Progress stepper ---------------------------------------------- */
+
+    .progress-stepper {
+      display: flex;
+      list-style: none;
+      margin: 0 0 36px;
+      padding: 0;
+      gap: 0;
+    }
+
+    .step {
+      position: relative;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    /* Connector line — drawn rightward from each step except the last.
+       Coloured by THIS step's state: a complete step extends an accent
+       line toward the next; anything else extends a muted line. */
+    .step::after {
+      content: "";
+      position: absolute;
+      top: 13px;
+      left: calc(50% + 18px);
+      right: calc(-50% + 18px);
+      height: 2px;
+      background: var(--border);
+      z-index: 0;
+      transition: background 0.2s ease;
+    }
+
+    .step:last-child::after { display: none; }
+
+    .step[data-state="complete"]::after { background: var(--accent); }
+
+    .step-indicator {
+      position: relative;
+      z-index: 1;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      border: 2px solid var(--border);
+      background: var(--surface);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-muted);
+      font-variant-numeric: tabular-nums;
+      transition: background 0.2s ease,
+                  border-color 0.2s ease,
+                  color 0.2s ease,
+                  box-shadow 0.2s ease;
+    }
+
+    .step-check { display: none; line-height: 1; }
+    .step-number { display: inline; line-height: 1; }
+
+    .step[data-state="complete"] .step-indicator {
+      border-color: var(--accent);
+      background: var(--accent);
+      color: #ffffff;
+    }
+
+    .step[data-state="complete"] .step-check { display: inline; }
+    .step[data-state="complete"] .step-number { display: none; }
+
+    .step-label {
+      font-size: 12.5px;
+      font-weight: 500;
+      color: var(--text-muted);
+      letter-spacing: 0.02em;
+      text-align: center;
+      line-height: 1.25;
+    }
+
+    .step[data-state="complete"] .step-label {
+      color: var(--text);
+      font-weight: 600;
+    }
+
+    /* Tabs ----------------------------------------------------------- */
+
+    .tabs {
+      position: sticky;
+      top: 0;
+      z-index: 5;
+      display: flex;
+      gap: 0;
+      margin-bottom: 28px;
+      border-bottom: 1px solid var(--border);
+      background: color-mix(in srgb, var(--bg) 88%, transparent);
+      backdrop-filter: saturate(180%) blur(10px);
+      -webkit-backdrop-filter: saturate(180%) blur(10px);
+      padding-top: 4px;
+    }
+
+    .tab {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 14px 18px;
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-family: inherit;
+      font-size: 14.5px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: color 0.15s ease;
+      border-radius: 0;
+      outline: none;
+    }
+
+    .tab:hover { color: var(--text); }
+
+    .tab:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: -4px;
+      border-radius: var(--radius-sm);
+    }
+
+    .tab[aria-selected="true"] {
+      color: var(--accent);
+      font-weight: 600;
+    }
+
+    .tab .tab-icon {
+      width: 16px;
+      height: 16px;
+      stroke-width: 2;
+      flex-shrink: 0;
+    }
+
+    .tab-indicator {
+      position: absolute;
+      left: 0;
+      bottom: -1px;
+      height: 2px;
+      width: 0;
+      background: var(--accent);
+      border-radius: 2px 2px 0 0;
+      transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+                  width 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+      pointer-events: none;
+    }
+
+    /* Panels --------------------------------------------------------- */
+
+    .panel { display: none; }
+
+    .panel.active {
+      display: block;
+      animation: panel-in 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    @keyframes panel-in {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .panel-section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 28px 32px;
+      margin-bottom: 16px;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .panel-section:last-child { margin-bottom: 0; }
+
+    .section-label {
+      margin: 0 0 18px;
+      font-size: 11.5px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--text-subtle);
+    }
+
+    /* Bullets -------------------------------------------------------- */
+
+    .bullets ul,
+    .prose ul {
+      list-style: none;
+      margin: 0;
+      padding-left: 0;
+    }
+
+    .bullets ol,
+    .prose ol {
+      margin: 0;
+      padding-left: 24px;
+    }
+
+    .bullets ul > li,
+    .prose ul > li {
+      position: relative;
+      padding-left: 22px;
+      margin-bottom: 10px;
+    }
+
+    .bullets ul > li::before,
+    .prose ul > li::before {
+      content: "";
+      position: absolute;
+      left: 6px;
+      top: 12px;
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: var(--accent);
+      opacity: 0.9;
+    }
+
+    .bullets ol > li,
+    .prose ol > li { margin-bottom: 10px; }
+
+    .bullets li:last-child,
+    .prose li:last-child { margin-bottom: 0; }
+
+    .bullets li > ul, .bullets li > ol,
+    .prose li > ul, .prose li > ol { margin-top: 8px; }
+
+    /* Prose ---------------------------------------------------------- */
+
+    .prose p { margin: 0 0 14px; }
+    .prose p:last-child { margin-bottom: 0; }
+    .prose strong { font-weight: 600; }
+
+    .prose a {
+      color: var(--accent);
+      text-decoration: none;
+      border-bottom: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
+      transition: border-color 0.15s ease;
+    }
+    .prose a:hover { border-bottom-color: var(--accent); }
+
+    .prose h2,
+    .prose h3,
+    .prose h4 {
+      margin: 28px 0 10px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      line-height: 1.3;
+    }
+    .prose h2 { font-size: 20px; }
+    .prose h3 { font-size: 16px; }
+    .prose h4 {
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+    }
+    .prose h2:first-child,
+    .prose h3:first-child,
+    .prose h4:first-child { margin-top: 0; }
+
+    .prose code {
+      font-family: var(--mono);
+      font-size: 0.9em;
+      background: var(--surface-muted);
+      color: var(--text);
+      padding: 1.5px 6px;
+      border-radius: 5px;
+      border: 1px solid var(--border);
+    }
+
+    .prose pre {
+      background: #0f172a;
+      color: #e2e8f0;
+      padding: 16px 18px;
+      border-radius: var(--radius-sm);
+      overflow-x: auto;
+      font-family: var(--mono);
+      font-size: 13px;
+      line-height: 1.55;
+      margin: 14px 0;
+    }
+    .prose pre code {
+      background: transparent;
+      border: none;
+      padding: 0;
+      color: inherit;
+      font-size: inherit;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      .prose pre { background: #05050a; }
+    }
+
+    .prose blockquote {
+      margin: 14px 0;
+      padding: 10px 16px;
+      border-left: 3px solid var(--accent);
+      background: var(--accent-soft);
+      color: var(--text);
+      border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+    }
+    .prose blockquote p:last-child { margin-bottom: 0; }
+
+    .prose table {
+      border-collapse: collapse;
+      width: 100%;
+      margin: 16px 0;
+      font-size: 14px;
+    }
+    .prose th,
+    .prose td {
+      text-align: left;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    .prose th {
+      font-weight: 600;
+      color: var(--text-muted);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      background: var(--surface-muted);
+    }
+
+    .empty {
+      color: var(--text-subtle);
+      font-style: italic;
+      margin: 0;
+    }
+
+    /* Section timestamp chip --------------------------------------- */
+
+    .section-timestamp {
+      margin: 0 0 16px;
+      display: inline-block;
+      padding: 4px 12px;
+      background: var(--surface-muted);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      font-family: var(--mono);
+      font-size: 11.5px;
+      font-weight: 500;
+      color: var(--text-muted);
+      letter-spacing: 0.02em;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* Run-usage chip and table (both filled by usage-report) --------- */
+
+    .chip.usage {
+      display: inline-block;
+      margin: 0 0 16px 8px;
+      padding: 4px 12px;
+      background: var(--accent-soft);
+      border: 1px solid var(--accent);
+      border-radius: 999px;
+      font-family: var(--mono);
+      font-size: 11.5px;
+      font-weight: 600;
+      color: var(--accent);
+      letter-spacing: 0.02em;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* The usage fragment is two halves side by side — the small total-only
+       groups beside the token breakdown — reflowing to stacked when the panel
+       is narrow. Each half is an ordinary table.usage, so every rule below
+       applies to both unchanged. */
+    .usage-pair {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0 28px;
+      align-items: flex-start;
+    }
+    .usage-pair > table.usage {
+      flex: 1 1 320px;
+      width: auto;
+      min-width: 0;
+    }
+
+    /* The usage fragment sits outside .prose, so it carries its own
+       table rules rather than inheriting the ones above. */
+    table.usage {
+      border-collapse: collapse;
+      width: 100%;
+      margin-top: 16px;
+      font-family: var(--mono);
+      font-size: 12px;
+      font-variant-numeric: tabular-nums;
+    }
+    table.usage th {
+      text-align: right;
+      padding: 5px 10px;
+      border-bottom: 1px solid var(--border);
+      font-weight: 600;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-subtle);
+    }
+    table.usage td {
+      text-align: right;
+      padding: 4px 10px;
+      border-bottom: 1px solid var(--surface-muted);
+      color: var(--text-muted);
+    }
+    table.usage th:first-child,
+    table.usage td:first-child { text-align: left; }
+    table.usage td:first-child { color: var(--text); }
+    table.usage tr.grp td {
+      padding-top: 12px;
+      border-bottom: none;
+      font-weight: 600;
+      font-size: 10.5px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-subtle);
+    }
+    table.usage tr.sub td:first-child {
+      padding-left: 24px;
+      color: var(--text-subtle);
+    }
+    table.usage tr.tp td {
+      background: var(--accent-soft);
+      font-weight: 600;
+      color: var(--accent);
+    }
+
+    /* Footer --------------------------------------------------------- */
+
+    .feature-footer {
+      margin-top: 40px;
+      padding-top: 20px;
+      border-top: 1px solid var(--border);
+      font-size: 12px;
+      color: var(--text-subtle);
+      text-align: center;
+      letter-spacing: 0.02em;
+    }
+
+    /* Responsive ----------------------------------------------------- */
+
+    @media (max-width: 720px) {
+      .container { padding: 32px 18px 64px; }
+      .feature-title { font-size: 26px; }
+      .tabs { overflow-x: auto; }
+      .tabs::-webkit-scrollbar { display: none; }
+      .tab {
+        white-space: nowrap;
+        padding: 12px 12px;
+        font-size: 13.5px;
+      }
+      .panel-section { padding: 20px 18px; }
+      .progress-stepper { margin-bottom: 24px; }
+      .step-label { font-size: 11px; }
+      .step-indicator { width: 26px; height: 26px; font-size: 12px; }
+      .step::after { top: 12px; left: calc(50% + 17px); right: calc(-50% + 17px); }
+    }
+
+    /* Tracker kind — feature view (default) vs. bug tracker --------- */
+
+    /* Feature view (no data-tracker-kind): hide the Issues tab + panel. */
+    body:not([data-tracker-kind="bugs"]) .tab[data-kind="issues"],
+    body:not([data-tracker-kind="bugs"]) #panel-issues { display: none !important; }
+
+    /* Bug tracker: only the Issues tab/panel; no stepper, no feature tabs,
+       no version chip/slug in the header. */
+    body[data-tracker-kind="bugs"] .progress-stepper,
+    body[data-tracker-kind="bugs"] .feature-header .version-chip,
+    body[data-tracker-kind="bugs"] .feature-header .feature-slug,
+    body[data-tracker-kind="bugs"] .tab:not([data-kind="issues"]) { display: none; }
+
+    body[data-tracker-kind="bugs"] .panel:not(#panel-issues) { display: none !important; }
+    body[data-tracker-kind="bugs"] #panel-issues { display: block; }
+
+    /* Issues panel --------------------------------------------------- */
+
+    .issue-filter {
+      display: inline-flex;
+      gap: 4px;
+      margin: 0 0 20px;
+      padding: 4px;
+      background: var(--surface-muted);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+    }
+
+    .issue-tab {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 6px 16px;
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      font-family: inherit;
+      font-size: 13.5px;
+      font-weight: 500;
+      border-radius: 999px;
+      cursor: pointer;
+      transition: background 0.15s ease, color 0.15s ease;
+    }
+
+    .issue-tab:hover { color: var(--text); }
+
+    .issue-tab:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    .issue-tab[aria-pressed="true"] {
+      background: var(--surface);
+      color: var(--accent);
+      font-weight: 600;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .issue-count {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 20px;
+      height: 18px;
+      padding: 0 6px;
+      border-radius: 999px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-size: 11.5px;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .issue-tab[aria-pressed="false"] .issue-count {
+      background: var(--border);
+      color: var(--text-muted);
+    }
+
+    .issue-list[hidden] { display: none; }
+
+    .issue {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      margin-bottom: 12px;
+      box-shadow: var(--shadow-sm);
+      overflow: hidden;
+    }
+    .issue:last-child { margin-bottom: 0; }
+
+    .issue-summary {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 16px 20px;
+      cursor: pointer;
+      list-style: none;
+      user-select: none;
+    }
+    .issue-summary::-webkit-details-marker { display: none; }
+
+    .issue-summary::before {
+      content: "";
+      width: 7px;
+      height: 7px;
+      border-right: 2px solid var(--text-subtle);
+      border-bottom: 2px solid var(--text-subtle);
+      transform: rotate(-45deg);
+      transition: transform 0.18s ease;
+      flex-shrink: 0;
+    }
+    .issue[open] > .issue-summary::before { transform: rotate(45deg); }
+
+    .issue-number {
+      font-family: var(--mono);
+      font-size: 12.5px;
+      font-weight: 600;
+      color: var(--text-subtle);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .issue-title {
+      flex: 1;
+      min-width: 0;
+      font-weight: 600;
+      font-size: 15px;
+      color: var(--text);
+    }
+
+    .issue-sev {
+      padding: 2px 9px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      flex-shrink: 0;
+    }
+    .sev-low      { background: #ecfdf5; color: #047857; }
+    .sev-medium   { background: #fffbeb; color: #b45309; }
+    .sev-high     { background: #fef2f2; color: #b91c1c; }
+    .sev-critical { background: #b91c1c; color: #ffffff; }
+
+    @media (prefers-color-scheme: dark) {
+      .sev-low      { background: rgba(16, 185, 129, 0.16); color: #34d399; }
+      .sev-medium   { background: rgba(245, 158, 11, 0.16); color: #fbbf24; }
+      .sev-high     { background: rgba(239, 68, 68, 0.16);  color: #f87171; }
+      .sev-critical { background: #dc2626; color: #ffffff; }
+    }
+
+    .issue-date {
+      font-family: var(--mono);
+      font-size: 11.5px;
+      color: var(--text-subtle);
+      font-variant-numeric: tabular-nums;
+      flex-shrink: 0;
+    }
+
+    .issue-body {
+      padding: 4px 20px 22px;
+      border-top: 1px solid var(--border);
+    }
+
+    .issue-body img {
+      max-width: 100%;
+      height: auto;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      margin: 10px 0;
+      display: block;
+    }
+
+    @media (max-width: 720px) {
+      .issue-summary { flex-wrap: wrap; gap: 8px; padding: 14px 16px; }
+      .issue-title { flex-basis: 100%; order: 3; }
+      .issue-body { padding: 4px 16px 18px; }
+    }
+
+    /* Print ---------------------------------------------------------- */
+
+    @media print {
+      .tabs,
+      .tab-indicator { display: none; }
+      body[data-tracker-kind="bugs"] .panel:not(#panel-issues) { display: none !important; }
+      .issue { break-inside: avoid; }
+      .panel {
+        display: block !important;
+        page-break-after: always;
+      }
+      .panel:last-of-type { page-break-after: auto; }
+      .container { max-width: none; padding: 24px; }
+      body { background: white; color: black; }
+      .panel-section {
+        box-shadow: none;
+        border: 1px solid #ccc;
+        break-inside: avoid;
+      }
+      .progress-stepper { break-inside: avoid; }
+    }
+  </style>
+</head>
+
+<body>
+  <main class="container">
+    <header class="feature-header">
+      <span class="version-chip">v2</span>
+      <h1 class="feature-title">Remembered corrections</h1>
+      <code class="feature-slug">feature-v2-Remembered-corrections</code>
+    </header>
+
+    <ol class="progress-stepper" aria-label="Feature progress: Storming, Design, Plan, Implement">
+      <li class="step" data-stage="storm" data-state="complete">
+        <span class="step-indicator" aria-hidden="true">
+          <span class="step-check">&#10003;</span>
+          <span class="step-number">1</span>
+        </span>
+        <span class="step-label">Storming</span>
+      </li>
+      <li class="step" data-stage="design" data-state="complete">
+        <span class="step-indicator" aria-hidden="true">
+          <span class="step-check">&#10003;</span>
+          <span class="step-number">2</span>
+        </span>
+        <span class="step-label">Design</span>
+      </li>
+      <li class="step" data-stage="plan" data-state="complete">
+        <span class="step-indicator" aria-hidden="true">
+          <span class="step-check">&#10003;</span>
+          <span class="step-number">3</span>
+        </span>
+        <span class="step-label">Plan</span>
+      </li>
+      <li class="step" data-stage="implement" data-state="pending">
+        <span class="step-indicator" aria-hidden="true">
+          <span class="step-check">&#10003;</span>
+          <span class="step-number">4</span>
+        </span>
+        <span class="step-label">Implement</span>
+      </li>
+    </ol>
+
+    <nav class="tabs" role="tablist" aria-label="Feature sections">
+      <button class="tab" role="tab" aria-selected="true"
+              aria-controls="panel-brainstorming" id="tab-brainstorming" tabindex="0">
+        <svg class="tab-icon" xmlns="http://www.w3.org/2000/svg"
+             viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M9 18h6"/>
+          <path d="M10 22h4"/>
+          <path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5A4.61 4.61 0 0 1 8.91 14"/>
+        </svg>
+        <span>Brainstorming</span>
+      </button>
+
+      <button class="tab" role="tab" aria-selected="false"
+              aria-controls="panel-design" id="tab-design" tabindex="-1">
+        <svg class="tab-icon" xmlns="http://www.w3.org/2000/svg"
+             viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="10"/>
+          <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/>
+        </svg>
+        <span>Design</span>
+      </button>
+
+      <button class="tab" role="tab" aria-selected="false"
+              aria-controls="panel-plan" id="tab-plan" tabindex="-1">
+        <svg class="tab-icon" xmlns="http://www.w3.org/2000/svg"
+             viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <line x1="8" y1="6" x2="21" y2="6"/>
+          <line x1="8" y1="12" x2="21" y2="12"/>
+          <line x1="8" y1="18" x2="21" y2="18"/>
+          <line x1="3" y1="6" x2="3.01" y2="6"/>
+          <line x1="3" y1="12" x2="3.01" y2="12"/>
+          <line x1="3" y1="18" x2="3.01" y2="18"/>
+        </svg>
+        <span>Plan</span>
+      </button>
+
+      <button class="tab" role="tab" aria-selected="false"
+              aria-controls="panel-implementation" id="tab-implementation" tabindex="-1">
+        <svg class="tab-icon" xmlns="http://www.w3.org/2000/svg"
+             viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <polyline points="16 18 22 12 16 6"/>
+          <polyline points="8 6 2 12 8 18"/>
+        </svg>
+        <span>Implementation</span>
+      </button>
+
+      <button class="tab" role="tab" aria-selected="false" data-kind="issues"
+              aria-controls="panel-issues" id="tab-issues" tabindex="-1">
+        <svg class="tab-icon" xmlns="http://www.w3.org/2000/svg"
+             viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="9"/>
+          <line x1="12" y1="8" x2="12" y2="13"/>
+          <line x1="12" y1="16.5" x2="12.01" y2="16.5"/>
+        </svg>
+        <span>Issues</span>
+      </button>
+
+      <span class="tab-indicator" aria-hidden="true"></span>
+    </nav>
+
+    <section class="panel active" role="tabpanel"
+             id="panel-brainstorming" aria-labelledby="tab-brainstorming">
+      <p class="section-timestamp">Updated 2026-09-05 16:10 UTC</p>
+      <!-- usage:BRAINSTORMING_USAGE_CHIP --><span class="chip usage">9h 24m 55s · 35,635 out · 63.0 tok/s</span><!-- /usage:BRAINSTORMING_USAGE_CHIP -->
+      <article class="panel-section">
+        <h2 class="section-label">Highlights</h2>
+        <div class="bullets"><ul><li>Feature: Remembered corrections. Correct a misheard name or phrase once, from Correct last dictation… in the menu or Correct… on a History row, and optionally remember the pair as a rule scoped to This app (default when a bundle ID exists) or All apps.</li><li>User: a single power user dictating recurring names, acronyms and project terms into many apps, on-device or cloud engines, with or without cleanup.</li><li>Goal 1: a remembered rule deterministically replaces exact whole-phrase matches in future dictations within its scope, identically on streamed, batch, cleanup-off and key-free paths.</li><li>Goal 2: correct spellings reach the configured recognizer as hints where supported, and the effect is measured before and after on a fixed audio set per hint-capable engine before the feature is called complete.</li><li>Also in: Settings → Vocabulary gains a corrections table (Heard, Write, Sounds like, Scope, Enabled) with edit, disable and delete; a rule impact preview against History before saving; a tally of corrections made that nudges to remember recurring one-offs. Copy corrected text after saving. Manual vocabulary unchanged.</li><li>Hints in scope: SFSpeechRecognizer contextual strings, OpenAI Realtime keywords, Speechmatics custom dictionary with an explicit Sounds-like field prefilled from Heard and editable, the batch transcription prompt field, and cleanup prompt pairs. SpeechAnalyzer hints only if verified, otherwise labelled unavailable. Settings reports unsupported or skipped hints.</li><li>Deferred by name: ElevenLabs paid keyterms and premium billing; manual pair entry without a dictation; paste corrected text back; profile-scoped rules; correct from the overlay; rule firing counts; live-caption correction; rules as a shareable file; background monitoring of edits in other apps; project-folder detection; model training; voice editing; regex or wildcard rules; rewriting past History entries.</li><li>Constraints: config.json stays shared with the Python app; no third-party dependencies; secrets only in Keychain and hint-bearing URLs never logged; rules apply once to the final transcript, never to the live caption; provider caps enforced at serialization without destroying stored terms; TDD with an observed failure first.</li><li>Assumption and risk: rules and the tally are user-typed data like vocabulary, so they persist even with history off; the impact preview needs history and is unavailable without it. Main risk is an ordinary word matching a rule (mark → Marc), mitigated by whole-phrase matching, scope, the preview and the Enabled toggle.</li><li>Open for design: whether the installed SDK's SpeechTranscriber accepts hints; how the last delivered result carries its app identity to the menu; the matching and precedence engine; the shape of the measurement harness.</li></ul></div>
+        <!-- usage:BRAINSTORMING_USAGE --><div class="usage-pair">
+<table class="usage">
+<thead><tr><th>Metric</th><th>Main</th><th>Subagents</th><th>Total</th></tr></thead>
+<tbody>
+<tr class="grp"><td colspan="4">Time</td></tr>
+<tr><td>elapsed</td><td>—</td><td>—</td><td>9h 24m 55s</td></tr>
+<tr><td>run time</td><td>—</td><td>—</td><td>10m 16s</td></tr>
+<tr class="grp"><td colspan="4">Requests</td></tr>
+<tr><td>model</td><td>23</td><td>0</td><td>23</td></tr>
+<tr><td>web_search</td><td>0</td><td>0</td><td>0</td></tr>
+<tr><td>web_fetch</td><td>0</td><td>0</td><td>0</td></tr>
+<tr class="grp"><td colspan="4">Throughput</td></tr>
+<tr class="tp"><td>output tok/s</td><td>—</td><td>—</td><td>63.0</td></tr>
+</tbody>
+</table>
+<table class="usage">
+<thead><tr><th>Metric</th><th>Main</th><th>Subagents</th><th>Total</th></tr></thead>
+<tbody>
+<tr class="grp"><td colspan="4">Tokens</td></tr>
+<tr><td>input_tokens</td><td>616</td><td>0</td><td>616</td></tr>
+<tr><td>output_tokens</td><td>35,635</td><td>0</td><td>35,635</td></tr>
+<tr class="sub"><td>thinking_tokens</td><td>16,945</td><td>0</td><td>16,945</td></tr>
+<tr><td>cache_write</td><td>136,876</td><td>0</td><td>136,876</td></tr>
+<tr class="sub"><td>ephemeral_1h</td><td>136,876</td><td>0</td><td>136,876</td></tr>
+<tr class="sub"><td>ephemeral_5m</td><td>0</td><td>0</td><td>0</td></tr>
+<tr><td>cache_read</td><td>2,327,996</td><td>0</td><td>2,327,996</td></tr>
+</tbody>
+</table>
+</div><!-- /usage:BRAINSTORMING_USAGE -->
+      </article>
+      <article class="panel-section">
+        <h2 class="section-label">Detail</h2>
+        <div class="prose"><h3>Summary</h3>
+<p>Users dictate the same names, acronyms and project terms into many apps and the recognizer gets some of them wrong every time. Today the only recourse is a hand-maintained vocabulary list that reaches the batch transcription instructions and the cleanup prompt but never the streaming recognizer, and that cannot express "when you hear X, write Y". This feature lets the user correct a misheard phrase once, from the menu's last dictation or from a History row, and remember the pair as a rule scoped to the destination app or to all apps. Rules apply deterministically to every future transcript in scope, and their correct spellings are fed to the configured recognizer as hints where supported. It is the follow-up the v1 storm deferred as "automatic or edit-driven vocabulary learning".</p>
+<h3>In scope</h3>
+<ul>
+<li>Correct last dictation… in the menu bar menu and Correct… on each History row.</li>
+<li>Correction dialog: select the mistaken phrase, type the correct spelling, preview. Phrase edit only.</li>
+<li>Remember this correction with scope This app (default when a bundle ID exists) or All apps; no bundle ID requires the explicit global choice.</li>
+<li>Copy corrected text; never pasted or submitted on the user's behalf. Cancel saves nothing.</li>
+<li>Persisted rules with Heard, Write, Sounds like (optional), Scope and Enabled, stored alongside vocabulary in the shared config.</li>
+<li>Deterministic local replacement: literal whole phrases, case-insensitive, whitespace-tolerant, applied once to the final transcript before paste and history. Never applied to the live caption. Historical entries stay as delivered.</li>
+<li>Settings → Vocabulary: existing term chips plus a corrections table with edit, disable, delete and in-place validation.</li>
+<li>Rule impact preview against History before saving; unavailable when history is off.</li>
+<li>Misheard-terms tally of corrections made, remembered or not, shown in Settings with a nudge to remember recurring one-offs. No per-rule firing counts.</li>
+<li>Recognition hints: SFSpeechRecognizer contextual strings; OpenAI Realtime keywords; Speechmatics custom dictionary with an explicit, prefilled, editable Sounds like field; batch OpenAI prompt field; cleanup prompt pairs and terms as delimited data.</li>
+<li>SpeechAnalyzer hints only if the installed SDK accepts them; otherwise labelled unavailable, local rule still applies.</li>
+<li>Settings reports skipped or unsupported hints per engine. Caps enforced when the request is built, never by deleting stored terms.</li>
+<li>Manual vocabulary unchanged. README and CHANGELOG describe per-engine support and scope semantics.</li>
+</ul>
+<h3>Out of scope / deferred</h3>
+<ul>
+<li>ElevenLabs keyterms and their 20% premium billing.</li>
+<li>Creating a rule directly in Settings without a dictation.</li>
+<li>Pasting corrected text back into the original app.</li>
+<li>Profile-scoped rules; a Correct affordance on the overlay; per-rule firing counts; live-caption correction; export/import of rules.</li>
+<li>Automatic sounds-like derived silently from the Heard phrase.</li>
+<li>Background monitoring of edits in other apps; project-folder or website scopes; model training; voice editing.</li>
+<li>Regex, wildcard, fuzzy or chaining rules; rewriting past History entries.</li>
+</ul>
+<h3>Technical direction (constraints, not design)</h3>
+<ul>
+<li>The shared config.json stays readable and writable by the Python app, which round-trips the whole file; unknown keys keep being preserved here.</li>
+<li>Bundle ID com.ips.mini-whisper, macOS 14, Swift 6 strict concurrency, no third-party runtime dependencies.</li>
+<li>Rules applied exactly once to the final transcript, after optional cleanup, before paste and history; identical on every path; inserted text never rescanned; live caption never mutated.</li>
+<li>One immutable vocabulary-and-rules snapshot per recording, captured with the starting app; final corrections use the release app against that snapshot; edits during a recording affect the next one.</li>
+<li>App rule beats global rule for the same phrase; longer match beats shorter; stored order breaks ties.</li>
+<li>Hints carry correct spellings, never mistaken ones, except the explicit Speechmatics sounds-like. Neither phrase is ever a cleanup instruction or a regex.</li>
+<li>Provider limits (SFSpeechRecognizer 100 phrases; Speechmatics 1000 entries of up to 6 words; OpenAI keyword character rules) enforced at serialization.</li>
+<li>Secrets stay in the Keychain; requests or URLs carrying hint terms are never logged.</li>
+<li>Persist before reporting success; on write failure keep the draft, show the error, keep prior rules in effect. Settings refresh through the existing config-change consumer.</li>
+<li>Measurement uses a small user-provided audio set; live provider runs are opt-in with configured credentials.</li>
+<li>Timing tested on the virtual clock; TDD with an observed failing test before each implementation step.</li>
+</ul></div>
+      </article>
+    </section>
+
+    <section class="panel" role="tabpanel"
+             id="panel-design" aria-labelledby="tab-design" hidden>
+      <p class="section-timestamp">Updated 2026-09-05 16:56 UTC</p>
+      <!-- usage:DESIGN_USAGE_CHIP --><span class="chip usage">45m 43s · 114,010 out · 72.7 tok/s</span><!-- /usage:DESIGN_USAGE_CHIP -->
+      <article class="panel-section">
+        <h2 class="section-label">Highlights</h2>
+        <div class="bullets"><ul><li>Approach: a new MWCorrections module (depends on MWConfig only) holds rule resolution, whole-phrase matching, single-pass replacement, hint resolution, per-engine hint serialization, the tally and the impact preview; the pipeline captures one immutable snapshot per recording and applies rules once, after cleanup, before paste.</li><li>Data: two new config.json keys, corrections (id, heard, write, sounds_like, bundle_id or null, enabled) and correction_tally (heard, count, last; cap 200). Absent keys mean empty; the Python app round-trips them.</li><li>Matching: literal whole phrases with Unicode letter/mark/digit boundaries, case-insensitive, whitespace-tolerant; Heard and every Sounds-like variant are match targets; longest match wins, then app rule over global, then stored order; replaced text is never rescanned.</li><li>Hints carry Write + Heard + variants: SFSpeechRecognizer contextualStrings (100), SpeechAnalyzer AnalysisContext with SpeechTranscriber kept (100, label decided by measurement), OpenAI Realtime keywords (forbidden characters stripped), Speechmatics additional_vocab with sounds_like (1000 entries, 6-word cap), batch prompt and cleanup prompt pairs. ElevenLabs receives none.</li><li>The batch transcription request switches from the undocumented instructions field to the documented prompt field, carrying transcribe_prompt.txt plus the resolved terms.</li><li>UI as the accepted mockups: a 560×520 Correct Dictation window (selectable transcript with whole-word snapping, Heard/Write/Sounds like, This app/All apps, Remember toggle, live preview, impact line, Copy/Cancel/Save, confirmation state) opened from a new Correct Last Dictation… menu row and a Correct… History action; Settings → Vocabulary gains a corrections table with detail form, an Often corrected tally and a per-engine Recognition hints report.</li><li>Settings refresh flows through the existing AppDelegate config-change consumer; no second consumer of ConfigStore.changes.</li><li>Acceptance: request-contract tests per engine plus an opt-in measurement suite over an untracked local audio set, writing per-engine reports (no audio) into the feature folder; SpeechAnalyzer's hint label follows the measured result.</li><li>Security: phrases never logged, always JSON- or multipart-encoded, regex tokens escaped; no hint in any URL; the cleanup prompt embeds pairs as quoted data under the same trust model as vocabulary.</li><li>Deferred by name: ElevenLabs keyterms, manual pair entry in Settings, paste-back, profile scope, overlay correction, firing counts, live-caption correction, shareable rules, custom language models, DictationTranscriber switch.</li></ul></div>
+        <!-- usage:DESIGN_USAGE --><div class="usage-pair">
+<table class="usage">
+<thead><tr><th>Metric</th><th>Main</th><th>Subagents</th><th>Total</th></tr></thead>
+<tbody>
+<tr class="grp"><td colspan="4">Time</td></tr>
+<tr><td>elapsed</td><td>—</td><td>—</td><td>45m 43s</td></tr>
+<tr><td>run time</td><td>—</td><td>—</td><td>27m 38s</td></tr>
+<tr class="grp"><td colspan="4">Requests</td></tr>
+<tr><td>model</td><td>38</td><td>0</td><td>38</td></tr>
+<tr><td>web_search</td><td>0</td><td>0</td><td>0</td></tr>
+<tr><td>web_fetch</td><td>0</td><td>0</td><td>0</td></tr>
+<tr class="grp"><td colspan="4">Throughput</td></tr>
+<tr class="tp"><td>output tok/s</td><td>—</td><td>—</td><td>72.7</td></tr>
+</tbody>
+</table>
+<table class="usage">
+<thead><tr><th>Metric</th><th>Main</th><th>Subagents</th><th>Total</th></tr></thead>
+<tbody>
+<tr class="grp"><td colspan="4">Tokens</td></tr>
+<tr><td>input_tokens</td><td>886</td><td>0</td><td>886</td></tr>
+<tr><td>output_tokens</td><td>114,010</td><td>0</td><td>114,010</td></tr>
+<tr class="sub"><td>thinking_tokens</td><td>47,657</td><td>0</td><td>47,657</td></tr>
+<tr><td>cache_write</td><td>314,403</td><td>0</td><td>314,403</td></tr>
+<tr class="sub"><td>ephemeral_1h</td><td>314,403</td><td>0</td><td>314,403</td></tr>
+<tr class="sub"><td>ephemeral_5m</td><td>0</td><td>0</td><td>0</td></tr>
+<tr><td>cache_read</td><td>12,961,321</td><td>0</td><td>12,961,321</td></tr>
+</tbody>
+</table>
+</div><!-- /usage:DESIGN_USAGE -->
+      </article>
+      <article class="panel-section">
+        <h2 class="section-label">Detail</h2>
+        <div class="prose"><p><a href="./mockups/mockup-v2-correction-window.html">Correction window mockup</a> (<a href="https://claude.ai/code/artifact/8848024e-217a-4862-ac40-786966591235">artifact</a>) · <a href="./mockups/mockup-v2-vocab-detail-form.html">Vocabulary — Detail Form mockup</a> (<a href="https://claude.ai/code/artifact/e39399f3-51b6-420e-956d-b74038256122">artifact</a>) · <a href="./feature-design-v2-Remembered-corrections.md">full design</a></p>
+<h3>Summary</h3>
+<p>The user corrects a misheard phrase once, from the menu bar's last dictation or a History row, and remembers it as a rule scoped to the destination app or all apps. Rules apply deterministically to every future transcript in scope, once, after optional cleanup and before paste, on every engine and path. The rule's correct spelling, the heard phrase and any sounds-like variants are sent as recognition hints where the engine documents a mechanism, so the recognizer is steered toward a form the rule already knows. Settings → Vocabulary gains a corrections table, a tally of phrases the user keeps correcting and a per-engine report of what was sent.</p>
+<h3>Goals and non-goals</h3>
+<ul>
+<li>Deterministic whole-phrase replacement in scope on streamed, batch, cleanup-on, cleanup-off and key-free paths.</li>
+<li>App-scoped rules never touch other apps; every rule editable, disable and delete effective from the next recording.</li>
+<li>Hints reach SFSpeechRecognizer, SpeechAnalyzer, OpenAI Realtime, Speechmatics, the batch prompt and the cleanup prompt, proven by request-contract tests; the batch request uses the documented <code>prompt</code> field.</li>
+<li>Before/after measurement on a user-provided audio set per hint-capable engine; the result decides SpeechAnalyzer's label.</li>
+<li>Non-goals: ElevenLabs keyterms and premium billing, manual pair entry in Settings, paste-back, profile scope, overlay correction, firing counts, live-caption correction, export/import, custom language models, DictationTranscriber, automatic sounds-like without a field, regex/fuzzy/cascading rules, rewriting history, background monitoring, model training, voice editing.</li>
+</ul>
+<h3>Architecture</h3>
+<ul>
+<li><b>MWCorrections</b> (new, depends on MWConfig): PhraseKey, CorrectionResolver, PhraseMatcher, CorrectionApplier, CorrectionValidator, CorrectionSnapshot, RecognitionHints + HintResolver, HintSerializer, HintReport, HintSupport, CorrectionTally, ImpactPreview, PromptSections. Pure values, no I/O.</li>
+<li><b>MWConfig</b>: CorrectionRule and CorrectionTallyEntry types; Config gains <code>corrections</code> and <code>correctionTally</code>, known keys, decode-with-defaults, validation (trim, drop empties, keep first duplicate per scope).</li>
+<li><b>MWStreaming</b>: RecognitionOptions.contextualStrings; SpeechAnalyzerAPI.makeSession(locale:contextualStrings:) with AnalysisContext set before analysis; engines and adapters take RecognitionHints; EngineProvider.make(config:secrets:hints:).</li>
+<li><b>MWTranscription</b>: Transcriber.transcribe(wav:prompt:); OpenAIClient sends <code>prompt</code>, never <code>instructions</code>.</li>
+<li><b>MWProfiles</b>: PromptComposer.transcribePrompt(base:terms:) and cleanupPrompt(base:hints:rules:).</li>
+<li><b>MWPipeline</b>: RecordingSession gains startTarget and snapshot; ProcessingInput gains snapshot; UIEvent.result carries DeliveredDictation (text, app name, bundle ID, engine, time); DictationController captures the frontmost app at press and resolves hints; ProcessingJob applies rules once after cleanup.</li>
+<li><b>App</b>: Correction window (CorrectionSource, CorrectionModel, CorrectionView, CorrectionWindowController), MenuModel row and action, StatusItemController callback, UIEventRouter, History Correct… action, Settings CorrectionsEditorModel/CorrectionsEditor, SettingsModel.refresh(from:), AppDelegate composition.</li>
+</ul>
+<h3>Data model</h3>
+<pre>"corrections": [{"id": "…", "heard": "eefa", "write": "Aoife", "sounds_like": ["eefa", "eva"], "bundle_id": "com.tinyspeck.slackmacgap", "enabled": true}],
+"correction_tally": [{"heard": "eefa", "count": 4, "last": "2026-09-05T16:07:00Z"}]</pre>
+<p>Stored order is the precedence order; tally capped at 200 (evict lowest count, then oldest); no migration.</p>
+<h3>Wire shapes (additions)</h3>
+<ul>
+<li>SFSpeechRecognizer: <code>request.contextualStrings</code>, first 100 hints.</li>
+<li>SpeechAnalyzer: <code>AnalysisContext.contextualStrings[.general]</code> set via <code>setContext</code> before <code>analyzeSequence</code>; a failure is logged and analysis continues.</li>
+<li>OpenAI Realtime: <code>session.audio.input.transcription.keywords</code>, present only when non-empty, <code>&lt; &gt; CR LF</code> removed.</li>
+<li>Speechmatics: <code>transcription_config.additional_vocab</code> entries <code>{content, sounds_like}</code>, up to 1000, entries over 6 words skipped and reported.</li>
+<li>Batch: multipart <code>prompt</code> = transcribe_prompt.txt + "Vocabulary (spell exactly as written): …".</li>
+<li>Cleanup: "Preserve these terms exactly as written: …" plus "Known corrections — replace the exact phrase on the left with the spelling on the right:" with one quoted pair per variant.</li>
+</ul>
+<h3>Failure and edge cases</h3>
+<ul>
+<li>Save failure keeps the draft, shows the error, leaves prior rules in effect (ConfigStore.update throws before caching or yielding).</li>
+<li>No bundle ID forces All apps; history off degrades only the impact line; app switch between press and release keeps press hints and uses release rules.</li>
+<li>Overlaps: longest, then app scope, then stored order; no cascade; no match inside longer words; possessives match through the apostrophe boundary.</li>
+<li>Caps and character filters skip and report, never delete stored terms; empty hints leave every request shape unchanged.</li>
+</ul>
+<h3>Security and performance</h3>
+<p>Phrases never logged; all payloads JSON- or multipart-encoded; regex tokens escaped; no hint in any URL. Rule application compiles one regex per variant per job and runs in well under a millisecond; the impact preview runs over in-memory history on a cancellable background task.</p>
+<h3>Testing</h3>
+<p>One test file per MWCorrections component; contract tests for every request shape with and without hints; controller tests for press-time capture, snapshot immutability and release-time resolution on VirtualClock; job tests for rule application on every path; App tests for MenuModel, CorrectionModel, CorrectionsEditorModel, HistoryListModel and SettingsModel.refresh; opt-in HintMeasurementTests gated on MW_INTEGRATION=1 and MW_HINT_AUDIO_DIR writing per-engine reports.</p>
+<h3>Risks</h3>
+<ul>
+<li>Ordinary-word collision — mitigated by whole-phrase matching, scope, impact preview, Enabled switch.</li>
+<li>SpeechAnalyzer hints may have no effect — measurement decides the label; dead path removed if unavailable.</li>
+<li>Batch <code>prompt</code> change makes transcribe_prompt.txt reach the model — release note.</li>
+<li>Provider contract drift — exact-JSON contract tests and the Settings report.</li>
+<li>Inconclusive measurement — per-engine statements, no blanket accuracy claim.</li>
+</ul>
+<h3>Rollout</h3>
+<p>Single release, no flag. Order: MWConfig coding → MWCorrections → prompts and <code>prompt</code> field → pipeline → streaming hints → App surfaces → measurement and label → README/CHANGELOG. Rollback: disable or delete rules, or remove the two keys.</p></div>
+      </article>
+    </section>
+
+    <section class="panel" role="tabpanel"
+             id="panel-plan" aria-labelledby="tab-plan" hidden>
+      <p class="section-timestamp">Updated 2026-09-05 17:18 UTC</p>
+      <!-- usage:PLAN_USAGE_CHIP --><span class="chip usage">23m 23s · 31,008 out · 22.9 tok/s</span><!-- /usage:PLAN_USAGE_CHIP -->
+      <article class="panel-section">
+        <h2 class="section-label">Highlights</h2>
+        <div class="bullets"><ul>
+<li>13 stages, bottom-up along the existing module graph; both suites green after every one.</li>
+<li>Stages 1–4 — the pure value layer: two new <code>config.json</code> keys, then the new <code>MWCorrections</code> target in three slices (matching and validation; hints; tally, impact, prompt text).</li>
+<li>Stages 5–7 — wiring: batch <code>prompt</code> field and cleanup blocks, engine hints on all four engines, then the pipeline's press-time snapshot and rule application.</li>
+<li>Stages 8–10 — surfaces: correction-window model under full TDD, its view plus the menu and History entry points, then Settings → Vocabulary.</li>
+<li>Stages 11–13 — measurement harness, the gated live run that settles SpeechAnalyzer's label, README and CHANGELOG.</li>
+<li>Coverage: 44/44 requirements mapped (R1–R39 and N1–N5), every one tied to a named stage.</li>
+<li>Observed baselines recorded before drafting: core <code>swift test</code> 353 tests / 38 suites green; app <code>xcodebuild test</code> 70 tests / 14 suites green; <code>swift build</code> exit 0.</li>
+<li>Two stages are deliberately atomic: the <code>instructions</code> → <code>prompt</code> swap, and engine hints across all four engines.</li>
+<li>Stage 12 is gated on a user-provided audio set that does not exist yet — it opens with a gate check rather than implementation steps.</li>
+<li><strong>Deviations from the design: none.</strong> Four factual corrections were made in the design file in place and recorded as planning decisions.</li>
+</ul></div>
+        <!-- usage:PLAN_USAGE --><div class="usage-pair">
+<table class="usage">
+<thead><tr><th>Metric</th><th>Main</th><th>Subagents</th><th>Total</th></tr></thead>
+<tbody>
+<tr class="grp"><td colspan="4">Time</td></tr>
+<tr><td>elapsed</td><td>—</td><td>—</td><td>23m 23s</td></tr>
+<tr><td>run time</td><td>—</td><td>—</td><td>23m 23s</td></tr>
+<tr class="grp"><td colspan="4">Requests</td></tr>
+<tr><td>model</td><td>12</td><td>48</td><td>60</td></tr>
+<tr><td>web_search</td><td>0</td><td>0</td><td>0</td></tr>
+<tr><td>web_fetch</td><td>0</td><td>0</td><td>0</td></tr>
+<tr class="grp"><td colspan="4">Throughput</td></tr>
+<tr class="tp"><td>output tok/s</td><td>—</td><td>—</td><td>22.9</td></tr>
+</tbody>
+</table>
+<table class="usage">
+<thead><tr><th>Metric</th><th>Main</th><th>Subagents</th><th>Total</th></tr></thead>
+<tbody>
+<tr class="grp"><td colspan="4">Tokens</td></tr>
+<tr><td>input_tokens</td><td>24</td><td>96</td><td>120</td></tr>
+<tr><td>output_tokens</td><td>17,435</td><td>13,573</td><td>31,008</td></tr>
+<tr class="sub"><td>thinking_tokens</td><td>494</td><td>0</td><td>494</td></tr>
+<tr><td>cache_write</td><td>27,674</td><td>260,571</td><td>288,245</td></tr>
+<tr class="sub"><td>ephemeral_1h</td><td>27,674</td><td>0</td><td>27,674</td></tr>
+<tr class="sub"><td>ephemeral_5m</td><td>0</td><td>260,571</td><td>260,571</td></tr>
+<tr><td>cache_read</td><td>843,602</td><td>8,908,591</td><td>9,752,193</td></tr>
+</tbody>
+</table>
+</div><!-- /usage:PLAN_USAGE -->
+      </article>
+      <article class="panel-section">
+        <h2 class="section-label">Detail</h2>
+        <div class="prose">
+<h3>Overview</h3>
+<p>Thirteen stages, ordered bottom-up along the module dependency edges the repo already enforces. Four stages land the pure value layer — the two new <code>config.json</code> keys in <code>MWConfig</code>, then the new <code>MWCorrections</code> package target in three cohesive slices. Three stages wire that layer into the request paths that already exist: the batch <code>prompt</code> field and cleanup blocks, engine hints on every streaming engine, then the pipeline's press-time snapshot, deterministic rule application and <code>DeliveredDictation</code> event. Three stages build the user surfaces. The last three cover the measurement harness, the gated live run and the documentation. Every stage leaves both suites green and both targets building, and the feature is inert until the user remembers a first correction, so no stage needs a flag.</p>
+
+<h3>Stages</h3>
+
+<h4>1 — Correction rules and tally in <code>config.json</code></h4>
+<p><code>Config</code> carries <code>corrections</code> and <code>correction_tally</code> as typed, validated, round-tripping keys.<br>
+Touches: <code>MWConfig/CorrectionRule.swift</code>, <code>CorrectionTallyEntry.swift</code>, <code>PhraseKey.swift</code> (new), <code>Config.swift</code>, <code>MWConfigTests/ConfigCodingTests.swift</code>, <code>ConfigStoreTests.swift</code>.</p>
+
+<h4>2 — <code>MWCorrections</code>: phrase matching, scope resolution, validation</h4>
+<p>A new pure module that decides which rules apply to a delivery app and rewrites a transcript with them.<br>
+Touches: <code>Package.swift</code>, <code>project.yml</code>, <code>CLAUDE.md</code>, <code>MWCorrections/{ResolvedRule,CorrectionResolver,PhraseMatcher,CorrectionApplier,CorrectionValidator}.swift</code> and four new test files.</p>
+
+<h4>3 — <code>MWCorrections</code>: hint resolution, per-engine serialisation, report</h4>
+<p>The exact term list, per-engine payload values and skip reasons every engine and the Settings report will use.<br>
+Touches: <code>MWCorrections/{CorrectionSnapshot,RecognitionHints,HintResolver,HintSerializer,HintSupport,HintReport}.swift</code> and three new test files.</p>
+
+<h4>4 — <code>MWCorrections</code>: tally, impact preview, prompt sections</h4>
+<p>The remaining pure values the window, Settings and the prompts need.<br>
+Touches: <code>MWCorrections/{CorrectionTally,ImpactPreview,PromptSections}.swift</code> and three new test files.</p>
+
+<h4>5 — Batch <code>prompt</code> field and cleanup prompt blocks</h4>
+<p>The batch request sends the documented <code>prompt</code> field and the cleanup prompt carries both R24 blocks. Atomic: <code>instructions</code> and <code>prompt</code> cannot coexist.<br>
+Touches: <code>MWTranscription/OpenAIClient.swift</code>, <code>MWProfiles/PromptComposer.swift</code>, <code>MWPipeline/ProcessingJob.swift</code>, <code>MWTestSupport/FakeTranscriber.swift</code>, <code>App/KeyedOpenAIClient.swift</code>, <code>Package.swift</code>, four test files.</p>
+
+<h4>6 — Engine hints on every streaming engine</h4>
+<p>Every hint-capable engine sends the resolved terms in its documented field, and every request shape is unchanged when there are none.<br>
+Touches: <code>MWStreaming/{SpeechRecognitionAPI,SFSpeechRecognitionBridge,SFSpeechEngine,SpeechAnalyzerAPI,SpeechAnalyzerBridge,SpeechAnalyzerEngine,EngineProvider,EngineFactory}.swift</code>, both cloud adapters, two fakes, <code>DictationController.swift</code>, four test files.</p>
+
+<h4>7 — Press-time snapshot, rule application and <code>DeliveredDictation</code></h4>
+<p>One immutable snapshot per recording, hints for the press app, rules applied once before delivery.<br>
+Touches: <code>MWPipeline/{ControllerState,ProcessingInput,UIEvent,DeliveredDictation,DictationController,ProcessingJob}.swift</code>, <code>App/{UIEventRouter,StatusItemController,MenuModel}.swift</code>, three test files.</p>
+
+<h4>8 — Correction window model</h4>
+<p>Snapping, prefill, preview, validation, impact, Copy, Save and the tally as a host-tested model with no view.<br>
+Touches: <code>App/Correction/{CorrectionSource,CorrectionModel}.swift</code>, <code>AppTests/CorrectionModelTests.swift</code>.</p>
+
+<h4>9 — Correction window UI, menu entry and History action</h4>
+<p>The window opens from the menu bar's last dictation and from any History row. Hybrid: TDD for the two models, platform/UI wiring for the view and controller.<br>
+Touches: <code>App/Correction/{CorrectionView,CorrectionWindowController}.swift</code>, <code>App/MenuModel.swift</code>, <code>StatusItemController.swift</code>, <code>History/{HistoryListModel,HistoryView}.swift</code>, <code>AppDelegate.swift</code>, two test files.</p>
+
+<h4>10 — Settings → Vocabulary: corrections table, tally and hint report</h4>
+<p>Every rule visible and editable, with the often-corrected list and the per-engine hint report beside it.<br>
+Touches: <code>App/Settings/{CorrectionsEditorModel,CorrectionsEditor}.swift</code> (new), <code>VocabularySection.swift</code>, <code>VocabularyModel.swift</code>, <code>SettingsModel.swift</code>, <code>AppDelegate.swift</code>, two test files.</p>
+
+<h4>11 — Measurement harness</h4>
+<p>An opt-in suite that transcribes a user-provided clip set hints-off and hints-on per engine. Hybrid: TDD for manifest decoding, hit counting and report rendering; integration-verified for the live run.<br>
+Touches: <code>MWTestSupport/HintMeasurement.swift</code>, <code>MWStreamingTests/{HintMeasurementTests,HintMeasurementReportTests}.swift</code>.</p>
+
+<h4>12 — Run the measurement and settle SpeechAnalyzer's hint label</h4>
+<p>External prerequisite (gated): opens with a gate check on <code>MW_HINT_AUDIO_DIR</code> and provider credentials, then commits the reports, sets <code>HintSupport.speechAnalyzer</code> and removes the <code>AnalysisContext</code> path if the verdict is unavailable.<br>
+Touches: <code>measurements/&lt;engine&gt;-&lt;date&gt;.md</code>, <code>MWCorrections/HintSupport.swift</code>, conditionally the four SpeechAnalyzer files and their tests.</p>
+
+<h4>13 — README and CHANGELOG</h4>
+<p>Non-TDD (config-only). Per-engine hint support as measured, the <code>prompt</code> field change, local storage of rules and tally, scope semantics, and that hints are probabilistic while rules are deterministic.<br>
+Touches: <code>README.md</code>, <code>CHANGELOG.md</code>.</p>
+
+<h3>Requirements coverage map</h3>
+<table>
+<thead><tr><th>Design req</th><th>Delivered by stage(s)</th></tr></thead>
+<tbody>
+<tr><td>R1 <code>corrections</code> array and its six fields</td><td>1</td></tr>
+<tr><td>R2 <code>correction_tally</code>, cap 200</td><td>1 (storage), 4 (ops)</td></tr>
+<tr><td>R3 known keys, never in <code>extra</code>, round-trip</td><td>1</td></tr>
+<tr><td>R4 load/save validation</td><td>1</td></tr>
+<tr><td>R5 save rejections</td><td>2 (validator), 8 (window), 10 (Settings)</td></tr>
+<tr><td>R6 NFC + trim + collapse normalisation</td><td>1</td></tr>
+<tr><td>R7 whole-phrase Unicode matching</td><td>2</td></tr>
+<tr><td>R8 heard and variants are match targets</td><td>2</td></tr>
+<tr><td>R9 single pass, longest-then-app-then-order</td><td>2</td></tr>
+<tr><td>R10 app rule suppresses global for a variant</td><td>2</td></tr>
+<tr><td>R11 disabled rules take part in nothing</td><td>2, 3, 4</td></tr>
+<tr><td>R12 one immutable snapshot per recording</td><td>7</td></tr>
+<tr><td>R13 press-app hints, release-app rules</td><td>7</td></tr>
+<tr><td>R14 rules applied once, after cleanup</td><td>7</td></tr>
+<tr><td>R15 the live caption is never changed</td><td>7</td></tr>
+<tr><td>R16 <code>.result</code> carries app name and bundle ID</td><td>7</td></tr>
+<tr><td>R17 hint list order and dedupe</td><td>3</td></tr>
+<tr><td>R18 SF <code>contextualStrings</code>, first 100</td><td>3 (cap), 6 (request)</td></tr>
+<tr><td>R19 SpeechAnalyzer <code>AnalysisContext</code></td><td>3, 6, 12 (label)</td></tr>
+<tr><td>R20 OpenAI Realtime <code>keywords</code></td><td>3 (filter), 6 (message)</td></tr>
+<tr><td>R21 Speechmatics <code>additional_vocab</code></td><td>3 (entries), 6 (message)</td></tr>
+<tr><td>R22 ElevenLabs receives no hints</td><td>3 (row), 6 (untouched)</td></tr>
+<tr><td>R23 multipart <code>prompt</code>; no <code>instructions</code></td><td>4 (text), 5 (request)</td></tr>
+<tr><td>R24 cleanup preserve-terms and corrections blocks</td><td>4 (text), 5 (composition)</td></tr>
+<tr><td>R25 empty hints leave every shape unchanged</td><td>5, 6</td></tr>
+<tr><td>R26 no term, phrase or transcript in a log line</td><td>5, 6, 7</td></tr>
+<tr><td>R27 "Correct Last Dictation…" in the menu</td><td>9</td></tr>
+<tr><td>R28 "Correct…" on each History row</td><td>9</td></tr>
+<tr><td>R29 selection snapping and reset</td><td>8</td></tr>
+<tr><td>R30 scope default and the no-bundle-ID case</td><td>8</td></tr>
+<tr><td>R31 preview and impact line</td><td>4 (compute), 8 (model)</td></tr>
+<tr><td>R32 Copy / Cancel / Save and the tally-once rule</td><td>8</td></tr>
+<tr><td>R33 the three Settings groups</td><td>3 (data), 10 (UI)</td></tr>
+<tr><td>R34 detail-form commit and in-place messages</td><td>10</td></tr>
+<tr><td>R35 Remember… seeds the window</td><td>10</td></tr>
+<tr><td>R36 an open Settings table refreshes</td><td>10</td></tr>
+<tr><td>R37 opt-in measurement suite and reports</td><td>11 (harness), 12 (run)</td></tr>
+<tr><td>R38 SpeechAnalyzer label decided by measurement</td><td>12</td></tr>
+<tr><td>R39 README and CHANGELOG</td><td>13</td></tr>
+<tr><td>N1 bundle ID, macOS 14, Swift 6, no third-party deps</td><td>every stage</td></tr>
+<tr><td>N2 every timing on the injected clock</td><td>6, 7, 9</td></tr>
+<tr><td>N3 no network call, well under a millisecond</td><td>2 (guard test), 7</td></tr>
+<tr><td>N4 no second consumer of <code>ConfigStore.changes</code></td><td>10</td></tr>
+<tr><td>N5 a failing test before every implementation</td><td>every stage</td></tr>
+</tbody>
+</table>
+
+<h3>Cross-cutting concerns</h3>
+<ul>
+<li><strong>Security</strong> — the only new log lines are counts (<code>hints: N sent, K skipped</code>, <code>corrections: N replacement(s) from M rule(s)</code>), pinned by R26 assertions. Every phrase reaching a provider is encoded by <code>JSONEncoder</code> or as a multipart text part, never concatenated into JSON; OpenAI's four forbidden characters are stripped before encoding. Every regex token is escaped with <code>NSRegularExpression.escapedPattern(for:)</code>, so a phrase can never become a pattern. The stage order opens no insecure window: hints only leave the machine from Stage 6, by which point Stage 3's filters and caps are in place and tested.</li>
+<li><strong>Performance</strong> — resolvers are O(rules); the applier compiles one regex per variant once per job, with an N3 guard test at 300 rules over a 1,200-character transcript. Press latency gains one synchronous <code>frontmost()</code> call, the same one release already makes. Payloads are bounded by the 100/100/1000 caps; config growth by the 200-entry tally cap.</li>
+<li><strong>Observability</strong> — two new count-only log lines, a <code>Log.config</code> error on a failed rule or tally write, a <code>Log.ui</code> error on a failed preview or Copy. The Settings Recognition hints group is the live report of what each engine receives; the committed measurement reports are the record of whether it helped.</li>
+<li><strong>Compatibility / migration</strong> — no migration: both keys default to empty, older builds carry them through <code>Config.extra</code>, and the Python app round-trips them as unknown dict keys. Four shared signatures widen (<code>Transcriber.transcribe</code>, <code>EngineProvider.make</code>, <code>SpeechAnalyzerAPI.makeSession</code>, <code>UIEvent.result</code>), each with every site listed in its stage. <code>RecognitionOptions</code> gains a defaulted parameter, so its two construction sites are untouched.</li>
+</ul>
+
+<h3>Verification</h3>
+<p>Core <code>swift test</code> green with the new <code>MWCorrectionsTests</code> suite; app <code>xcodebuild … test</code> <code>** TEST SUCCEEDED **</code>; <code>swift build</code> exit 0. Request contracts proven by the exact-JSON adapter tests, the multipart tests and the request-options tests, each with an empty-hints twin proving R25. One committed report per engine under <code>measurements/</code>, with <code>HintSupport.speechAnalyzer</code> matching both the report's verdict and the README. Then the manual list of design §5.10 on the built app: correct → save → the next dictation to the same app is corrected and to another app is not; History Correct…; disable and delete; Settings refresh while the window saves; keyboard navigation; history off; on-device engine with no cloud key and cleanup off.</p>
+
+<h3>Planning decisions taken</h3>
+<ol>
+<li><strong><code>PhraseKey</code> lives in <code>MWConfig</code>, not <code>MWCorrections</code></strong> — <code>Config.validated()</code> implements R4 and R6, and <code>MWConfig</code> cannot import <code>MWCorrections</code> without inverting the module dependency the design fixes. Design §5.1 corrected in place.</li>
+<li><strong><code>RecognitionHints</code> carries an ordered <code>rules</code> array plus <code>vocabulary</code> instead of a <code>pronunciations</code> dictionary</strong> — R21 fixes the order of <code>additional_vocab</code> and distinguishes rule entries from vocabulary entries; a Swift dictionary has no order and cannot make that distinction. Design §5.1 corrected in place; no wire shape changes.</li>
+<li><strong><code>ResolvedRule</code> is defined as <code>{ rule, variants, isAppScoped }</code></strong> — §5.1 used the type in three signatures without defining it. Design corrected in place.</li>
+<li><strong><code>PromptComposer</code> stays a <code>struct</code></strong> — §5.3's sketch wrote <code>enum</code>; the existing declaration is a struct and nothing needs it changed. Design corrected in place.</li>
+<li><strong>Engine hints (Stage 6) land before the pipeline's press-time resolution (Stage 7)</strong> — the reverse order would leave <code>EngineProvider.make</code> carrying a parameter no engine reads for a whole stage.</li>
+<li><strong>Stage 5 resolves rules from a release-time snapshot; Stage 7 swaps to the press-time snapshot</strong> — this delivers R23 and R24 a stage earlier without waiting on R12, and the swap changes no observable prompt text.</li>
+<li><strong>The measurement's manifest decoding, hit counting and report rendering live in <code>MWTestSupport</code></strong> — the shipping modules carry no test-only code and R37's logic is still host-tested.</li>
+<li><strong>The report directory is derived from <code>#filePath</code>, overridable with <code>MW_HINT_REPORT_DIR</code></strong> — §5.4 fixed the path but not how a test resolves the repository root.</li>
+<li><strong><code>MWCorrections</code> is registered in <code>project.yml</code> in Stage 2</strong>, alongside <code>Package.swift</code>, though the app first imports it in Stage 8 — one registration point rather than two.</li>
+<li><strong><code>HistoryListModel.engineLabel</code> is promoted to internal in Stage 9</strong>, the stage whose correction-window source line first needs it.</li>
+<li><strong>Stage 6 covers all four engines in one stage</strong> — widening <code>EngineProvider.make</code> forces every engine construction site to change together; a split would leave the cloud branch dropping a <code>hints</code> parameter for a whole stage.</li>
+<li><strong>No feature flag</strong> — design §9 fixed a single release, and rules and hints are inert until the user remembers a first correction.</li>
+</ol>
+
+<h3>Deviations from the design</h3>
+<p><strong>None — the plan matches design v2 exactly.</strong> The four corrections listed above are factual grounding fixes and internal under-specifications resolved in the design file in place; none changes scope, requirements, approach or an external interface.</p>
+</div>
+      </article>
+    </section>
+
+    <section class="panel" role="tabpanel"
+             id="panel-implementation" aria-labelledby="tab-implementation" hidden>
+      <p class="section-timestamp">Awaiting /feature-implement</p>
+      <!-- usage:IMPLEMENTATION_USAGE_CHIP --><!-- /usage:IMPLEMENTATION_USAGE_CHIP -->
+      <article class="panel-section">
+        <h2 class="section-label">Highlights</h2>
+        <div class="bullets"><p class="empty">Not yet filled — pending /feature-implement.</p></div>
+        <!-- usage:IMPLEMENTATION_USAGE --><!-- /usage:IMPLEMENTATION_USAGE -->
+      </article>
+      <article class="panel-section">
+        <h2 class="section-label">Detail</h2>
+        <div class="prose"><p class="empty">Not yet filled — pending /feature-implement.</p></div>
+      </article>
+    </section>
+
+    <section class="panel" role="tabpanel"
+             id="panel-issues" aria-labelledby="tab-issues" hidden>
+      <p class="section-timestamp"><!-- ISSUES_AT:START -->Awaiting /bug-submit<!-- ISSUES_AT:END --></p>
+
+      <div class="issue-filter" role="group" aria-label="Filter issues by status">
+        <button type="button" class="issue-tab" data-status="open" aria-pressed="true">
+          Open <span class="issue-count" data-for="open">0</span>
+        </button>
+        <button type="button" class="issue-tab" data-status="closed" aria-pressed="false">
+          Closed <span class="issue-count" data-for="closed">0</span>
+        </button>
+      </div>
+
+      <div class="issue-list" data-status="open">
+        <!-- ISSUES_OPEN:START -->
+        <p class="empty">No open issues.</p>
+        <!-- ISSUES_OPEN:END -->
+      </div>
+
+      <div class="issue-list" data-status="closed" hidden>
+        <!-- ISSUES_CLOSED:START -->
+        <p class="empty">No closed issues.</p>
+        <!-- ISSUES_CLOSED:END -->
+      </div>
+    </section>
+
+    <footer class="feature-footer">
+      Generated 2026-09-05
+    </footer>
+  </main>
+
+  <script>
+    (function () {
+      const tabs = Array.from(document.querySelectorAll('[role="tab"]'))
+        .filter((t) => getComputedStyle(t).display !== 'none');
+      const panels = Array.from(document.querySelectorAll('[role="tabpanel"]'));
+      const indicator = document.querySelector('.tab-indicator');
+
+      function positionIndicator(tab) {
+        if (!indicator || !tab) return;
+        const navRect = tab.parentElement.getBoundingClientRect();
+        const rect = tab.getBoundingClientRect();
+        indicator.style.transform = `translateX(${rect.left - navRect.left}px)`;
+        indicator.style.width = `${rect.width}px`;
+      }
+
+      function activate(tab, focus) {
+        if (!tab) return;
+        tabs.forEach((t) => {
+          const selected = t === tab;
+          t.setAttribute('aria-selected', selected ? 'true' : 'false');
+          t.setAttribute('tabindex', selected ? '0' : '-1');
+        });
+        panels.forEach((p) => {
+          const isActive = p.id === tab.getAttribute('aria-controls');
+          p.hidden = !isActive;
+          p.classList.toggle('active', isActive);
+        });
+        positionIndicator(tab);
+        if (focus) tab.focus();
+      }
+
+      tabs.forEach((tab) => {
+        tab.addEventListener('click', () => activate(tab));
+        tab.addEventListener('keydown', (e) => {
+          const i = tabs.indexOf(tab);
+          let target = null;
+          if (e.key === 'ArrowRight') target = tabs[(i + 1) % tabs.length];
+          else if (e.key === 'ArrowLeft') target = tabs[(i - 1 + tabs.length) % tabs.length];
+          else if (e.key === 'Home') target = tabs[0];
+          else if (e.key === 'End') target = tabs[tabs.length - 1];
+          if (target) {
+            e.preventDefault();
+            activate(target, true);
+          }
+        });
+      });
+
+      const initial = tabs.find((t) => t.getAttribute('aria-selected') === 'true') || tabs[0];
+      // Defer to next frame so layout is settled before placing the indicator
+      requestAnimationFrame(() => activate(initial));
+
+      window.addEventListener('resize', () => {
+        const selected = tabs.find((t) => t.getAttribute('aria-selected') === 'true');
+        if (selected) positionIndicator(selected);
+      });
+    })();
+
+    // Issues panel: Open/Closed filter + auto-computed counts.
+    (function () {
+      const filterBtns = Array.from(document.querySelectorAll('.issue-tab'));
+      const lists = Array.from(document.querySelectorAll('.issue-list'));
+      if (!filterBtns.length) return;
+
+      lists.forEach((list) => {
+        const status = list.getAttribute('data-status');
+        const badge = document.querySelector(`.issue-count[data-for="${status}"]`);
+        if (badge) badge.textContent = list.querySelectorAll('.issue').length;
+      });
+
+      function show(status) {
+        filterBtns.forEach((b) =>
+          b.setAttribute('aria-pressed', b.getAttribute('data-status') === status ? 'true' : 'false'));
+        lists.forEach((l) => { l.hidden = l.getAttribute('data-status') !== status; });
+      }
+
+      filterBtns.forEach((b) => b.addEventListener('click', () => show(b.getAttribute('data-status'))));
+      show('open');
+    })();
+  </script>
+</body>
+</html>

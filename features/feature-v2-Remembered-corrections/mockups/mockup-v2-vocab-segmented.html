@@ -1,0 +1,82 @@
+<title>Vocabulary — Segmented</title>
+<style>
+*,*::before,*::after{box-sizing:border-box}
+:root{--page-bg:#1c1e22;--page-text:#e8e8ea;--page-muted:#9a9aa2;--accent:#7cc4ff;--banner:#26292f;--rule:#34383f;
+--win:#ececec;--win2:#f6f6f6;--txt:#1d1d1f;--mut:#6e6e73;--bd:#d2d2d7;--blue:#0a60ff;--dis:#a8a8ad;--err:#c62828;--ok:#1d7a3a;--warn:#b25000}
+body{margin:0;background:var(--page-bg);color:var(--page-text);font:14px/1.45 -apple-system,BlinkMacSystemFont,"Helvetica Neue",sans-serif}
+.banner{background:var(--banner);border-bottom:1px solid var(--rule);padding:14px 22px;font-size:13px}
+.banner strong{color:#fff}.banner p{margin:4px 0 0;color:var(--page-muted);max-width:90ch}.banner .axis{color:var(--accent)}
+main{padding:26px 22px 40px;display:flex;justify-content:center}
+.mac{width:780px;height:560px;background:var(--win);color:var(--txt);border-radius:11px;box-shadow:0 24px 60px rgba(0,0,0,.45);display:grid;grid-template-rows:52px 1fr;overflow:hidden;font-size:13px}
+.title{background:#e3e3e7;border-bottom:1px solid #cfcfd4;display:flex;align-items:center;padding:0 14px;gap:14px;position:relative}
+.title .lights{display:flex;gap:7px}.title .lights i{width:12px;height:12px;border-radius:50%}
+.title h1{font-size:13px;font-weight:600;margin:0;position:absolute;left:50%;transform:translateX(-50%);color:#3a3a3f}
+.body{display:grid;grid-template-columns:180px 1fr;min-height:0}
+.side{background:#e6e6ea;border-right:1px solid #d0d0d5;padding:10px 8px;display:flex;flex-direction:column;gap:2px}
+.side span{font-size:13px;color:var(--txt);border-radius:7px;padding:6px 10px;display:flex;align-items:center;gap:10px}
+.side span .ic{width:22px;height:22px;border-radius:6px;background:#8e8e95;color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:12px}
+.side span.on{background:var(--blue);color:#fff}.side span.on .ic{background:rgba(255,255,255,.3)}
+.content{min-height:0;overflow:auto;padding:18px 22px 24px}
+.content h2{font-size:15px;margin:0 0 12px}
+h3{font-size:12px;margin:16px 0 8px;color:var(--mut);text-transform:uppercase;letter-spacing:.04em;font-weight:600}
+.group{background:var(--win2);border:1px solid var(--bd);border-radius:9px;padding:4px 12px;margin-bottom:12px}
+.row{display:flex;align-items:center;gap:10px;min-height:38px;padding:4px 0;border-bottom:1px solid #e3e3e7}.row:last-child{border-bottom:0}.row.top{align-items:flex-start;padding:10px 0}
+.row>label{flex:0 0 120px;color:var(--txt)}
+.foot{font-size:11.5px;color:var(--mut);padding:6px 0 10px 0;line-height:1.4}
+.chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:10px 0}.chips i{font-style:normal;padding:3px 9px;border-radius:12px;background:#dfe7f4;color:#1d3b6e;font-size:12px}
+.field{flex:1;padding:4px 8px;border:1px solid #c3c3c8;border-radius:6px;background:#fff}.field.ph{color:#9a9aa2}.field.narrow{flex:0 0 220px}
+.mini{font:12px -apple-system,sans-serif;padding:4px 10px;border-radius:6px;border:1px solid #c3c3c8;background:#fff;color:var(--txt);cursor:pointer}.mini.link{border-color:var(--blue);color:var(--blue)}
+.tbl{width:100%;border-collapse:collapse;font-size:12.5px;background:#fff;border:1px solid #d9d9de;border-radius:6px 6px 0 0;overflow:hidden}
+.tbl th{text-align:left;font-weight:600;color:var(--mut);padding:6px 8px;border-bottom:1px solid #d9d9de;white-space:nowrap}.tbl td{padding:6px 8px;border-bottom:1px solid #eee;vertical-align:middle}
+.tbl tr.sel td{background:#dce9ff}.tbl td.mut{color:var(--mut)}.tbl td.num{font-variant-numeric:tabular-nums;text-align:right}
+.tbl td .edit{display:inline-block;border:1px solid var(--blue);border-radius:4px;padding:1px 5px;background:#fff;box-shadow:0 0 0 2px rgba(10,96,255,.15)}
+.tbl td .off{color:var(--dis);text-decoration:line-through}
+.tblbtns{display:flex;gap:0;margin:0 0 6px}.tblbtns .mini{border-radius:0 0 6px 6px;width:28px;padding:2px 0}
+.cb{width:14px;height:14px;border:1px solid #9a9aa2;border-radius:3px;display:inline-block;background:#fff;vertical-align:-2px}.cb.on{background:var(--blue);border-color:var(--blue);position:relative}.cb.on::after{content:"";position:absolute;left:4px;top:1px;width:4px;height:8px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg)}
+.err{font-size:12px;color:var(--err);padding:2px 0 6px}
+.sw{width:38px;height:22px;border-radius:11px;background:#cfcfd4;position:relative;display:inline-block}.sw::after{content:"";position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.3)}.sw.on{background:var(--blue)}.sw.on::after{left:18px}
+.pop{padding:4px 10px;border:1px solid #c3c3c8;border-radius:6px;background:#fff}
+.sub{border-left:2px solid #d9d9de;padding-left:12px;margin:6px 0 4px}
+.tally{display:flex;flex-direction:column}
+.tally .t{display:grid;grid-template-columns:1fr 60px 110px;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid #e3e3e7;font-size:12.5px}.tally .t:last-child{border-bottom:0}
+.tally .t .n{font-variant-numeric:tabular-nums;color:var(--mut);text-align:right}.tally .t .has{color:var(--ok);font-size:11.5px;text-align:right}
+.rep{width:100%;border-collapse:collapse;font-size:12px}.rep td{padding:5px 0;border-bottom:1px solid #e3e3e7;vertical-align:top}.rep tr:last-child td{border-bottom:0}.rep td:first-child{width:200px;color:var(--txt)}.rep td.v{font-variant-numeric:tabular-nums}
+.rep .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:7px;vertical-align:1px}.dot.ok{background:var(--ok)}.dot.warn{background:var(--warn)}.dot.off{background:#b0b0b6}
+.segc{display:inline-flex;border:1px solid #c3c3c8;border-radius:7px;overflow:hidden;background:#fff;margin-bottom:12px}.segc button{font:12.5px -apple-system,sans-serif;padding:4px 14px;border:0;border-right:1px solid #c3c3c8;background:#fff;color:var(--txt);cursor:pointer}.segc button:last-child{border-right:0}.segc button.on{background:var(--blue);color:#fff}
+.tab{display:none}.tab.on{display:block}
+button:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+</style>
+<div class="banner"><strong>Mockup — not shipping code · Feature v2 · “Vocabulary — Segmented” · Not chosen</strong>
+<p>A segmented control splits the pane: Terms keeps the chips and gains the hint report; Corrections holds the table, its detail form and the tally. Each half fits without scrolling. <span class="axis">Axis: editing mode and hierarchy — two sub-views instead of one scroll; only one half visible at a time. Trade-off: the relationship between terms and corrections is hidden behind a click.</span> Click the segments to switch. Design language: accepted v1 Settings sidebar, 13 pt system type, blue #0a60ff.</p></div>
+<main><div class="mac"><div class="title"><span class="lights"><i style="background:#ff5f57"></i><i style="background:#febc2e"></i><i style="background:#28c840"></i></span><h1>Mini Whisper Settings</h1></div><div class="body"><nav class="side"><span><span class="ic">⚙︎</span>General</span><span><span class="ic">⌘</span>Hotkeys</span><span><span class="ic">🔑</span>Keys</span><span><span class="ic">✎</span>Cleanup</span><span class="on"><span class="ic">Aa</span>Vocabulary</span><span><span class="ic">🕘</span>History</span><span><span class="ic">♪</span>Sound</span></nav><div class="content">
+<h2>Vocabulary</h2>
+<div class="segc"><button type="button" data-t="terms">Terms</button><button type="button" data-t="corr" class="on">Corrections</button></div>
+<div class="tab" data-p="terms">
+<div class="group"><div class="chips"><i>Mini Whisper</i><i>PyObjC</i><i>Speechmatics</i><i>xcodegen</i><i>Tahoe</i></div><div class="row"><span class="field ph">Add a word or name, then press Return</span></div><div class="foot">Terms are sent to the recognizer as hints and kept as written by the cleanup prompt.</div></div>
+<h3>Recognition hints</h3><div class="group"><table class="rep"><tr><td><span class="dot ok"></span>On-device (Apple Speech)</td><td class="v">12 of 12 hints sent · cap 100</td></tr><tr><td><span class="dot ok"></span>SpeechAnalyzer</td><td class="v">12 hints sent · effect measured on the fixture set</td></tr><tr><td><span class="dot ok"></span>OpenAI Realtime</td><td class="v">12 keywords sent</td></tr><tr><td><span class="dot warn"></span>Speechmatics</td><td class="v">8 entries sent · 1 skipped: “mini whisper release notes bundle” is over 6 words</td></tr><tr><td><span class="dot off"></span>ElevenLabs</td><td class="v">hints not sent in this version · rules still apply</td></tr><tr><td><span class="dot ok"></span>Batch transcription · Cleanup</td><td class="v">terms and corrections added to the prompt</td></tr></table><div class="foot">Counts include every rule regardless of app. A hint makes a spelling more likely; the rule makes it certain.</div></div>
+</div>
+<div class="tab on" data-p="corr">
+<div class="group">
+<table class="tbl"><thead><tr><th>Heard</th><th>Write</th><th>Scope</th><th>Enabled</th></tr></thead><tbody>
+<tr class="sel"><td>eefa</td><td>Aoife</td><td>Slack</td><td>on</td></tr>
+<tr><td>get hub</td><td>GitHub</td><td>All apps</td><td>on</td></tr>
+<tr><td>x code gen</td><td>xcodegen</td><td>Terminal</td><td>on</td></tr>
+<tr><td>mini whisperer</td><td>Mini Whisper</td><td>All apps</td><td class="mut">off</td></tr>
+<tr><td>tahoe</td><td>Tahoe</td><td>All apps</td><td>on</td></tr>
+</tbody></table>
+<div class="tblbtns"><button class="mini" type="button">−</button></div>
+<div class="sub">
+<div class="row"><label>Heard</label><span class="field narrow">eefa</span></div>
+<div class="row"><label>Write</label><span class="field narrow">Aoife</span></div>
+<div class="row"><label>Sounds like</label><span class="field narrow">eefa, eva</span></div>
+<div class="row"><label>Scope</label><span class="pop">Slack ▾</span></div>
+<div class="row"><label>Enabled</label><span class="sw on" role="switch" aria-checked="true"></span></div>
+</div>
+<div class="foot">Rules are created from a dictation: Correct Last Dictation… in the menu bar, or Correct… on a History row.</div>
+</div>
+<h3>Often corrected</h3><div class="group"><div class="tally"><div class="t"><span>eefa</span><span class="n">×4</span><span class="has">remembered</span></div><div class="t"><span>speech matics</span><span class="n">×3</span><span style="text-align:right"><button class="mini link" type="button">Remember…</button></span></div><div class="t"><span>pie obj c</span><span class="n">×2</span><span style="text-align:right"><button class="mini link" type="button">Remember…</button></span></div><div class="t"><span>you vee</span><span class="n">×2</span><span style="text-align:right"><button class="mini link" type="button">Remember…</button></span></div><div class="t"><span>x code gen</span><span class="n">×1</span><span class="has">remembered</span></div></div><div class="foot">Phrases you corrected in the correction window, remembered or not. Remember… opens that window with the phrase selected.</div></div>
+</div>
+</div></div></div></main>
+<script>
+document.querySelectorAll('[data-t]').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('[data-t]').forEach(x=>x.classList.toggle('on',x===b));document.querySelectorAll('.tab').forEach(p=>p.classList.toggle('on',p.dataset.p===b.dataset.t))}));
+</script>
