@@ -1,38 +1,79 @@
 import MWConfig
+import MWCorrections
 import Testing
 
 import MWProfiles
 
-/// Vocabulary injection (F28) and the effective-cleanup conjunction (F26).
+/// Vocabulary and correction injection (F28, R23, R24) and the effective-cleanup
+/// conjunction (F26).
 @Suite struct PromptComposerTests {
     private static let instructions = "Transcribe the audio."
     private static let cleanup = "Clean up the transcript."
+    private static let slack = "com.tinyspeck.slackmacgap"
 
-    @Test func emptyVocabularyLeavesPromptsUnchanged() {
+    private static let snapshot = CorrectionSnapshot(
+        rules: [
+            CorrectionRule(heard: "eefa", write: "Aoife", soundsLike: ["eva"], bundleID: slack),
+            CorrectionRule(heard: "get hub", write: "GitHub"),
+        ],
+        vocabulary: ["xcodegen"]
+    )
+
+    @Test func nothingToInjectLeavesPromptsUnchanged() {
         #expect(
-            PromptComposer.transcribeInstructions(base: Self.instructions, vocabulary: [])
+            PromptComposer.transcribePrompt(base: Self.instructions, terms: [])
                 == Self.instructions
         )
         #expect(
-            PromptComposer.cleanupPrompt(base: Self.cleanup, vocabulary: [])
+            PromptComposer.cleanupPrompt(base: Self.cleanup, hints: .none, rules: [])
                 == Self.cleanup
         )
     }
 
-    @Test func vocabularyAppendsToTranscribeInstructions() {
+    @Test func termsAppendToTheTranscribePrompt() {
         #expect(
-            PromptComposer.transcribeInstructions(
+            PromptComposer.transcribePrompt(
                 base: Self.instructions,
-                vocabulary: ["a", "b", "c"]
+                terms: ["a", "b", "c"]
             ) == "Transcribe the audio.\n\nVocabulary (spell exactly as written): a, b, c"
         )
     }
 
-    @Test func vocabularyAppendsToCleanupPrompt() {
+    @Test func anEmptyInstructionsFileLeavesTheVocabularyLineAlone() {
+        #expect(
+            PromptComposer.transcribePrompt(base: "", terms: ["a"])
+                == "Vocabulary (spell exactly as written): a"
+        )
+        #expect(PromptComposer.transcribePrompt(base: "", terms: []).isEmpty)
+    }
+
+    @Test func bothCorrectionBlocksAppendToTheCleanupPrompt() {
         #expect(
             PromptComposer.cleanupPrompt(
                 base: Self.cleanup,
-                vocabulary: ["a", "b", "c"]
+                hints: HintResolver.resolve(Self.snapshot, bundleID: Self.slack),
+                rules: CorrectionResolver(rules: Self.snapshot.rules).rules(for: Self.slack)
+            ) == """
+                Clean up the transcript.
+
+                Preserve these terms exactly as written: Aoife, GitHub, xcodegen
+
+                Known corrections — replace the exact phrase on the left with the spelling on the right:
+                "eefa" → "Aoife"
+                "eva" → "Aoife"
+                "get hub" → "GitHub"
+                """
+        )
+    }
+
+    @Test func vocabularyAloneStillReachesTheCleanupPrompt() {
+        #expect(
+            PromptComposer.cleanupPrompt(
+                base: Self.cleanup,
+                hints: HintResolver.resolve(
+                    CorrectionSnapshot(rules: [], vocabulary: ["a", "b", "c"]), bundleID: nil
+                ),
+                rules: []
             ) == "Clean up the transcript.\n\nPreserve these terms exactly as written: a, b, c"
         )
     }

@@ -7,7 +7,7 @@ import MWTranscription
 public final class FakeTranscriber: Transcriber, @unchecked Sendable {
     public struct Call: Sendable {
         public let wav: Data
-        public let instructions: String
+        public let prompt: String
     }
 
     private let lock = NSLock()
@@ -24,8 +24,8 @@ public final class FakeTranscriber: Transcriber, @unchecked Sendable {
 
     public var calls: [Call] { lock.withLock { recorded } }
 
-    public func transcribe(wav: Data, instructions: String) async throws -> (String, TokenUsage) {
-        lock.withLock { recorded.append(Call(wav: wav, instructions: instructions)) }
+    public func transcribe(wav: Data, prompt: String) async throws -> (String, TokenUsage) {
+        lock.withLock { recorded.append(Call(wav: wav, prompt: prompt)) }
         if let failure { throw failure }
         return (text, usage)
     }

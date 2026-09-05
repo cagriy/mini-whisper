@@ -72,7 +72,7 @@ private func json(_ data: Data) throws -> [String: Any] {
     @Test func transcribeBuildsMultipartWithFileModelAndFormat() async throws {
         let transport = stubbed(#"{"text": "hello world"}"#)
 
-        _ = try await client(transport).transcribe(wav: Self.wav, instructions: "")
+        _ = try await client(transport).transcribe(wav: Self.wav, prompt: "")
 
         let request = try #require(transport.calls.first).request
         #expect(request.url == URL(string: "https://api.openai.com/v1/audio/transcriptions"))
@@ -89,29 +89,30 @@ private func json(_ data: Data) throws -> [String: Any] {
         #expect(parts.dropFirst().map(\.body) == ["gpt-4o-mini-transcribe", "json"])
     }
 
-    @Test func transcribeIncludesInstructionsWhenNonEmpty() async throws {
+    @Test func transcribeIncludesPromptWhenNonEmpty() async throws {
         let transport = stubbed(#"{"text": "hi"}"#)
 
-        _ = try await client(transport).transcribe(wav: Self.wav, instructions: "Be precise.")
+        _ = try await client(transport).transcribe(wav: Self.wav, prompt: "Be precise.")
 
         let parts = try multipartParts(of: try #require(transport.calls.first).request)
-        #expect(parts.map(\.name) == ["file", "model", "response_format", "instructions"])
+        #expect(parts.map(\.name) == ["file", "model", "response_format", "prompt"])
         #expect(parts.last?.body == "Be precise.")
     }
 
-    @Test func transcribeOmitsInstructionsWhenEmpty() async throws {
+    @Test func transcribeOmitsPromptWhenEmpty() async throws {
         let transport = stubbed(#"{"text": "hi"}"#)
 
-        _ = try await client(transport).transcribe(wav: Self.wav, instructions: "")
+        _ = try await client(transport).transcribe(wav: Self.wav, prompt: "")
 
         let parts = try multipartParts(of: try #require(transport.calls.first).request)
+        #expect(!parts.map(\.name).contains("prompt"))
         #expect(!parts.map(\.name).contains("instructions"))
     }
 
     @Test func transcribeParsesTextAndUsage() async throws {
         let transport = stubbed(#"{"text": "hello world", "usage": {"input_tokens": 42, "output_tokens": 7}}"#)
 
-        let (text, usage) = try await client(transport).transcribe(wav: Self.wav, instructions: "")
+        let (text, usage) = try await client(transport).transcribe(wav: Self.wav, prompt: "")
 
         #expect(text == "hello world")
         #expect(usage == TokenUsage(inputTokens: 42, outputTokens: 7))
@@ -120,7 +121,7 @@ private func json(_ data: Data) throws -> [String: Any] {
     @Test func transcribeMissingUsageIsZero() async throws {
         let transport = stubbed(#"{"text": "hello"}"#)
 
-        let (text, usage) = try await client(transport).transcribe(wav: Self.wav, instructions: "")
+        let (text, usage) = try await client(transport).transcribe(wav: Self.wav, prompt: "")
 
         #expect(text == "hello")
         #expect(usage == TokenUsage())
@@ -130,7 +131,7 @@ private func json(_ data: Data) throws -> [String: Any] {
         let transport = stubbed(#"{"text": "hi"}"#)
 
         let thrown = await #expect(throws: APIError.self) {
-            try await client(transport).transcribe(wav: Data(), instructions: "")
+            try await client(transport).transcribe(wav: Data(), prompt: "")
         }
 
         #expect(thrown?.userMessage == "Audio buffer is empty")
@@ -140,7 +141,7 @@ private func json(_ data: Data) throws -> [String: Any] {
     @Test func transcribeTimeoutIs30s() async throws {
         let transport = stubbed(#"{"text": "hi"}"#)
 
-        _ = try await client(transport).transcribe(wav: Self.wav, instructions: "")
+        _ = try await client(transport).transcribe(wav: Self.wav, prompt: "")
 
         #expect(try #require(transport.calls.first).timeout == .seconds(30))
     }
@@ -218,7 +219,7 @@ private func json(_ data: Data) throws -> [String: Any] {
 
         await Log.withSinks(debug: true, sinks: [sink]) {
             let failing = stubbed(#"{"error": "nope"}"#, status: 401)
-            _ = try? await client(failing).transcribe(wav: Self.wav, instructions: "")
+            _ = try? await client(failing).transcribe(wav: Self.wav, prompt: "")
             let succeeding = stubbed(#"{"choices": [{"message": {"content": "ok"}}]}"#)
             _ = try? await client(succeeding).clean("input", prompt: "prompt")
         }

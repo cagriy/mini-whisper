@@ -1,19 +1,24 @@
-/// Appends the user's vocabulary to the prompts actually sent, verbatim (F28, design §5.8).
+import MWCorrections
+
+/// What the user's vocabulary and remembered corrections add to the two prompts
+/// actually sent (F28, R23, R24).
 public struct PromptComposer {
-    public static func transcribeInstructions(base: String, vocabulary: [String]) -> String {
-        appending(base, "Vocabulary (spell exactly as written)", vocabulary)
+    public static func transcribePrompt(base: String, terms: [String]) -> String {
+        let line = PromptSections.vocabularyLine(terms: terms)
+        return composed(base: base, blocks: line.map { ["\n\n\($0)"] } ?? [])
     }
 
-    public static func cleanupPrompt(base: String, vocabulary: [String]) -> String {
-        appending(base, "Preserve these terms exactly as written", vocabulary)
-    }
-
-    private static func appending(
-        _ base: String,
-        _ heading: String,
-        _ vocabulary: [String]
+    public static func cleanupPrompt(
+        base: String,
+        hints: RecognitionHints,
+        rules: [ResolvedRule]
     ) -> String {
-        guard !vocabulary.isEmpty else { return base }
-        return "\(base)\n\n\(heading): \(vocabulary.joined(separator: ", "))"
+        composed(base: base, blocks: PromptSections.cleanupBlocks(hints: hints, rules: rules))
+    }
+
+    private static func composed(base: String, blocks: [String]) -> String {
+        let body = blocks.joined()
+        // An empty instructions file leaves the sections as the whole prompt (§5.5).
+        return base.isEmpty ? String(body.drop(while: \.isNewline)) : base + body
     }
 }

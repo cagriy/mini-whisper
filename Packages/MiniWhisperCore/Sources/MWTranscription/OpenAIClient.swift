@@ -2,7 +2,7 @@ import Foundation
 import MWSupport
 
 public protocol Transcriber: Sendable {
-    func transcribe(wav: Data, instructions: String) async throws -> (String, TokenUsage)
+    func transcribe(wav: Data, prompt: String) async throws -> (String, TokenUsage)
 }
 
 public protocol Cleaner: Sendable {
@@ -29,14 +29,14 @@ public struct OpenAIClient: Transcriber, Cleaner {
         self.transport = transport
     }
 
-    public func transcribe(wav: Data, instructions: String) async throws -> (String, TokenUsage) {
+    public func transcribe(wav: Data, prompt: String) async throws -> (String, TokenUsage) {
         guard !wav.isEmpty else { throw APIError.emptyAudio }
 
         var form = Multipart()
         form.addFile(name: "file", filename: "audio.wav", contentType: "audio/wav", data: wav)
         form.addField(name: "model", value: Self.transcribeModel)
         form.addField(name: "response_format", value: "json")
-        if !instructions.isEmpty { form.addField(name: "instructions", value: instructions) }
+        if !prompt.isEmpty { form.addField(name: "prompt", value: prompt) }
 
         var request = signed(URLRequest(url: Self.transcriptionsURL))
         request.setValue(form.contentType, forHTTPHeaderField: "Content-Type")

@@ -1,5 +1,6 @@
 import Foundation
 import MWConfig
+import MWCorrections
 import MWHistory
 import MWHotkeys
 import MWProfiles
@@ -65,15 +66,19 @@ public struct ProcessingJob: Sendable {
             return
         }
 
+        let snapshot = CorrectionSnapshot(config: input.config)
+        let releaseHints = HintResolver.resolve(snapshot, bundleID: input.target.bundleID)
+        let rules = CorrectionResolver(rules: snapshot.rules).rules(for: input.target.bundleID)
+
         var transcribeTokens = TokenUsage()
         if rawText == nil {
             do {
-                let instructions = PromptComposer.transcribeInstructions(
+                let prompt = PromptComposer.transcribePrompt(
                     base: try deps.prompts.transcribeInstructions(),
-                    vocabulary: input.config.vocabulary
+                    terms: releaseHints.terms
                 )
                 let (text, tokens) = try await deps.transcriber.transcribe(
-                    wav: input.recording.wav, instructions: instructions
+                    wav: input.recording.wav, prompt: prompt
                 )
                 rawText = text
                 transcribeTokens = tokens
@@ -100,7 +105,7 @@ public struct ProcessingJob: Sendable {
             guard !isStale() else { return await discard(input, seconds: streamedSeconds, emit: emit) }
             do {
                 let prompt = PromptComposer.cleanupPrompt(
-                    base: input.profile.cleanupPrompt, vocabulary: input.config.vocabulary
+                    base: input.profile.cleanupPrompt, hints: releaseHints, rules: rules
                 )
                 let (text, tokens) = try await deps.cleaner.clean(raw, prompt: prompt)
                 finalText = text

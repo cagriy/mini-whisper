@@ -31,15 +31,15 @@ let package = Package(
         .target(name: "MWTranscription", dependencies: ["MWSupport"]),
         .target(name: "MWUsage", dependencies: ["MWConfig", "MWSupport"]),
         .target(name: "MWHistory", dependencies: ["MWSupport"]),
-        .target(name: "MWProfiles", dependencies: ["MWConfig"]),
+        .target(name: "MWProfiles", dependencies: ["MWConfig", "MWCorrections"]),
         .target(name: "MWPaste", dependencies: ["MWConfig", "MWSupport"]),
         .target(name: "MWOverlaySim"),
         .target(
             name: "MWPipeline",
             dependencies: [
-                "MWSupport", "MWConfig", "MWHotkeys", "MWAudio", "MWStreaming",
-                "MWTranscription", "MWUsage", "MWHistory", "MWProfiles", "MWPaste",
-                "MWOverlaySim",
+                "MWSupport", "MWConfig", "MWCorrections", "MWHotkeys", "MWAudio",
+                "MWStreaming", "MWTranscription", "MWUsage", "MWHistory", "MWProfiles",
+                "MWPaste", "MWOverlaySim",
             ]
         ),
         .target(

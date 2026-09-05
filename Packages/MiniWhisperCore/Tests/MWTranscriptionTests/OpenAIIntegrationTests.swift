@@ -24,7 +24,7 @@ private let liveKey: String? = {
 
         let (raw, transcribeUsage) = try await client.transcribe(
             wav: wav,
-            instructions: "Transcribe the audio verbatim."
+            prompt: "Transcribe the audio verbatim."
         )
         #expect(!raw.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
         #expect(transcribeUsage.inputTokens > 0)

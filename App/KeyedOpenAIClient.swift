@@ -8,8 +8,8 @@ import MWTranscription
 struct KeyedOpenAIClient: Transcriber, Cleaner {
     let secrets: any SecretStore
 
-    func transcribe(wav: Data, instructions: String) async throws -> (String, TokenUsage) {
-        try await client().transcribe(wav: wav, instructions: instructions)
+    func transcribe(wav: Data, prompt: String) async throws -> (String, TokenUsage) {
+        try await client().transcribe(wav: wav, prompt: prompt)
     }
 
     func clean(_ text: String, prompt: String) async throws -> (String, TokenUsage) {

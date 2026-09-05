@@ -39,10 +39,15 @@ import MWPipeline
         )
     }
 
-    private static func config(cleanupEnabled: Bool = true, vocabulary: [String] = []) -> Config {
+    private static func config(
+        cleanupEnabled: Bool = true,
+        vocabulary: [String] = [],
+        corrections: [CorrectionRule] = []
+    ) -> Config {
         var config = Config()
         config.cleanupEnabled = cleanupEnabled
         config.vocabulary = vocabulary
+        config.corrections = corrections
         return config
     }
 
@@ -80,7 +85,7 @@ import MWPipeline
     private struct StalingTranscriber: Transcriber {
         let staleness: Staleness
 
-        func transcribe(wav: Data, instructions: String) async throws -> (String, TokenUsage) {
+        func transcribe(wav: Data, prompt: String) async throws -> (String, TokenUsage) {
             staleness.makeStale()
             return ("hello world", TokenUsage())
         }
@@ -289,11 +294,51 @@ import MWPipeline
 
         await harness.run(config: Self.config(vocabulary: ["Mini Whisper", "xcodegen"]))
 
-        #expect(harness.transcriber.calls.map(\.instructions) == [
+        #expect(harness.transcriber.calls.map(\.prompt) == [
             "Transcribe base.\n\nVocabulary (spell exactly as written): Mini Whisper, xcodegen",
         ])
         #expect(harness.cleaner.calls.map(\.prompt) == [
             "Clean up.\n\nPreserve these terms exactly as written: Mini Whisper, xcodegen",
+        ])
+    }
+
+    @Test func correctionsForTheReleaseAppReachBothPrompts() async {
+        let harness = Harness()
+
+        await harness.run(
+            config: Self.config(
+                vocabulary: ["xcodegen"],
+                corrections: [
+                    CorrectionRule(
+                        heard: "eefa", write: "Aoife", soundsLike: ["eva"],
+                        bundleID: Self.target.bundleID
+                    ),
+                    CorrectionRule(heard: "get hub", write: "GitHub"),
+                    CorrectionRule(
+                        heard: "mark", write: "Marc", bundleID: "com.apple.Terminal"
+                    ),
+                ]
+            )
+        )
+
+        #expect(harness.transcriber.calls.map(\.prompt) == [
+            """
+            Transcribe base.
+
+            Vocabulary (spell exactly as written): Aoife, eefa, eva, GitHub, get hub, xcodegen
+            """,
+        ])
+        #expect(harness.cleaner.calls.map(\.prompt) == [
+            """
+            Clean up.
+
+            Preserve these terms exactly as written: Aoife, GitHub, xcodegen
+
+            Known corrections — replace the exact phrase on the left with the spelling on the right:
+            "eefa" → "Aoife"
+            "eva" → "Aoife"
+            "get hub" → "GitHub"
+            """,
         ])
     }
 
