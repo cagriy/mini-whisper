@@ -7,6 +7,7 @@ import MWUsage
 struct MenuItem: Equatable {
     enum Action: Equatable {
         case copyLast
+        case correctLast
         case history
         case settings
         case about
@@ -21,8 +22,8 @@ struct MenuItem: Equatable {
     static let separator = MenuItem(title: "", action: nil, isSeparator: true)
 }
 
-/// The menu's contents in F31 order. `Last:` is absent until the first delivered
-/// dictation and is then kept immediately after the `Month:` row.
+/// The menu's contents in F31 order. `Last:` and `Correct Last Dictation…` are absent
+/// until the first delivered dictation and are then kept immediately after `Month:`.
 struct MenuModel {
     private(set) var items: [MenuItem]
     /// The last delivered dictation, which the correction window works from (R27).
@@ -62,7 +63,14 @@ struct MenuModel {
         if let index = items.firstIndex(where: { $0.action == .copyLast }) {
             items[index].title = title
         } else {
-            items.insert(MenuItem(title: title, action: .copyLast), at: 2)
+            // R27: the two rows arrive together with the first delivered dictation.
+            items.insert(
+                contentsOf: [
+                    MenuItem(title: title, action: .copyLast),
+                    MenuItem(title: "Correct Last Dictation…", action: .correctLast),
+                ],
+                at: 2
+            )
         }
     }
 

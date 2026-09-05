@@ -1,5 +1,4 @@
 import Foundation
-import MWHistory
 import MWPipeline
 
 /// What the correction window was opened from: one transcript, where it was delivered
@@ -38,16 +37,6 @@ struct CorrectionSource: Equatable {
             bundleID: dictation.bundleID,
             engine: dictation.engine?.rawValue,
             deliveredAt: dictation.deliveredAt
-        )
-    }
-
-    init(_ entry: HistoryEntry) {
-        self.init(
-            text: entry.text,
-            appName: entry.appName,
-            bundleID: entry.bundleID,
-            engine: entry.engine,
-            deliveredAt: entry.timestamp
         )
     }
 

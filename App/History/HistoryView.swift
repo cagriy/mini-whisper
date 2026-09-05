@@ -60,6 +60,7 @@ struct HistoryView: View {
                             pasteTitle: model.pasteTitle,
                             canPaste: model.canPaste,
                             onPaste: { Task { await model.paste(row) } },
+                            onCorrect: { model.correct(row) },
                             onCopy: { model.copy(row) },
                             onDelete: { Task { await model.delete(row) } }
                         )
@@ -116,6 +117,7 @@ private struct HistoryRow: View {
     let pasteTitle: String?
     let canPaste: Bool
     let onPaste: () -> Void
+    let onCorrect: () -> Void
     let onCopy: () -> Void
     let onDelete: () -> Void
 
@@ -155,7 +157,7 @@ private struct HistoryRow: View {
 
     private var actions: some View {
         // Colour the labels, not the buttons: a tinted bordered button also tints its
-        // background, and these three should read as one row of identical controls.
+        // background, and these four should read as one row of identical controls.
         // An explicit label colour does not dim itself when disabled, so Paste picks
         // its own.
         HStack(spacing: 6) {
@@ -165,6 +167,7 @@ private struct HistoryRow: View {
                 }
                 .disabled(!canPaste)
             }
+            Button("Correct…", action: onCorrect)
             Button("Copy", action: onCopy)
             Button(action: onDelete) {
                 Text("Delete").foregroundStyle(Color.red)

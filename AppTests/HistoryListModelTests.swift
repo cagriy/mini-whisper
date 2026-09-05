@@ -15,6 +15,12 @@ import Testing
         func record(_ event: String) { events.append(event) }
     }
 
+    private final class SourceLog: @unchecked Sendable {
+        private(set) var sources: [CorrectionSource] = []
+
+        func record(_ source: CorrectionSource) { sources.append(source) }
+    }
+
     private final class RecordingPaster: Pasting, @unchecked Sendable {
         let log: EventLog
         private(set) var pastes: [(text: String, pid: pid_t, submit: SubmitKey?)] = []
@@ -69,6 +75,7 @@ import Testing
         let log = EventLog()
         let paster: RecordingPaster
         let pasteboard = RecordingPasteboard()
+        let corrections = SourceLog()
         let clock: FakeClock
         let now: Date
         let retention: Int
@@ -105,7 +112,8 @@ import Testing
                 clock: clock,
                 now: { now },
                 hide: { log.record("hide") },
-                activate: { target in log.record("activate(\(target.pid))") }
+                activate: { target in log.record("activate(\(target.pid))") },
+                correct: { [corrections] source in corrections.record(source) }
             ))
         }
 
@@ -263,6 +271,28 @@ import Testing
             AppGlyph(appName: "Slack", bundleID: "com.apple.Terminal").colorIndex
                 == AppGlyph(appName: "Terminal", bundleID: "com.apple.Terminal").colorIndex
         )
+    }
+
+    // MARK: - Correct (R28)
+
+    @Test func correctPassesTheRowsTextAppNameAndBundleID() async throws {
+        let harness = Harness()
+        defer { harness.cleanUp() }
+        try await harness.add(Self.entry("the get hub action is red", at: harness.now))
+        let model = harness.model()
+        await model.reload()
+        let row = try #require(model.days.first?.rows.first)
+
+        #expect(row.appName == "Slack")
+        #expect(row.bundleID == "com.tinyspeck.slackmacgap")
+
+        model.correct(row)
+
+        #expect(harness.corrections.sources == [CorrectionSource(
+            text: "the get hub action is red",
+            appName: "Slack",
+            bundleID: "com.tinyspeck.slackmacgap"
+        )])
     }
 
     // MARK: - Actions

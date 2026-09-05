@@ -35,13 +35,15 @@ import Testing
         #expect(model.items.map(\.action) == [nil, nil, nil, .history, .settings, nil, .about, .quit])
     }
 
-    @Test func lastRowInsertedAfterMonthOnFirstResult() {
+    /// R27: both rows are absent until a dictation has been delivered.
+    @Test func lastAndCorrectRowsInsertedAfterMonthOnFirstResult() {
         var model = MenuModel()
         model.setLast(Self.dictation("hello"))
         #expect(model.items.map(\.title) == [
             emptyToday,
             emptyMonth,
             "Last: \"hello\"",
+            "Correct Last Dictation…",
             "",
             "History...",
             "Settings...",
@@ -50,9 +52,11 @@ import Testing
             "Quit",
         ])
         #expect(model.items[2].action == .copyLast)
+        #expect(model.items[3].action == .correctLast)
 
         model.setLast(Self.dictation("again"))
         #expect(model.items.filter { $0.action == .copyLast }.count == 1)
+        #expect(model.items.filter { $0.action == .correctLast }.count == 1)
         #expect(model.items[2].title == "Last: \"again\"")
         #expect(model.lastText == "again")
         #expect(model.lastDictation == Self.dictation("again"))

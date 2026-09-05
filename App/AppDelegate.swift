@@ -1,6 +1,7 @@
 import AppKit
 import MWAudio
 import MWConfig
+import MWCorrections
 import MWHistory
 import MWHotkeys
 import MWPaste
@@ -29,6 +30,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var settingsDependencies: SettingsModel.Dependencies?
     private var historyWindow: HistoryWindowController?
     private var historyDependencies: HistoryListModel.Dependencies?
+    private var correctionWindow: CorrectionWindowController?
+    private var correctionDependencies: CorrectionModel.Dependencies?
     private var appliedBindings: [BindingName: HotkeyCombo] = [:]
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -42,6 +45,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let permitted = PermissionMonitor.allGranted
         statusItem = StatusItemController(
             sounds: sounds,
+            onCorrectLast: { [weak self] in self?.correctLast() },
             onHistory: { [weak self] in self?.openHistory() },
             onSettings: { [weak self] in self?.openSettings() },
             onQuit: { [weak self] in self?.quit() }
@@ -186,7 +190,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             clock: SystemClock(),
             now: { Date() },
             hide: { [weak self] in self?.historyWindow?.hide() },
-            activate: { target in NSRunningApplication(processIdentifier: target.pid)?.activate() }
+            activate: { target in NSRunningApplication(processIdentifier: target.pid)?.activate() },
+            correct: { [weak self] source in self?.openCorrection(source) }
+        )
+
+        correctionDependencies = CorrectionModel.Dependencies(
+            store: configStore,
+            pasteboard: NSPasteboardAccess(),
+            historyEntries: { [retentionDays] in
+                // R31: retention 0 is "no preview", which an empty history is not.
+                guard retentionDays.withLock({ $0 }) > 0 else { return nil }
+                return await history.search("").map {
+                    ImpactPreview.Entry(text: $0.text, bundleID: $0.bundleID)
+                }
+            }
         )
 
         configTask = Task { [weak self] in
@@ -227,6 +244,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             )
         }
         historyWindow?.show()
+    }
+
+    /// R27: the last delivered dictation is the menu bar's own, so the window opens
+    /// even with history retention at 0.
+    private func correctLast() {
+        guard let dictation = statusItem?.lastDictation else { return }
+        openCorrection(CorrectionSource(dictation))
+    }
+
+    /// R27/R28: one window, whichever entry point opened it.
+    private func openCorrection(_ source: CorrectionSource) {
+        guard let dependencies = correctionDependencies else { return }
+        if correctionWindow == nil {
+            correctionWindow = CorrectionWindowController(deps: dependencies)
+        }
+        correctionWindow?.show(source: source)
     }
 
     /// Settings needs the live listener and stores, so it only opens once normal
@@ -316,6 +349,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             configTask?.cancel()
             settings?.close()
             historyWindow?.hide()
+            correctionWindow?.hide()
             await controller?.abort()
             router?.stop()
             listener?.stop()

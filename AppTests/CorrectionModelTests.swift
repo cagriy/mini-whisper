@@ -1,7 +1,6 @@
 import Foundation
 import MWConfig
 import MWCorrections
-import MWHistory
 import MWPaste
 import MWPipeline
 import Testing
@@ -167,13 +166,6 @@ import Testing
         #expect(dictation.bundleID == "com.tinyspeck.slackmacgap")
         #expect(dictation.engine == "openai")
         #expect(!dictation.preselectAll)
-
-        let entry = CorrectionSource(HistoryEntry(
-            text: "get hub", appName: "Terminal", bundleID: "com.apple.Terminal", engine: "on_device"
-        ))
-        #expect(entry.appName == "Terminal")
-        #expect(entry.bundleID == "com.apple.Terminal")
-        #expect(entry.engine == "on_device")
 
         let phrase = CorrectionSource(phrase: "speech matics")
         #expect(phrase.text == "speech matics")

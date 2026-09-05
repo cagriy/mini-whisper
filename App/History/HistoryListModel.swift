@@ -24,6 +24,8 @@ final class HistoryListModel {
         /// F30: the window is out of the way before the previous app comes forward.
         var hide: @MainActor () -> Void
         var activate: @MainActor (PasteTarget) -> Void
+        /// R28: opens the correction window on this row's dictation.
+        var correct: @MainActor (CorrectionSource) -> Void
     }
 
     struct Row: Identifiable, Equatable {
@@ -31,6 +33,8 @@ final class HistoryListModel {
         let text: String
         let meta: String
         let glyph: AppGlyph
+        let appName: String
+        let bundleID: String?
     }
 
     struct DayGroup: Identifiable, Equatable {
@@ -87,6 +91,13 @@ final class HistoryListModel {
 
     func reload() async {
         days = Self.group(await deps.history.search(query), now: deps.now())
+    }
+
+    /// R28: the window the menu bar opens, on this row's dictation instead.
+    func correct(_ row: Row) {
+        deps.correct(
+            CorrectionSource(text: row.text, appName: row.appName, bundleID: row.bundleID)
+        )
     }
 
     func copy(_ row: Row) {
@@ -153,7 +164,9 @@ final class HistoryListModel {
                 id: entry.id,
                 text: entry.text,
                 meta: meta(for: entry),
-                glyph: AppGlyph(appName: entry.appName, bundleID: entry.bundleID)
+                glyph: AppGlyph(appName: entry.appName, bundleID: entry.bundleID),
+                appName: entry.appName,
+                bundleID: entry.bundleID
             ))
         }
         flush()
@@ -183,7 +196,8 @@ final class HistoryListModel {
         return parts.joined(separator: " · ")
     }
 
-    private static func engineLabel(_ stored: String) -> String {
+    /// Shared with the correction window's source line, so the labels are stated once.
+    static func engineLabel(_ stored: String) -> String {
         switch EngineName(rawValue: stored) {
         case .speechAnalyzer: "SpeechAnalyzer"
         case .onDevice: "On-device"

@@ -8,6 +8,7 @@ import MWUsage
 final class StatusItemController: NSObject {
     private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
     private let sounds: any SoundPlaying
+    private let onCorrectLast: () -> Void
     private let onHistory: () -> Void
     private let onSettings: () -> Void
     private let onQuit: () -> Void
@@ -15,11 +16,13 @@ final class StatusItemController: NSObject {
 
     init(
         sounds: any SoundPlaying,
+        onCorrectLast: @escaping () -> Void,
         onHistory: @escaping () -> Void,
         onSettings: @escaping () -> Void,
         onQuit: @escaping () -> Void
     ) {
         self.sounds = sounds
+        self.onCorrectLast = onCorrectLast
         self.onHistory = onHistory
         self.onSettings = onSettings
         self.onQuit = onQuit
@@ -50,6 +53,8 @@ final class StatusItemController: NSObject {
         rebuild()
     }
 
+    var lastDictation: DeliveredDictation? { model.lastDictation }
+
     private func rebuild() {
         guard let menu = statusItem.menu else { return }
         menu.removeAllItems()
@@ -73,6 +78,7 @@ final class StatusItemController: NSObject {
         guard let action = (sender.representedObject as? ActionBox)?.action else { return }
         switch action {
         case .copyLast: copyLast()
+        case .correctLast: onCorrectLast()
         case .history: onHistory()
         case .settings: onSettings()
         case .about: AboutPanel.show()
