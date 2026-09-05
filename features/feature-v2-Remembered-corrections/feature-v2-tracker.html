@@ -949,7 +949,7 @@
         </span>
         <span class="step-label">Plan</span>
       </li>
-      <li class="step" data-stage="implement" data-state="pending">
+      <li class="step" data-stage="implement" data-state="complete">
         <span class="step-indicator" aria-hidden="true">
           <span class="step-check">&#10003;</span>
           <span class="step-number">4</span>
@@ -1398,16 +1398,128 @@ Touches: <code>README.md</code>, <code>CHANGELOG.md</code>.</p>
 
     <section class="panel" role="tabpanel"
              id="panel-implementation" aria-labelledby="tab-implementation" hidden>
-      <p class="section-timestamp">Awaiting /feature-implement</p>
+      <p class="section-timestamp">Updated 2026-09-05 19:30 UTC</p>
       <!-- usage:IMPLEMENTATION_USAGE_CHIP --><!-- /usage:IMPLEMENTATION_USAGE_CHIP -->
       <article class="panel-section">
         <h2 class="section-label">Highlights</h2>
-        <div class="bullets"><p class="empty">Not yet filled — pending /feature-implement.</p></div>
+        <div class="bullets">
+          <ul>
+            <li>Stages completed: 13/14 planned — Stage 12 (measurement run) blocked on a clip set that does not exist; Stage 14 added by the dead-code sweep.</li>
+            <li>Core tests: 480 in 50 suites, all passing (353 at baseline, +127).</li>
+            <li>App tests: 104 in 16 suites, all passing (70 at baseline, +34).</li>
+            <li>Design coverage: 43/44 requirements verified (R1–R39, N1–N5); only R38 is unanswerable without the measurement.</li>
+            <li>Pre-existing failures excluded from regression gating: None — both suites were green at baseline.</li>
+            <li>Dead-code orphans removed: 2, in Stage 14.</li>
+            <li>Deviations from plan: 13, all internal under-specifications or grounding fixes; none changes scope or an external interface.</li>
+            <li>Batch transcription now sends the documented <code>prompt</code> field; the undocumented <code>instructions</code> field is gone.</li>
+            <li><code>HintSupport.speechAnalyzer</code> ships at its truthful pre-measurement value, and the README says so.</li>
+            <li>Final commit: <code>824a398</code>. Nothing pushed.</li>
+          </ul>
+        </div>
         <!-- usage:IMPLEMENTATION_USAGE --><!-- /usage:IMPLEMENTATION_USAGE -->
       </article>
       <article class="panel-section">
         <h2 class="section-label">Detail</h2>
-        <div class="prose"><p class="empty">Not yet filled — pending /feature-implement.</p></div>
+        <div class="prose">
+
+<h3>Stages completed</h3>
+<ul>
+  <li><strong>Stage 1</strong> — Correction rules and tally in <code>config.json</code> — <code>fffbea8</code></li>
+  <li><strong>Stage 2</strong> — <code>MWCorrections</code>: phrase matching, scope resolution, validation — <code>40da0ab</code></li>
+  <li><strong>Stage 3</strong> — <code>MWCorrections</code>: hint resolution, per-engine serialisation, report — <code>547c218</code></li>
+  <li><strong>Stage 4</strong> — <code>MWCorrections</code>: tally, impact preview, prompt sections — <code>fb4cbf3</code></li>
+  <li><strong>Stage 5</strong> — Batch <code>prompt</code> field and cleanup prompt blocks — <code>9aa4635</code></li>
+  <li><strong>Stage 6</strong> — Engine hints on every streaming engine — <code>e7a755e</code></li>
+  <li><strong>Stage 7</strong> — Press-time snapshot, rule application and <code>DeliveredDictation</code> — <code>a72d52c</code></li>
+  <li><strong>Stage 8</strong> — Correction window model — <code>0d48a15</code></li>
+  <li><strong>Stage 9</strong> — Correction window UI, menu entry and History action — <code>59a0acf</code></li>
+  <li><strong>Stage 10</strong> — Settings → Vocabulary: corrections table, tally and hint report — <code>46e25ec</code></li>
+  <li><strong>Stage 11</strong> — Measurement harness — <code>476467a</code></li>
+  <li><strong>Stage 12</strong> — <em>Not run.</em> External prerequisite (gated): needs a user-provided audio clip set at <code>$MW_HINT_AUDIO_DIR</code> plus provider credentials. All four were probed and absent.</li>
+  <li><strong>Stage 13</strong> — README and CHANGELOG — <code>93ad5d5</code></li>
+  <li><strong>Stage 14</strong> — Dead-code cleanup (added by the Step 7 sweep) — <code>824a398</code></li>
+</ul>
+
+<h3>Tests and tooling</h3>
+<h4>Final counts</h4>
+<ul>
+  <li>Core package — <code>swift test</code>: <strong>480 tests in 50 suites passed</strong>; <code>swift build</code> exit 0.</li>
+  <li>App target — <code>xcodebuild … test</code>: <strong>104 tests in 16 suites passed</strong>, <code>** TEST SUCCEEDED **</code>.</li>
+  <li>The opt-in measurement suite is correctly gated: a plain <code>swift test</code> reports <code>Suite HintMeasurementTests skipped</code>, and no <code>measurements/</code> directory, audio file or provider key was written anywhere.</li>
+</ul>
+<h4>Baseline failures excluded from regression gating</h4>
+<p><strong>None.</strong> Both suites were fully green on the unmodified tree before implementation began (353 core, 70 app), so every failure during the run was treated as a regression and fixed in its own stage.</p>
+<h4>Lint, format and type checking</h4>
+<p>No linter, formatter or standalone type-checker is configured for this project; CI runs the two test suites and a release build only. Type checking is implicit in <code>swift build</code>.</p>
+<h4>Dead-code sweep</h4>
+<p>Whole-project <code>periphery scan</code>, diffed against a baseline captured before the first stage. Two orphans this feature introduced were removed in Stage 14: <code>CorrectionApplier.Application.droppedVariants</code> (provably always zero — all three construction sites resolve through <code>CorrectionResolver</code>, which already filters the empty variants that are the only thing <code>PhraseMatcher</code> rejects) and an assign-only <code>model</code> property on <code>CorrectionWindowController</code>. The defensive skip in the applier stays, so a rule still can never fail a dictation. The eight remaining findings are all <em>Redundant public accessibility</em> — the same class that fills the pre-existing baseline, and a scan-scope artifact, since periphery indexes the Xcode scheme rather than the SwiftPM test targets that actually consume those symbols.</p>
+
+<h3>Design coverage</h3>
+<table>
+  <thead><tr><th>Requirement</th><th>Verified by</th></tr></thead>
+  <tbody>
+    <tr><td>R1–R4, R6 — config keys, defaults, validation, normalisation</td><td><code>ConfigCodingTests</code>, <code>ConfigStoreTests</code></td></tr>
+    <tr><td>R5 — save validation</td><td><code>CorrectionValidatorTests</code>, <code>CorrectionModelTests</code>, <code>CorrectionsEditorModelTests</code></td></tr>
+    <tr><td>R7–R11 — whole-phrase matching, single pass, scope precedence, disabled rules</td><td><code>PhraseMatcherTests</code>, <code>CorrectionApplierTests</code>, <code>CorrectionResolverTests</code></td></tr>
+    <tr><td>R12–R16 — snapshot, press/release resolution, apply-once, caption untouched, <code>.result</code> payload</td><td><code>DictationControllerTests</code>, <code>ProcessingJobTests</code></td></tr>
+    <tr><td>R17–R22 — hint order and per-engine payloads</td><td><code>HintResolverTests</code>, <code>HintSerializerTests</code>, <code>CloudAdapterTests</code>, <code>SFSpeechEngineTests</code>, <code>SpeechAnalyzerEngineTests</code>, <code>EngineFactoryTests</code></td></tr>
+    <tr><td>R23–R24 — batch <code>prompt</code>, cleanup blocks</td><td><code>OpenAIClientTests</code>, <code>PromptSectionsTests</code>, <code>PromptComposerTests</code>, <code>ProcessingJobTests</code></td></tr>
+    <tr><td>R25 — empty hints leave every request shape unchanged</td><td>Empty-hints twin per engine in <code>CloudAdapterTests</code>, <code>SFSpeechEngineTests</code>, <code>SpeechAnalyzerEngineTests</code>, <code>OpenAIClientTests</code></td></tr>
+    <tr><td>R26 — no phrase, term or transcript in any log line</td><td><code>CapturingLogSink</code> assertions; the two new lines carry counts only</td></tr>
+    <tr><td>R27–R28 — menu and History entry points</td><td><code>MenuModelTests</code>, <code>HistoryListModelTests</code></td></tr>
+    <tr><td>R29–R32 — snapping, scope default, preview and impact, Copy/Cancel/Save and the tally</td><td><code>CorrectionModelTests</code>, <code>ImpactPreviewTests</code></td></tr>
+    <tr><td>R33–R36 — Settings groups, detail-form commit, Remember…, live refresh</td><td><code>CorrectionsEditorModelTests</code>, <code>SettingsModelTests</code>, <code>HintReportTests</code>, <code>CorrectionTallyTests</code></td></tr>
+    <tr><td>R37 — measurement harness</td><td><code>HintMeasurementReportTests</code> (host-testable half); the live suite is written and correctly gated</td></tr>
+    <tr><td>R38 — SpeechAnalyzer's label decided by measurement</td><td><strong>Not answerable.</strong> Stage 12 did not run; the constant ships at <code>.unavailable(reason: "effect not yet measured")</code> and the README mirrors it exactly, which is a truthful statement rather than a broken one.</td></tr>
+    <tr><td>R39 — README and CHANGELOG</td><td>Stage 13; the README's SpeechAnalyzer line matches the shipped constant</td></tr>
+    <tr><td>N1 — bundle ID, macOS 14, Swift 6 strict concurrency, no third-party deps</td><td>Unchanged <code>project.yml</code> and <code>Package.swift</code> settings; both targets build</td></tr>
+    <tr><td>N2 — every timing on the injected clock</td><td>All pipeline tests drive <code>VirtualClock</code>; no test sleeps</td></tr>
+    <tr><td>N3 — rule application well under a millisecond</td><td><code>hundredsOfRulesStayUnderAMillisecond</code> (300 rules over a 1,200-character transcript)</td></tr>
+    <tr><td>N4 — Settings never gains a second <code>ConfigStore.changes</code> consumer</td><td>Verified: <code>grep -rn "configStore.changes\|store.changes" App</code> returns exactly one line, <code>AppDelegate.swift:211</code></td></tr>
+    <tr><td>N5 — TDD throughout</td><td>Every behaviour-changing stage ran red twice (build error, then assertion failures) before implementing</td></tr>
+  </tbody>
+</table>
+
+<h3>Deviations from plan</h3>
+<p>Thirteen, each recorded in the plan's <em>Deviations from plan</em> section in its own <code>docs:</code> commit. None changes scope, requirements, approach or an external interface.</p>
+<ul>
+  <li><code>Config.validated()</code> also whitespace-collapses and NFC-composes <code>write</code> — R4 and R6 contradict; R4's field list wins.</li>
+  <li><code>ValidationError.duplicate</code> carries <code>heard:</code>, and <code>validate</code> gained a defaulted <code>scopeName:</code> — §5.5's message needs both.</li>
+  <li><code>PhraseMatcher.init</code> throws on an empty variant, which would otherwise match at every position.</li>
+  <li><code>HintReport.State.measured</code> omitted as unreachable.</li>
+  <li><code>ImpactPreview.compute</code> takes an optional entry list and <code>Result</code> carries <code>historyOff</code> — zero-of-zero cannot otherwise be told from history being off.</li>
+  <li><code>MWPipeline</code> gained its <code>MWCorrections</code> dependency in Stage 5, not Stage 7.</li>
+  <li>Stage 6 added <code>HintLogging.swift</code> so both engines share one R26-pinned log line.</li>
+  <li><code>CorrectionSource</code> carries <code>engine</code> and <code>deliveredAt</code>, which §5.3's source line needs.</li>
+  <li><code>CorrectionSource.init(_ entry: HistoryEntry)</code> removed as an orphan — the source is built from the <code>Row</code>.</li>
+  <li><code>StatusItemController.lastDictation</code> accessor added so <code>AppDelegate</code> can reach the dictation.</li>
+  <li>Stage 10 collapsed three <code>AppListing</code> fakes into one shared stub and moved two helpers to protocol defaults.</li>
+  <li>Stage 11 moved the WAV feeding loop (a third copy) into <code>MWTestSupport.ClipPlayback</code>.</li>
+  <li>Stage 11 named its report values <code>HintMeasurementManifest</code> / <code>HintMeasurementReport</code>.</li>
+</ul>
+
+<h3>Outstanding</h3>
+<h4>Stage 12 — the measurement run</h4>
+<p>Gated and not run. It needs a user-provided clip set (<code>manifest.json</code> plus WAV clips) at <code>$MW_HINT_AUDIO_DIR</code> and provider credentials; <code>MW_HINT_AUDIO_DIR</code>, <code>MW_INTEGRATION</code>, <code>OPENAI_API_KEY</code> and <code>SPEECHMATICS_API_KEY</code> were all probed and absent. The harness is built and gated, so the run is a single command once a clip set exists. If the verdict comes back <code>.supported</code>, <code>HintSupport.speechAnalyzer</code> and the README's SpeechAnalyzer line must change together (R38 pairs them).</p>
+<h4>Human verification</h4>
+<p>The app was deliberately never launched: it reads real API keys from the Keychain, spends the user's own provider credits, writes their real <code>config.json</code> and pastes synthesized keystrokes into the frontmost app. These checks need a person:</p>
+<ul>
+  <li>Dictate, open <em>Correct Last Dictation…</em>, select a phrase, confirm it snaps to whole words and the preview updates, Save.</li>
+  <li>Dictate the same phrase to the same app and confirm it is corrected; to a different app and confirm it is not.</li>
+  <li>Open <em>Correct…</em> from a History row.</li>
+  <li>Set history retention to 0 and confirm the menu route still opens and the impact line reads “History is off — no preview of past dictations.”</li>
+  <li>Tab through the correction window and confirm keyboard navigation reaches every control.</li>
+  <li>With Settings → Vocabulary open, save a rule from the correction window and confirm the table updates without reopening Settings.</li>
+  <li>Confirm the Settings Vocabulary pane renders the corrections table, detail form, Often corrected rows and Recognition hints rows as designed.</li>
+</ul>
+
+<h3>Notes</h3>
+<ul>
+  <li>Branch <code>main</code>, 20 commits ahead of <code>origin/main</code>. <strong>Nothing pushed</strong> — this skill commits only.</li>
+  <li><code>AGENTS.md</code> and <code>docs/</code> were untracked before the run and were left untouched.</li>
+</ul>
+
+        </div>
       </article>
     </section>
 

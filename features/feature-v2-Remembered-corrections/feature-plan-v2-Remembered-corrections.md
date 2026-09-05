@@ -117,13 +117,24 @@ files there sit at the right layer and reach the model types under test without 
 | R35: Remember… opens the window with the tallied phrase, scope All apps | Stage 10 |
 | R36: a rule saved from the window appears in an open Settings table | Stage 10 |
 | R37: opt-in measurement suite, per-engine reports under `measurements/` | Stage 11 (harness), Stage 12 (run) |
-| R38: SpeechAnalyzer's label decided by the measurement; dead path removed | Stage 12 |
+| R38: SpeechAnalyzer's label decided by the measurement; dead path removed | Stage 12 — **not run**, see below |
 | R39: README and CHANGELOG describe the change | Stage 13 |
 | N1: bundle ID, macOS 14, Swift 6 strict concurrency, no third-party deps | every stage (enforced by the unchanged `project.yml` and `Package.swift` settings) |
 | N2: every timing on the injected clock; no test sleeps | Stage 6, Stage 7, Stage 9 |
 | N3: rule application adds no network call and stays well under a millisecond | Stage 2 (guard test), Stage 7 |
 | N4: Settings never gains a second consumer of `ConfigStore.changes` | Stage 10 |
 | N5: TDD — each behaviour gets a failing test before its implementation | every stage |
+
+### Stage 12 was not run
+
+Stage 12 is an *external prerequisite (gated)* stage and its gate was closed at implementation
+time: `MW_HINT_AUDIO_DIR`, `MW_INTEGRATION`, `OPENAI_API_KEY` and `SPEECHMATICS_API_KEY` were all
+probed and absent, and no clip set exists in or beside the repository. Per the stage's own risk
+note, the feature therefore ships with `HintSupport.speechAnalyzer` at its pre-measurement value,
+`.unavailable(reason: "effect not yet measured")`, and Stage 13's README states exactly that — a
+truthful statement rather than a broken one. Every other engine's hint support is proven by the
+contract tests, which need no audio. R38 remains open until the clip set exists; when it does,
+`HintSupport.speechAnalyzer` and the README's SpeechAnalyzer line must change together.
 
 ### Requirements delivered across several stages
 
@@ -890,6 +901,34 @@ saying so, which is a truthful statement rather than a broken one.
 - The README's SpeechAnalyzer statement matches `HintSupport.speechAnalyzer`.
 
 **Risks specific to this stage:** none.
+
+### Stage 14 — Dead-code cleanup
+
+**Added during implementation**, not planned. `/feature-implement`'s final whole-project dead-code
+sweep (`periphery scan`, diffed against a baseline captured before Stage 1) found two symbols this
+feature had orphaned. Behaviour-preserving deletion: the tests were adjusted first so both suites
+stayed green throughout.
+**Design references:** §5.6 (pattern compilation failures); §5.1 (`App/Correction`)
+**Touches:**
+- modify `Packages/MiniWhisperCore/Sources/MWCorrections/CorrectionApplier.swift`
+- modify `Packages/MiniWhisperCore/Tests/MWCorrectionsTests/CorrectionApplierTests.swift`
+- modify `App/Correction/CorrectionWindowController.swift`
+
+**What was removed and why:**
+- `CorrectionApplier.Application.droppedVariants` — provably always zero. All three construction
+  sites (`ProcessingJob`, `CorrectionModel.previewText`, `HintMeasurement`) resolve their rules
+  through `CorrectionResolver`, whose `variants(of:)` already filters empty variants, and an empty
+  variant is the only input `PhraseMatcher` rejects — §5.6's pattern-compilation failure cannot
+  occur, because every token is escaped with `NSRegularExpression.escapedPattern(for:)`. The
+  defensive skip in `CorrectionApplier.init` stays, so §5.6's actual safety property (a rule can
+  never fail a dictation) is preserved; only the count that could never count is gone.
+- `CorrectionWindowController.model` — an assign-only stored property. The `NSHostingView` retains
+  the root view, which retains the model, for exactly as long as the window shows it.
+
+**Definition of done:**
+- `periphery scan` against the pre-implementation baseline reports no new assign-only or unused
+  symbol from this feature.
+- Both suites green; both targets build.
 
 ## Cross-cutting concerns
 
