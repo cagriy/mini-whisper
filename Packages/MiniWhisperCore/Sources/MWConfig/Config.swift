@@ -108,6 +108,8 @@ public struct Config: Equatable, Sendable {
     public var speechModelPrompted = false
     public var vocabulary: [String] = []
     public var profiles: [Profile] = []
+    public var corrections: [CorrectionRule] = []
+    public var correctionTally: [CorrectionTallyEntry] = []
     public var extra: [String: JSONValue] = [:]
 
     public init() {}
@@ -123,6 +125,20 @@ public struct Config: Equatable, Sendable {
             var profile = profile
             profile.bundleIDs = profile.bundleIDs.filter { claimed.insert($0).inserted }
             return profile
+        }
+        // R4: normalise every phrase, drop the unusable, and keep the first of two
+        // rules that would fire on the same phrase in the same scope.
+        var claimedPhrases: Set<[String?]> = []
+        validated.corrections = corrections.compactMap { rule in
+            var rule = rule
+            rule.heard = PhraseKey.normalised(rule.heard)
+            rule.write = PhraseKey.normalised(rule.write)
+            rule.soundsLike = rule.soundsLike.map(PhraseKey.normalised).filter { !$0.isEmpty }
+            guard !rule.heard.isEmpty, !rule.write.isEmpty else { return nil }
+            guard claimedPhrases.insert([rule.bundleID, PhraseKey.key(rule.heard)]).inserted else {
+                return nil
+            }
+            return rule
         }
         return validated
     }
@@ -154,11 +170,13 @@ extension Config: Codable {
         static let speechModelPrompted = "speech_model_prompted"
         static let vocabulary = "vocabulary"
         static let profiles = "profiles"
+        static let corrections = "corrections"
+        static let correctionTally = "correction_tally"
 
         static let all: Set<String> = [
             hotkey, submitHotkey, cleanupEnabled, soundVolume, streamingEnabled, streamingEngine,
             pricingOverrides, usage, historyRetentionDays, idleStopSeconds, toggleMaxSeconds,
-            speechModelPrompted, vocabulary, profiles,
+            speechModelPrompted, vocabulary, profiles, corrections, correctionTally,
         ]
     }
 
@@ -181,6 +199,8 @@ extension Config: Codable {
         if let value: Bool = try value(Key.speechModelPrompted) { speechModelPrompted = value }
         if let value: [String] = try value(Key.vocabulary) { vocabulary = value }
         if let value: [Profile] = try value(Key.profiles) { profiles = value }
+        if let value: [CorrectionRule] = try value(Key.corrections) { corrections = value }
+        if let value: [CorrectionTallyEntry] = try value(Key.correctionTally) { correctionTally = value }
 
         let engine: String? = try value(Key.streamingEngine)
         streamingEngine = engine.flatMap(EngineName.init(rawValue:))
@@ -214,6 +234,8 @@ extension Config: Codable {
         try container.encode(speechModelPrompted, forKey: AnyCodingKey(Key.speechModelPrompted))
         try container.encode(vocabulary, forKey: AnyCodingKey(Key.vocabulary))
         try container.encode(profiles, forKey: AnyCodingKey(Key.profiles))
+        try container.encode(corrections, forKey: AnyCodingKey(Key.corrections))
+        try container.encode(correctionTally, forKey: AnyCodingKey(Key.correctionTally))
 
         for (key, value) in extra where !Key.all.contains(key) {
             try container.encode(value, forKey: AnyCodingKey(key))

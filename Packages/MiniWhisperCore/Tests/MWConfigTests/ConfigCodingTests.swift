@@ -171,4 +171,119 @@ import Testing
         #expect(object["sound_volume"] as? Double == 1.0)
         #expect(object["pricing_overrides"] as? [String: Double] == [:])
     }
+
+    @Test func decodesCorrectionsAndTally() throws {
+        let json = """
+            {"corrections": [
+               {"id": "b2e7", "heard": "eefa", "write": "Aoife", "sounds_like": ["eefa", "eva"],
+                "bundle_id": "com.tinyspeck.slackmacgap", "enabled": true},
+               {"id": "9c10", "heard": "get hub", "write": "GitHub", "sounds_like": ["get hub"],
+                "bundle_id": null, "enabled": false}],
+             "correction_tally": [
+               {"heard": "eefa", "count": 4, "last": "2026-09-05T16:07:00Z"}]}
+            """
+        let config = try decode(json)
+
+        #expect(
+            config.corrections == [
+                CorrectionRule(
+                    id: "b2e7", heard: "eefa", write: "Aoife", soundsLike: ["eefa", "eva"],
+                    bundleID: "com.tinyspeck.slackmacgap", enabled: true
+                ),
+                CorrectionRule(
+                    id: "9c10", heard: "get hub", write: "GitHub", soundsLike: ["get hub"],
+                    bundleID: nil, enabled: false
+                ),
+            ]
+        )
+        #expect(
+            config.correctionTally == [
+                CorrectionTallyEntry(
+                    heard: "eefa", count: 4,
+                    last: ISO8601DateFormatter.mwConfig.date(from: "2026-09-05T16:07:00Z")!
+                )
+            ]
+        )
+    }
+
+    @Test func correctionDefaultsOnDecode() throws {
+        let config = try decode(#"{"corrections": [{"heard": "eefa", "write": "Aoife"}]}"#)
+
+        let rule = try #require(config.corrections.first)
+        #expect(UUID(uuidString: rule.id) != nil)
+        #expect(rule.soundsLike == [])
+        #expect(rule.enabled)
+        #expect(rule.bundleID == nil)
+    }
+
+    @Test func correctionsRoundTripWithExplicitNullBundleID() throws {
+        var config = Config()
+        config.corrections = [CorrectionRule(id: "9c10", heard: "get hub", write: "GitHub")]
+        config.correctionTally = [
+            CorrectionTallyEntry(
+                heard: "get hub", count: 2,
+                last: try #require(ISO8601DateFormatter.mwConfig.date(from: "2026-09-04T09:12:41Z"))
+            )
+        ]
+
+        let object = try #require(
+            JSONSerialization.jsonObject(with: config.encoded()) as? [String: Any]
+        )
+        let rule = try #require((object["corrections"] as? [[String: Any]])?.first)
+        #expect(rule["bundle_id"] is NSNull)
+        #expect(rule["heard"] as? String == "get hub")
+        #expect(rule["sounds_like"] as? [String] == [])
+        #expect(CFGetTypeID(try #require(rule["enabled"] as CFTypeRef?)) == CFBooleanGetTypeID())
+        let entry = try #require((object["correction_tally"] as? [[String: Any]])?.first)
+        #expect(entry["last"] as? String == "2026-09-04T09:12:41Z")
+        #expect(entry["count"] as? Int == 2)
+
+        let reloaded = try decode(String(decoding: config.encoded(), as: UTF8.self))
+        #expect(reloaded.corrections == config.corrections)
+        #expect(reloaded.correctionTally == config.correctionTally)
+    }
+
+    @Test func correctionKeysNeverLandInExtra() throws {
+        let config = try decode(
+            #"{"corrections": [{"heard": "a", "write": "b"}], "correction_tally": []}"#
+        )
+
+        #expect(config.extra["corrections"] == nil)
+        #expect(config.extra["correction_tally"] == nil)
+    }
+
+    @Test func malformedTallyTimestampDecodesAsDistantPast() throws {
+        let config = try decode(
+            #"{"correction_tally": [{"heard": "eefa", "count": 1, "last": "yesterday"}]}"#
+        )
+
+        #expect(config.correctionTally.first?.last == .distantPast)
+    }
+
+    @Test func validatedNormalisesAndDropsInvalidRules() throws {
+        let json = """
+            {"corrections": [
+               {"id": "1", "heard": "  get   hub ", "write": " Git  Hub ",
+                "sounds_like": ["  get  hub ", "   ", ""], "bundle_id": null, "enabled": true},
+               {"id": "2", "heard": "get hub", "write": "GitHub", "bundle_id": null, "enabled": true},
+               {"id": "3", "heard": "get hub", "write": "GitHub",
+                "bundle_id": "com.tinyspeck.slackmacgap", "enabled": true},
+               {"id": "4", "heard": "   ", "write": "GitHub", "bundle_id": null, "enabled": true},
+               {"id": "5", "heard": "eefa", "write": "  ", "bundle_id": null, "enabled": true}]}
+            """
+        let config = try decode(json).validated()
+
+        #expect(config.corrections.map(\.id) == ["1", "3"])
+        let first = try #require(config.corrections.first)
+        #expect(first.heard == "get hub")
+        #expect(first.write == "Git Hub")
+        #expect(first.soundsLike == ["get hub"])
+    }
+
+    @Test func phraseKeyNormalisesAndLowercases() {
+        #expect(PhraseKey.normalised("  Get   Hub\n") == "Get Hub")
+        #expect(PhraseKey.normalised("e\u{0301}efa") == "\u{00E9}efa")
+        #expect(PhraseKey.key("  Get   Hub ") == "get hub")
+        #expect(PhraseKey.key("") == "")
+    }
 }

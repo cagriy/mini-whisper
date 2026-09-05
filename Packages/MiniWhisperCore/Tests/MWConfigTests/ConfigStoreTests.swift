@@ -161,4 +161,29 @@ private final class FakeFileWatcher: FileWatcher, @unchecked Sendable {
 
         #expect(await store.load().soundVolume == 0.5)
     }
+
+    @Test func unrelatedKeysSurviveACorrectionsEdit() async throws {
+        let directory = try TempDirectory()
+        let json = """
+            {"future_flag": true,
+             "usage": {"2026-09-01": {"input_tokens": 20, "output_tokens": 30,
+               "streamed_seconds": {"on_device": 60.0}, "cost_usd": 0.05}}}
+            """
+        try json.write(to: directory.file("config.json"), atomically: true, encoding: .utf8)
+        let store = makeStore(directory.url)
+        _ = await store.load()
+
+        try await store.update {
+            $0.corrections = [CorrectionRule(heard: "get hub", write: "GitHub")]
+        }
+
+        let onDisk = try #require(
+            JSONSerialization.jsonObject(with: try Data(contentsOf: directory.file("config.json")))
+                as? [String: Any]
+        )
+        #expect(onDisk["future_flag"] as? Bool == true)
+        #expect(((onDisk["usage"] as? [String: Any])?["2026-09-01"] as? [String: Any])?["input_tokens"] as? Int == 20)
+        let rule = try #require((onDisk["corrections"] as? [[String: Any]])?.first)
+        #expect(rule["write"] as? String == "GitHub")
+    }
 }
