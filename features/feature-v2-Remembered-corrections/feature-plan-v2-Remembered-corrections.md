@@ -767,6 +767,7 @@ replaces model state, not the SwiftUI drafts, which recommit on Return — and t
 - create `Packages/MiniWhisperCore/Sources/MWTestSupport/HintMeasurement.swift` (manifest decoding, hit counting, report rendering)
 - create `Packages/MiniWhisperCore/Tests/MWStreamingTests/HintMeasurementTests.swift` (the opt-in suite)
 - create `Packages/MiniWhisperCore/Tests/MWStreamingTests/HintMeasurementReportTests.swift` (the host-testable half)
+- create `Packages/MiniWhisperCore/Sources/MWTestSupport/ClipPlayback.swift`; modify `Tests/MWStreamingTests/SFSpeechLiveTests.swift`, `SpeechAnalyzerLiveTests.swift` (the shared WAV feeding loop)
 
 **Category: hybrid.** Manifest decoding, hit counting and report rendering are pure values and
 follow the full TDD cycle. The suite that drives real engines against real audio is
@@ -1106,6 +1107,21 @@ under-specification, not a scope or approach change.
   `AppTests/StubApps.swift`. *Touches* gains `App/Settings/AppChooser.swift`,
   `App/Settings/ProfilesEditorModel.swift`, `AppTests/StubApps.swift` and
   `AppTests/ProfilesEditorModelTests.swift`; behaviour is unchanged in every case.
+
+- **Stage 11 — the live suites' WAV feeding loop moves into `MWTestSupport.ClipPlayback`.**
+  The stage's suite would have been the third copy of the same ten-line `AVAudioFile`
+  read-and-feed loop, after `SFSpeechLiveTests` and `SpeechAnalyzerLiveTests`, comment
+  and all. `ClipPlayback.play(_:through:sink:timeout:)` is that loop once; all three
+  suites call it and none changed behaviour. *Touches* gains the new file and the two
+  existing live-test files.
+
+- **Stage 11 — the report values are `HintMeasurementManifest` and `HintMeasurementReport`,
+  and the run's per-clip step is `HintMeasurement.row(clip:hintsOff:hintsOn:rules:)`.**
+  Step 3 names only "manifest types, `hits(in:targets:)`, `render(_:)`", but the counting
+  the live suite does per clip — target hits both ways plus the applier's `replacements` —
+  is exactly the part worth host-testing, so it is one function rather than three lines
+  repeated in each engine's test. `render` takes the report value, and `fileName(_:)` and
+  `reportDirectory(source:environment:)` sit beside it.
 
 - **Stage 6 — the two engines' hint log line lives in one new file.** Step 3 gives
   `SFSpeechEngine` and `SpeechAnalyzerEngine` the same `hints: N sent, K skipped` line, and R26
