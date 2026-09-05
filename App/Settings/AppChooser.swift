@@ -16,6 +16,24 @@ protocol AppListing: Sendable {
     func displayName(forBundleID bundleID: String) -> String?
 }
 
+extension AppListing {
+    /// Running apps with a bundle ID, deduplicated and ordered by name.
+    func sortedRunningApps() -> [AppChoice] {
+        var seen: Set<String> = []
+        return runningApps()
+            .filter { seen.insert($0.bundleID).inserted }
+            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+    }
+
+    /// The name to show for a bundle ID: the Finder name when the app can be found,
+    /// otherwise the last component, which is the readable half of a bundle ID.
+    func name(forBundleID bundleID: String) -> String {
+        displayName(forBundleID: bundleID)
+            ?? bundleID.split(separator: ".").last.map(String.init)
+            ?? bundleID
+    }
+}
+
 struct NSWorkspaceApps: AppListing {
     func runningApps() -> [AppChoice] {
         NSWorkspace.shared.runningApplications.compactMap { app in

@@ -178,7 +178,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 try? await history.prune()
             },
             clearHistory: { try? await history.clear() },
-            openHistory: { [weak self] in self?.openHistory() }
+            openHistory: { [weak self] in self?.openHistory() },
+            openCorrection: { [weak self] source in self?.openCorrection(source) }
         )
 
         historyDependencies = HistoryListModel.Dependencies(
@@ -294,6 +295,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Every config value the app itself holds a copy of (F19). The stores read the
     /// rest through `ConfigStore` directly.
     private func apply(_ config: Config) {
+        // R36: the one config-change consumer there is, so an open Settings window sees
+        // a rule the correction window just saved (N4).
+        settings?.model.refresh(from: config)
         sounds.setVolume(Float(config.soundVolume))
         retentionDays.withLock { $0 = config.historyRetentionDays }
         let bindings = Self.bindings(from: config)

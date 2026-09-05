@@ -5,19 +5,12 @@ import Testing
 
 @MainActor
 @Suite struct ProfilesEditorModelTests {
-    private struct FakeApps: AppListing {
-        var apps: [AppChoice] = []
-
-        func runningApps() -> [AppChoice] { apps }
-        func displayName(forBundleID bundleID: String) -> String? { nil }
-    }
-
     private static let promptText = "Clean the transcript."
 
     private struct Harness {
         let directory: URL
         let store: ConfigStore
-        var apps = FakeApps()
+        var apps = StubApps()
 
         init() {
             directory = FileManager.default.temporaryDirectory
@@ -132,7 +125,7 @@ import Testing
     @Test func runningAppsListedByBundleID() async {
         var harness = Harness()
         defer { harness.cleanUp() }
-        harness.apps = FakeApps(apps: [
+        harness.apps = StubApps(apps: [
             AppChoice(bundleID: "com.b", name: "Beta"),
             AppChoice(bundleID: "com.a", name: "Alpha"),
             AppChoice(bundleID: "com.a", name: "Alpha"),

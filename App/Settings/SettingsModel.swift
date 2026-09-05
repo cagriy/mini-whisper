@@ -40,6 +40,9 @@ final class SettingsModel {
         var pruneHistory: @Sendable (Int) async -> Void
         var clearHistory: @Sendable () async -> Void
         var openHistory: @MainActor () -> Void
+        /// R35: the tally's Remember… seeds the correction window rather than adding a
+        /// second rule-entry form.
+        var openCorrection: @MainActor (CorrectionSource) -> Void
     }
 
     enum Section: String, CaseIterable, Identifiable {
@@ -117,6 +120,7 @@ final class SettingsModel {
 
     let vocabulary: VocabularyModel
     let profiles: ProfilesEditorModel
+    let corrections: CorrectionsEditorModel
 
     /// The two prompt files, read when the Cleanup pane first appears.
     var cleanupPromptDraft = ""
@@ -138,10 +142,25 @@ final class SettingsModel {
             apps: deps.apps,
             defaultPrompt: { (try? deps.prompts.cleanupPrompt()) ?? "" }
         )
+        corrections = CorrectionsEditorModel(
+            config: config,
+            store: deps.store,
+            apps: deps.apps,
+            openCorrection: deps.openCorrection
+        )
         refreshKeys()
         for binding in BindingName.allCases {
             displays[binding] = Self.displayString(of: stored(binding))
         }
+    }
+
+    /// R36: a config written elsewhere — the correction window, or the Python app —
+    /// reaches the open panes through AppDelegate's single config-change consumer (N4).
+    func refresh(from config: Config) {
+        self.config = config
+        vocabulary.replace(terms: config.vocabulary)
+        corrections.refresh(config)
+        profiles.setDefaultCleanup(config.cleanupEnabled)
     }
 
     // MARK: - General

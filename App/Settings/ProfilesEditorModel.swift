@@ -71,19 +71,9 @@ final class ProfilesEditorModel {
         profiles.first { $0.id == selection }
     }
 
-    /// Running apps with a bundle ID, deduplicated and ordered by name.
-    var runningApps: [AppChoice] {
-        var seen: Set<String> = []
-        return apps.runningApps()
-            .filter { seen.insert($0.bundleID).inserted }
-            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
-    }
+    var runningApps: [AppChoice] { apps.sortedRunningApps() }
 
-    func displayName(_ bundleID: String) -> String {
-        apps.displayName(forBundleID: bundleID)
-            ?? bundleID.split(separator: ".").last.map(String.init)
-            ?? bundleID
-    }
+    func displayName(_ bundleID: String) -> String { apps.name(forBundleID: bundleID) }
 
     static func label(for key: SubmitKey) -> String {
         switch key {

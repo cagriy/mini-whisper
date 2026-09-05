@@ -1,6 +1,7 @@
 import SwiftUI
 
-/// F28's term list as chips plus an entry field.
+/// F28's term list as chips plus an entry field, followed by the corrections table,
+/// the often-corrected tally and the hint report (R33).
 struct VocabularySection: View {
     let model: SettingsModel
 
@@ -21,9 +22,11 @@ struct VocabularySection: View {
                 }
 
             SettingsFootnote(
-                "Terms are passed to the transcription instructions and the cleanup prompt"
-                    + " so names and jargon are kept as written."
+                "Terms are sent to the recognizer as hints and kept as written by the"
+                    + " cleanup prompt."
             )
+
+            CorrectionsEditor(model: model.corrections)
         }
     }
 }

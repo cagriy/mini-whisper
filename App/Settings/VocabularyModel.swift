@@ -15,6 +15,12 @@ final class VocabularyModel {
         self.store = store
     }
 
+    /// R36's sibling: the terms as another writer left them, adopted without a write
+    /// of our own.
+    func replace(terms: [String]) {
+        self.terms = terms
+    }
+
     func add(_ term: String) async {
         let trimmed = term.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, !terms.contains(trimmed) else { return }

@@ -25,11 +25,6 @@ import Testing
         func update(binding: BindingName, combo: HotkeyCombo) { updates[binding] = combo }
     }
 
-    private struct NoApps: AppListing {
-        func runningApps() -> [AppChoice] { [] }
-        func displayName(forBundleID bundleID: String) -> String? { nil }
-    }
-
     private final class FakeSounds: SoundPreviewing, @unchecked Sendable {
         var volume: Float = -1
         var onPlays = 0
@@ -73,10 +68,11 @@ import Testing
                         bundledCleanup: directory.appendingPathComponent("default_prompt.txt"),
                         bundledTranscribe: directory.appendingPathComponent("default_transcribe_prompt.txt")
                     ),
-                    apps: NoApps(),
+                    apps: StubApps(),
                     pruneHistory: { _ in },
                     clearHistory: {},
-                    openHistory: {}
+                    openHistory: {},
+                    openCorrection: { _ in }
                 )
             )
             await model.refreshSpeechModel()
@@ -394,6 +390,26 @@ import Testing
         #expect(model.config.toggleMaxSeconds == 1_800)
         #expect(await harness.store.load().toggleMaxSeconds == 1_800)
         #expect(model.toggleCapLabel == "30 min")
+    }
+
+    /// R36: the correction window's save reaches the open panes through AppDelegate's
+    /// config-change consumer, which is still the only one (N4).
+    @Test func refreshAdoptsAConfigWrittenElsewhere() async throws {
+        let harness = Harness()
+        defer { harness.cleanUp() }
+        let model = await harness.model()
+        #expect(model.vocabulary.terms.isEmpty)
+        #expect(model.corrections.rows.isEmpty)
+
+        try await harness.store.update { @Sendable in
+            $0.vocabulary = ["xcodegen"]
+            $0.corrections = [CorrectionRule(id: "r1", heard: "get hub", write: "GitHub")]
+        }
+        model.refresh(from: await harness.store.load())
+
+        #expect(model.config.vocabulary == ["xcodegen"])
+        #expect(model.vocabulary.terms == ["xcodegen"])
+        #expect(model.corrections.rows.map(\.write) == ["GitHub"])
     }
 
     @Test func volumeSliderPreviewsOnOnRelease() async throws {
