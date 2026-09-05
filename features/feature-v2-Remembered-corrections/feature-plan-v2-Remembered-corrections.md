@@ -1071,6 +1071,15 @@ under-specification, not a scope or approach change.
   `MWCorrections` types, so the target cannot compile without the edge. The `Package.swift` line
   moved from Stage 7's *Touches* to Stage 5's; Stage 7 still owns the snapshot's move to press
   time.
+- **Stage 8 — `CorrectionSource` carries `engine` and `deliveredAt` as well.** §5.1 and this
+  stage's step 3 give the struct four fields (`text`, `appName`, `bundleID`, `preselectAll`),
+  but §5.3's own surface for the window puts the `HH:mm` of delivery and the engine label in
+  the source line, and neither is derivable from those four. The struct gained
+  `engine: String?` (the stored `EngineName.rawValue`, so Stage 9's view reuses
+  `HistoryListModel.engineLabel` rather than re-deriving the labels) and `deliveredAt: Date?`.
+  Both are optional, so the tally-phrase initialiser is unaffected. Pinned by
+  `CorrectionModelTests.sourcesCarryTheirOriginsFields`.
+
 - **Stage 6 — the two engines' hint log line lives in one new file.** Step 3 gives
   `SFSpeechEngine` and `SpeechAnalyzerEngine` the same `hints: N sent, K skipped` line, and R26
   makes its exact wording a requirement asserted in both engine suites. Rather than write the
