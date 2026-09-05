@@ -2,6 +2,7 @@ import AVFAudio
 import Foundation
 import MWAudio
 import MWConfig
+import MWCorrections
 import MWHotkeys
 import MWPaste
 import MWProfiles
@@ -91,9 +92,7 @@ import Testing
         let clock = RecordingClock()
         let audio = FakeAudioCapture()
         let engines = FakeEngineProvider()
-        let frontmost = FakeFrontmostApp(
-            PasteTarget(pid: 4242, name: "Slack", bundleID: "com.tinyspeck.slackmacgap")
-        )
+        let frontmost = FakeFrontmostApp(DictationControllerTests.slack)
         let sounds = FakeSoundPlayer()
         let paster: FakePaster
         let usage = FakeUsageStore()
@@ -178,6 +177,13 @@ import Testing
             PCMBufferFactory.make(samples: [Float](repeating: level, count: 1024), sampleRate: 48000)
         }
     }
+
+    nonisolated private static let slack = PasteTarget(
+        pid: 4242, name: "Slack", bundleID: "com.tinyspeck.slackmacgap"
+    )
+    nonisolated private static let terminal = PasteTarget(
+        pid: 99, name: "Terminal", bundleID: "com.apple.Terminal"
+    )
 
     private static func openAIEngine(seconds: TimeInterval = 3) -> FakeStreamingEngine {
         FakeStreamingEngine(
@@ -501,6 +507,117 @@ import Testing
         #expect(harness.paster.calls.isEmpty)
         #expect(harness.history.appended.isEmpty)
         #expect(harness.usage.added == [Self.threeOpenAISeconds])
+    }
+
+    // MARK: - Corrections (R12, R13, R15)
+
+    /// R12: the delivery app is fixed by the press, so a switch before the press task
+    /// even runs cannot change which rules were sent as hints.
+    @Test func frontmostAppIsCapturedAtPressAndDrivesTheEngineHints() async throws {
+        let harness = try await Harness {
+            $0.corrections = [
+                CorrectionRule(
+                    heard: "get hub", write: "GitHub", bundleID: Self.slack.bundleID
+                ),
+                CorrectionRule(
+                    heard: "eefa", write: "Aoife", bundleID: Self.terminal.bundleID
+                ),
+            ]
+        }
+
+        harness.controller.hotkeyPressed(.paste)
+        harness.frontmost.target = Self.terminal
+        #expect(await harness.next() == .starting)
+        await harness.controller.settle()
+
+        #expect(harness.engines.requestedHints.map(\.terms) == [["GitHub", "get hub"]])
+    }
+
+    @Test func pressSnapshotSurvivesAConfigEditBeforeRelease() async throws {
+        let harness = try await Harness {
+            $0.cleanupEnabled = false
+            $0.corrections = [CorrectionRule(heard: "hello", write: "Hi")]
+        }
+        harness.controller.hotkeyPressed(.paste)
+        await harness.controller.settle()
+
+        try await harness.store.update { @Sendable in
+            $0.corrections = [CorrectionRule(heard: "world", write: "Earth")]
+        }
+        harness.clock.advance(by: 0.5)
+        harness.controller.hotkeyReleased(.paste)
+        await harness.controller.settle()
+
+        #expect(harness.paster.pasted == ["Hi world"])
+    }
+
+    /// R13: hints follow the press app, the applied rules follow the release app.
+    @Test func releaseUsesTheReleaseAppWithThePressSnapshot() async throws {
+        let harness = try await Harness {
+            $0.cleanupEnabled = false
+            $0.corrections = [
+                CorrectionRule(heard: "hello", write: "Hi", bundleID: Self.terminal.bundleID),
+                CorrectionRule(heard: "world", write: "Earth", bundleID: Self.slack.bundleID),
+            ]
+        }
+        harness.controller.hotkeyPressed(.paste)
+        await harness.controller.settle()
+        harness.frontmost.target = Self.terminal
+
+        harness.clock.advance(by: 0.5)
+        harness.controller.hotkeyReleased(.paste)
+        await harness.controller.settle()
+
+        #expect(harness.engines.requestedHints.map(\.terms) == [["Earth", "world"]])
+        #expect(harness.paster.calls.map(\.pid) == [Self.terminal.pid])
+        #expect(harness.paster.pasted == ["Hi world"])
+        #expect(harness.history.appended.map(\.appName) == ["Terminal"])
+    }
+
+    @Test func releaseBeforeStartStreamFallsBackToTheReleaseConfig() async throws {
+        let harness = try await Harness { $0.cleanupEnabled = false }
+        harness.audio.blockCancelIdleStop()
+
+        harness.controller.hotkeyPressed(.paste)
+        try await harness.store.update { @Sendable in
+            $0.corrections = [CorrectionRule(heard: "hello", write: "Hi")]
+        }
+        harness.clock.advance(by: 0.5)
+        harness.controller.hotkeyReleased(.paste)
+        await harness.waitFor(.processing)
+        harness.audio.releaseCancelIdleStop()
+        await harness.controller.settle()
+
+        #expect(harness.engines.callCount == 0)
+        #expect(harness.paster.pasted == ["Hi world"])
+    }
+
+    /// R15: the caption shows what the recognizer heard; only the delivered text is corrected.
+    @Test func rulesNeverChangeTheLiveCaption() async throws {
+        let harness = try await Harness {
+            $0.cleanupEnabled = false
+            $0.corrections = [CorrectionRule(heard: "get hub", write: "GitHub")]
+        }
+        let engine = FakeStreamingEngine(
+            name: .openai,
+            result: StreamResult(
+                text: "get hub actions", ok: true, usage: StreamUsage(seconds: 3)
+            )
+        )
+        harness.engines.set(engine: engine)
+        harness.controller.hotkeyPressed(.paste)
+        await harness.controller.settle()
+        engine.sink?.onPartial("get hub actions")
+
+        harness.clock.advance(by: 0.5)
+        harness.controller.hotkeyReleased(.paste)
+        await harness.controller.settle()
+
+        let captions = await harness.next(6).compactMap { event -> String? in
+            if case .caption(let text, _, _) = event { text } else { nil }
+        }
+        #expect(captions == ["get hub actions", "get hub actions"])
+        #expect(harness.paster.pasted == ["GitHub actions"])
     }
 
     // MARK: - Idle stop (F18)

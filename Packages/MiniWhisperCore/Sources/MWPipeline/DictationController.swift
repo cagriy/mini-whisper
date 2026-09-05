@@ -2,6 +2,7 @@ import AVFAudio
 import Foundation
 import MWAudio
 import MWConfig
+import MWCorrections
 import MWHotkeys
 import MWProfiles
 import MWStreaming
@@ -71,9 +72,14 @@ public final class DictationController {
             if session.toggleArmed { stopAndProcess(binding: name) }
             return
         }
+        // R12: the delivery app is read before `.starting`, so nothing the user does
+        // once the overlay appears can change which app the hints were resolved for.
+        let startTarget = deps.frontmost.frontmost()
         emit(.starting)
         let id = generations.bump()
-        state.session = RecordingSession(id: id, pressedAt: clock.now, binding: name)
+        state.session = RecordingSession(
+            id: id, pressedAt: clock.now, binding: name, startTarget: startTarget
+        )
         startTick(id: id)
         pressTask = Task { await self.beginRecording(id: id) }
     }
@@ -121,7 +127,17 @@ public final class DictationController {
     /// dictation — it simply leaves the batch path in place.
     private func startStream(id: Int) async {
         let config = await configStore.load()
-        let selection = await deps.engines.make(config: config, secrets: deps.secrets, hints: .none)
+        guard state.session?.id == id else { return }
+        // R12/R13: one snapshot per recording, and hints for the app that was frontmost
+        // at the press — the only app the engine can be steered towards.
+        let snapshot = CorrectionSnapshot(config: config)
+        state.session?.snapshot = snapshot
+        let hints = HintResolver.resolve(
+            snapshot, bundleID: state.session?.startTarget?.bundleID
+        )
+        let selection = await deps.engines.make(
+            config: config, secrets: deps.secrets, hints: hints
+        )
         guard state.session?.id == id else { return }
 
         if let notice = selection.notice, state.shownNotices.insert(notice).inserted {
@@ -223,7 +239,8 @@ public final class DictationController {
             profile: profile,
             target: target,
             binding: binding,
-            config: config
+            config: config,
+            snapshot: session.snapshot ?? CorrectionSnapshot(config: config)
         )
         await scheduleIdleStop(config)
         processingTask = Task { [job, generations, emit] in

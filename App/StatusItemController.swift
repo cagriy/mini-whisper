@@ -45,8 +45,8 @@ final class StatusItemController: NSObject {
         rebuild()
     }
 
-    func setLast(_ text: String) {
-        model.setLast(text)
+    func setLast(_ dictation: DeliveredDictation) {
+        model.setLast(dictation)
         rebuild()
     }
 

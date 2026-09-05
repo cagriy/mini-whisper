@@ -66,7 +66,7 @@ public struct ProcessingJob: Sendable {
             return
         }
 
-        let snapshot = CorrectionSnapshot(config: input.config)
+        let snapshot = input.snapshot
         let releaseHints = HintResolver.resolve(snapshot, bundleID: input.target.bundleID)
         let rules = CorrectionResolver(rules: snapshot.rules).rules(for: input.target.bundleID)
 
@@ -113,6 +113,16 @@ public struct ProcessingJob: Sendable {
             } catch {
                 return fail(error, emit: emit)
             }
+        }
+
+        // R14: exactly once, on whatever the cleanup left behind, before delivery.
+        let corrected = CorrectionApplier(rules: rules).apply(to: finalText)
+        finalText = corrected.text
+        if corrected.replacements > 0 {
+            // R26: counts only — the phrases are the user's own words.
+            log.info(
+                "corrections: \(corrected.replacements) replacement(s) from \(rules.count) rule(s)"
+            )
         }
 
         // Checkpoint 3 of F15: the last chance to stop before the text reaches another app.
@@ -168,7 +178,13 @@ public struct ProcessingJob: Sendable {
         }
 
         deps.sounds.playOff()
-        emit(.result(finalText))
+        emit(.result(DeliveredDictation(
+            text: finalText,
+            appName: input.target.name,
+            bundleID: input.target.bundleID,
+            engine: engineName,
+            deliveredAt: Date()
+        )))
         let totals = await deps.usage.totals()
         let rows = Pricing.formatUsageRows(today: totals.today, monthCost: totals.monthCost)
         emit(.usage(today: rows.today, month: rows.month))

@@ -1,5 +1,6 @@
 import Foundation
 import MWConfig
+import MWPipeline
 import MWUsage
 import Testing
 @testable import MiniWhisper
@@ -7,6 +8,16 @@ import Testing
 @Suite struct MenuModelTests {
     private let emptyToday = "Today: 0/0 tok · 0m · $0.00"
     private let emptyMonth = "Month: $0.00"
+
+    private static func dictation(_ text: String) -> DeliveredDictation {
+        DeliveredDictation(
+            text: text,
+            appName: "Slack",
+            bundleID: "com.tinyspeck.slackmacgap",
+            engine: .openai,
+            deliveredAt: Date(timeIntervalSince1970: 1_757_088_420)
+        )
+    }
 
     @Test func initialOrder() {
         let model = MenuModel()
@@ -26,7 +37,7 @@ import Testing
 
     @Test func lastRowInsertedAfterMonthOnFirstResult() {
         var model = MenuModel()
-        model.setLast("hello")
+        model.setLast(Self.dictation("hello"))
         #expect(model.items.map(\.title) == [
             emptyToday,
             emptyMonth,
@@ -40,20 +51,21 @@ import Testing
         ])
         #expect(model.items[2].action == .copyLast)
 
-        model.setLast("again")
+        model.setLast(Self.dictation("again"))
         #expect(model.items.filter { $0.action == .copyLast }.count == 1)
         #expect(model.items[2].title == "Last: \"again\"")
         #expect(model.lastText == "again")
+        #expect(model.lastDictation == Self.dictation("again"))
     }
 
     @Test func lastRowTruncatesAt50WithEllipsis() {
         var model = MenuModel()
         let long = String(repeating: "a", count: 51)
-        model.setLast(long)
+        model.setLast(Self.dictation(long))
         #expect(model.items[2].title == "Last: \"\(String(repeating: "a", count: 50))...\"")
         #expect(model.lastText == long)
 
-        model.setLast(String(repeating: "b", count: 50))
+        model.setLast(Self.dictation(String(repeating: "b", count: 50)))
         #expect(model.items[2].title == "Last: \"\(String(repeating: "b", count: 50))\"")
     }
 

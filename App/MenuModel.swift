@@ -1,4 +1,5 @@
 import MWConfig
+import MWPipeline
 import MWUsage
 
 /// One row of the status-bar menu (F31). Pure data so the order and the row
@@ -24,8 +25,10 @@ struct MenuItem: Equatable {
 /// dictation and is then kept immediately after the `Month:` row.
 struct MenuModel {
     private(set) var items: [MenuItem]
+    /// The last delivered dictation, which the correction window works from (R27).
+    private(set) var lastDictation: DeliveredDictation?
     /// The untruncated text the `Last:` row copies.
-    private(set) var lastText = ""
+    var lastText: String { lastDictation?.text ?? "" }
 
     private static let maxLastLength = 50
 
@@ -53,9 +56,9 @@ struct MenuModel {
         setUsage(today: rows.today, month: rows.month)
     }
 
-    mutating func setLast(_ text: String) {
-        lastText = text
-        let title = "Last: \"\(Self.truncated(text))\""
+    mutating func setLast(_ dictation: DeliveredDictation) {
+        lastDictation = dictation
+        let title = "Last: \"\(Self.truncated(dictation.text))\""
         if let index = items.firstIndex(where: { $0.action == .copyLast }) {
             items[index].title = title
         } else {

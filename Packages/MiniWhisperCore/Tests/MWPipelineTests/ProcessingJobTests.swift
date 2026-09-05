@@ -1,6 +1,7 @@
 import Foundation
 import MWAudio
 import MWConfig
+import MWCorrections
 import MWHistory
 import MWProfiles
 import MWHotkeys
@@ -25,6 +26,10 @@ import MWPipeline
     private static let recording = Recording(wav: Data("fake wav".utf8), duration: 1, meanRMS: 0.02)
     private static let transcribeBase = "Transcribe base."
     private static let cleanupBase = "Clean up."
+    private static let appRule = CorrectionRule(
+        heard: "get hub", write: "GitHub", bundleID: target.bundleID
+    )
+    private static let globalRule = CorrectionRule(heard: "get hub", write: "GitHub")
 
     private static func profile(
         cleanupEnabled: Bool = true,
@@ -71,6 +76,9 @@ import MWPipeline
     private struct LocalisedFailure: LocalizedError {
         let errorDescription: String?
     }
+
+    /// Internal rather than private so the parameterised test's signature can name it.
+    enum StaleCheckpoint: CaseIterable, Sendable { case beforeBatch, beforeCleanup, beforePaste }
 
     /// Flips to stale from inside a fake, so a test can put the generation bump between
     /// two specific checkpoints.
@@ -151,6 +159,7 @@ import MWPipeline
             sink: StreamSink? = nil,
             profile: ResolvedProfile = ProcessingJobTests.profile(),
             binding: BindingName = .paste,
+            target: PasteTarget = ProcessingJobTests.target,
             config: Config = ProcessingJobTests.config(),
             isStale: @escaping @Sendable () -> Bool = { false }
         ) async {
@@ -160,9 +169,10 @@ import MWPipeline
                     engine: engine,
                     sink: sink,
                     profile: profile,
-                    target: ProcessingJobTests.target,
+                    target: target,
                     binding: binding,
-                    config: config
+                    config: config,
+                    snapshot: CorrectionSnapshot(config: config)
                 ),
                 isStale: isStale,
                 emit: recorder.emit
@@ -342,6 +352,118 @@ import MWPipeline
         ])
     }
 
+    // MARK: - Corrections (R14, R16, R26)
+
+    @Test func rulesApplyToTheStreamedTextWithCleanupOffAndNoKey() async {
+        let harness = Harness(key: nil)
+
+        await harness.run(
+            engine: Self.engine(text: "get hub actions"),
+            sink: harness.makeSink(),
+            config: Self.config(cleanupEnabled: false, corrections: [Self.appRule])
+        )
+
+        #expect(harness.paster.pasted == ["GitHub actions"])
+        #expect(harness.history.appended.map(\.text) == ["GitHub actions"])
+        #expect(harness.recorder.results.map(\.text) == ["GitHub actions"])
+    }
+
+    @Test func rulesApplyToTheBatchTranscript() async {
+        let harness = Harness(transcriber: FakeTranscriber(text: "get hub actions"))
+
+        await harness.run(config: Self.config(cleanupEnabled: false, corrections: [Self.appRule]))
+
+        #expect(harness.paster.pasted == ["GitHub actions"])
+    }
+
+    @Test func rulesApplyToTheCleanersOutputAndNotItsInput() async {
+        let harness = Harness(
+            transcriber: FakeTranscriber(text: "get hub actions"),
+            cleaner: FakeCleaner(text: "Get hub actions, please.")
+        )
+
+        await harness.run(config: Self.config(corrections: [Self.appRule]))
+
+        #expect(harness.cleaner.calls.map(\.text) == ["get hub actions"])
+        #expect(harness.paster.pasted == ["GitHub actions, please."])
+    }
+
+    @Test func aNilBundleIDAppliesGlobalRulesOnly() async {
+        let harness = Harness(transcriber: FakeTranscriber(text: "get hub and eefa"))
+
+        await harness.run(
+            target: PasteTarget(pid: 7, name: "Unknown"),
+            config: Self.config(
+                cleanupEnabled: false,
+                corrections: [
+                    Self.globalRule,
+                    CorrectionRule(heard: "eefa", write: "Aoife", bundleID: Self.target.bundleID),
+                ]
+            )
+        )
+
+        #expect(harness.paster.pasted == ["GitHub and eefa"])
+    }
+
+    /// R13: the release app decides which rules fire, so an app switch mid-recording
+    /// leaves the press app's rules out.
+    @Test func aRuleForAnotherAppNeverFires() async {
+        let harness = Harness(transcriber: FakeTranscriber(text: "get hub actions"))
+
+        await harness.run(config: Self.config(
+            cleanupEnabled: false,
+            corrections: [
+                CorrectionRule(heard: "get hub", write: "GitHub", bundleID: "com.apple.Terminal"),
+            ]
+        ))
+
+        #expect(harness.paster.pasted == ["get hub actions"])
+    }
+
+    @Test func noMatchingRuleLeavesTheTextIdentical() async {
+        let harness = Harness(transcriber: FakeTranscriber(text: "hello world"))
+
+        await harness.run(config: Self.config(cleanupEnabled: false, corrections: [Self.appRule]))
+
+        #expect(harness.paster.pasted == ["hello world"])
+    }
+
+    @Test func resultCarriesTheDeliveredTextAppNameBundleIDAndEngine() async {
+        let harness = Harness()
+
+        await harness.run(engine: Self.engine(.openai, seconds: 3), sink: harness.makeSink())
+
+        let delivered = harness.recorder.results.first
+        #expect(delivered?.text == "Hello world.")
+        #expect(delivered?.appName == "Slack")
+        #expect(delivered?.bundleID == "com.tinyspeck.slackmacgap")
+        #expect(delivered?.engine == .openai)
+    }
+
+    /// R26: counts only, and nothing at all when the text came through untouched.
+    @Test func correctionsLogCountsOnlyAndOnlyWhenSomethingChanged() async {
+        let applied = CapturingLogSink()
+        await Log.withSinks(debug: true, sinks: [applied]) {
+            let harness = Harness(transcriber: FakeTranscriber(text: "get hub actions"))
+            await harness.run(
+                config: Self.config(cleanupEnabled: false, corrections: [Self.appRule])
+            )
+        }
+
+        #expect(applied.lines.contains { $0.hasSuffix("corrections: 1 replacement(s) from 1 rule(s)") })
+        #expect(!applied.lines.contains { $0.contains("get hub") || $0.contains("GitHub") })
+
+        let quiet = CapturingLogSink()
+        await Log.withSinks(debug: true, sinks: [quiet]) {
+            let harness = Harness(transcriber: FakeTranscriber(text: "hello world"))
+            await harness.run(
+                config: Self.config(cleanupEnabled: false, corrections: [Self.appRule])
+            )
+        }
+
+        #expect(!quiet.lines.contains { $0.contains("corrections:") })
+    }
+
     // MARK: - Generation guard (F15)
 
     @Test func staleBeforeBatchStopsAndBillsSecondsOnly() async {
@@ -397,6 +519,36 @@ import MWPipeline
         #expect(harness.usage.added == [
             ProviderUsage(streamedSeconds: ["openai": 3], costUSD: 0.00085),
         ])
+    }
+
+    /// F15 + R14: a superseded dictation delivers nothing, rule or no rule.
+    @Test(arguments: StaleCheckpoint.allCases)
+    func staleJobDeliversNothingEvenWithAMatchingRule(_ checkpoint: StaleCheckpoint) async {
+        let staleness = Staleness()
+        let harness: Harness
+        let isStale: @Sendable () -> Bool
+        switch checkpoint {
+        case .beforeBatch:
+            harness = Harness()
+            isStale = { true }
+        case .beforeCleanup:
+            harness = Harness(transcriberOverride: StalingTranscriber(staleness: staleness))
+            isStale = staleness.isStale
+        case .beforePaste:
+            harness = Harness(cleanerOverride: StalingCleaner(staleness: staleness))
+            isStale = staleness.isStale
+        }
+
+        await harness.run(
+            engine: Self.engine(.openai, text: "", ok: false, seconds: 3),
+            sink: harness.makeSink(),
+            config: Self.config(corrections: [Self.appRule]),
+            isStale: isStale
+        )
+
+        #expect(harness.paster.calls.isEmpty)
+        #expect(harness.history.appended.isEmpty)
+        #expect(harness.recorder.results.isEmpty)
     }
 
     // MARK: - Delivery, billing and history (F29, F35)
@@ -514,9 +666,9 @@ import MWPipeline
 
         await harness.run(config: Self.config(cleanupEnabled: false))
 
-        #expect(harness.recorder.events.suffix(2) == [
-            .result("hello world"),
-            .usage(today: "Today: 1.2k/3.4k tok · 12m · $0.08", month: "Month: $1.42"),
-        ])
+        #expect(harness.recorder.results.map(\.text) == ["hello world"])
+        #expect(harness.recorder.events.last == .usage(
+            today: "Today: 1.2k/3.4k tok · 12m · $0.08", month: "Month: $1.42"
+        ))
     }
 }

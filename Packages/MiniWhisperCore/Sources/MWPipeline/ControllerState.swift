@@ -1,4 +1,5 @@
 import Foundation
+import MWCorrections
 import MWHotkeys
 import MWStreaming
 
@@ -7,6 +8,9 @@ struct RecordingSession {
     let id: Int
     let pressedAt: TimeInterval
     let binding: BindingName
+    /// R12: the delivery app and the rules as they stood at the press.
+    var startTarget: PasteTarget?
+    var snapshot: CorrectionSnapshot?
     var engine: (any StreamingEngine)?
     var sink: StreamSink?
     var toggleArmed = false

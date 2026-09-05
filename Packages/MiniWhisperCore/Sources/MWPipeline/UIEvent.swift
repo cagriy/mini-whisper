@@ -8,7 +8,7 @@ public enum UIEvent: Sendable, Equatable {
     case captionUnavailable
     case captionNotice(String)
     case processing
-    case result(String)
+    case result(DeliveredDictation)
     case error(String)
     case idle
     case usage(today: String, month: String)

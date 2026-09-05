@@ -65,8 +65,8 @@ final class UIEventRouter {
             caption.showNotice(message)
         case .processing:
             overlay.set(mode: .processing)
-        case .result(let text):
-            statusItem.setLast(text)
+        case .result(let dictation):
+            statusItem.setLast(dictation)
             overlay.set(mode: .result)
             caption.hide()
         case .error(let message):

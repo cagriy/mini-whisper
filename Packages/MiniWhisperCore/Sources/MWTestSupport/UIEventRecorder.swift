@@ -11,6 +11,12 @@ public final class UIEventRecorder: @unchecked Sendable {
 
     public var events: [UIEvent] { lock.withLock { storage } }
 
+    /// Every delivered dictation in order, so a test asserts on the payload rather than
+    /// pattern-matching `.result` by hand.
+    public var results: [DeliveredDictation] {
+        events.compactMap { if case .result(let dictation) = $0 { dictation } else { nil } }
+    }
+
     public var emit: @Sendable (UIEvent) -> Void {
         { [self] event in lock.withLock { storage.append(event) } }
     }
