@@ -27,7 +27,10 @@ let package = Package(
         .target(name: "MWCorrections", dependencies: ["MWConfig"]),
         .target(name: "MWHotkeys"),
         .target(name: "MWAudio", dependencies: ["MWSupport"]),
-        .target(name: "MWStreaming", dependencies: ["MWAudio", "MWConfig", "MWSupport"]),
+        .target(
+            name: "MWStreaming",
+            dependencies: ["MWAudio", "MWConfig", "MWCorrections", "MWSupport"]
+        ),
         .target(name: "MWTranscription", dependencies: ["MWSupport"]),
         .target(name: "MWUsage", dependencies: ["MWConfig", "MWSupport"]),
         .target(name: "MWHistory", dependencies: ["MWSupport"]),

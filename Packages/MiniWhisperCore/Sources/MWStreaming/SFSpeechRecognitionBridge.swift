@@ -25,6 +25,9 @@ public struct SFSpeechRecognitionBridge: SpeechRecognitionAPI {
         let request = SFSpeechAudioBufferRecognitionRequest()
         request.requiresOnDeviceRecognition = options.requiresOnDeviceRecognition
         request.shouldReportPartialResults = options.shouldReportPartialResults
+        if !options.contextualStrings.isEmpty {
+            request.contextualStrings = options.contextualStrings
+        }
 
         let task = recognizer.recognitionTask(with: request) { result, error in
             if let error {

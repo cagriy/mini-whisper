@@ -1,5 +1,6 @@
 import AVFAudio
 import Foundation
+import MWCorrections
 import MWSupport
 import MWTestSupport
 import Testing
@@ -102,17 +103,74 @@ private struct AnalyzerFailure: Error, CustomStringConvertible {
             == StreamUsage(inputTokens: 0, outputTokens: 0, seconds: 2.5))
     }
 
+    // MARK: - Hints (R19, R25, R26)
+
+    @Test func hintsReachTheSessionCappedAtAHundred() async {
+        let api = FakeSpeechAnalyzerAPI()
+
+        let session = started(api, hints: Self.hints)
+        _ = await session.engine.finish(timeout: .seconds(5))
+
+        #expect(api.sessionContexts.count == 1)
+        #expect(api.sessionContexts.first?.count == 100)
+        #expect(api.sessionContexts.first?.first == "term 1")
+    }
+
+    @Test func withoutHintsTheSessionIsOpenedWithNoStrings() async {
+        let api = FakeSpeechAnalyzerAPI()
+
+        let session = started(api)
+        _ = await session.engine.finish(timeout: .seconds(5))
+
+        #expect(api.sessionContexts == [[]])
+    }
+
+    /// §5.5: a rejected context is logged and analysis carries on without hints.
+    @Test func aRejectedContextLeavesTheEngineRunning() async {
+        let api = FakeSpeechAnalyzerAPI(contextError: AnalyzerFailure())
+        let session = started(api, hints: Self.hints)
+
+        api.session.emit(AnalyzerTranscript(text: "hello world", isFinal: true))
+        let result = await session.engine.finish(timeout: .seconds(5))
+
+        #expect(api.sessionContexts == [[]])
+        #expect(result.ok)
+        #expect(result.text == "hello world")
+    }
+
+    /// R26: the terms are the user's own words and never reach a log.
+    @Test func startLogsHintCountsAndNoTerm() async {
+        let sink = CapturingLogSink()
+
+        await Log.withSinks(debug: true, sinks: [sink]) {
+            let session = started(FakeSpeechAnalyzerAPI(), hints: Self.hints)
+            _ = await session.engine.finish(timeout: .seconds(5))
+        }
+
+        #expect(sink.lines.contains { $0.hasSuffix("hints: 100 sent, 20 skipped") })
+        for line in sink.lines {
+            #expect(!Self.hints.terms.contains { line.contains($0) })
+        }
+    }
+
     // MARK: - Harness
 
     private func format(_ rate: Double) -> AVAudioFormat {
         AVAudioFormat(standardFormatWithSampleRate: rate, channels: 1)!
     }
 
+    private static let hints = RecognitionHints(
+        terms: (1...120).map { "term \($0)" }, rules: [], vocabulary: []
+    )
+
     private func started(
         _ api: FakeSpeechAnalyzerAPI,
-        clock: VirtualClock = VirtualClock()
+        clock: VirtualClock = VirtualClock(),
+        hints: RecognitionHints = .none
     ) -> (engine: SpeechAnalyzerEngine, sink: RecordingSink) {
-        let engine = SpeechAnalyzerEngine(api: api, locale: Locale(identifier: "en_US"), clock: clock)
+        let engine = SpeechAnalyzerEngine(
+            api: api, locale: Locale(identifier: "en_US"), clock: clock, hints: hints
+        )
         let sink = RecordingSink()
         engine.start(sink: sink)
         return (engine, sink)

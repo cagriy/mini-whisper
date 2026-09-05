@@ -1,5 +1,6 @@
 import Foundation
 import MWConfig
+import MWCorrections
 
 /// Speechmatics Real-Time v2 websocket, pinned to design §5.4.
 public struct SpeechmaticsAdapter: EngineAdapter {
@@ -12,23 +13,30 @@ public struct SpeechmaticsAdapter: EngineAdapter {
 
     /// Binary AddAudio frames sent so far, declared back in `EndOfStream`.
     private var sequenceNumber = 0
+    /// R21, already capped and filtered to what the provider accepts.
+    private let vocabulary: [HintSerializer.VocabEntry]
 
-    public init(apiKey: String) {
+    public init(apiKey: String, hints: RecognitionHints = .none) {
         headers = ["Authorization": "Bearer \(apiKey)"]
+        vocabulary = HintSerializer.speechmaticsVocab(hints).sent
     }
 
     public func openMessages() -> [WebSocketMessage] {
-        [AdapterJSON.text([
+        var transcriptionConfig: [String: JSONValue] = [
+            "language": .string("en"),
+            "enable_partials": .bool(true),
+        ]
+        if !vocabulary.isEmpty {
+            transcriptionConfig["additional_vocab"] = .array(vocabulary.map(Self.entry))
+        }
+        return [AdapterJSON.text([
             "message": .string("StartRecognition"),
             "audio_format": .object([
                 "type": .string("raw"),
                 "encoding": .string("pcm_s16le"),
                 "sample_rate": .number(targetRate),
             ]),
-            "transcription_config": .object([
-                "language": .string("en"),
-                "enable_partials": .bool(true),
-            ]),
+            "transcription_config": .object(transcriptionConfig),
         ])]
     }
 
@@ -63,6 +71,14 @@ public struct SpeechmaticsAdapter: EngineAdapter {
             break
         }
         return false
+    }
+
+    private static func entry(_ entry: HintSerializer.VocabEntry) -> JSONValue {
+        var fields: [String: JSONValue] = ["content": .string(entry.content)]
+        if !entry.soundsLike.isEmpty {
+            fields["sounds_like"] = .array(entry.soundsLike.map(JSONValue.string))
+        }
+        return .object(fields)
     }
 
     private func transcript(_ event: [String: JSONValue]) -> String {

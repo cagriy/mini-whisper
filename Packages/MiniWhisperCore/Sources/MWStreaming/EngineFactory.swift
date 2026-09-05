@@ -1,5 +1,6 @@
 import Foundation
 import MWConfig
+import MWCorrections
 import MWSupport
 import os
 
@@ -34,14 +35,19 @@ public struct EngineFactory: EngineProvider {
         self.connect = connect
     }
 
-    public func make(config: Config, secrets: any SecretStore) async -> EngineSelection {
+    public func make(
+        config: Config,
+        secrets: any SecretStore,
+        hints: RecognitionHints
+    ) async -> EngineSelection {
         guard config.streamingEnabled else { return EngineSelection() }
         // An absent (or unrecognised) `streaming_engine` takes the platform default (F32).
-        guard let name = config.streamingEngine else { return await onDeviceSelection() }
+        guard let name = config.streamingEngine else { return await onDeviceSelection(hints) }
         switch name {
-        case .speechAnalyzer: return await onDeviceSelection()
-        case .onDevice: return onDevice()
-        case .openai, .elevenlabs, .speechmatics: return await cloud(name, secrets: secrets)
+        case .speechAnalyzer: return await onDeviceSelection(hints)
+        case .onDevice: return onDevice(hints)
+        case .openai, .elevenlabs, .speechmatics:
+            return await cloud(name, secrets: secrets, hints: hints)
         }
     }
 
@@ -55,21 +61,23 @@ public struct EngineFactory: EngineProvider {
     /// The on-device pair under one rule: the analyzer once macOS 26 has the model for
     /// this locale, silently SFSpeechRecognizer otherwise (F23, design §5.7). Serves the
     /// explicit `speech_analyzer` value, the absent-value default and the cloud downgrade.
-    private func onDeviceSelection() async -> EngineSelection {
+    private func onDeviceSelection(_ hints: RecognitionHints) async -> EngineSelection {
         switch Self.defaultEngine(platform: platform, assetsInstalled: await assetsInstalled()) {
         case .speechAnalyzer:
             return EngineSelection(
-                engine: SpeechAnalyzerEngine(api: analyzer, locale: platform.locale, clock: clock)
+                engine: SpeechAnalyzerEngine(
+                    api: analyzer, locale: platform.locale, clock: clock, hints: hints
+                )
             )
         default:
-            return onDevice()
+            return onDevice(hints)
         }
     }
 
-    private func onDevice() -> EngineSelection {
+    private func onDevice(_ hints: RecognitionHints) -> EngineSelection {
         switch SpeechPermission.ensureAuthorized(api: speech) {
         case .authorized:
-            return EngineSelection(engine: SFSpeechEngine(api: speech, clock: clock))
+            return EngineSelection(engine: SFSpeechEngine(api: speech, clock: clock, hints: hints))
         case .denied:
             return EngineSelection(notice: noticeOnce(.speechPermissionPointer))
         case .undetermined:
@@ -78,22 +86,31 @@ public struct EngineFactory: EngineProvider {
         }
     }
 
-    private func cloud(_ name: EngineName, secrets: any SecretStore) async -> EngineSelection {
+    private func cloud(
+        _ name: EngineName,
+        secrets: any SecretStore,
+        hints: RecognitionHints
+    ) async -> EngineSelection {
         guard let key = key(for: name, secrets: secrets), !key.isEmpty else {
             Log.stream(name.rawValue).info("no key configured; using the on-device default")
             let notice = noticeOnce(.cloudKeyMissing(name))
-            var selection = await onDeviceSelection()
+            var selection = await onDeviceSelection(hints)
             selection.notice = notice ?? selection.notice
             return selection
         }
-        return EngineSelection(engine: cloudEngine(name, key: key))
+        return EngineSelection(engine: cloudEngine(name, key: key, hints: hints))
     }
 
-    private func cloudEngine(_ name: EngineName, key: String) -> (any StreamingEngine)? {
+    private func cloudEngine(
+        _ name: EngineName,
+        key: String,
+        hints: RecognitionHints
+    ) -> (any StreamingEngine)? {
         switch name {
-        case .openai: webSocketEngine(OpenAIRealtimeAdapter(apiKey: key))
+        case .openai: webSocketEngine(OpenAIRealtimeAdapter(apiKey: key, hints: hints))
+        // R22: ElevenLabs documents no hint field, so it is handed none.
         case .elevenlabs: webSocketEngine(ElevenLabsAdapter(apiKey: key))
-        case .speechmatics: webSocketEngine(SpeechmaticsAdapter(apiKey: key))
+        case .speechmatics: webSocketEngine(SpeechmaticsAdapter(apiKey: key, hints: hints))
         case .onDevice, .speechAnalyzer: nil
         }
     }

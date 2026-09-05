@@ -1,5 +1,6 @@
 import Foundation
 import MWConfig
+import MWCorrections
 import MWSupport
 import MWTestSupport
 import Testing
@@ -66,13 +67,40 @@ private final class ConnectRecorder: @unchecked Sendable {
         FakeSpeechAnalyzerAPI(installation: nil)
     }
 
+    private static let terms = ["Aoife", "eefa", "xcodegen"]
+
+    private static let hints = HintResolver.resolve(
+        CorrectionSnapshot(
+            rules: [CorrectionRule(heard: "eefa", write: "Aoife")], vocabulary: ["xcodegen"]
+        ),
+        bundleID: nil
+    )
+
+    /// The text frames a cloud engine sends before the scripted server error ends it.
+    private func sentFrames(_ name: EngineName) async -> [String] {
+        let clock = VirtualClock()
+        let connection = FakeWebSocketConnection(
+            script: FixtureScript(steps: [.serverError("stop")]), clock: clock
+        )
+        let selection = await factory(clock: clock, connect: { _, _ in connection }).make(
+            config: config(engine: name), secrets: FakeSecretStore(Self.keys), hints: Self.hints
+        )
+        selection.engine?.start(sink: RecordingSink())
+        _ = await selection.engine?.finish(timeout: .seconds(5))
+        return connection.sentMessages.compactMap {
+            guard case .text(let frame) = $0 else { return nil }
+            return frame
+        }
+    }
+
     // MARK: - Streaming toggle
 
     @Test(arguments: EngineName.allCases)
     func disabledReturnsNoEngineForEveryName(_ name: EngineName) async {
         let selection = await factory().make(
             config: config(enabled: false, engine: name),
-            secrets: FakeSecretStore(Self.keys)
+            secrets: FakeSecretStore(Self.keys),
+            hints: .none
         )
 
         #expect(selection.engine == nil)
@@ -82,7 +110,9 @@ private final class ConnectRecorder: @unchecked Sendable {
     // MARK: - On-device: the Speech authorization gate
 
     @Test func onDeviceAuthorizedReturnsSFEngine() async {
-        let selection = await factory().make(config: config(), secrets: FakeSecretStore())
+        let selection = await factory().make(
+            config: config(), secrets: FakeSecretStore(), hints: .none
+        )
 
         #expect(selection.engine is SFSpeechEngine)
         #expect(selection.engine?.name == .onDevice)
@@ -93,8 +123,8 @@ private final class ConnectRecorder: @unchecked Sendable {
         let speech = FakeSpeechRecognitionAPI(status: .denied)
         let factory = factory(speech: speech)
 
-        let first = await factory.make(config: config(), secrets: FakeSecretStore())
-        let second = await factory.make(config: config(), secrets: FakeSecretStore())
+        let first = await factory.make(config: config(), secrets: FakeSecretStore(), hints: .none)
+        let second = await factory.make(config: config(), secrets: FakeSecretStore(), hints: .none)
 
         #expect(first.engine == nil)
         #expect(first.notice == .speechPermissionPointer)
@@ -108,7 +138,9 @@ private final class ConnectRecorder: @unchecked Sendable {
     @Test func onDeviceUndeterminedRequestsOnceAndBatchesThisTime() async {
         let speech = FakeSpeechRecognitionAPI(status: .notDetermined)
 
-        let selection = await factory(speech: speech).make(config: config(), secrets: FakeSecretStore())
+        let selection = await factory(speech: speech).make(
+            config: config(), secrets: FakeSecretStore(), hints: .none
+        )
 
         #expect(selection.engine == nil)
         #expect(selection.notice == nil)
@@ -121,7 +153,8 @@ private final class ConnectRecorder: @unchecked Sendable {
     func cloudEngineWithKeyReturnsWebSocketEngine(_ name: EngineName) async {
         let selection = await factory().make(
             config: config(engine: name),
-            secrets: FakeSecretStore(Self.keys)
+            secrets: FakeSecretStore(Self.keys),
+            hints: .none
         )
 
         #expect(selection.engine?.name == name)
@@ -138,8 +171,12 @@ private final class ConnectRecorder: @unchecked Sendable {
     ) async {
         let factory = factory()
 
-        let first = await factory.make(config: config(engine: name), secrets: FakeSecretStore())
-        let second = await factory.make(config: config(engine: name), secrets: FakeSecretStore())
+        let first = await factory.make(
+            config: config(engine: name), secrets: FakeSecretStore(), hints: .none
+        )
+        let second = await factory.make(
+            config: config(engine: name), secrets: FakeSecretStore(), hints: .none
+        )
 
         #expect(first.engine is SFSpeechEngine)
         #expect(first.notice == .cloudKeyMissing(name))
@@ -151,7 +188,8 @@ private final class ConnectRecorder: @unchecked Sendable {
     @Test func cloudDowngradeUsesTheAnalyzerWhenItIsThePlatformDefault() async {
         let selection = await factory(osMajor: 26, analyzer: installedAnalyzer()).make(
             config: config(engine: .elevenlabs),
-            secrets: FakeSecretStore()
+            secrets: FakeSecretStore(),
+            hints: .none
         )
 
         #expect(selection.engine is SpeechAnalyzerEngine)
@@ -162,7 +200,8 @@ private final class ConnectRecorder: @unchecked Sendable {
         let recorder = ConnectRecorder()
         let selection = await factory(connect: recorder.connect).make(
             config: config(engine: .openai),
-            secrets: FakeSecretStore([.openai: "sk-test-not-a-real-key"])
+            secrets: FakeSecretStore([.openai: "sk-test-not-a-real-key"]),
+            hints: .none
         )
         let engine = try? #require(selection.engine)
         engine?.start(sink: RecordingSink())
@@ -172,6 +211,49 @@ private final class ConnectRecorder: @unchecked Sendable {
         #expect(recorder.headers == [["Authorization": "Bearer sk-test-not-a-real-key"]])
     }
 
+    // MARK: - Hints reach every engine (R18-R22)
+
+    @Test func hintsReachTheOnDeviceEngine() async throws {
+        let speech = FakeSpeechRecognitionAPI()
+
+        let selection = await factory(speech: speech).make(
+            config: config(), secrets: FakeSecretStore(), hints: Self.hints
+        )
+        selection.engine?.start(sink: RecordingSink())
+
+        #expect(try #require(speech.startOptions.first).contextualStrings == Self.terms)
+    }
+
+    @Test func hintsReachTheAnalyzerEngine() async {
+        let analyzer = installedAnalyzer()
+
+        let selection = await factory(osMajor: 26, analyzer: analyzer).make(
+            config: config(engine: .speechAnalyzer), secrets: FakeSecretStore(), hints: Self.hints
+        )
+        selection.engine?.start(sink: RecordingSink())
+        _ = await selection.engine?.finish(timeout: .seconds(5))
+
+        #expect(analyzer.sessionContexts == [Self.terms])
+    }
+
+    @Test func hintsReachTheCloudAdaptersThatDocumentAField() async {
+        let openAI = await sentFrames(.openai)
+        let speechmatics = await sentFrames(.speechmatics)
+
+        #expect(openAI.contains { $0.contains("\"keywords\":[\"Aoife\",\"eefa\",\"xcodegen\"]") })
+        #expect(speechmatics.contains { $0.contains("\"additional_vocab\"") })
+        #expect(speechmatics.contains { $0.contains("\"content\":\"Aoife\"") })
+    }
+
+    /// R22: ElevenLabs has no documented hint field, so no term ever reaches it.
+    @Test func elevenLabsReceivesNoTerm() async {
+        let frames = await sentFrames(.elevenlabs)
+
+        for frame in frames {
+            #expect(!Self.terms.contains { frame.contains($0) })
+        }
+    }
+
     // MARK: - SpeechAnalyzer gating
 
     @Test func speechAnalyzerBelow26UsesSF() async {
@@ -179,7 +261,8 @@ private final class ConnectRecorder: @unchecked Sendable {
 
         let selection = await factory(osMajor: 25, analyzer: analyzer).make(
             config: config(engine: .speechAnalyzer),
-            secrets: FakeSecretStore()
+            secrets: FakeSecretStore(),
+            hints: .none
         )
 
         #expect(selection.engine is SFSpeechEngine)
@@ -191,7 +274,8 @@ private final class ConnectRecorder: @unchecked Sendable {
 
         let selection = await factory(osMajor: 26, analyzer: analyzer).make(
             config: config(engine: .speechAnalyzer),
-            secrets: FakeSecretStore()
+            secrets: FakeSecretStore(),
+            hints: .none
         )
 
         #expect(selection.engine is SFSpeechEngine)
@@ -203,7 +287,8 @@ private final class ConnectRecorder: @unchecked Sendable {
 
         let selection = await factory(osMajor: 26, analyzer: analyzer).make(
             config: config(engine: .speechAnalyzer),
-            secrets: FakeSecretStore()
+            secrets: FakeSecretStore(),
+            hints: .none
         )
 
         #expect(selection.engine is SFSpeechEngine)
@@ -212,7 +297,8 @@ private final class ConnectRecorder: @unchecked Sendable {
     @Test func speechAnalyzerInstalledUsesAnalyzer() async {
         let selection = await factory(osMajor: 26, analyzer: installedAnalyzer()).make(
             config: config(engine: .speechAnalyzer),
-            secrets: FakeSecretStore()
+            secrets: FakeSecretStore(),
+            hints: .none
         )
 
         #expect(selection.engine is SpeechAnalyzerEngine)
@@ -225,15 +311,18 @@ private final class ConnectRecorder: @unchecked Sendable {
     @Test func absentEngineDefaultsToAnalyzerOn26WhenInstalledElseOnDevice() async {
         let installed = await factory(osMajor: 26, analyzer: installedAnalyzer()).make(
             config: config(engine: nil),
-            secrets: FakeSecretStore()
+            secrets: FakeSecretStore(),
+            hints: .none
         )
         let notInstalled = await factory(osMajor: 26).make(
             config: config(engine: nil),
-            secrets: FakeSecretStore()
+            secrets: FakeSecretStore(),
+            hints: .none
         )
         let old = await factory(osMajor: 15, analyzer: installedAnalyzer()).make(
             config: config(engine: nil),
-            secrets: FakeSecretStore()
+            secrets: FakeSecretStore(),
+            hints: .none
         )
 
         #expect(installed.engine is SpeechAnalyzerEngine)
@@ -253,7 +342,8 @@ private final class ConnectRecorder: @unchecked Sendable {
     @Test func presentEngineValueIsHonoured() async {
         let selection = await factory(osMajor: 26, analyzer: installedAnalyzer()).make(
             config: config(engine: .elevenlabs),
-            secrets: FakeSecretStore(Self.keys)
+            secrets: FakeSecretStore(Self.keys),
+            hints: .none
         )
 
         #expect(selection.engine?.name == .elevenlabs)
@@ -268,7 +358,8 @@ private final class ConnectRecorder: @unchecked Sendable {
 
         let selection = await factory(osMajor: 26, analyzer: installedAnalyzer()).make(
             config: config,
-            secrets: FakeSecretStore()
+            secrets: FakeSecretStore(),
+            hints: .none
         )
 
         #expect(config.streamingEngine == nil)

@@ -1,6 +1,8 @@
 import AVFAudio
 import CoreMedia
 import Foundation
+import MWConfig
+import MWSupport
 import Speech
 
 /// The only file in MWStreaming that talks to `SpeechAnalyzer` (design N5). Everything
@@ -78,10 +80,13 @@ public final class SpeechAnalyzerBridge: SpeechAnalyzerAPI, @unchecked Sendable 
         return output
     }
 
-    public func makeSession(locale: Locale) async throws -> any AnalyzerSession {
+    public func makeSession(
+        locale: Locale,
+        contextualStrings: [String]
+    ) async throws -> any AnalyzerSession {
         guard #available(macOS 26, *) else { throw SpeechAnalyzerError.unavailable }
         let resolved = await SpeechTranscriber.supportedLocale(equivalentTo: locale) ?? locale
-        return Session(locale: resolved)
+        return Session(locale: resolved, contextualStrings: contextualStrings)
     }
 
     @available(macOS 26, *)
@@ -115,7 +120,7 @@ public final class SpeechAnalyzerBridge: SpeechAnalyzerAPI, @unchecked Sendable 
         private let forwarding: Task<Void, Never>
         private let forwardingFailure = ErrorBox()
 
-        init(locale: Locale) {
+        init(locale: Locale, contextualStrings: [String]) {
             let transcriber = SpeechAnalyzerBridge.transcriber(locale: locale)
             let analyzer = SpeechAnalyzer(modules: [transcriber])
             let (inputSequence, input) = AsyncStream<AnalyzerInput>.makeStream(bufferingPolicy: .unbounded)
@@ -124,7 +129,10 @@ public final class SpeechAnalyzerBridge: SpeechAnalyzerAPI, @unchecked Sendable 
             self.analyzer = analyzer
             self.input = input
             self.results = results
-            analysis = Task { try await analyzer.analyzeSequence(inputSequence) }
+            analysis = Task {
+                await Self.applyContext(contextualStrings, to: analyzer)
+                return try await analyzer.analyzeSequence(inputSequence)
+            }
 
             let failure = forwardingFailure
             forwarding = Task {
@@ -139,6 +147,20 @@ public final class SpeechAnalyzerBridge: SpeechAnalyzerAPI, @unchecked Sendable 
                     failure.store(error)
                 }
                 output.finish()
+            }
+        }
+
+        /// R19. A rejected context is logged and analysis carries on without hints:
+        /// a hint can never fail a dictation (§5.5).
+        private static func applyContext(_ strings: [String], to analyzer: SpeechAnalyzer) async {
+            guard !strings.isEmpty else { return }
+            let context = AnalysisContext()
+            context.contextualStrings = [.general: strings]
+            do {
+                try await analyzer.setContext(context)
+            } catch {
+                Log.stream(EngineName.speechAnalyzer.rawValue)
+                    .info("context rejected: \(AnyError(error).description)")
             }
         }
 

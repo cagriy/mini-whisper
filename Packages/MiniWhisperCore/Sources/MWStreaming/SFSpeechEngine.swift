@@ -1,6 +1,7 @@
 import AVFAudio
 import Foundation
 import MWConfig
+import MWCorrections
 import MWSupport
 
 /// On-device recognition through `SFSpeechRecognizer` (F20), a port of
@@ -21,14 +22,20 @@ public final class SFSpeechEngine: StreamingEngine, @unchecked Sendable {
 
     private let api: any SpeechRecognitionAPI
     private let clock: any Clock
+    private let hints: RecognitionHints
     private let lock = NSLock()
     private var state = State()
     private let done = Latch()
     private let log = Log.stream(EngineName.onDevice.rawValue)
 
-    public init(api: any SpeechRecognitionAPI, clock: any Clock = SystemClock()) {
+    public init(
+        api: any SpeechRecognitionAPI,
+        clock: any Clock = SystemClock(),
+        hints: RecognitionHints = .none
+    ) {
         self.api = api
         self.clock = clock
+        self.hints = hints
     }
 
     // MARK: - StreamingEngine
@@ -38,10 +45,15 @@ public final class SFSpeechEngine: StreamingEngine, @unchecked Sendable {
             state.sink = sink
             state.startedAt = clock.now
         }
+        let capped = HintSerializer.contextualStrings(hints)
         let request: any RecognitionRequestHandle
         do {
             request = try api.startTask(
-                options: RecognitionOptions(requiresOnDeviceRecognition: true, shouldReportPartialResults: true),
+                options: RecognitionOptions(
+                    requiresOnDeviceRecognition: true,
+                    shouldReportPartialResults: true,
+                    contextualStrings: capped.sent
+                ),
                 onResult: { [weak self] event in self?.handle(event) }
             )
         } catch {
@@ -49,6 +61,7 @@ public final class SFSpeechEngine: StreamingEngine, @unchecked Sendable {
             return
         }
         log.info("engine started")
+        if let line = capped.logLine { log.info("\(line)") }
 
         // Publish the request only in the same critical section that finds the backlog
         // empty. A tap-thread `feed` racing this loop still enqueues, and is drained on

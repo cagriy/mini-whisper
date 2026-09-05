@@ -65,5 +65,8 @@ public protocol SpeechAnalyzerAPI: Sendable {
     func bestAudioFormat(locale: Locale) async -> AVAudioFormat?
     /// Tap buffer → analyzer format; nil when the buffer cannot be converted.
     func convert(_ buffer: AVAudioPCMBuffer, to format: AVAudioFormat) -> AVAudioPCMBuffer?
-    func makeSession(locale: Locale) async throws -> any AnalyzerSession
+    func makeSession(
+        locale: Locale,
+        contextualStrings: [String]
+    ) async throws -> any AnalyzerSession
 }

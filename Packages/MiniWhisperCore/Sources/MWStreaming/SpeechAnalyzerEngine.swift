@@ -1,6 +1,7 @@
 import AVFAudio
 import Foundation
 import MWConfig
+import MWCorrections
 import MWSupport
 
 /// Live transcription through `SpeechAnalyzer` + `SpeechTranscriber` (F24): volatile
@@ -25,15 +26,22 @@ public final class SpeechAnalyzerEngine: StreamingEngine, @unchecked Sendable {
     private let api: any SpeechAnalyzerAPI
     private let locale: Locale
     private let clock: any Clock
+    private let hints: RecognitionHints
     private let lock = NSLock()
     private var state = State()
     private let done = Latch()
     private let log = Log.stream(EngineName.speechAnalyzer.rawValue)
 
-    public init(api: any SpeechAnalyzerAPI, locale: Locale = .current, clock: any Clock = SystemClock()) {
+    public init(
+        api: any SpeechAnalyzerAPI,
+        locale: Locale = .current,
+        clock: any Clock = SystemClock(),
+        hints: RecognitionHints = .none
+    ) {
         self.api = api
         self.locale = locale
         self.clock = clock
+        self.hints = hints
     }
 
     deinit {
@@ -98,10 +106,11 @@ public final class SpeechAnalyzerEngine: StreamingEngine, @unchecked Sendable {
     // MARK: - Session
 
     private func open() async {
+        let capped = HintSerializer.contextualStrings(hints)
         let session: any AnalyzerSession
         let format: AVAudioFormat
         do {
-            session = try await api.makeSession(locale: locale)
+            session = try await api.makeSession(locale: locale, contextualStrings: capped.sent)
             guard let best = await api.bestAudioFormat(locale: locale) else {
                 throw SpeechAnalyzerError.noCompatibleAudioFormat
             }
@@ -111,6 +120,7 @@ public final class SpeechAnalyzerEngine: StreamingEngine, @unchecked Sendable {
             return
         }
         log.info("engine started")
+        if let line = capped.logLine { log.info("\(line)") }
 
         // Publishing and flushing under one acquisition: a tap-thread `feed` cannot
         // slip a later buffer in ahead of the ones waiting to be flushed.

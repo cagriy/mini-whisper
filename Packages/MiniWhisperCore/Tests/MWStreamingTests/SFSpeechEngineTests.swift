@@ -1,5 +1,6 @@
 import AVFAudio
 import Foundation
+import MWCorrections
 import MWSupport
 import MWTestSupport
 import Testing
@@ -41,6 +42,7 @@ private struct RecogniserFailure: Error, CustomStringConvertible {
 
     // MARK: - Session
 
+    /// R25: without hints the options are the whole request, exactly as before.
     @Test func requestSetsOnDeviceAndPartialResults() {
         let api = FakeSpeechRecognitionAPI()
 
@@ -49,6 +51,31 @@ private struct RecogniserFailure: Error, CustomStringConvertible {
         #expect(api.startOptions == [
             RecognitionOptions(requiresOnDeviceRecognition: true, shouldReportPartialResults: true),
         ])
+    }
+
+    @Test func hintsReachTheRequestCappedAtAHundred() throws {
+        let api = FakeSpeechRecognitionAPI()
+
+        _ = started(api, hints: Self.hints)
+
+        let options = try #require(api.startOptions.first)
+        #expect(options.contextualStrings.count == 100)
+        #expect(options.contextualStrings.first == "term 1")
+        #expect(options.contextualStrings.last == "term 100")
+    }
+
+    /// R26: the terms are the user's own words and never reach a log.
+    @Test func startLogsHintCountsAndNoTerm() async {
+        let sink = CapturingLogSink()
+
+        await Log.withSinks(debug: true, sinks: [sink]) {
+            _ = started(FakeSpeechRecognitionAPI(), hints: Self.hints)
+        }
+
+        #expect(sink.lines.contains { $0.hasSuffix("hints: 100 sent, 20 skipped") })
+        for line in sink.lines {
+            #expect(!Self.hints.terms.contains { line.contains($0) })
+        }
     }
 
     @Test func feedForwardsBuffersToRequest() {
@@ -183,11 +210,16 @@ private struct RecogniserFailure: Error, CustomStringConvertible {
 
     // MARK: - Harness
 
+    private static let hints = RecognitionHints(
+        terms: (1...120).map { "term \($0)" }, rules: [], vocabulary: []
+    )
+
     private func started(
         _ api: FakeSpeechRecognitionAPI = FakeSpeechRecognitionAPI(),
-        clock: VirtualClock = VirtualClock()
+        clock: VirtualClock = VirtualClock(),
+        hints: RecognitionHints = .none
     ) -> (engine: SFSpeechEngine, sink: RecordingSink) {
-        let engine = SFSpeechEngine(api: api, clock: clock)
+        let engine = SFSpeechEngine(api: api, clock: clock, hints: hints)
         let sink = RecordingSink()
         engine.start(sink: sink)
         return (engine, sink)

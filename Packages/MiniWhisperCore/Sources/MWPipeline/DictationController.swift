@@ -121,7 +121,7 @@ public final class DictationController {
     /// dictation — it simply leaves the batch path in place.
     private func startStream(id: Int) async {
         let config = await configStore.load()
-        let selection = await deps.engines.make(config: config, secrets: deps.secrets)
+        let selection = await deps.engines.make(config: config, secrets: deps.secrets, hints: .none)
         guard state.session?.id == id else { return }
 
         if let notice = selection.notice, state.shownNotices.insert(notice).inserted {

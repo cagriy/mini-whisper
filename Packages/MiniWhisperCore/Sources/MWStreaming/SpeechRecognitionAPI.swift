@@ -14,10 +14,17 @@ public enum SpeechAuthorization: Int, Sendable {
 public struct RecognitionOptions: Sendable, Equatable {
     public var requiresOnDeviceRecognition: Bool
     public var shouldReportPartialResults: Bool
+    /// R18: the resolved hints, already capped by `HintSerializer`.
+    public var contextualStrings: [String]
 
-    public init(requiresOnDeviceRecognition: Bool, shouldReportPartialResults: Bool) {
+    public init(
+        requiresOnDeviceRecognition: Bool,
+        shouldReportPartialResults: Bool,
+        contextualStrings: [String] = []
+    ) {
         self.requiresOnDeviceRecognition = requiresOnDeviceRecognition
         self.shouldReportPartialResults = shouldReportPartialResults
+        self.contextualStrings = contextualStrings
     }
 }
 

@@ -1,5 +1,6 @@
 import Foundation
 import MWConfig
+import MWCorrections
 
 /// OpenAI Realtime transcription session, pinned to design §5.4.
 public struct OpenAIRealtimeAdapter: EngineAdapter {
@@ -15,20 +16,25 @@ public struct OpenAIRealtimeAdapter: EngineAdapter {
 
     /// Deltas accumulate per segment; the partial is always the whole segment.
     private var deltas = ""
+    /// R20, already stripped of the four characters the provider rejects.
+    private let keywords: [String]
 
-    public init(apiKey: String) {
+    public init(apiKey: String, hints: RecognitionHints = .none) {
         headers = ["Authorization": "Bearer \(apiKey)"]
+        keywords = HintSerializer.openAIKeywords(hints).sent
     }
 
     public func openMessages() -> [WebSocketMessage] {
-        [AdapterJSON.text([
+        var transcription: [String: JSONValue] = ["model": .string(Self.model)]
+        if !keywords.isEmpty { transcription["keywords"] = .array(keywords.map(JSONValue.string)) }
+        return [AdapterJSON.text([
             "type": .string("session.update"),
             "session": .object([
                 "type": .string("transcription"),
                 "audio": .object([
                     "input": .object([
                         "format": .object(["type": .string("audio/pcm"), "rate": .number(targetRate)]),
-                        "transcription": .object(["model": .string(Self.model)]),
+                        "transcription": .object(transcription),
                         "turn_detection": .object(["type": .string("server_vad")]),
                     ]),
                 ]),

@@ -72,8 +72,10 @@ public final class FakeSpeechAnalyzerAPI: SpeechAnalyzerAPI, @unchecked Sendable
     private let locale: Locale?
     private let bestFormat: AVAudioFormat
     private let sessionError: (any Error)?
+    private let contextError: (any Error)?
     private let lock = NSLock()
     private var records: [Conversion] = []
+    private var contexts: [[String]] = []
 
     public init(
         isAvailable: Bool = true,
@@ -82,6 +84,7 @@ public final class FakeSpeechAnalyzerAPI: SpeechAnalyzerAPI, @unchecked Sendable
         installedLocales: [Locale] = [],
         bestFormat: AVAudioFormat = AVAudioFormat(standardFormatWithSampleRate: 16000, channels: 1)!,
         sessionError: (any Error)? = nil,
+        contextError: (any Error)? = nil,
         endsResultsOnFinish: Bool = true
     ) {
         self.isAvailable = isAvailable
@@ -90,10 +93,15 @@ public final class FakeSpeechAnalyzerAPI: SpeechAnalyzerAPI, @unchecked Sendable
         self.installedLocales = installedLocales
         self.bestFormat = bestFormat
         self.sessionError = sessionError
+        self.contextError = contextError
         session = FakeAnalyzerSession(endsResultsOnFinish: endsResultsOnFinish)
     }
 
     public var conversions: [Conversion] { lock.withLock { records } }
+
+    /// The strings each session was opened with; `[]` where the bridge's `setContext`
+    /// would have thrown, since analysis then carries on without hints (§5.5).
+    public var sessionContexts: [[String]] { lock.withLock { contexts } }
 
     public func supportedLocale(equivalentTo locale: Locale) async -> Locale? { self.locale }
 
@@ -117,8 +125,12 @@ public final class FakeSpeechAnalyzerAPI: SpeechAnalyzerAPI, @unchecked Sendable
         )
     }
 
-    public func makeSession(locale: Locale) async throws -> any AnalyzerSession {
+    public func makeSession(
+        locale: Locale,
+        contextualStrings: [String]
+    ) async throws -> any AnalyzerSession {
         if let sessionError { throw sessionError }
+        lock.withLock { contexts.append(contextError == nil ? contextualStrings : []) }
         return session
     }
 }

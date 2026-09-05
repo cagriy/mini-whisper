@@ -1,6 +1,7 @@
 import Foundation
 import MWAudio
 import MWConfig
+import MWCorrections
 import MWSupport
 import MWTestSupport
 import Testing
@@ -13,6 +14,21 @@ import MWStreaming
 /// cases 260–380).
 @Suite struct CloudAdapterTests {
     private static let key = "placeholder-not-a-real-key"
+    private static let slack = "com.tinyspeck.slackmacgap"
+
+    /// Design §5.3's worked example: one app rule, one global rule, one vocabulary term.
+    private static let hints = HintResolver.resolve(
+        CorrectionSnapshot(
+            rules: [
+                CorrectionRule(
+                    heard: "eefa", write: "Aoife", soundsLike: ["eva"], bundleID: slack
+                ),
+                CorrectionRule(heard: "get hub", write: "GitHub"),
+            ],
+            vocabulary: ["xcodegen"]
+        ),
+        bundleID: slack
+    )
 
     // MARK: - OpenAI Realtime
 
@@ -50,6 +66,25 @@ import MWStreaming
          "session": {"type": "transcription",
                      "audio": {"input": {"format": {"type": "audio/pcm", "rate": 24000},
                                          "transcription": {"model": "gpt-live-transcribe"},
+                                         "turn_detection": {"type": "server_vad"}}}}}
+        """))
+    }
+
+    @Test func openAISessionUpdateCarriesKeywords() async throws {
+        let replay = try await replay(
+            adapter: OpenAIRealtimeAdapter(apiKey: Self.key, hints: Self.hints),
+            fixture: "openai_realtime",
+            chunks: [chunk()]
+        )
+
+        #expect(try json(replay.connection.sentMessages.first) == parse("""
+        {"type": "session.update",
+         "session": {"type": "transcription",
+                     "audio": {"input": {"format": {"type": "audio/pcm", "rate": 24000},
+                                         "transcription": {"model": "gpt-live-transcribe",
+                                                           "keywords": ["Aoife", "eefa", "eva",
+                                                                        "GitHub", "get hub",
+                                                                        "xcodegen"]},
                                          "turn_detection": {"type": "server_vad"}}}}}
         """))
     }
@@ -183,6 +218,24 @@ import MWStreaming
             "message": .string("EndOfStream"),
             "last_seq_no": .number(2),
         ]))
+    }
+
+    @Test func speechmaticsStartRecognitionCarriesAdditionalVocab() async throws {
+        let replay = try await replay(
+            adapter: SpeechmaticsAdapter(apiKey: Self.key, hints: Self.hints),
+            fixture: "speechmatics",
+            chunks: [chunk()]
+        )
+
+        #expect(try json(replay.connection.sentMessages.first) == parse("""
+        {"message": "StartRecognition",
+         "audio_format": {"type": "raw", "encoding": "pcm_s16le", "sample_rate": 16000},
+         "transcription_config": {"language": "en", "enable_partials": true,
+                                  "additional_vocab": [
+                                      {"content": "Aoife", "sounds_like": ["eefa", "eva"]},
+                                      {"content": "GitHub", "sounds_like": ["get hub"]},
+                                      {"content": "xcodegen"}]}}
+        """))
     }
 
     @Test func speechmaticsErrorFails() async {
