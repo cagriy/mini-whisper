@@ -1080,6 +1080,20 @@ under-specification, not a scope or approach change.
   Both are optional, so the tally-phrase initialiser is unaffected. Pinned by
   `CorrectionModelTests.sourcesCarryTheirOriginsFields`.
 
+- **Stage 9 — `CorrectionSource.init(_ entry: HistoryEntry)` is removed as an orphan.**
+  §5.1 gives `CorrectionSource` three initialisers, but the same section's
+  `HistoryListModel.correct(_ row:)` builds the source from the `Row`'s own `text`,
+  `appName` and `bundleID`, and Stage 9's step 3 repeats that. No caller anywhere in the
+  plan ever holds a `HistoryEntry` at that point, so the initialiser was dead on arrival and
+  was deleted with its Stage 8 assertion. `init(_ dictation:)` and `init(phrase:)` stay —
+  Stage 9 and Stage 10 (R35) are their callers. `AppTests/CorrectionModelTests.swift` is
+  therefore edited by Stage 9 as well as Stage 8.
+
+- **Stage 9 — `StatusItemController` exposes `lastDictation`.** R27 opens the window on the
+  last delivered dictation, which only `MenuModel` holds; `AppDelegate.correctLast()` needs
+  it to build the `CorrectionSource`. One read-only accessor forwarding to the model, added
+  beside the `onCorrectLast` closure this stage's *Touches* already names.
+
 - **Stage 6 — the two engines' hint log line lives in one new file.** Step 3 gives
   `SFSpeechEngine` and `SpeechAnalyzerEngine` the same `hints: N sent, K skipped` line, and R26
   makes its exact wording a requirement asserted in both engine suites. Rather than write the
