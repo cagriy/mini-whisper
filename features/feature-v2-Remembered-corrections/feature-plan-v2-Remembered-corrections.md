@@ -1057,3 +1057,11 @@ under-specification, not a scope or approach change.
   two cases, so nothing can ever produce `.measured`: a measured-supported SpeechAnalyzer is
   `.supported` and a measured-unavailable one is `.unavailable(reason)`. The unreachable case is
   omitted.
+- **Stage 4 — `ImpactPreview.compute` takes an optional entry list and `Result` carries
+  `historyOff`.** §5.1 declares `compute(rule:over: [Entry]) -> Result` with
+  `Result { matching, total, snippets }`, but §5.4 passes the window's `historyEntries()`
+  result, which is nil when retention is 0, and Stage 4's own step 1 requires "a nil entry list
+  yields the history-off result" — which the three counted fields cannot express, since zero
+  matches over zero entries is also what an empty history looks like. The parameter became
+  `over entries: [Entry]?` and `Result` gained `historyOff: Bool`, leaving the sentence itself to
+  the window model (Stage 8). Pinned by `ImpactPreviewTests.aNilEntryListReadsAsHistoryOff`.
