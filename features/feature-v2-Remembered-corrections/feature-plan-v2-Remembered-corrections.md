@@ -716,6 +716,8 @@ never received a selection", not as wrong rule behaviour.
 - modify `App/AppDelegate.swift` (`apply(config)` also calls `settings?.model.refresh(from: config)`)
 - create `AppTests/CorrectionsEditorModelTests.swift`
 - modify `AppTests/SettingsModelTests.swift`
+- modify `App/Settings/AppChooser.swift` (`AppListing.sortedRunningApps()`, `name(forBundleID:)`), `App/Settings/ProfilesEditorModel.swift` (delegating to them)
+- create `AppTests/StubApps.swift`; modify `AppTests/ProfilesEditorModelTests.swift`
 
 **Steps (TDD):**
 1. Write tests. `CorrectionsEditorModelTests`, following `AppTests/ProfilesEditorModelTests.swift`
@@ -1093,6 +1095,17 @@ under-specification, not a scope or approach change.
   last delivered dictation, which only `MenuModel` holds; `AppDelegate.correctLast()` needs
   it to build the `CorrectionSource`. One read-only accessor forwarding to the model, added
   beside the `onCorrectLast` closure this stage's *Touches* already names.
+
+- **Stage 10 — the three `AppListing` fakes collapse into one, and their two helpers
+  move onto the protocol.** The stage's *Touches* names only the corrections files, but
+  `CorrectionsEditorModel` needs the same "running apps, deduplicated and sorted" list and
+  the same bundle-ID-to-name fallback `ProfilesEditorModel` already had, and a third
+  per-file `AppListing` fake in `AppTests`. Both helpers became default implementations on
+  `AppListing` (`sortedRunningApps()`, `name(forBundleID:)`) in `App/Settings/AppChooser.swift`,
+  with `ProfilesEditorModel` delegating to them, and the fakes became one shared
+  `AppTests/StubApps.swift`. *Touches* gains `App/Settings/AppChooser.swift`,
+  `App/Settings/ProfilesEditorModel.swift`, `AppTests/StubApps.swift` and
+  `AppTests/ProfilesEditorModelTests.swift`; behaviour is unchanged in every case.
 
 - **Stage 6 — the two engines' hint log line lives in one new file.** Step 3 gives
   `SFSpeechEngine` and `SpeechAnalyzerEngine` the same `hints: N sent, K skipped` line, and R26
