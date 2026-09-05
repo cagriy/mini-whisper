@@ -1025,3 +1025,35 @@ Once every stage is complete, the acceptance criteria of design §3 are confirme
 None — plan matches design v2 exactly. The four corrections listed under *Planning decisions
 taken* are factual grounding fixes and internal under-specifications resolved in the design file
 in place; none changes scope, requirements, approach or an external interface.
+
+## Deviations from plan
+
+Recorded during implementation. Each is a resolution of an internal contradiction or an
+under-specification, not a scope or approach change.
+
+- **Stage 1 — `write` is whitespace-collapsed and NFC-composed in `validated()`.** R4 says
+  `heard`, `write` and each `sounds_like` value are "trimmed and whitespace-collapsed"; R6 says
+  `write` is "stored exactly as typed after trimming". The two contradict. `validated()` applies
+  `PhraseKey.normalised` to all three, so `write` keeps its case, punctuation and spelling exactly
+  as typed but loses a doubled inner space and is NFC-composed. NFC on `write` is what §5.3
+  already promises of the applier's output ("the output is NFC"), and R4's field list is the more
+  specific instruction for the validation path. Pinned by
+  `ConfigCodingTests.validatedNormalisesAndDropsInvalidRules`.
+- **Stage 2 — `CorrectionValidator.ValidationError.duplicate` carries `heard`, and `validate`
+  takes a defaulted `scopeName`.** §5.1 gives the case as `.duplicate(existingWrite:scope:)` with
+  a `message`, but §5.5's message ("‘eefa’ is already remembered for Slack as ‘Aoife’.") needs
+  both the heard phrase and a display app name, neither of which the three listed parameters
+  supply — a `CorrectionRule` carries a bundle ID, not "Slack". The case gained
+  `heard: String`, and `validate(_:against:excluding:)` gained a fourth parameter
+  `scopeName: String? = nil` which the message uses when the caller has an app name and which
+  falls back to the bundle ID (or "All apps") otherwise. The design's three-argument call site
+  still compiles unchanged.
+- **Stage 2 — `PhraseMatcher.init(variant:)` throws on an empty variant.** The design leaves the
+  `throws` unexplained. An empty variant compiles to a pattern that matches at every position, so
+  it is rejected as `PhraseMatcher.Failure.emptyVariant`; `CorrectionApplier` counts it under
+  `droppedVariants` rather than failing.
+- **Stage 3 — `HintReport.State` has no `.measured` case.** §5.1 lists five states
+  (`.supported`, `.measured`, `.unavailable`, `.notSent`, `.prompt`), but `HintSupport` has only
+  two cases, so nothing can ever produce `.measured`: a measured-supported SpeechAnalyzer is
+  `.supported` and a measured-unavailable one is `.unavailable(reason)`. The unreachable case is
+  omitted.
