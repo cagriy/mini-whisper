@@ -465,6 +465,7 @@ the model already does.
 - modify `Packages/MiniWhisperCore/Sources/MWStreaming/Adapters/OpenAIRealtimeAdapter.swift`
 - modify `Packages/MiniWhisperCore/Sources/MWStreaming/Adapters/SpeechmaticsAdapter.swift`
 - modify `Packages/MiniWhisperCore/Sources/MWStreaming/EngineProvider.swift`, `EngineFactory.swift`
+- create `Packages/MiniWhisperCore/Sources/MWStreaming/HintLogging.swift`
 - modify `Packages/MiniWhisperCore/Sources/MWTestSupport/FakeEngineProvider.swift`, `FakeSpeechAnalyzerAPI.swift`
 - modify `Packages/MiniWhisperCore/Sources/MWPipeline/DictationController.swift` (one call site, passing `.none`)
 - modify `Packages/MiniWhisperCore/Tests/MWStreamingTests/SFSpeechEngineTests.swift`, `SpeechAnalyzerEngineTests.swift`, `CloudAdapterTests.swift`, `EngineFactoryTests.swift`
@@ -1070,3 +1071,8 @@ under-specification, not a scope or approach change.
   `MWCorrections` types, so the target cannot compile without the edge. The `Package.swift` line
   moved from Stage 7's *Touches* to Stage 5's; Stage 7 still owns the snapshot's move to press
   time.
+- **Stage 6 — the two engines' hint log line lives in one new file.** Step 3 gives
+  `SFSpeechEngine` and `SpeechAnalyzerEngine` the same `hints: N sent, K skipped` line, and R26
+  makes its exact wording a requirement asserted in both engine suites. Rather than write the
+  format twice, `HintLogging.swift` adds one internal `HintSerializer.Capped.logLine` that both
+  engines log, and it is the single place the wording can change. Added to Stage 6's *Touches*.
