@@ -389,7 +389,7 @@ assertions make loud rather than silent.
 **Goal:** The batch transcription request sends the documented `prompt` field and the cleanup prompt carries the preserve-terms and known-corrections blocks.
 **Design references:** §3 R23–R26; §5.1 (`MWTranscription`, `MWProfiles`); §5.3 (Wire shapes); §5.9
 **Touches:**
-- modify `Packages/MiniWhisperCore/Package.swift` (`MWProfiles` gains `MWCorrections`)
+- modify `Packages/MiniWhisperCore/Package.swift` (`MWProfiles` and `MWPipeline` gain `MWCorrections`)
 - modify `Packages/MiniWhisperCore/Sources/MWTranscription/OpenAIClient.swift`
 - modify `Packages/MiniWhisperCore/Sources/MWProfiles/PromptComposer.swift`
 - modify `Packages/MiniWhisperCore/Sources/MWPipeline/ProcessingJob.swift`
@@ -533,7 +533,6 @@ continues.
 **Goal:** A recording captures one immutable snapshot at press, hints go to the engine for the press app, and the resolved rules rewrite the final text exactly once before it is delivered.
 **Design references:** §3 R12–R16, R26, N2, N3; §5.1 (`MWPipeline`); §5.3 (Pipeline); §5.4 (Press, Release, Processing); §5.5
 **Touches:**
-- modify `Packages/MiniWhisperCore/Package.swift` (`MWPipeline` gains `MWCorrections`)
 - modify `Packages/MiniWhisperCore/Sources/MWPipeline/ControllerState.swift` (`RecordingSession.startTarget`, `.snapshot`)
 - modify `Packages/MiniWhisperCore/Sources/MWPipeline/ProcessingInput.swift` (`snapshot`)
 - modify `Packages/MiniWhisperCore/Sources/MWPipeline/UIEvent.swift` (`case result(DeliveredDictation)`)
@@ -1065,3 +1064,9 @@ under-specification, not a scope or approach change.
   matches over zero entries is also what an empty history looks like. The parameter became
   `over entries: [Entry]?` and `Result` gained `historyOff: Bool`, leaving the sentence itself to
   the window model (Stage 8). Pinned by `ImpactPreviewTests.aNilEntryListReadsAsHistoryOff`.
+- **Stage 5 — `MWPipeline` gains its `MWCorrections` dependency here, not in Stage 7.** Stage 5's
+  own step 3 has `ProcessingJob` build a `CorrectionSnapshot` and resolve `HintResolver` and
+  `CorrectionResolver`, and the new `PromptComposer.cleanupPrompt(base:hints:rules:)` takes two
+  `MWCorrections` types, so the target cannot compile without the edge. The `Package.swift` line
+  moved from Stage 7's *Touches* to Stage 5's; Stage 7 still owns the snapshot's move to press
+  time.
