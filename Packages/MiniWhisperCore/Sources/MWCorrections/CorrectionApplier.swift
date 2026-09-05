@@ -7,9 +7,6 @@ public struct CorrectionApplier {
     public struct Application: Equatable, Sendable {
         public var text: String
         public var replacements: Int
-        /// Variants whose pattern would not compile — impossible for escaped literals,
-        /// counted rather than thrown so a rule can never fail a dictation.
-        public var droppedVariants: Int
     }
 
     private struct Candidate {
@@ -21,23 +18,19 @@ public struct CorrectionApplier {
 
     private let rules: [ResolvedRule]
     private let matchers: [(matcher: PhraseMatcher, ruleIndex: Int)]
-    private let droppedVariants: Int
 
     public init(rules: [ResolvedRule]) {
         self.rules = rules
         var matchers: [(PhraseMatcher, Int)] = []
-        var dropped = 0
         for (index, resolved) in rules.enumerated() {
             for variant in resolved.variants {
-                guard let matcher = try? PhraseMatcher(variant: variant) else {
-                    dropped += 1
-                    continue
-                }
+                // A variant that will not compile is skipped, never thrown, so a rule can
+                // never fail a dictation. Escaping makes this unreachable in practice.
+                guard let matcher = try? PhraseMatcher(variant: variant) else { continue }
                 matchers.append((matcher, index))
             }
         }
         self.matchers = matchers
-        droppedVariants = dropped
     }
 
     public func apply(to text: String) -> Application {
@@ -76,8 +69,6 @@ public struct CorrectionApplier {
             replacements += 1
         }
         output.append(contentsOf: text[cursor...])
-        return Application(
-            text: output, replacements: replacements, droppedVariants: droppedVariants
-        )
+        return Application(text: output, replacements: replacements)
     }
 }

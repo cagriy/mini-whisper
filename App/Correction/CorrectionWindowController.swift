@@ -9,7 +9,6 @@ import SwiftUI
 final class CorrectionWindowController: NSObject, NSWindowDelegate {
     private let deps: CorrectionModel.Dependencies
     private let window: NSWindow
-    private var model: CorrectionModel?
 
     init(deps: CorrectionModel.Dependencies) {
         self.deps = deps
@@ -32,7 +31,7 @@ final class CorrectionWindowController: NSObject, NSWindowDelegate {
             let model = CorrectionModel(
                 source: source, config: await deps.store.load(), deps: deps
             )
-            self.model = model
+            // The hosting view owns the model; it lives exactly as long as the window shows it.
             window.contentView = NSHostingView(
                 rootView: CorrectionView(model: model, onClose: { [weak self] in self?.hide() })
             )

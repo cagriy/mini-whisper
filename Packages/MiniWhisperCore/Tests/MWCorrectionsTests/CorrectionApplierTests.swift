@@ -102,10 +102,9 @@ import MWCorrections
 
         #expect(result.text == "nothing to do here")
         #expect(result.replacements == 0)
-        #expect(result.droppedVariants == 0)
     }
 
-    @Test func aVariantThatCannotCompileIsDroppedAndCounted() {
+    @Test func aVariantThatCannotCompileIsSkippedWithoutFailingTheRule() {
         let rule = ResolvedRule(
             rule: CorrectionRule(heard: "eefa", write: "Aoife"),
             variants: ["", "eefa"],
@@ -114,7 +113,7 @@ import MWCorrections
 
         let result = apply([rule], to: "ask eefa")
         #expect(result.text == "ask Aoife")
-        #expect(result.droppedVariants == 1)
+        #expect(result.replacements == 1)
     }
 
     /// N3, and the regression it guards: compiling a variant's pattern per match
