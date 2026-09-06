@@ -1404,7 +1404,7 @@ Touches: <code>README.md</code>, <code>CHANGELOG.md</code>.</p>
         <h2 class="section-label">Highlights</h2>
         <div class="bullets">
           <ul>
-            <li>Stages completed: 13/14 planned — Stage 12 (measurement run) blocked on a clip set that does not exist; Stage 14 added by the dead-code sweep.</li>
+            <li>Stages completed: 13/14 planned — Stage 12 (measurement run) deferred, gated on a clip set that does not exist; Stage 14 added by the dead-code sweep.</li>
             <li>Core tests: 480 in 50 suites, all passing (353 at baseline, +127).</li>
             <li>App tests: 104 in 16 suites, all passing (70 at baseline, +34).</li>
             <li>Design coverage: 43/44 requirements verified (R1–R39, N1–N5); only R38 is unanswerable without the measurement.</li>
@@ -1463,7 +1463,7 @@ Touches: <code>README.md</code>, <code>CHANGELOG.md</code>.</p>
   <li><strong>Stage 9</strong> — Correction window UI, menu entry and History action — <code>59a0acf</code></li>
   <li><strong>Stage 10</strong> — Settings → Vocabulary: corrections table, tally and hint report — <code>46e25ec</code></li>
   <li><strong>Stage 11</strong> — Measurement harness — <code>476467a</code></li>
-  <li><strong>Stage 12</strong> — <em>Not run.</em> External prerequisite (gated): needs a user-provided audio clip set at <code>$MW_HINT_AUDIO_DIR</code> plus provider credentials. All four were probed and absent.</li>
+  <li><strong>Stage 12</strong> — <em>Deferred.</em> External prerequisite (gated): needs a user-provided audio clip set at <code>$MW_HINT_AUDIO_DIR</code> plus provider credentials. All four were probed and absent.</li>
   <li><strong>Stage 13</strong> — README and CHANGELOG — <code>93ad5d5</code></li>
   <li><strong>Stage 14</strong> — Dead-code cleanup (added by the Step 7 sweep) — <code>824a398</code></li>
 </ul>
@@ -1498,7 +1498,7 @@ Touches: <code>README.md</code>, <code>CHANGELOG.md</code>.</p>
     <tr><td>R29–R32 — snapping, scope default, preview and impact, Copy/Cancel/Save and the tally</td><td><code>CorrectionModelTests</code>, <code>ImpactPreviewTests</code></td></tr>
     <tr><td>R33–R36 — Settings groups, detail-form commit, Remember…, live refresh</td><td><code>CorrectionsEditorModelTests</code>, <code>SettingsModelTests</code>, <code>HintReportTests</code>, <code>CorrectionTallyTests</code></td></tr>
     <tr><td>R37 — measurement harness</td><td><code>HintMeasurementReportTests</code> (host-testable half); the live suite is written and correctly gated</td></tr>
-    <tr><td>R38 — SpeechAnalyzer's label decided by measurement</td><td><strong>Not answerable.</strong> Stage 12 did not run; the constant ships at <code>.unavailable(reason: "effect not yet measured")</code> and the README mirrors it exactly, which is a truthful statement rather than a broken one.</td></tr>
+    <tr><td>R38 — SpeechAnalyzer's label decided by measurement</td><td><strong>Deferred.</strong> Stage 12 is deferred; the constant ships at <code>.unavailable(reason: "effect not yet measured")</code> and the README mirrors it exactly, which is a truthful statement rather than a broken one.</td></tr>
     <tr><td>R39 — README and CHANGELOG</td><td>Stage 13; the README's SpeechAnalyzer line matches the shipped constant</td></tr>
     <tr><td>N1 — bundle ID, macOS 14, Swift 6 strict concurrency, no third-party deps</td><td>Unchanged <code>project.yml</code> and <code>Package.swift</code> settings; both targets build</td></tr>
     <tr><td>N2 — every timing on the injected clock</td><td>All pipeline tests drive <code>VirtualClock</code>; no test sleeps</td></tr>
@@ -1527,8 +1527,8 @@ Touches: <code>README.md</code>, <code>CHANGELOG.md</code>.</p>
 </ul>
 
 <h3>Outstanding</h3>
-<h4>Stage 12 — the measurement run</h4>
-<p>Gated and not run. It needs a user-provided clip set (<code>manifest.json</code> plus WAV clips) at <code>$MW_HINT_AUDIO_DIR</code> and provider credentials; <code>MW_HINT_AUDIO_DIR</code>, <code>MW_INTEGRATION</code>, <code>OPENAI_API_KEY</code> and <code>SPEECHMATICS_API_KEY</code> were all probed and absent. The harness is built and gated, so the run is a single command once a clip set exists. If the verdict comes back <code>.supported</code>, <code>HintSupport.speechAnalyzer</code> and the README's SpeechAnalyzer line must change together (R38 pairs them).</p>
+<h4>Stage 12 — the measurement run (deferred)</h4>
+<p>Deferred: gated and not run; v2 ships without it. It needs a user-provided clip set (<code>manifest.json</code> plus WAV clips) at <code>$MW_HINT_AUDIO_DIR</code> and provider credentials; <code>MW_HINT_AUDIO_DIR</code>, <code>MW_INTEGRATION</code>, <code>OPENAI_API_KEY</code> and <code>SPEECHMATICS_API_KEY</code> were all probed and absent. The harness is built and gated, so the run is a single command once a clip set exists. If the verdict comes back <code>.supported</code>, <code>HintSupport.speechAnalyzer</code> and the README's SpeechAnalyzer line must change together (R38 pairs them).</p>
 <h4>Human verification</h4>
 <p>The app was deliberately never launched: it reads real API keys from the Keychain, spends the user's own provider credits, writes their real <code>config.json</code> and pastes synthesized keystrokes into the frontmost app. These checks need a person:</p>
 <ul>

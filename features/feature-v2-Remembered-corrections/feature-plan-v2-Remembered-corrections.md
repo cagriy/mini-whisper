@@ -117,7 +117,7 @@ files there sit at the right layer and reach the model types under test without 
 | R35: Remember… opens the window with the tallied phrase, scope All apps | Stage 10 |
 | R36: a rule saved from the window appears in an open Settings table | Stage 10 |
 | R37: opt-in measurement suite, per-engine reports under `measurements/` | Stage 11 (harness), Stage 12 (run) |
-| R38: SpeechAnalyzer's label decided by the measurement; dead path removed | Stage 12 — **not run**, see below |
+| R38: SpeechAnalyzer's label decided by the measurement; dead path removed | Stage 12 — **deferred**, see below |
 | R39: README and CHANGELOG describe the change | Stage 13 |
 | N1: bundle ID, macOS 14, Swift 6 strict concurrency, no third-party deps | every stage (enforced by the unchanged `project.yml` and `Package.swift` settings) |
 | N2: every timing on the injected clock; no test sleeps | Stage 6, Stage 7, Stage 9 |
@@ -125,12 +125,13 @@ files there sit at the right layer and reach the model types under test without 
 | N4: Settings never gains a second consumer of `ConfigStore.changes` | Stage 10 |
 | N5: TDD — each behaviour gets a failing test before its implementation | every stage |
 
-### Stage 12 was not run
+### Stage 12 — deferred
 
 Stage 12 is an *external prerequisite (gated)* stage and its gate was closed at implementation
-time: `MW_HINT_AUDIO_DIR`, `MW_INTEGRATION`, `OPENAI_API_KEY` and `SPEECHMATICS_API_KEY` were all
-probed and absent, and no clip set exists in or beside the repository. Per the stage's own risk
-note, the feature therefore ships with `HintSupport.speechAnalyzer` at its pre-measurement value,
+time, so it is **deferred**: v2 ships without it and the stage is run when the clip set exists.
+The gate probe found `MW_HINT_AUDIO_DIR`, `MW_INTEGRATION`, `OPENAI_API_KEY` and
+`SPEECHMATICS_API_KEY` all unset, and no clip set exists in or beside the repository. Per the
+stage's own risk note, the feature therefore ships with `HintSupport.speechAnalyzer` at its pre-measurement value,
 `.unavailable(reason: "effect not yet measured")`, and Stage 13's README states exactly that — a
 truthful statement rather than a broken one. Every other engine's hint support is proven by the
 contract tests, which need no audio. R38 remains open until the clip set exists; when it does,
@@ -825,7 +826,7 @@ Stage 12 once the clip set exists.
 writes only under the feature folder's `measurements/`, only when explicitly opted in, and the
 path is asserted by the renderer test.
 
-### Stage 12 — Run the measurement and settle SpeechAnalyzer's hint label
+### Stage 12 — Run the measurement and settle SpeechAnalyzer's hint label — DEFERRED
 
 **Goal:** The per-engine hint effect is measured and recorded, and SpeechAnalyzer's label — and its code path — reflect the result.
 **Design references:** §3 R37, R38; §5.8; §7 (SpeechAnalyzer risk); §9
