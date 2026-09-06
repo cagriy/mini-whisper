@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-09-06
+
 ### Added
 
 - Remembered corrections. Correct a misheard phrase from the menu bar's last dictation or

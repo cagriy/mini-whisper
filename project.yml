@@ -56,8 +56,8 @@ targets:
         PRODUCT_NAME: Mini Whisper
         PRODUCT_MODULE_NAME: MiniWhisper
         PRODUCT_BUNDLE_IDENTIFIER: com.ips.mini-whisper
-        MARKETING_VERSION: "0.2.0"
-        CURRENT_PROJECT_VERSION: "0.2.0"
+        MARKETING_VERSION: "0.3.0"
+        CURRENT_PROJECT_VERSION: "0.3.0"
         INFOPLIST_FILE: App/Info.plist
         CODE_SIGN_ENTITLEMENTS: App/MiniWhisper.entitlements
         ENABLE_HARDENED_RUNTIME: YES
