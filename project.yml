@@ -61,10 +61,10 @@ targets:
         PRODUCT_NAME: Mini Whisper
         PRODUCT_MODULE_NAME: MiniWhisper
         PRODUCT_BUNDLE_IDENTIFIER: com.ips.mini-whisper
-        MARKETING_VERSION: "0.3.1"
+        MARKETING_VERSION: "0.4.0"
         # Sparkle compares CFBundleVersion; a frozen build number would make
         # every update look non-newer, so it tracks the release version.
-        CURRENT_PROJECT_VERSION: "0.3.1"
+        CURRENT_PROJECT_VERSION: "0.4.0"
         INFOPLIST_FILE: App/Info.plist
         CODE_SIGN_ENTITLEMENTS: App/MiniWhisper.entitlements
         ENABLE_HARDENED_RUNTIME: YES

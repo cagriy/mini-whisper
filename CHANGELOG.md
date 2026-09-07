@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-09-07
+
 ### Added
 
 - Automatic updates, via Sparkle. Mini Whisper checks for a new version once a day, shows the
