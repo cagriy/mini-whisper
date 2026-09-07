@@ -4,12 +4,14 @@ Native Swift/AppKit rewrite of the Python app `../mini-whisper` (v0.1.8), and si
 shipping app. Same bundle ID `com.ips.mini-whisper`, same `~/.config/mini-whisper/` files, same
 Keychain items, same cask token `mini-whisper`.
 
-This repo is `github.com/cagriy/mini-whisper`. The Python original was renamed to
-`cagriy/mini-whisper-py`, to be archived once the signed Swift release is proven; its local
-checkout is still `../mini-whisper`, so the directory name and the remote no longer match.
+Both lines live in one repo, `github.com/cagriy/mini-whisper`: Swift on `main`, the Python app
+preserved as the `python-legacy` branch and the `v0.1.x` tags, so releases read as one continuous
+version line. This working copy's directory is still `mini-whisper-swift`.
 
-**`../mini-whisper` is a read-only reference.** Never create, modify or delete anything under it.
-Read it freely for behaviour, constants and test cases.
+**`../mini-whisper` is a read-only reference** — the Python checkout, left at the pre-rewrite
+commit. Never create, modify or delete anything under it, and never `git pull` there: it shares the
+remote above, so a pull would drag Swift `main` over it. Read it freely for behaviour, constants
+and test cases.
 
 ## Layout
 
