@@ -5,6 +5,18 @@
     <link>https://raw.githubusercontent.com/cagriy/mini-whisper/main/appcast.xml</link>
     <language>en</language>
     <item>
+      <title>Mini Whisper 0.5.0</title>
+      <sparkle:version>0.5.0</sparkle:version>
+      <sparkle:shortVersionString>0.5.0</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <description>&lt;h3&gt;Added&lt;/h3&gt;
+&lt;ul&gt;&lt;li&gt;Six overlay animation styles for the recording card: Soft meter, Silk ribbon, Resonant halo, Liquid pearl, Petal iris and the original Constellation. **Soft meter is now the default for every install** — Settings → Overlay picks any of the six beside a live preview that loops a simulated dictation, and Constellation is one click away.&lt;/li&gt;&lt;/ul&gt;
+&lt;h3&gt;Changed&lt;/h3&gt;
+&lt;ul&gt;&lt;li&gt;The release pipeline signs the DMG itself, not just the app inside it, and refuses to submit an image &lt;code&gt;hdiutil&lt;/code&gt; cannot verify. Gatekeeper can now assess the download on its own signature; 0.4.0 and earlier shipped an unsigned image.&lt;/li&gt;&lt;/ul&gt;</description>
+      <pubDate>Mon, 07 Sep 2026 19:44:21 +0000</pubDate>
+      <enclosure url="https://github.com/cagriy/mini-whisper/releases/download/v0.5.0/MiniWhisper-0.5.0-arm64.dmg" sparkle:edSignature="WuCSCJ77I5mtyEgzcmC9YhinV3y05cdgWd6CqIZyaV2lBsIYQxuwqbRu84ngo60x5UOXn8y1YcD1tg0p8v7ACA==" length="4968161" type="application/octet-stream" />
+    </item>
+    <item>
       <title>Mini Whisper 0.4.0</title>
       <sparkle:version>0.4.0</sparkle:version>
       <sparkle:shortVersionString>0.4.0</sparkle:shortVersionString>
