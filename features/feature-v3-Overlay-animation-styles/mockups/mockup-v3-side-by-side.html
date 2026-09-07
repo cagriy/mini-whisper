@@ -1,0 +1,121 @@
+<title>Overlay — Side by side</title>
+<style>
+*,*::before,*::after{box-sizing:border-box}
+:root{--page-bg:#1c1e22;--page-text:#e8e8ea;--page-muted:#9a9aa2;--accent:#7cc4ff;--banner:#26292f;--rule:#34383f;
+--win:#ececec;--win2:#f6f6f6;--txt:#1d1d1f;--mut:#6e6e73;--bd:#d2d2d7;--blue:#0a60ff}
+body{margin:0;background:var(--page-bg);color:var(--page-text);font:14px/1.45 -apple-system,BlinkMacSystemFont,"Helvetica Neue",sans-serif;-webkit-font-smoothing:antialiased}
+.banner{background:var(--banner);border-bottom:1px solid var(--rule);padding:14px 22px;font-size:13px}
+.banner strong{color:#fff}.banner p{margin:4px 0 0;color:var(--page-muted);max-width:90ch}.banner .axis{color:var(--accent)}
+main{padding:26px 22px;display:flex;justify-content:center}
+.mac{width:780px;height:560px;background:var(--win);color:var(--txt);border-radius:11px;box-shadow:0 24px 60px rgba(0,0,0,.45);display:grid;grid-template-rows:auto 1fr;overflow:hidden;font-size:13px}
+.title{height:52px;background:#e3e3e7;border-bottom:1px solid #cfcfd4;display:flex;align-items:center;padding:0 14px;gap:14px;position:relative}
+.title .lights{display:flex;gap:7px}.title .lights i{width:12px;height:12px;border-radius:50%}
+.title h1{font-size:13px;font-weight:600;margin:0;position:absolute;left:50%;transform:translateX(-50%);top:8px;color:#3a3a3f}
+.body{display:grid;grid-template-columns:190px 1fr;min-height:0}
+.side{background:#e6e6ea;border-right:1px solid #d0d0d5;padding:10px 8px;display:flex;flex-direction:column;gap:2px}
+.side button{font:13px -apple-system,sans-serif;color:var(--txt);background:none;border:0;border-radius:7px;padding:6px 10px;display:flex;align-items:center;gap:10px;cursor:default;text-align:left}
+.side button .ic{width:22px;height:22px;border-radius:6px;background:#8e8e95;color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:12px}
+.side button.on{background:var(--blue);color:#fff}.side button.on .ic{background:rgba(255,255,255,.3)}
+.side button.new{outline:2px dashed rgba(10,96,255,.55);outline-offset:1px}
+.side .sym{margin-left:auto;font-size:10px;color:rgba(255,255,255,.85);font-family:ui-monospace,Menlo,monospace}
+.content{min-height:0;overflow:auto}
+.pane{padding:18px 22px 24px}
+.pane h2{font-size:15px;margin:0 0 12px}
+.foot{font-size:11.5px;color:var(--mut);padding:8px 0 0;line-height:1.4}
+.eng{display:flex;align-items:center;gap:10px;padding:7px 10px;border:1px solid var(--bd);border-radius:8px;background:#fff;cursor:pointer}
+.eng input{margin:0}.eng span{display:flex;flex-direction:column;flex:1}.eng small{color:var(--mut);font-size:11px}
+.eng.sel{border-color:var(--blue);box-shadow:0 0 0 2px rgba(10,96,255,.15)}
+.eng .def{font-size:10px;color:var(--blue);border:1px solid var(--blue);border-radius:4px;padding:1px 5px;margin-left:auto}
+.card{width:300px;height:300px;border-radius:20px;overflow:hidden;position:relative}
+.card canvas{display:block;width:100%;height:100%}
+.stage{background:linear-gradient(140deg,#d8e5ee 0%,#c0d4e2 43%,#90adbe 100%);border-radius:12px;display:grid;place-items:center;position:relative;overflow:hidden;isolation:isolate}
+.stage::before{content:"";position:absolute;z-index:-1;border-radius:50%;background:#f4f5eec9;width:390px;height:210px;top:-88px;left:-80px;transform:rotate(-25deg);filter:blur(2px)}
+button:focus-visible,label:focus-within{outline:2px solid var(--blue);outline-offset:2px}
+@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
+</style>
+<style>
+.split{display:grid;grid-template-columns:214px 316px;gap:12px;align-items:start}
+.list{display:flex;flex-direction:column;gap:5px}
+.list .eng{padding:6px 9px}.list .eng small{display:none}.list .eng.sel small{display:block}
+.stageB{width:316px;height:316px;background:none;border:1px solid var(--bd);border-radius:12px;background:#dfe3e8}
+.stageB::before{display:none}
+.blurb{font-size:12px;color:var(--txt);margin:10px 0 0;line-height:1.4;min-height:34px}
+</style>
+<div class="banner"><strong>Mockup — not shipping code · Feature v3 · “Overlay — Side by side” · Accepted 2026-09-07</strong>
+<p>New Overlay section placed before Sound (SF Symbol <code>sparkles.rectangle.stack</code>, chosen at acceptance over the <code>circle.dotted</code> first shown). Compact radio list on the left — names only, the selected row unfolds its description — and the 300×300 preview on the right, sitting on a flat neutral well rather than a scenic stage, so the whole pane fits the 560-pt window without scrolling. <span class="axis">Axis: two columns, picker and preview side by side; no stage art; description shown only for the selected style.</span> Preview is a plain loop with no controls. Design language: accepted v1 Settings — Sidebar mockup.</p></div>
+<main><div class="mac">
+<div class="title"><span class="lights"><i style="background:#ff5f57"></i><i style="background:#febc2e"></i><i style="background:#28c840"></i></span><h1>Mini Whisper Settings</h1></div>
+<div class="body"><nav class="side">
+<button type="button"><span class="ic">⚙︎</span>General</button><button type="button"><span class="ic">⌘</span>Hotkeys</button><button type="button"><span class="ic">🔑</span>Keys</button><button type="button"><span class="ic">✎</span>Cleanup</button><button type="button"><span class="ic">Aa</span>Vocabulary</button><button type="button"><span class="ic">🕘</span>History</button><button type="button" class="on new"><span class="ic">✦</span>Overlay<span class="sym">sparkles.rectangle.stack</span></button><button type="button"><span class="ic">♪</span>Sound</button>
+</nav><div class="content"><section class="pane">
+<h2>Overlay</h2>
+<div class="split">
+<div><div class="list" id="list"></div></div>
+<div><div class="stage stageB"><div class="card"><canvas id="cv" width="600" height="600" role="img" aria-label="Preview of the selected overlay style"></canvas></div></div></div>
+</div>
+<div class="foot">The card appears beside the text field you are dictating into. The preview replays a short dictation with a simulated voice.</div>
+</section></div></div></div></main>
+<script>
+var Motion=(()=>{'use strict';
+  const TAU=Math.PI*2;const noise=n=>{const v=Math.sin(n*127.1+311.7)*43758.5453;return v-Math.floor(v);};
+  function sample(kind,t,level,state){
+    const processing=state==='processing';const e=state==='speaking'?Math.max(0,Math.min(1,level)):0;
+    if(state==='done')return[{x:150,y:140,r:2,a:1}];
+    const points=[];const dot=(x,y,r=1,a=.85,h=0)=>points.push({x,y,r,a,h});
+    if(kind==='current'){for(let i=0;i<24;i++){const a=i<10?i/10*TAU+(noise(i)-.5)*.18:noise(i+4)*TAU;const radius=i<10?100+(noise(i+7)-.5)*20:100*Math.sqrt(noise(i+30));const angle=a+(processing?t*3:0),drift=t*1.2+noise(i+8)*TAU;dot(150+radius*Math.cos(angle)+10*Math.cos(drift)+e*70*Math.cos(t*2.1+i*2),150+radius*Math.sin(angle)+10*Math.sin(drift)+e*70*Math.sin(t*2.7+i*1.7),2+noise(i+10)*3,.9);}}
+    else if(kind==='ribbon'){for(let layer=0;layer<3;layer++)for(let i=0;i<120;i++){const u=i/119,env=Math.sin(u*Math.PI)**1.3;const amp=processing?12:3+e*53;const phase=processing?t*2.4:t*1.8;dot(40+u*220,140+Math.sin(u*Math.PI*3-phase+layer*.22)*amp*env+(layer-1)*3*env,1,[.23,.95,.35][layer]);}}
+    else if(kind==='halo'){for(let layer=0;layer<2;layer++)for(let i=0;i<180;i++){const a=i/179*TAU;const ripple=Math.sin(a*3-t*2.2)*e*7+Math.cos(a*5+t)*e*3;const radius=processing?54+layer*7:43+e*24+Math.sin(t*1.5)*1.7+layer*5+ripple;const bright=processing?.15+.8*Math.max(0,Math.cos(a-t*1.7-layer*.5))**8:(layer?.24:.88);dot(150+Math.cos(a)*radius,140+Math.sin(a)*radius,1,bright);}}
+    else if(kind==='bars'){for(let i=0;i<15;i++){const centre=Math.sin((i+1)/16*Math.PI)**1.3;const syllable=.28+.72*(.5+.5*Math.sin(t*7-i*.63))**2;const scan=(.5+.5*Math.sin(i*.53-t*3))**5;const height=processing?7+27*scan:5+e*105*centre*syllable;dot(73+i*11,140,2.5,processing?.3+.65*scan:.82,height);}}
+    else if(kind==='pearl'){for(let i=0;i<180;i++){const a=i/179*TAU,spin=t*(processing?1.5:.7);const radius=(processing?44:29+e*27)+(processing?4:2+e*6)*Math.sin(a*3-spin)+e*3*Math.cos(a*5+spin);dot(150+Math.cos(a)*radius,140+Math.sin(a)*radius,1,.85);}}
+    else if(kind==='aperture'){for(let layer=0;layer<6;layer++)for(let i=0;i<80;i++){const a=i/79*TAU,rot=layer*TAU/6+(processing?t*.65:Math.sin(t*.5)*.08);const open=processing?.5:e;const x=13+(1-Math.cos(a))*(17+open*19),y=Math.sin(a)*(7+open*9);dot(150+x*Math.cos(rot)-y*Math.sin(rot),140+x*Math.sin(rot)+y*Math.cos(rot),1,.25+.55*(.5+.5*Math.sin(a+t+layer)));}}
+    return points;}
+  return{sample};})();
+/* The preview loop the app will run: show (120 ms fade), listening 2 s, speaking 6 s, processing 3.5 s,
+   complete (260 ms hold, 120 ms fade), empty until 13 s, repeat. No controls. */
+var Preview=(()=>{'use strict';
+  const LOOP=13;
+  function state(t){t=((t%LOOP)+LOOP)%LOOP;
+    if(t<2)return{phase:'quiet',alpha:Math.min(t/.12,1),label:'starting…',t};
+    if(t<8)return{phase:'speaking',alpha:1,label:t.toFixed(1)+'s',t};
+    if(t<11.5)return{phase:'processing',alpha:1,label:'processing...',t};
+    if(t<11.76)return{phase:'done',alpha:1,label:'',t};
+    if(t<11.88)return{phase:'done',alpha:1-(t-11.76)/.12,label:'',t};
+    return{phase:'idle',alpha:0,label:'',t};}
+  const phrase=t=>(.18+.82*(.5+.5*Math.sin(t*2.05))**.5)*(.55+.45*Math.sin(t*8.2)**2);
+  const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
+  function card(canvas,kind){const ctx=canvas.getContext('2d');let points=[],level=0,phase='',changed=0;
+    function stroke(pts,width){ctx.lineWidth=width;ctx.lineCap='round';for(let i=1;i<pts.length;i++){const p=pts[i],q=pts[i-1];ctx.strokeStyle=`rgba(244,248,255,${p.a})`;ctx.beginPath();ctx.moveTo(q.x,q.y);ctx.lineTo(p.x,p.y);ctx.stroke();}}
+    return{get kind(){return kind},set kind(k){kind=k;points=[];},
+      draw(t,dt){const s=state(t);
+        if(s.phase!==phase){phase=s.phase;changed=t;}
+        const target=s.phase==='speaking'?.65*phrase(t):0;
+        level+=(target-level)*(reduced?1:1-Math.exp(-dt*(target>level?18:4)));
+        ctx.setTransform(2,0,0,2,0,0);ctx.clearRect(0,0,300,300);
+        if(s.phase==='idle'||s.alpha<=0)return;
+        ctx.globalAlpha=1;ctx.fillStyle=`rgba(0,0,0,${.7*s.alpha})`;ctx.beginPath();ctx.roundRect(0,0,300,300,20);ctx.fill();
+        ctx.globalAlpha=s.alpha;
+        const sample=Motion.sample(kind,reduced?1.3:t,level,s.phase);const blend=reduced?1:1-Math.exp(-dt*9);
+        if(points.length!==sample.length)points=sample.map(p=>({...p}));else points.forEach((p,i)=>{for(const k of Object.keys(p))p[k]+=(sample[i][k]-p[k])*blend;});
+        if(s.phase==='done'){const show=reduced?1:Math.min(1,(t-changed)/.35);ctx.globalAlpha=.9*show*s.alpha;ctx.strokeStyle='#f4f8ff';ctx.lineWidth=2;ctx.lineCap='round';ctx.lineJoin='round';
+          if(kind==='current'){ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(150,150,3,0,Math.PI*2);ctx.fill();}else{ctx.beginPath();ctx.moveTo(139,140);ctx.lineTo(147,148);ctx.lineTo(163,130);ctx.stroke();}}
+        else if(kind==='current'){ctx.lineWidth=1;for(let i=0;i<points.length;i++)for(let j=i+1;j<points.length;j++){const a=points[i],b=points[j],d=Math.hypot(a.x-b.x,a.y-b.y);if(d<120){ctx.strokeStyle=`rgba(255,255,255,${(1-d/120)*.6})`;ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();}}
+          for(const p of points){ctx.fillStyle=`rgba(255,255,255,${p.a})`;ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fill();}}
+        else if(kind==='pearl'){const light=reduced?1.3:t;const glow=ctx.createRadialGradient(139+Math.sin(light*.8)*7,126,3,150,140,76);glow.addColorStop(0,'rgba(255,255,255,.95)');glow.addColorStop(.45,'rgba(235,243,255,.65)');glow.addColorStop(1,'rgba(205,225,250,.05)');ctx.fillStyle=glow;ctx.beginPath();ctx.moveTo(points[0].x,points[0].y);for(const p of points)ctx.lineTo(p.x,p.y);ctx.closePath();ctx.fill();ctx.strokeStyle='rgba(255,255,255,.45)';ctx.lineWidth=.8;ctx.stroke();}
+        else if(kind==='bars'){ctx.lineWidth=5;ctx.lineCap='round';for(const p of points){ctx.strokeStyle=`rgba(244,248,255,${p.a})`;ctx.beginPath();ctx.moveTo(p.x,p.y-p.h/2);ctx.lineTo(p.x,p.y+p.h/2);ctx.stroke();}}
+        else{const size={ribbon:120,halo:180,aperture:80}[kind];for(let i=0;i<points.length;i+=size)stroke(points.slice(i,i+size),kind==='ribbon'?1.2:1);}
+        ctx.globalAlpha=.9*s.alpha;ctx.fillStyle='#fff';ctx.font='11px ui-monospace,Menlo,monospace';ctx.textAlign='right';ctx.textBaseline='alphabetic';ctx.fillText(s.label,288,290);ctx.globalAlpha=1;}};}
+  function run(cards){let last=0,time=0;function frame(now){const dt=Math.min((now-last)/1000||1/60,.05);last=now;if(!document.hidden){time+=dt;for(const c of cards)c.draw(time,dt);}requestAnimationFrame(frame);}requestAnimationFrame(frame);return{restart(){time=0;}};}
+  return{card,run,state};})();
+var Styles=[
+  {id:'bars',name:'Soft meter',def:true,blurb:'Fifteen rounded strokes. Familiar audio feedback, softened and kept compact.'},
+  {id:'ribbon',name:'Silk ribbon',blurb:'Three fine strands breathe as one. The smallest visual footprint of the set.'},
+  {id:'halo',name:'Resonant halo',blurb:'A thin, imperfect circle. Voice becomes a change in contour, not a burst.'},
+  {id:'pearl',name:'Liquid pearl',blurb:'One luminous, fluid body. A soft centre of gravity instead of a field of marks.'},
+  {id:'aperture',name:'Petal iris',blurb:'Six tapered loops form an open centre. A mechanical rhythm with an organic outline.'},
+  {id:'current',name:'Constellation',blurb:'A connected field of particles. Organic, spatial, and deliberately restless.'}];
+</script>
+<script>
+(()=>{const list=document.getElementById('list');const card=Preview.card(document.getElementById('cv'),'bars');const loop=Preview.run([card]);
+for(const s of Styles){const l=document.createElement('label');l.className='eng'+(s.id==='bars'?' sel':'');l.innerHTML=`<input type="radio" name="style" value="${s.id}" ${s.id==='bars'?'checked':''}><span><b>${s.name}</b><small>${s.blurb}</small></span>${s.def?'<i class="def">Default</i>':''}`;
+ l.querySelector('input').addEventListener('change',()=>{document.querySelectorAll('.eng').forEach(x=>x.classList.toggle('sel',x===l));card.kind=s.id;loop.restart();});list.append(l);}})();
+</script>
