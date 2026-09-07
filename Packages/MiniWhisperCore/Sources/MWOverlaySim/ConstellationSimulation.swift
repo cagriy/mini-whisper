@@ -1,8 +1,8 @@
 import Foundation
 
-/// The overlay's physics and choreography, with no AppKit and no drawing: a port of
-/// `overlay.py`'s `_tick` and seeding, extended with the Breathing choreography of design
-/// §5.6. Deterministic for a given seed and step sequence.
+/// The overlay's physics, with no AppKit and no drawing: a port of `overlay.py`'s `_tick`
+/// and seeding, over the shared `Choreography` and `LevelSmoother` of design §5.6.
+/// Deterministic for a given seed and step sequence.
 public struct ConstellationSimulation {
     private struct Dot {
         var homeX = 0.0
@@ -25,12 +25,10 @@ public struct ConstellationSimulation {
     private let reduceMotion: Bool
     private var dots: [Dot]
     private var frame: Frame
-    private var mode: OverlayMode = .starting
+    private var choreography: Choreography
+    private var smoother = LevelSmoother()
     /// Free-running clock behind the ambient orbit; never reset, so the drift is continuous.
     private var time: TimeInterval = 0
-    private var modeTime: TimeInterval = 0
-    private var showTime: TimeInterval = 0
-    private var smoothedLevel = 0.0
     private var rotationAngle = 0.0
 
     public init(rng: SeededRandom = SeededRandom(), reduceMotion: Bool = false) {
@@ -38,22 +36,17 @@ public struct ConstellationSimulation {
         self.reduceMotion = reduceMotion
         dots = Array(repeating: Dot(), count: Constants.dotCount)
         frame = Frame(dotCount: Constants.dotCount, linkCapacity: Constants.maxLinks)
+        choreography = Choreography(reduceMotion: reduceMotion)
     }
 
     // MARK: - Observable state
 
     /// The smoothed 0–1 audio level the displacement is scaled by.
-    public var level: Double { smoothedLevel }
+    public var level: Double { smoother.level }
     /// Radians the processing constellation has turned through.
     public var rotation: Double { rotationAngle }
     /// True once the current mode's choreography has run out and the panel should hide.
-    public var isFinished: Bool {
-        switch mode {
-        case .result: modeTime >= Constants.resultHoldSeconds + Constants.cardFadeSeconds
-        case .error: modeTime >= Constants.errorSeconds
-        case .starting, .recording, .processing: false
-        }
-    }
+    public var isFinished: Bool { choreography.isFinished }
 
     // MARK: - Pure mappings
 
@@ -88,15 +81,9 @@ public struct ConstellationSimulation {
     /// Reseeds the constellation and starts the show choreography: every dot at the centre
     /// with no velocity, the card fading in over 120 ms (design §5.6).
     public mutating func show() {
-        mode = .starting
-        modeTime = 0
-        showTime = 0
-        smoothedLevel = 0
+        choreography.show()
+        smoother.reset()
         rotationAngle = 0
-        frame.errorText = ""
-        frame.offsetX = 0
-        frame.cardAlpha = 0
-        frame.dotsVisible = true
 
         for index in dots.indices {
             let (x, y) = seedPosition(index: index)
@@ -115,15 +102,8 @@ public struct ConstellationSimulation {
     }
 
     public mutating func set(mode: OverlayMode) {
-        self.mode = mode
-        modeTime = 0
+        choreography.set(mode: mode)
         if case .processing = mode { rotationAngle = 0 }
-        if case .error(let message) = mode {
-            frame.errorText = message
-        } else {
-            frame.errorText = ""
-            frame.offsetX = 0
-        }
     }
 
     // MARK: - Step
@@ -133,17 +113,17 @@ public struct ConstellationSimulation {
     public mutating func step(dt: TimeInterval, level: Double) -> Frame {
         let dt = min(max(dt, 0), Constants.maxTimestep)
         time += dt
-        modeTime += dt
-        showTime += dt
+        choreography.advance(dt: dt)
 
         updateLevel(level)
         integrate(dt: dt)
         computeLinks()
 
-        frame.cardAlpha = cardAlpha()
-        frame.offsetX = shake()
-        frame.dotsVisible = dotsVisible()
-        frame.label = label()
+        frame.cardAlpha = choreography.cardAlpha
+        frame.offsetX = choreography.shakeOffset
+        frame.dotsVisible = choreography.contentVisible
+        frame.label = choreography.label
+        frame.errorText = choreography.errorText
         for index in dots.indices {
             frame.dots[index] = DotState(x: dots[index].x, y: dots[index].y, radius: dots[index].radius)
         }
@@ -153,16 +133,12 @@ public struct ConstellationSimulation {
     // MARK: - Physics
 
     private mutating func updateLevel(_ raw: Double) {
-        guard case .recording = mode else { return }
-        let normalised = Self.normalisedLevel(rms: raw)
-        // The one-pole is per tick, not per second — the same frame-rate coupling the
-        // source has, kept for visual parity.
-        let coefficient = normalised > smoothedLevel ? Constants.smoothAttack : Constants.smoothDecay
-        smoothedLevel += coefficient * (normalised - smoothedLevel)
+        guard case .recording = choreography.mode else { return }
+        _ = smoother.update(rms: raw)
     }
 
     private mutating func integrate(dt: TimeInterval) {
-        if case .processing = mode {
+        if case .processing = choreography.mode {
             rotationAngle += Constants.processingRotationSpeed * dt
         }
         let cosine = cos(rotationAngle)
@@ -176,10 +152,10 @@ public struct ConstellationSimulation {
             var targetX = baseX + Constants.ambientAmplitude * cos(orbit)
             var targetY = baseY + Constants.ambientAmplitude * sin(orbit)
 
-            if case .recording = mode {
+            if case .recording = choreography.mode {
                 dot.audioAngle += rng.gaussian() * Constants.audioAngleDrift
-                    * (1 + smoothedLevel * Constants.audioAngleBoost) * dt
-                let audio = Self.audioDisplacement(level: smoothedLevel, angle: dot.audioAngle)
+                    * (1 + smoother.level * Constants.audioAngleBoost) * dt
+                let audio = Self.audioDisplacement(level: smoother.level, angle: dot.audioAngle)
                 targetX += audio.x
                 targetY += audio.y
             }
@@ -196,7 +172,7 @@ public struct ConstellationSimulation {
 
     /// Where a dot is pulled towards, before ambient drift — the mode's whole choreography.
     private func home(_ dot: Dot, cosine: Double, sine: Double) -> (Double, Double) {
-        switch mode {
+        switch choreography.mode {
         case .starting:
             let radius = Self.breathingRadius(at: time)
             return (Self.centre + radius * cos(dot.homeAngle),
@@ -228,35 +204,6 @@ public struct ConstellationSimulation {
             }
         }
         frame.linkCount = count
-    }
-
-    // MARK: - Choreography
-
-    private func cardAlpha() -> Double {
-        let fadeIn = min(showTime / Constants.cardFadeSeconds, 1)
-        guard case .result = mode else { return fadeIn }
-        let fadeOut = (modeTime - Constants.resultHoldSeconds) / Constants.cardFadeSeconds
-        return min(fadeIn, 1 - min(max(fadeOut, 0), 1))
-    }
-
-    private func shake() -> Double {
-        guard case .error = mode, !reduceMotion else { return 0 }
-        return Self.shakeOffset(at: modeTime)
-    }
-
-    private func dotsVisible() -> Bool {
-        guard case .error = mode else { return true }
-        // Once the shake is spent the message takes the card over (design §5.6).
-        return modeTime < Constants.shakeDuration
-    }
-
-    private func label() -> String {
-        switch mode {
-        case .starting: Constants.startingLabel
-        case .processing: Constants.processingLabel
-        case .recording: String(format: "%.1fs", showTime)
-        case .result, .error: ""
-        }
     }
 
     // MARK: - Seeding
