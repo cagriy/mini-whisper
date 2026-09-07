@@ -8,8 +8,14 @@ optional AI cleanup.
 
 ```sh
 brew tap cagriy/tap
+brew trust cagriy/tap
 brew install --cask mini-whisper
 ```
+
+Homebrew refuses to load casks from a third-party tap until you trust it, so the
+`brew trust` line is required, not optional.
+
+Requires macOS 14 (Sonoma) or newer, on Apple silicon.
 
 ## Permissions
 
