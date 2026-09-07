@@ -91,6 +91,15 @@ public enum Constants {
     /// The mockup's `rgba(244,248,255,…)` mark colour, as 0–1 components.
     public static let styleMarkWhite = (red: 244.0 / 255, green: 248.0 / 255, blue: 255.0 / 255)
 
+    // MARK: - Preview (design §5.2)
+    /// §3.13's loop: 2 s starting, 6 s recording, 3.5 s processing, the rest result.
+    public static let previewLoopSeconds = 13.0
+    public static let previewStartingSeconds = 2.0
+    public static let previewRecordingSeconds = 6.0
+    public static let previewProcessingSeconds = 3.5
+    /// The mockup's voice slider default, as a normalised 0–1 level.
+    public static let previewVoiceLevel = 0.65
+
     // MARK: - Caption bar
     public static let captionWidth = 480.0
     public static let captionGap = 14.0
