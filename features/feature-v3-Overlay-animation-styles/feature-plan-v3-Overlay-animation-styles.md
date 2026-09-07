@@ -764,3 +764,25 @@ None — plan matches design v3 exactly.
    step puts in its own file — could not write into the buffer at all. `internal(set)` is also what
    the shape the step points at, `Frame.swift`'s `dots`/`links`, actually uses, and design §5.1
    specifies a plain `var`. `count` and `glowX` are `internal(set)` as the step says.
+
+2. **Stage 4, step 1: `blendConvergesWithinOneSecond` is `blendFollowsTheNinePerSecondOnePole`.**
+   The plan's tolerance is unreachable: 60 steps of `dt = 1/60` leave `e^-9` ≈ 1.2·10⁻⁴ of the gap
+   the blend started with, which over the soft meter's ~105 pt height range is 0.013 — four orders
+   above 1e−3 — and every other style's sample keeps moving with `t`, so a first-order lag against a
+   live sample has no fixed tolerance at all. The replacement pins the rate *exactly* instead: it
+   runs one second against soft meter's quiet form (the one time-invariant sample) and asserts the
+   remaining gap is `e^-9` of the starting gap to 1e−9.
+3. **Stage 4, step 6: `PreviewScript.mode(at:)` returns a non-optional `OverlayMode`.** Design §5.1
+   spells it `-> OverlayMode?` with "nil = card hidden", but §5.4's table gives every instant of
+   [0, 13) a mode, so nil is unreachable; the card is hidden by `cardAlpha` reaching 0 at 11.88 s,
+   not by a nil mode. Stage 8 consumes a plain `OverlayMode`.
+4. **Stage 4 adds two tests the step list does not name.**
+   `geometryBufferIsAllocatedOnceAcrossAShow` pins R17 itself — the live geometry's storage address
+   is unchanged across 600 stepped frames — where `geometryCapacityIsConstantAcrossShow` alone would
+   pass even if every step reallocated. `frameCarriesTheChoreography` covers the fade, shake and
+   label wiring the stage's *Definition of done* names but its step list omits.
+5. **Stage 4: `StyleFrame.geometry` is the simulation's live buffer, handed over without a copy.**
+   `StyleSimulation` stores no `StyleFrame`; each `step` builds one around `current`. A host must
+   copy out of it element-wise and let it go — retaining a frame across steps makes the buffer
+   non-uniquely-referenced and every later step pays a 480-point copy-on-write, defeating R17.
+   `ConstellationSimulation` has the same contract; `StyleLayer` (Stage 5) honours it.
