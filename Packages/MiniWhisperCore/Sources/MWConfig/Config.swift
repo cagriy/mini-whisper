@@ -1,4 +1,5 @@
 import Foundation
+import MWOverlaySim
 
 /// Loss-tolerant JSON value used to round-trip keys this version does not know about (F2).
 public enum JSONValue: Codable, Equatable, Sendable {
@@ -100,6 +101,14 @@ public struct Config: Equatable, Sendable {
     /// Raw `streaming_engine` value that this build does not recognise, kept only so
     /// that saving round-trips it (F2). Never honoured at runtime.
     var unrecognisedStreamingEngine: String?
+    /// Which animation the recording card draws (design §5.2). Unlike `streamingEngine`
+    /// this is non-optional: an absent key means the default, which is written back.
+    public var overlayStyle: OverlayStyle = .default {
+        didSet { unrecognisedOverlayStyle = nil }
+    }
+    /// Raw `overlay_style` value that this build does not recognise, kept only so that
+    /// saving round-trips it (F2). Never honoured at runtime.
+    var unrecognisedOverlayStyle: String?
     public var pricingOverrides: [String: Double] = [:]
     public var usage: [String: DayUsage] = [:]
     public var historyRetentionDays = 7
@@ -162,6 +171,7 @@ extension Config: Codable {
         static let soundVolume = "sound_volume"
         static let streamingEnabled = "streaming_enabled"
         static let streamingEngine = "streaming_engine"
+        static let overlayStyle = "overlay_style"
         static let pricingOverrides = "pricing_overrides"
         static let usage = "usage"
         static let historyRetentionDays = "history_retention_days"
@@ -177,6 +187,7 @@ extension Config: Codable {
             hotkey, submitHotkey, cleanupEnabled, soundVolume, streamingEnabled, streamingEngine,
             pricingOverrides, usage, historyRetentionDays, idleStopSeconds, toggleMaxSeconds,
             speechModelPrompted, vocabulary, profiles, corrections, correctionTally,
+            overlayStyle,
         ]
     }
 
@@ -209,6 +220,11 @@ extension Config: Codable {
         // does not destroy it (F2).
         unrecognisedStreamingEngine = streamingEngine == nil ? engine : nil
 
+        let style: String? = try value(Key.overlayStyle)
+        let known = style.flatMap(OverlayStyle.init(rawValue:))
+        overlayStyle = known ?? .default
+        unrecognisedOverlayStyle = known == nil ? style : nil
+
         for key in container.allKeys where !Key.all.contains(key.stringValue) {
             extra[key.stringValue] = try container.decode(JSONValue.self, forKey: key)
         }
@@ -236,6 +252,10 @@ extension Config: Codable {
         try container.encode(profiles, forKey: AnyCodingKey(Key.profiles))
         try container.encode(corrections, forKey: AnyCodingKey(Key.corrections))
         try container.encode(correctionTally, forKey: AnyCodingKey(Key.correctionTally))
+        try container.encode(
+            unrecognisedOverlayStyle ?? overlayStyle.rawValue,
+            forKey: AnyCodingKey(Key.overlayStyle)
+        )
 
         for (key, value) in extra where !Key.all.contains(key) {
             try container.encode(value, forKey: AnyCodingKey(key))

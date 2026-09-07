@@ -1,5 +1,7 @@
 import Foundation
+import MWOverlaySim
 import Testing
+
 @testable import MWConfig
 
 @Suite struct ConfigCodingTests {
@@ -101,6 +103,42 @@ import Testing
 
         let saved = try JSONSerialization.jsonObject(with: config.encoded()) as? [String: Any]
         #expect(saved?["streaming_engine"] as? String == "openai")
+    }
+
+    @Test func overlayStyleAbsentIsSoftMeter() throws {
+        #expect(try decode("{}").overlayStyle == .softMeter)
+    }
+
+    @Test func everyOverlayStyleRawValueRoundTrips() throws {
+        for style in OverlayStyle.allCases {
+            let config = try decode(#"{"overlay_style": "\#(style.rawValue)"}"#)
+            #expect(config.overlayStyle == style)
+
+            let saved = try JSONSerialization.jsonObject(with: config.encoded()) as? [String: Any]
+            #expect(saved?["overlay_style"] as? String == style.rawValue)
+        }
+    }
+
+    @Test func unrecognisedOverlayStyleIsIgnoredButPreserved() throws {
+        let config = try decode(#"{"overlay_style": "nonsense"}"#)
+        #expect(config.overlayStyle == .softMeter)
+
+        let saved = try JSONSerialization.jsonObject(with: config.encoded()) as? [String: Any]
+        #expect(saved?["overlay_style"] as? String == "nonsense")
+    }
+
+    @Test func chosenOverlayStyleReplacesAnUnrecognisedOne() throws {
+        var config = try decode(#"{"overlay_style": "nonsense"}"#)
+        config.overlayStyle = .petalIris
+
+        let saved = try JSONSerialization.jsonObject(with: config.encoded()) as? [String: Any]
+        #expect(saved?["overlay_style"] as? String == "petal_iris")
+    }
+
+    @Test func overlayStyleIsWrittenForANewConfig() throws {
+        let text = String(decoding: try Config().encoded(), as: UTF8.self)
+
+        #expect(text.contains(#""overlay_style" : "soft_meter""#))
     }
 
     @Test func duplicateBundleIDKeepsFirstProfile() throws {

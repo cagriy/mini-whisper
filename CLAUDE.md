@@ -49,7 +49,7 @@ empty XCTest bundle, not the result. Read the `✔/✘ Test run with N tests in 
 | Module | Responsibility | Depends on |
 |---|---|---|
 | `MWSupport` | Clock/Sleeper protocols, `Log` facade, `AnyError` mapping | — |
-| `MWConfig` | `Config`, `ConfigStore`, `PromptFiles`, `KeychainStore` | MWSupport |
+| `MWConfig` | `Config`, `ConfigStore`, `PromptFiles`, `KeychainStore` | MWSupport, MWOverlaySim |
 | `MWCorrections` | Correction rules, matching, hints | MWConfig |
 | `MWHotkeys` | `HotkeyCombo`, `HotkeyMatcher` | — |
 | `MWAudio` | `PCMConverter`, `WAVEncoder`, `AudioCaptureEngine` | MWSupport |
@@ -59,7 +59,7 @@ empty XCTest bundle, not the result. Read the `✔/✘ Test run with N tests in 
 | `MWHistory` | `HistoryStore` | MWSupport |
 | `MWProfiles` | `ProfileResolver`, `PromptComposer` | MWConfig |
 | `MWPaste` | `Paster` | MWSupport |
-| `MWOverlaySim` | `ConstellationSimulation`, `CaptionModel` | — |
+| `MWOverlaySim` | `ConstellationSimulation`, `CaptionModel`, `OverlayStyle` | — |
 | `MWPipeline` | `StreamSink`, `ProcessingJob`, `DictationController` | all of the above |
 | `MWTestSupport` | Fakes and helpers shared across test targets | all except MWPipeline |
 

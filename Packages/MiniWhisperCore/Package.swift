@@ -23,7 +23,7 @@ let package = Package(
     ],
     targets: [
         .target(name: "MWSupport"),
-        .target(name: "MWConfig", dependencies: ["MWSupport"]),
+        .target(name: "MWConfig", dependencies: ["MWSupport", "MWOverlaySim"]),
         .target(name: "MWCorrections", dependencies: ["MWConfig"]),
         .target(name: "MWHotkeys"),
         .target(name: "MWAudio", dependencies: ["MWSupport"]),

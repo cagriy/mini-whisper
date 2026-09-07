@@ -1,0 +1,177 @@
+<title>Mini Whisper — Animation studies</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+*,*::before,*::after{box-sizing:border-box}
+:root{color-scheme:light;--page:#f4f6fa;--paper:#fff;--ink:#233145;--muted:#596779;--rule:#dbe1e9;--selected:#233145;--selected-text:#fff;--accent:#4d698d}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){color-scheme:dark;--page:#151b24;--paper:#202936;--ink:#edf2f8;--muted:#aab8cb;--rule:#384454;--selected:#e6edf5;--selected-text:#202936;--accent:#adbfda}}
+:root[data-theme="dark"]{color-scheme:dark;--page:#151b24;--paper:#202936;--ink:#edf2f8;--muted:#aab8cb;--rule:#384454;--selected:#e6edf5;--selected-text:#202936;--accent:#adbfda}
+body{margin:0;background:var(--page);color:var(--ink);font:14px/1.5 -apple-system,BlinkMacSystemFont,"Helvetica Neue",sans-serif;-webkit-font-smoothing:antialiased}
+button,select,input{font:inherit}button,select{color:var(--ink);background:var(--paper);border:1px solid var(--rule);border-radius:7px;padding:8px 12px}button{cursor:pointer}button:hover{border-color:var(--accent)}button:focus-visible,select:focus-visible,input:focus-visible{outline:3px solid #739cd0;outline-offset:3px}button[aria-pressed="true"]{background:var(--selected);color:var(--selected-text);border-color:var(--selected)}button:disabled,input:disabled{opacity:.45;cursor:default}
+.page{max-width:1440px;margin:auto;padding:26px 36px 40px}.masthead{display:flex;justify-content:space-between;align-items:center;gap:20px;margin-bottom:28px}.brand{display:flex;align-items:center;gap:9px;font-size:16px;font-weight:600}.brand svg{width:23px;height:23px}.meta{color:var(--muted);font-size:12px}.intro{display:flex;align-items:flex-end;justify-content:space-between;gap:30px;margin-bottom:24px}h1{margin:0 0 8px;font-size:36px;font-weight:550;letter-spacing:-1.2px;line-height:1.15}.intro p{margin:0;max-width:660px;color:var(--muted)}.note{font-size:12px;max-width:255px;color:var(--muted);text-align:right}.controls{position:sticky;top:0;z-index:5;background:var(--page);border-top:1px solid var(--rule);border-bottom:1px solid var(--rule);padding:16px 0 13px;margin-bottom:24px}.control-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}.segmented{display:flex;gap:4px}.segmented button{white-space:nowrap}.divider{height:24px;width:1px;background:var(--rule);margin:0 3px}.level-control{display:flex;align-items:center;gap:9px;margin-left:auto}.level-control input{width:105px;accent-color:var(--accent)}output{min-width:32px;font-variant-numeric:tabular-nums}.control-bottom{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-top:13px;color:var(--muted);font-size:12px}.options{display:flex;align-items:center;gap:14px;flex-wrap:wrap}.options label{display:flex;align-items:center;gap:6px}.options select{font-size:12px;padding:4px 7px}.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:26px 22px}.study{min-width:0}.study-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 0 9px}h2{margin:0;font-size:16px;font-weight:600;letter-spacing:-.25px}.badge{font-size:10px;border:1px solid var(--rule);padding:2px 6px;border-radius:4px;margin-left:5px;font-weight:500;white-space:nowrap}.badge.rec{color:var(--accent);border-color:var(--accent)}.study-head select{font-size:11px;padding:5px;max-width:107px}.stage{height:338px;display:grid;place-items:center;position:relative;overflow:hidden;border-radius:12px;background:linear-gradient(140deg,#d8e5ee 0%,#c0d4e2 43%,#90adbe 100%);isolation:isolate}.stage::before,.stage::after{content:"";position:absolute;z-index:-1;border-radius:50%;filter:blur(2px)}.stage::before{background:#f4f5eec9;width:390px;height:210px;top:-88px;left:-80px;transform:rotate(-25deg)}.stage::after{background:#647e9260;width:520px;height:180px;bottom:-135px;right:-130px;transform:rotate(-25deg)}[data-backdrop="dark"] .stage{background:linear-gradient(150deg,#34434f,#202933 55%,#151b24)}[data-backdrop="dark"] .stage::before{background:#586b7850}[data-backdrop="dark"] .stage::after{background:#627c8d40}.overlay{position:relative;width:300px;height:300px;max-width:calc(100% - 24px);aspect-ratio:1;background:rgba(0,0,0,.7);border-radius:20px;overflow:hidden}.overlay canvas{display:block;width:100%;height:100%;position:absolute;inset:0}.overlay-label{position:absolute;bottom:10px;right:12px;font-size:11px;color:rgba(255,255,255,.9);font-variant-numeric:tabular-nums;letter-spacing:.15px}.study-copy{padding:12px 1px 0}.description{margin:0 0 8px;min-height:42px;color:var(--muted);font-size:13px}.state-copy{display:flex;align-items:baseline;gap:8px;font-size:12px;min-height:37px}.state-name{font-weight:600;white-space:nowrap}.state-detail{color:var(--muted)}.foot{margin-top:28px;border-top:1px solid var(--rule);padding-top:17px;display:grid;grid-template-columns:1fr 1fr;gap:30px;font-size:12px;color:var(--muted)}.foot p{margin:0}.foot strong{color:var(--ink);font-weight:600}details{grid-column:1/-1}summary{cursor:pointer;color:var(--ink)}details p{margin-top:8px!important;max-width:880px}code{font-size:11px}.live-dot{display:inline-block;width:5px;height:5px;background:currentColor;border-radius:50%;margin-right:6px;vertical-align:2px}.progress{height:2px;background:var(--rule);margin-top:12px;overflow:hidden}.progress span{display:block;height:100%;background:var(--accent);width:0}#play{min-width:116px}#signal{font-variant-numeric:tabular-nums}.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+@media(max-width:1150px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}.level-control{margin-left:0}.control-row{gap:9px}.divider{display:none}.note{display:none}}
+@media(max-width:650px){.page{padding:18px 16px 26px}.masthead{align-items:flex-start;margin-bottom:24px}.meta{max-width:160px;text-align:right;font-size:10px}h1{font-size:29px}.intro p{font-size:13px}.grid{grid-template-columns:1fr;gap:26px}.segmented{width:100%;overflow:auto}.segmented button{flex:1;padding:7px 8px;font-size:12px}.controls{position:relative;padding-top:12px}.control-bottom{align-items:flex-start;flex-direction:column}.options{gap:10px}.foot{grid-template-columns:1fr;gap:15px}.stage{height:328px}.overlay{height:auto}.description{min-height:0}.state-copy{min-height:0}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important}}
+</style>
+<main class="page">
+  <header class="masthead"><div class="brand"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M3 10v4m4-8v12m5-16v20m5-16v12m4-8v4"/></svg>Mini Whisper</div><div class="meta">Mockup — not shipping code<br>Feature v1 / Animation studies</div></header>
+  <section class="intro"><div><h1>A quieter way to listen.</h1><p>Five alternatives to the recording constellation. Compare their response to speech, then watch each settle into processing.</p></div><div class="note">Native system typography. White motion on the existing translucent, 300 × 300 overlay.</div></section>
+  <section class="controls" aria-label="Animation controls">
+    <div class="control-row"><div class="segmented" role="group" aria-label="Recording state"><button data-state="quiet" aria-pressed="false">Quiet</button><button data-state="speaking" aria-pressed="true">Speaking</button><button data-state="processing" aria-pressed="false">Processing</button><button data-state="done" aria-pressed="false">Complete</button></div><span class="divider"></span><button id="play" aria-pressed="false">Play sequence</button><button id="pause" aria-pressed="false">Pause motion</button><div class="level-control"><label for="intensity">Voice level</label><input id="intensity" type="range" min="0" max="100" value="65"><output id="intensity-value" for="intensity">65%</output></div></div>
+    <div class="control-bottom"><span id="signal"><span class="live-dot"></span>Speaking · simulated voice</span><div class="options"><label><input id="phrases" type="checkbox" checked>Natural pauses</label><label><input id="reduce" type="checkbox">Reduced motion</label><label for="backdrop">Backdrop <select id="backdrop"><option value="light">Daylight</option><option value="dark">Evening</option></select></label></div></div>
+    <div class="progress" aria-hidden="true"><span id="progress"></span></div>
+  </section>
+  <section class="grid" id="studies" aria-label="Animation alternatives"></section>
+  <footer class="foot"><p><strong>Recommended: Silk ribbon.</strong> A small, legible gesture with a clear shift from responsive speech to steady processing. It asks less of peripheral vision than the current web of links.</p><details><summary>Review of the current animation</summary><p>The shipping overlay has 24 white dots, up to 276 proximity links, a 20-point corner radius, and a 70% black background. Audio uses fast attack and slow decay, with up to 130 points of target displacement. Processing rotates the particle homes at 3 radians per second; completion collapses the dots and fades the card. The angular links make activity visible, but their changing density can compete with the transcript. The alternatives retain the square card and monochrome palette while exploring simpler motion.</p><p>The constellation above is an illustrative reconstruction from <code>ConstellationSimulation.swift</code> and <code>ConstellationLayer.swift</code>, not a capture or exact physics port. Alternative motion and timing are proposals. Complete is held for inspection; the shipping card dismisses. All audio is simulated. No microphone access or network requests.</p></details></footer>
+</main>
+<noscript>This comparison requires JavaScript for its simulated animations and state controls.</noscript>
+<script id="motion-model">
+var Motion = (() => {
+  'use strict';
+  const kinds = ['current','ribbon','halo','bars','pearl','aperture'];
+  const TAU = Math.PI * 2;
+  const noise = n => { const v = Math.sin(n * 127.1 + 311.7) * 43758.5453; return v-Math.floor(v); };
+  function sequenceState(t) { t=((t%14)+14)%14; return t<2?'quiet':t<8?'speaking':t<11.5?'processing':t<13?'done':'quiet'; }
+  function sample(kind,t,level,state) {
+    const processing=state==='processing';
+    const e=state==='speaking'?Math.max(0,Math.min(1,level)):0;
+    if(state==='done') return [{x:150,y:140,r:2,a:1}];
+    const points=[];
+    const dot=(x,y,r=1,a=.85,h=0)=>points.push({x,y,r,a,h});
+    if(kind==='current') {
+      for(let i=0;i<24;i++) {
+        const a=i<10?i/10*TAU+(noise(i)-.5)*.18:noise(i+4)*TAU;
+        const radius=i<10?100+(noise(i+7)-.5)*20:100*Math.sqrt(noise(i+30));
+        const angle=a+(processing?t*3:0), drift=t*1.2+noise(i+8)*TAU;
+        dot(150+radius*Math.cos(angle)+10*Math.cos(drift)+e*70*Math.cos(t*2.1+i*2),
+            150+radius*Math.sin(angle)+10*Math.sin(drift)+e*70*Math.sin(t*2.7+i*1.7),2+noise(i+10)*3,.9);
+      }
+    } else if(kind==='ribbon') {
+      for(let layer=0;layer<3;layer++) for(let i=0;i<120;i++) {
+        const u=i/119, env=Math.sin(u*Math.PI)**1.3;
+        const amp=processing?12:3+e*53;
+        const phase=processing?t*2.4:t*1.8;
+        dot(40+u*220,140+Math.sin(u*Math.PI*3-phase+layer*.22)*amp*env+(layer-1)*3*env,1,[.23,.95,.35][layer]);
+      }
+    } else if(kind==='halo') {
+      for(let layer=0;layer<2;layer++) for(let i=0;i<180;i++) {
+        const a=i/179*TAU;
+        const ripple=Math.sin(a*3-t*2.2)*e*7+Math.cos(a*5+t)*e*3;
+        const radius=processing?54+layer*7:43+e*24+Math.sin(t*1.5)*1.7+layer*5+ripple;
+        const bright=processing?.15+.8*Math.max(0,Math.cos(a-t*1.7-layer*.5))**8:(layer?.24:.88);
+        dot(150+Math.cos(a)*radius,140+Math.sin(a)*radius,1,bright);
+      }
+    } else if(kind==='bars') {
+      for(let i=0;i<15;i++) {
+        const centre=Math.sin((i+1)/16*Math.PI)**1.3;
+        const syllable=.28+.72*(.5+.5*Math.sin(t*7-i*.63))**2;
+        const scan=(.5+.5*Math.sin(i*.53-t*3))**5;
+        const height=processing?7+27*scan:5+e*105*centre*syllable;
+        dot(73+i*11,140,2.5,processing?.3+.65*scan:.82,height);
+      }
+    } else if(kind==='pearl') {
+      for(let i=0;i<180;i++) {
+        const a=i/179*TAU, spin=t*(processing?1.5:.7);
+        const radius=(processing?44:29+e*27)+(processing?4:2+e*6)*Math.sin(a*3-spin)+e*3*Math.cos(a*5+spin);
+        dot(150+Math.cos(a)*radius,140+Math.sin(a)*radius,1,.85);
+      }
+    } else if(kind==='aperture') {
+      for(let layer=0;layer<6;layer++) for(let i=0;i<80;i++) {
+        const a=i/79*TAU, rot=layer*TAU/6+(processing?t*.65:Math.sin(t*.5)*.08);
+        const open=processing?.5:e;
+        const x=13+(1-Math.cos(a))*(17+open*19),y=Math.sin(a)*(7+open*9);
+        dot(150+x*Math.cos(rot)-y*Math.sin(rot),140+x*Math.sin(rot)+y*Math.cos(rot),1,.25+.55*(.5+.5*Math.sin(a+t+layer)));
+      }
+    }
+    return points;
+  }
+  return {kinds,sample,sequenceState};
+})();
+</script>
+<script>
+(() => {
+  'use strict';
+  const concepts=[
+    {id:'current',name:'Current constellation',badge:'Reference',description:'A connected field of particles. Organic, spatial, and deliberately restless.',quiet:'Ambient drift keeps the constellation alive.',speaking:'Particles push outward; the web changes density.',processing:'The whole constellation rotates.',done:'Particles gather at the centre.'},
+    {id:'ribbon',name:'Silk ribbon',badge:'Recommended',description:'Three fine strands breathe as one. The smallest visual footprint of the set.',quiet:'A nearly still thread, with a soft breath.',speaking:'Each phrase lifts the ribbon into a flowing wave.',processing:'A small, steady wave travels along the thread.',done:'The ribbon resolves into a quiet check.'},
+    {id:'halo',name:'Resonant halo',description:'A thin, imperfect circle. Voice becomes a change in contour, not a burst.',quiet:'Two close rings expand and contract slowly.',speaking:'The ring swells and its edge gently ripples.',processing:'A highlight makes an unbroken orbit.',done:'The circle closes into a check.'},
+    {id:'bars',name:'Soft meter',description:'Fifteen rounded strokes. Familiar audio feedback, softened and kept compact.',quiet:'A short row of resting dots.',speaking:'Soft, staggered peaks follow the voice level.',processing:'A low pulse sweeps across the row.',done:'The strokes resolve into a check.'},
+    {id:'pearl',name:'Liquid pearl',badge:'New',description:'One luminous, fluid body. A soft centre of gravity instead of a field of marks.',quiet:'A small pearl breathes almost imperceptibly.',speaking:'The pearl grows and its surface gently deforms.',processing:'A slow ripple rolls around the surface.',done:'The pearl resolves into a check.'},
+    {id:'aperture',name:'Petal iris',badge:'New',description:'Six tapered loops form an open centre. A mechanical rhythm with an organic outline.',quiet:'A compact iris turns gently in place.',speaking:'The petals unfold as the voice grows.',processing:'The open iris rotates with a regular cadence.',done:'The iris resolves into a check.'},
+  ];
+  const $=id=>document.getElementById(id);
+  const labels={quiet:'Quiet',speaking:'Speaking',processing:'Processing',done:'Complete'};
+  const states=['quiet','speaking','processing','done'];
+  const root=$('studies');
+  for(const c of concepts) {
+    const card=document.createElement('article');card.className='study';card.dataset.kind=c.id;
+    card.innerHTML=`<div class="study-head"><h2>${c.name}${c.badge?` <span class="badge ${c.id==='ribbon'?'rec':''}">${c.badge}</span>`:''}</h2><select aria-label="${c.name} state"><option value="follow">Follow all</option>${states.map(s=>`<option value="${s}">${labels[s]}</option>`).join('')}</select></div><div class="stage"><div class="overlay"><canvas width="600" height="600" role="img" aria-label="${c.name} animation"></canvas><span class="overlay-label"></span></div></div><div class="study-copy"><p class="description">${c.description}</p><div class="state-copy"><span class="state-name"></span><span class="state-detail"></span></div></div>`;
+    root.append(card);c.el=card;c.canvas=card.querySelector('canvas');c.ctx=c.canvas.getContext('2d');c.select=card.querySelector('select');c.label=card.querySelector('.overlay-label');c.stateName=card.querySelector('.state-name');c.detail=card.querySelector('.state-detail');c.points=[];c.level=0;c.state='';c.changed=0;
+  }
+  let mode='speaking',auto=false,paused=false,time=0,last=0,sequenceStart=0,voice=.65;
+  const reduceMedia=matchMedia('(prefers-reduced-motion: reduce)');$('reduce').checked=reduceMedia.matches;
+  reduceMedia.addEventListener('change',e=>{$('reduce').checked=e.matches;});
+  function syncControls() {
+    document.querySelectorAll('[data-state]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.state===mode)));
+    $('play').textContent=auto?'Stop sequence':'Play sequence';$('play').setAttribute('aria-pressed',String(auto));
+    $('pause').textContent=paused?'Resume motion':'Pause motion';$('pause').setAttribute('aria-pressed',String(paused));
+    const speaking=mode==='speaking'||concepts.some(c=>c.select.value==='speaking');
+    $('intensity').disabled=!speaking;$('phrases').disabled=!speaking;
+    $('signal').textContent=`${labels[mode]} · ${paused?'motion paused':$('reduce').checked?'reduced motion':mode==='speaking'?'simulated voice':mode==='processing'?'steady processing motion':mode==='done'?'held for inspection':'listening between phrases'}`;
+  }
+  document.querySelectorAll('[data-state]').forEach(b=>b.addEventListener('click',()=>{mode=b.dataset.state;auto=false;syncControls();}));
+  $('play').addEventListener('click',()=>{auto=!auto;if(auto){sequenceStart=time;mode='quiet';paused=false;}syncControls();});
+  $('pause').addEventListener('click',()=>{paused=!paused;syncControls();});
+  $('intensity').addEventListener('input',()=>{voice=Number($('intensity').value)/100;$('intensity-value').value=`${Math.round(voice*100)}%`;});
+  $('reduce').addEventListener('change',syncControls);
+  $('backdrop').addEventListener('change',()=>{document.documentElement.dataset.backdrop=$('backdrop').value;});
+  concepts.forEach(c=>c.select.addEventListener('change',syncControls));
+  function stroke(ctx,points,width=1.15) {
+    ctx.lineWidth=width;ctx.lineCap='round';
+    for(let i=1;i<points.length;i++) {const p=points[i],q=points[i-1];ctx.strokeStyle=`rgba(244,248,255,${p.a})`;ctx.beginPath();ctx.moveTo(q.x,q.y);ctx.lineTo(p.x,p.y);ctx.stroke();}
+  }
+  function draw(c,dt) {
+    const state=c.select.value==='follow'?mode:c.select.value;
+    const reduced=$('reduce').checked;
+    const changed=state!==c.state;
+    if(state!==c.state){c.state=state;c.changed=time;c.stateName.textContent=labels[state];c.detail.textContent=c[state];c.canvas.setAttribute('aria-label',`${c.name}: ${labels[state]}. ${c[state]}`);}
+    const phrase=reduced||!$('phrases').checked?1:(.18+.82*(.5+.5*Math.sin(time*2.05))**.5)*(.55+.45*Math.sin(time*8.2)**2);
+    const target=state==='speaking'?voice*phrase:0;
+    const follow=paused?(changed?1:0):reduced?1:1-Math.exp(-dt*(target>c.level?18:4));
+    c.level+=(target-c.level)*follow;
+    const sample=Motion.sample(c.id,reduced?1.3:time,c.level,state);
+    const blend=paused?(changed?1:0):reduced?1:1-Math.exp(-dt*9);
+    if(c.points.length!==sample.length)c.points=sample.map(p=>({...p}));
+    else c.points.forEach((p,i)=>{for(const k of Object.keys(p))p[k]+=(sample[i][k]-p[k])*blend;});
+    const ctx=c.ctx;ctx.setTransform(2,0,0,2,0,0);ctx.clearRect(0,0,300,300);
+    if(state==='done') {
+      const show=reduced||paused?1:Math.min(1,(time-c.changed)/.35);ctx.globalAlpha=.9*show;ctx.strokeStyle='#f4f8ff';ctx.lineWidth=2;ctx.lineCap='round';ctx.lineJoin='round';
+      if(c.id==='current'){ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(150,150,3,0,Math.PI*2);ctx.fill();}
+      else{ctx.beginPath();ctx.moveTo(139,140);ctx.lineTo(147,148);ctx.lineTo(163,130);ctx.stroke();}ctx.globalAlpha=1;
+    } else if(c.id==='current') {
+      const pts=c.points;ctx.lineWidth=1;
+      for(let i=0;i<pts.length;i++)for(let j=i+1;j<pts.length;j++){const a=pts[i],b=pts[j],d=Math.hypot(a.x-b.x,a.y-b.y);if(d<120){ctx.strokeStyle=`rgba(255,255,255,${(1-d/120)*.6})`;ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();}}
+      for(const p of pts){ctx.fillStyle=`rgba(255,255,255,${p.a})`;ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fill();}
+    } else if(c.id==='pearl') {
+      const pts=c.points,light=reduced?1.3:time;
+      const glow=ctx.createRadialGradient(139+Math.sin(light*.8)*7,126,3,150,140,76);
+      glow.addColorStop(0,'rgba(255,255,255,.95)');glow.addColorStop(.45,'rgba(235,243,255,.65)');glow.addColorStop(1,'rgba(205,225,250,.05)');
+      ctx.fillStyle=glow;ctx.beginPath();ctx.moveTo(pts[0].x,pts[0].y);for(const p of pts)ctx.lineTo(p.x,p.y);ctx.closePath();ctx.fill();
+      ctx.strokeStyle='rgba(255,255,255,.45)';ctx.lineWidth=.8;ctx.stroke();
+    } else if(c.id==='bars') {
+      ctx.lineWidth=5;ctx.lineCap='round';for(const p of c.points){ctx.strokeStyle=`rgba(244,248,255,${p.a})`;ctx.beginPath();ctx.moveTo(p.x,p.y-p.h/2);ctx.lineTo(p.x,p.y+p.h/2);ctx.stroke();}
+    } else {
+      const size={ribbon:120,halo:180,aperture:80}[c.id];
+      for(let i=0;i<c.points.length;i+=size)stroke(ctx,c.points.slice(i,i+size),c.id==='ribbon'?1.2:1);
+    }
+    c.label.textContent=state==='processing'?'processing…':state==='done'?'complete':state==='quiet'?'listening…':`${((auto?(time-sequenceStart)%14:time)%60).toFixed(1)}s`;
+  }
+  function frame(now) {
+    const dt=Math.min((now-last)/1000||1/60,.05);last=now;
+    if(!paused&&!document.hidden){time+=dt;if(auto){const next=Motion.sequenceState(time-sequenceStart);if(next!==mode){mode=next;syncControls();}}}
+    if(!document.hidden){concepts.forEach(c=>draw(c,dt));$('progress').style.width=auto?`${((time-sequenceStart)%14)/14*100}%`:'0%';}
+    requestAnimationFrame(frame);
+  }
+  syncControls();requestAnimationFrame(frame);
+})();
+</script>
