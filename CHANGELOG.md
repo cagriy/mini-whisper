@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-09-07
+
 ### Fixed
 
 - The release pipeline signs the app with a Developer ID, notarizes and staples the
