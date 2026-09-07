@@ -8,10 +8,9 @@ Both lines live in one repo, `github.com/cagriy/mini-whisper`: Swift on `main`, 
 preserved as the `python-legacy` branch and the `v0.1.x` tags, so releases read as one continuous
 version line.
 
-**`../mini-whisper-py` is a read-only reference** — the Python checkout, frozen at the pre-rewrite
-commit. Never create, modify or delete anything under it. It shares the remote above, so never
-`git pull` there unless its branch tracks `python-legacy`. Read it freely for behaviour, constants
-and test cases.
+**`../mini-whisper-py` is a read-only reference** — the Python checkout, frozen at v0.1.8 on the
+`python-legacy` branch of the shared remote. Never create, modify or delete anything under it.
+Read it freely for behaviour, constants and test cases.
 
 ## Layout
 
