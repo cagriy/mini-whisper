@@ -786,3 +786,17 @@ None — plan matches design v3 exactly.
    copy out of it element-wise and let it go — retaining a frame across steps makes the buffer
    non-uniquely-referenced and every later step pays a 480-point copy-on-write, defeating R17.
    `ConstellationSimulation` has the same contract; `StyleLayer` (Stage 5) honours it.
+
+6. **Stage 8, step 4: the animator factory is injected too, not only the driver.** Planning
+   decision 3 seams the driver alone, but the step's own tests — `show()` ran twice,
+   "each mode is applied once" — assert calls the `OverlayAnimator` protocol does not report.
+   `OverlayPreviewView.init` therefore takes a second defaulted factory,
+   `makeAnimator: (OverlayStyle) -> any OverlayAnimator`, defaulting to
+   `OverlayAnimatorFactory.make` with the live Reduce Motion flag; the tests pass a spy. The
+   production path and the design's interface contract are unchanged.
+
+7. **Stage 8, step 3: `DisplayLinkDriver.isRunning` arrives behind a new `FrameDriving`
+   protocol.** `isRunning` on the concrete class is unusable to a test that never builds one, so
+   `App/Overlay/DisplayLinkDriver.swift` also declares `@MainActor protocol FrameDriving: AnyObject`
+   (`isRunning`, `start()`, `stop()`) with `DisplayLinkDriver` as its one implementation. That is
+   what the injected driver factory returns.
