@@ -4,6 +4,7 @@ import MWConfig
 import MWCorrections
 import MWHistory
 import MWHotkeys
+import MWOverlaySim
 import MWPaste
 import MWPipeline
 import MWStreaming
@@ -33,6 +34,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var correctionWindow: CorrectionWindowController?
     private var correctionDependencies: CorrectionModel.Dependencies?
     private var appliedBindings: [BindingName: HotkeyCombo] = [:]
+    private var overlay: OverlayPanelController?
+    private var appliedOverlayStyle: OverlayStyle?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // The AppTests bundle is hosted by this app; starting normally there would
@@ -124,8 +127,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if let statusItem {
             // §5.5: the panels exist off-screen before the first press.
             let overlay = OverlayPanelController(
+                style: config.overlayStyle,
                 reduceMotion: NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
             )
+            self.overlay = overlay
             let caption = CaptionPanelController()
             let router = UIEventRouter(
                 statusItem: statusItem,
@@ -301,6 +306,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // a rule the correction window just saved (N4).
         settings?.model.refresh(from: config)
         sounds.setVolume(Float(config.soundVolume))
+        // R3: stored now, honoured at the card's next show.
+        overlay?.setStyle(config.overlayStyle)
+        if appliedOverlayStyle != config.overlayStyle {
+            appliedOverlayStyle = config.overlayStyle
+            Log.ui.info("Overlay style: \(config.overlayStyle.rawValue)")
+        }
         retentionDays.withLock { $0 = config.historyRetentionDays }
         let bindings = Self.bindings(from: config)
         for (name, combo) in bindings where appliedBindings[name] != combo {
