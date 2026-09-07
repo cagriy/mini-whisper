@@ -4,5 +4,15 @@
     <title>Mini Whisper</title>
     <link>https://raw.githubusercontent.com/cagriy/mini-whisper/main/appcast.xml</link>
     <language>en</language>
+    <item>
+      <title>Mini Whisper 0.4.0</title>
+      <sparkle:version>0.4.0</sparkle:version>
+      <sparkle:shortVersionString>0.4.0</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <description>&lt;h3&gt;Added&lt;/h3&gt;
+&lt;ul&gt;&lt;li&gt;Automatic updates, via Sparkle. Mini Whisper checks for a new version once a day, shows the changelog entry for it, and installs and relaunches once you approve. &lt;code&gt;Check for Updates…&lt;/code&gt; in the menu bar checks on demand; Settings → General turns the daily check off. Homebrew no longer needs to upgrade the app, and no longer tries to.&lt;/li&gt;&lt;li&gt;&lt;strong&gt;This release has to be installed the old way.&lt;/strong&gt; 0.3.1 and earlier have no updater, and the cask is now &lt;code&gt;auto_updates true&lt;/code&gt;, so plain &lt;code&gt;brew upgrade&lt;/code&gt; skips it. Run &lt;code&gt;brew upgrade --cask --greedy mini-whisper&lt;/code&gt; (or install the DMG) once to get here; updates are automatic from then on.&lt;/li&gt;&lt;/ul&gt;</description>
+      <pubDate>Mon, 07 Sep 2026 15:10:08 +0000</pubDate>
+      <enclosure url="https://github.com/cagriy/mini-whisper/releases/download/v0.4.0/MiniWhisper-0.4.0-arm64.dmg" sparkle:edSignature="u4ek5AedyKqIY9Izo31JvZRk6LqRWBjvp7I8eN4d/Ee0hgWXquqJWTTmTC0XvB+mca749VtFq/M3VaAbPDs6DA==" length="4864134" type="application/octet-stream" />
+    </item>
   </channel>
 </rss>
