@@ -949,7 +949,7 @@
         </span>
         <span class="step-label">Plan</span>
       </li>
-      <li class="step" data-stage="implement" data-state="pending">
+      <li class="step" data-stage="implement" data-state="complete">
         <span class="step-indicator" aria-hidden="true">
           <span class="step-check">&#10003;</span>
           <span class="step-number">4</span>
@@ -1278,16 +1278,97 @@
 
     <section class="panel" role="tabpanel"
              id="panel-implementation" aria-labelledby="tab-implementation" hidden>
-      <p class="section-timestamp">Awaiting /feature-implement</p>
+      <p class="section-timestamp">Updated 2026-09-07 19:24 UTC</p>
       <!-- usage:IMPLEMENTATION_USAGE_CHIP --><!-- /usage:IMPLEMENTATION_USAGE_CHIP -->
       <article class="panel-section">
         <h2 class="section-label">Highlights</h2>
-        <div class="bullets"><p class="empty">Not yet filled — pending /feature-implement.</p></div>
+        <div class="bullets">
+          <ul>
+            <li>Stages completed: 8/8, plus a Stage 9 dead-code cleanup.</li>
+            <li>Tests: core 518 in 56 suites, app 127 in 20 suites — all passing.</li>
+            <li>Design coverage: 20/20 requirements mapped to passing tests or a named human check.</li>
+            <li>Pre-existing failures excluded from regression gating: none — the baseline was green.</li>
+            <li>Dead-code orphans removed: 1 (<code>FrameDriving.isRunning</code>).</li>
+            <li>Deviations from plan: 8, all recorded in the plan file; none change scope or interfaces.</li>
+            <li>Final commit: <code>a74a0d6</code>. Nothing pushed.</li>
+            <li>Stage 3's five ported formulas were checked against the mockup's own JavaScript: 1,944 sampled values, max difference 0.0.</li>
+            <li>Pending human verification: the three live-app acceptance passes (Stages 6, 7, 8).</li>
+          </ul>
+        </div>
         <!-- usage:IMPLEMENTATION_USAGE --><!-- /usage:IMPLEMENTATION_USAGE -->
       </article>
       <article class="panel-section">
         <h2 class="section-label">Detail</h2>
-        <div class="prose"><p class="empty">Not yet filled — pending /feature-implement.</p></div>
+        <div class="prose">
+          <h3>Stages completed</h3>
+          <ul>
+            <li><strong>Stage 1</strong> — <code>OverlayStyle</code> and the <code>overlay_style</code> config round-trip — <code>d049a3a</code></li>
+            <li><strong>Stage 2</strong> — Extract <code>LevelSmoother</code> and <code>Choreography</code> from <code>ConstellationSimulation</code> — <code>e1144fd</code></li>
+            <li><strong>Stage 3</strong> — <code>StyleSampler</code>: the pure motion model — <code>1d7d3b4</code></li>
+            <li><strong>Stage 4</strong> — <code>StyleSimulation</code>, <code>StyleFrame</code> and <code>PreviewScript</code> — <code>4251907</code></li>
+            <li><strong>Stage 5</strong> — <code>CardChrome</code> and <code>StyleLayer</code> — <code>20678ad</code></li>
+            <li><strong>Stage 6</strong> — The <code>OverlayAnimator</code> seam and the card honouring <code>overlay_style</code> — <code>0eb5a05</code></li>
+            <li><strong>Stage 7</strong> — Settings → Overlay: catalog, model and radio list — <code>29bcb34</code></li>
+            <li><strong>Stage 8</strong> — The live preview, and the release notes — <code>bc8d557</code></li>
+            <li><strong>Stage 9</strong> — Dead-code cleanup (added by the Step 7 sweep) — <code>a74a0d6</code></li>
+          </ul>
+
+          <h3>Tests</h3>
+          <p>Core package <code>swift test</code>: <strong>518 tests in 56 suites passed</strong> (baseline 480).
+          App <code>xcodebuild … test</code>: <strong>127 tests in 20 suites passed</strong> + <code>** TEST SUCCEEDED **</code> (baseline 105).
+          The baseline was green before any stage, so every failure during the run was a stage's own and no
+          pre-existing failure is excluded from regression gating. No lint, format or type-check tooling is
+          configured in this repo; type checking is implicit in the build.</p>
+          <p>Two suites acted as characterization guards and were forbidden to change:
+          <code>ConstellationSimulationTests.swift</code> (Stage 2) and <code>ConstellationLayerRenderTests.swift</code>
+          (Stage 5). Both are byte-identical to their pre-feature content and green, which is what pins R5 —
+          the constellation style behaving exactly as it ships today.</p>
+
+          <h3>Design coverage</h3>
+          <table>
+            <thead><tr><th>Req</th><th>Verified by</th></tr></thead>
+            <tbody>
+              <tr><td>R1 six cases and raw values</td><td><code>OverlayStyleTests.sixCasesInDeclarationOrderWithPythonRawValues</code></td></tr>
+              <tr><td>R2 default and unknown-value preservation</td><td><code>ConfigCodingTests</code> — 5 overlay tests</td></tr>
+              <tr><td>R3 card uses the configured style at each show</td><td><code>OverlayAnimatorTests</code> + Stage 6 live check</td></tr>
+              <tr><td>R4 all five modes per style</td><td><code>ChoreographyTests</code>, <code>StyleSimulationTests.frameCarriesTheChoreography</code></td></tr>
+              <tr><td>R5 constellation unchanged</td><td>the two untouched characterization suites</td></tr>
+              <tr><td>R6 mockup fidelity</td><td><code>StyleSamplerTests</code> (ported <code>.cjs</code> assertions) + a 1,944-value cross-check against the mockup's JavaScript</td></tr>
+              <tr><td>R7 shared level one-pole</td><td><code>LevelSmootherTests</code>, <code>StyleSimulationTests.levelMatchesLevelSmoother</code></td></tr>
+              <tr><td>R8 9 s⁻¹ geometry blend</td><td><code>StyleSimulationTests.blendFollowsTheNinePerSecondOnePole</code></td></tr>
+              <tr><td>R9 Reduce Motion</td><td><code>reduceMotionFreezesTimeAndSnaps</code>, <code>reduceMotionSuppressesShake</code></td></tr>
+              <tr><td>R10 Overlay section placement</td><td><code>SettingsModelTests.overlaySectionSitsBetweenHistoryAndSound</code></td></tr>
+              <tr><td>R11 pane layout</td><td><code>OverlayStyleCatalogTests</code>; the visual layout is a named human check</td></tr>
+              <tr><td>R12 picking writes and restarts</td><td><code>setOverlayStyleWritesTheConfigKey</code>, <code>styleChangeRebuildsTheAnimatorAndResetsTheLoop</code></td></tr>
+              <tr><td>R13 the 13 s preview loop</td><td><code>PreviewScriptTests.modeBoundaries</code>, <code>thirteenSecondsOfTicksWrapsAndCallsShowAgain</code></td></tr>
+              <tr><td>R14 preview runs only on screen</td><td>three lifecycle tests in <code>OverlayPreviewViewTests</code></td></tr>
+              <tr><td>R15 external config edits</td><td><code>SettingsModelTests.refreshFromConfigUpdatesTheSelection</code></td></tr>
+              <tr><td>R16 CHANGELOG and module map</td><td><code>CHANGELOG.md</code> Unreleased/Added; <code>CLAUDE.md</code> records <code>MWConfig → MWOverlaySim</code></td></tr>
+              <tr><td>R17 no per-frame allocation</td><td><code>geometryBufferIsAllocatedOnceAcrossAShow</code>, <code>frameBufferIsReusedAcrossDraws</code></td></tr>
+              <tr><td>R18 ≤ 480 points per frame</td><td><code>StyleSamplerTests.pointCountsPerStyle</code></td></tr>
+              <tr><td>R19 no new dependency</td><td><code>Package.swift</code> — no external package requirement</td></tr>
+              <tr><td>R20 every duration on injected <code>dt</code></td><td>no real sleep appears in any new test</td></tr>
+            </tbody>
+          </table>
+
+          <h3>Deviations from plan</h3>
+          <p>Eight, all recorded in the plan's <em>Deviations from plan</em> section. None changes scope,
+          requirements or an external interface; the substantive ones are:</p>
+          <ul>
+            <li><code>StyleGeometry.points</code> is <code>public internal(set)</code> — <code>private(set)</code> would have scoped the setter to one file and locked <code>StyleSampler</code> out of the buffer it must write.</li>
+            <li><code>PreviewScript.mode(at:)</code> returns a non-optional <code>OverlayMode</code>: §5.4's table gives every instant of the loop a mode, so §5.1's optional had no producer.</li>
+            <li><code>StyleFrame.geometry</code> hands over the simulation's live buffer without copying, and its memberwise init stays internal. Retaining a frame across steps would cost a 480-point copy-on-write every step and quietly defeat R17.</li>
+            <li>The blend test pins the 9 s⁻¹ rate against soft meter's time-invariant quiet form; the plan's convergence tolerance was unreachable because every other style's sample keeps moving with <code>t</code>.</li>
+            <li>The preview view injects an animator factory as well as a driver factory — the plan's assertions ask for call counts the <code>OverlayAnimator</code> protocol does not report.</li>
+          </ul>
+
+          <h3>Notes</h3>
+          <ul>
+            <li>Nine commits on <code>main</code>, one per stage, nothing pushed. The branch is ahead of <code>origin/main</code>.</li>
+            <li><strong>The app was never launched.</strong> Booting it would read the live <code>~/.config/mini-whisper/</code>, the Keychain API key and the microphone, so all three live acceptance passes (plan Stages 6 step 7, 7 step 9, 8 step 8) are left for a person. The build half of each was run and succeeds.</li>
+            <li>The mockup spec files <code>mockup-v1-animation-studies.html</code> and <code>animation-studies.test.cjs</code> were untracked before this run; Stage 1 committed them, closing the design's "untracked spec files" risk.</li>
+          </ul>
+        </div>
       </article>
     </section>
 
