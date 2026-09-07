@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+### Added
+
+- Six overlay animation styles for the recording card: Soft meter, Silk ribbon, Resonant halo,
+  Liquid pearl, Petal iris and the original Constellation. **Soft meter is now the default for
+  every install** — Settings → Overlay picks any of the six beside a live preview that loops a
+  simulated dictation, and Constellation is one click away.
+
 ### Changed
 
 - The release pipeline signs the DMG itself, not just the app inside it, and refuses to submit an

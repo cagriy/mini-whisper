@@ -2,10 +2,20 @@ import AppKit
 import MWOverlaySim
 import QuartzCore
 
+/// A source of frame ticks a host starts and stops. `DisplayLinkDriver` is the one
+/// implementation; the Settings preview takes it as a parameter so its tests never
+/// build a `CADisplayLink`.
+@MainActor
+protocol FrameDriving: AnyObject {
+    var isRunning: Bool { get }
+    func start()
+    func stop()
+}
+
 /// Frame ticks at the display's refresh rate (§5.6). `dt` is clamped exactly as
 /// `overlay.py`'s `_tick` clamps it, so a stall cannot explode the physics.
 @MainActor
-final class DisplayLinkDriver {
+final class DisplayLinkDriver: FrameDriving {
     private weak var view: NSView?
     private let onTick: (TimeInterval) -> Void
     private var link: CADisplayLink?
@@ -15,6 +25,8 @@ final class DisplayLinkDriver {
         self.view = view
         self.onTick = onTick
     }
+
+    var isRunning: Bool { link != nil }
 
     func start() {
         guard link == nil, let view else { return }

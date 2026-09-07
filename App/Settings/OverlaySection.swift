@@ -1,3 +1,4 @@
+import MWOverlaySim
 import SwiftUI
 
 /// The style picker of design §5.4, as the accepted `mockup-v3-side-by-side` pane:
@@ -26,13 +27,17 @@ struct OverlaySection: View {
     }
 
     private var well: some View {
-        RoundedRectangle(cornerRadius: 12)
-            .fill(Color(nsColor: .underPageBackgroundColor))
+        OverlayPreview(style: model.selectedOverlayStyle)
+            .frame(width: Constants.windowSize, height: Constants.windowSize)
+            .frame(width: 316, height: 316)
+            .background {
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color(nsColor: .underPageBackgroundColor))
+            }
             .overlay {
                 RoundedRectangle(cornerRadius: 12)
                     .strokeBorder(Color(nsColor: .separatorColor), lineWidth: 1)
             }
-            .frame(width: 316, height: 316)
     }
 
     /// `GeneralSection.engineRow`'s form, with the summary folded away on every row
