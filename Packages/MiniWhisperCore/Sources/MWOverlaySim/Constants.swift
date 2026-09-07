@@ -79,6 +79,18 @@ public enum Constants {
     public static let startingLabel = "starting…"
     public static let processingLabel = "processing..."
 
+    // MARK: - Styles (design §5.2)
+    /// Petal iris, the widest of the five: 6 layers × 80 points.
+    public static let stylePointCapacity = 480
+    /// The mockup's geometry blend, `1-Math.exp(-dt*9)` in its `draw`.
+    public static let styleBlendRate = 9.0
+    /// The mockup's `Math.min(1,(time-c.changed)/.35)` completion-mark ramp.
+    public static let styleCheckSeconds = 0.35
+    /// The mockup samples at `reduced?1.3:time` when Reduce Motion is on.
+    public static let reduceMotionSampleTime = 1.3
+    /// The mockup's `rgba(244,248,255,…)` mark colour, as 0–1 components.
+    public static let styleMarkWhite = (red: 244.0 / 255, green: 248.0 / 255, blue: 255.0 / 255)
+
     // MARK: - Caption bar
     public static let captionWidth = 480.0
     public static let captionGap = 14.0
