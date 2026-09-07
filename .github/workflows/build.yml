@@ -174,6 +174,20 @@ jobs:
           echo "dmg_name=$DMG_NAME" >> "$GITHUB_ENV"
           echo "dmg_path=dist/$DMG_NAME" >> "$GITHUB_ENV"
 
+      - name: Sign DMG
+        if: >-
+          (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v'))
+          || (github.event.inputs.sign == 'true')
+        run: |
+          # The app inside is signed either way; this signs the image itself, so
+          # Gatekeeper can assess the download on its own signature. Releases up
+          # to 0.4.0 shipped an unsigned image.
+          codesign --sign "Developer ID Application" --timestamp "${{ env.dmg_path }}"
+
+          # A malformed image wedges notarytool's file-type detection instead of
+          # erroring, so refuse to submit anything hdiutil itself can't verify.
+          hdiutil verify -quiet "${{ env.dmg_path }}"
+
       - name: Notarize DMG
         if: >-
           (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v'))

@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### Changed
+
+- The release pipeline signs the DMG itself, not just the app inside it, and refuses to submit an
+  image `hdiutil` cannot verify. Gatekeeper can now assess the download on its own signature;
+  0.4.0 and earlier shipped an unsigned image.
+
 ## [0.4.0] - 2026-09-07
 
 ### Added

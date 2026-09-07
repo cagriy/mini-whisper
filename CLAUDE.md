@@ -105,6 +105,17 @@ cadence is Sparkle's default, deliberately unset.
 - Sparkle owns its own preferences (`SUEnableAutomaticChecks`, `SULastCheckTime`) in
   `UserDefaults`. That is the one piece of app state outside `config.json`; don't mirror it.
 - The Homebrew cask carries `auto_updates true`, so `brew upgrade` leaves the app alone.
+- A tagged release makes CI commit the appcast to `main`, so `main` moves on its own. Pull before
+  committing anything after a release, or the next push is a non-fast-forward.
+- Checking a published release: `xcrun stapler validate <dmg>` for the ticket,
+  `sign_update --verify --account mini-whisper <dmg> <edSignature>` that the feed's signature
+  matches the published bytes (silent exit 0 is a pass; a bad signature exits 1), and
+  `spctl -a -vv <mounted>/Mini\ Whisper.app` for Gatekeeper, which should say
+  `accepted / source=Notarized Developer ID`. Assess the **app inside** the image: up to and
+  including 0.4.0 the DMG carried no signature of its own, so
+  `spctl -a -t open --context context:primary-signature` on the DMG reported
+  `no usable signature` — a wrong check, not a bad release. From 0.4.1 the DMG is signed too and
+  that check applies.
 - Test an update without publishing: serve a doctored appcast locally, then
   `defaults write com.ips.mini-whisper SUFeedURL http://localhost:8000/appcast.xml` and
   `defaults delete com.ips.mini-whisper SULastCheckTime`. Clean up with `defaults delete`.
