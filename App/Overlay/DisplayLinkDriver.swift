@@ -7,7 +7,6 @@ import QuartzCore
 /// build a `CADisplayLink`.
 @MainActor
 protocol FrameDriving: AnyObject {
-    var isRunning: Bool { get }
     func start()
     func stop()
 }
@@ -25,8 +24,6 @@ final class DisplayLinkDriver: FrameDriving {
         self.view = view
         self.onTick = onTick
     }
-
-    var isRunning: Bool { link != nil }
 
     func start() {
         guard link == nil, let view else { return }

@@ -800,3 +800,9 @@ None — plan matches design v3 exactly.
    `App/Overlay/DisplayLinkDriver.swift` also declares `@MainActor protocol FrameDriving: AnyObject`
    (`isRunning`, `start()`, `stop()`) with `DisplayLinkDriver` as its one implementation. That is
    what the injected driver factory returns.
+
+8. **Stage 9 (dead-code sweep): `FrameDriving.isRunning` removed.** Stage 8 added `isRunning` to
+   the `FrameDriving` protocol and `DisplayLinkDriver` as a test seam, but the preview tests read
+   the fake driver's own `isRunning` through its concrete type, so neither the requirement nor the
+   real implementation ever had a reader. `periphery` flagged both; the injection seam is `start()`
+   / `stop()`, which is untouched.
