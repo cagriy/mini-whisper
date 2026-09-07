@@ -2,7 +2,7 @@ import Testing
 
 import MWStreaming
 
-/// Ported case for case from `../mini-whisper/tests/test_streaming_base.py`.
+/// Ported case for case from `../mini-whisper-py/tests/test_streaming_base.py`.
 @Suite struct TranscriptAssemblerTests {
     @Test func partialReplacesPreviousPartial() {
         var assembler = TranscriptAssembler()

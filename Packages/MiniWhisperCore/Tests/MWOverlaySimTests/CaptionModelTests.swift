@@ -4,7 +4,7 @@ import Testing
 import MWOverlaySim
 
 /// The caption bar's pure line composition — a port of `wrap_caption`, `caption_lines` and
-/// `with_unavailable` in `../mini-whisper/src/mini_whisper/overlay.py` and of
+/// `with_unavailable` in `../mini-whisper-py/src/mini_whisper/overlay.py` and of
 /// `tests/test_caption_bar.py` (design §5.6).
 @Suite struct CaptionModelTests {
     /// Seven points per character, so the 448 pt usable width fits exactly 64 characters.

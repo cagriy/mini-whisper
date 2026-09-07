@@ -12,7 +12,7 @@ public enum TestFixtures {
         }
     }
 
-    /// A WAV from `../mini-whisper/tests/fixtures/wav/`, by base name.
+    /// A WAV from `../mini-whisper-py/tests/fixtures/wav/`, by base name.
     public static func wav(_ name: String) throws -> URL {
         guard let url = Bundle.module.url(forResource: name, withExtension: "wav", subdirectory: "Fixtures/wav")
         else { throw FixtureError.missing(name) }

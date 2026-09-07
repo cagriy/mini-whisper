@@ -17,7 +17,7 @@ public enum WebSocketEngineError: Error, CustomStringConvertible {
 }
 
 /// The shared cloud streaming skeleton (F20, F21), a port of
-/// `../mini-whisper/src/mini_whisper/streaming/websocket_engine.py`: buffer-until-open
+/// `../mini-whisper-py/src/mini_whisper/streaming/websocket_engine.py`: buffer-until-open
 /// with a 60 s cap, send and receive loops, the end-of-audio gate before a terminal
 /// event counts, the drain window, single-shot failure and the 5 s finish handshake.
 public final class WebSocketEngine<Adapter: EngineAdapter>: StreamingEngine, @unchecked Sendable {

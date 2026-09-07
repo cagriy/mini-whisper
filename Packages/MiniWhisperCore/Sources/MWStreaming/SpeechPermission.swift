@@ -1,5 +1,5 @@
 /// Speech Recognition permission as the pipeline reasons about it (F23), a port of
-/// `ensure_authorized` in `../mini-whisper/src/mini_whisper/streaming/on_device.py`.
+/// `ensure_authorized` in `../mini-whisper-py/src/mini_whisper/streaming/on_device.py`.
 public enum SpeechPermission: Sendable, Equatable {
     case undetermined
     case denied

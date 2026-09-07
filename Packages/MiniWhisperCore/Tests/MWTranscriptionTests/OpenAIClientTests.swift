@@ -53,7 +53,7 @@ private func json(_ data: Data) throws -> [String: Any] {
 }
 
 /// Batch transcription and cleanup over the `HTTPTransport` seam, ported from
-/// `../mini-whisper/tests/test_transcriber.py` and `test_cleaner.py` with the request
+/// `../mini-whisper-py/tests/test_transcriber.py` and `test_cleaner.py` with the request
 /// shapes of design §5.4 asserted field by field.
 @Suite struct OpenAIClientTests {
     private static let key = "sk-test-not-a-real-key"

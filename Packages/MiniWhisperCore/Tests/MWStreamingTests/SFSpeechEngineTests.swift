@@ -12,7 +12,7 @@ private struct RecogniserFailure: Error, CustomStringConvertible {
 }
 
 /// On-device recognition behind the `SpeechRecognitionAPI` seam, ported from
-/// `../mini-whisper/tests/test_on_device.py` (10 cases).
+/// `../mini-whisper-py/tests/test_on_device.py` (10 cases).
 @Suite struct SFSpeechEngineTests {
     // MARK: - Permission
 

@@ -26,7 +26,7 @@ private final class ConnectRecorder: @unchecked Sendable {
 }
 
 /// Engine selection and the downgrade rules (F23) plus the default-engine rule (F32),
-/// ported from `../mini-whisper/tests/test_factory.py` and extended for the two
+/// ported from `../mini-whisper-py/tests/test_factory.py` and extended for the two
 /// on-device engines the Python app does not have.
 @Suite struct EngineFactoryTests {
     private static let keys: [KeyAccount: String] = [

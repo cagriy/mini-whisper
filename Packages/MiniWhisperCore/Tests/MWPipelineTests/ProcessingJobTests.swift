@@ -16,7 +16,7 @@ import Testing
 import MWPipeline
 
 /// The processing half of the state machine (F12–F15, F21, F26, F28, F29, F35), a port of
-/// `Controller._process` in `../mini-whisper/src/mini_whisper/controller.py` and its tests.
+/// `Controller._process` in `../mini-whisper-py/src/mini_whisper/controller.py` and its tests.
 @Suite struct ProcessingJobTests {
     // MARK: - Fixtures
 

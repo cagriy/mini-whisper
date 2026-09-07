@@ -7,7 +7,7 @@ import MWPipeline
 
 /// The controller's `TranscriptSink`: compound assembly into caption events, the failed
 /// flag, and the once-per-dictation `captionUnavailable` (F21, F22).
-/// A port of `_StreamSink` in `../mini-whisper/src/mini_whisper/controller.py`.
+/// A port of `_StreamSink` in `../mini-whisper-py/src/mini_whisper/controller.py`.
 @Suite struct StreamSinkTests {
     private struct EngineFailure: Error {}
 

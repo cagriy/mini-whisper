@@ -5,7 +5,7 @@ import MWTestSupport
 
 /// Whole-buffer reference path: `recorder._resample` (linear interpolation over
 /// `np.linspace` grids) followed by clip + int16, ported from
-/// `../mini-whisper/tests/test_audio_convert.py::_batch_bytes`.
+/// `../mini-whisper-py/tests/test_audio_convert.py::_batch_bytes`.
 enum PCMReference {
     static func batch(_ samples: [Float], from origRate: Double, to targetRate: Double) -> [Int16] {
         resample(samples, from: origRate, to: targetRate).map { value in

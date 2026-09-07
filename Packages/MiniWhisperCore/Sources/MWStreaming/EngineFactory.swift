@@ -6,7 +6,7 @@ import os
 
 /// Picks the streaming engine for one dictation and applies every downgrade rule of
 /// F23, plus the F32 default when `config.json` names no engine. A port of
-/// `../mini-whisper/src/mini_whisper/streaming/factory.py`, extended for the two
+/// `../mini-whisper-py/src/mini_whisper/streaming/factory.py`, extended for the two
 /// on-device engines and the notices the Python app has no overlay for.
 ///
 /// The only I/O is through the injected seams, so `swift test` needs neither TCC,

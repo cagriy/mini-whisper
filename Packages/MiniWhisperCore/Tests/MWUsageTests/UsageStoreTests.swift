@@ -6,7 +6,7 @@ import Testing
 import MWUsage
 
 /// Per-day accumulation, month pruning and totals over a real `ConfigStore` in a temp
-/// directory, ported from the usage cases in `../mini-whisper/tests/test_config.py`.
+/// directory, ported from the usage cases in `../mini-whisper-py/tests/test_config.py`.
 @Suite struct UsageStoreTests {
     private static let dayFormatter: DateFormatter = {
         let formatter = DateFormatter()

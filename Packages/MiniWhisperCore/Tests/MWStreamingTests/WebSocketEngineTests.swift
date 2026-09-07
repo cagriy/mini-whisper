@@ -9,7 +9,7 @@ import MWStreaming
 
 private enum TestConnectError: Error { case refused }
 
-/// Skeleton behaviour ported from `../mini-whisper/tests/test_websocket_engines.py`
+/// Skeleton behaviour ported from `../mini-whisper-py/tests/test_websocket_engines.py`
 /// (cases 169–260); the three adapters land in Stage 11.
 @Suite struct WebSocketEngineTests {
     private func buffer(_ samples: [Float], rate: Double = 48000) -> AVAudioPCMBuffer {

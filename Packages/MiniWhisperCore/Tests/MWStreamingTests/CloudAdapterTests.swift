@@ -10,7 +10,7 @@ import MWStreaming
 
 /// The three cloud adapters against the wire protocols pinned in design §5.4,
 /// replayed through the fixture transcripts ported from
-/// `../mini-whisper/tests/fixtures/streaming/` (Python `test_websocket_engines.py`
+/// `../mini-whisper-py/tests/fixtures/streaming/` (Python `test_websocket_engines.py`
 /// cases 260–380).
 @Suite struct CloudAdapterTests {
     private static let key = "placeholder-not-a-real-key"

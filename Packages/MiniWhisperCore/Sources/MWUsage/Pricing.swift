@@ -3,7 +3,7 @@ import MWConfig
 import MWSupport
 
 /// Dictation cost maths and the two menu rows (F35, F31), a port of
-/// `../mini-whisper/src/mini_whisper/pricing.py` with the added `speech_analyzer` rate.
+/// `../mini-whisper-py/src/mini_whisper/pricing.py` with the added `speech_analyzer` rate.
 /// Every constant is overridable through `config.json`'s `pricing_overrides`.
 public enum Pricing {
     public static let perMinute: [String: Double] = [

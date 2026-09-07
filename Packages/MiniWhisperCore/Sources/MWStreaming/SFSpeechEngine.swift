@@ -5,7 +5,7 @@ import MWCorrections
 import MWSupport
 
 /// On-device recognition through `SFSpeechRecognizer` (F20), a port of
-/// `../mini-whisper/src/mini_whisper/streaming/on_device.py`: buffers fed before the
+/// `../mini-whisper-py/src/mini_whisper/streaming/on_device.py`: buffers fed before the
 /// session opens are flushed on `start`, the first final result completes the stream,
 /// and any recogniser error fails the engine once so the pipeline falls back to batch.
 public final class SFSpeechEngine: StreamingEngine, @unchecked Sendable {

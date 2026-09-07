@@ -2,7 +2,7 @@ import Foundation
 import Testing
 @testable import MWHotkeys
 
-/// Ports the 13 cases of `../mini-whisper/tests/test_hotkey.py` plus the
+/// Ports the 13 cases of `../mini-whisper-py/tests/test_hotkey.py` plus the
 /// display-order and virtual-key-table checks the Python suite left implicit.
 @Suite struct HotkeyComboTests {
 

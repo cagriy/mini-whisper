@@ -18,7 +18,7 @@ import Testing
 /// The main-actor state machine: press/release, hold vs toggle, the recording gate, engine
 /// selection, the generation guard, idle stop, device changes and abort
 /// (F9–F11, F15–F19, F23, N1) — a port of `Controller` in
-/// `../mini-whisper/src/mini_whisper/controller.py`.
+/// `../mini-whisper-py/src/mini_whisper/controller.py`.
 @MainActor
 @Suite struct DictationControllerTests {
     // MARK: - Doubles

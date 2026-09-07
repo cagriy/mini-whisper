@@ -1,6 +1,6 @@
 import Foundation
 
-/// `CompoundTranscript` from `../mini-whisper/src/mini_whisper/streaming/base.py`:
+/// `CompoundTranscript` from `../mini-whisper-py/src/mini_whisper/streaming/base.py`:
 /// finalised segments joined by single spaces plus the trailing partial (F22).
 public struct TranscriptAssembler: Sendable, Equatable {
     private var finals: [String] = []

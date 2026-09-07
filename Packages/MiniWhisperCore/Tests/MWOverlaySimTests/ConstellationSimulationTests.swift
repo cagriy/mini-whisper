@@ -4,7 +4,7 @@ import Testing
 import MWOverlaySim
 
 /// The overlay's physics and choreography (design §5.6), a port of `_tick`, the seeding and
-/// the constants of `../mini-whisper/src/mini_whisper/overlay.py` plus the accepted
+/// the constants of `../mini-whisper-py/src/mini_whisper/overlay.py` plus the accepted
 /// Breathing mockup. Everything is deterministic under an injected seed; nothing draws.
 @Suite struct ConstellationSimulationTests {
     private static let centre = Constants.windowSize / 2

@@ -11,7 +11,7 @@ public protocol Cleaner: Sendable {
 
 /// The two batch OpenAI calls, pinned to design §5.4: multipart transcription with
 /// `gpt-4o-mini-transcribe` (30 s) and chat cleanup with `gpt-4o-mini` at temperature
-/// 0.3 (15 s). A port of `../mini-whisper/src/mini_whisper/{transcriber,cleaner}.py`.
+/// 0.3 (15 s). A port of `../mini-whisper-py/src/mini_whisper/{transcriber,cleaner}.py`.
 public struct OpenAIClient: Transcriber, Cleaner {
     public static let transcriptionsURL = URL(string: "https://api.openai.com/v1/audio/transcriptions")!
     public static let chatURL = URL(string: "https://api.openai.com/v1/chat/completions")!

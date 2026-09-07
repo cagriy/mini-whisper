@@ -1,7 +1,7 @@
 import Foundation
 
 /// Every overlay number, ported value for value from
-/// `../mini-whisper/src/mini_whisper/overlay.py:11-60` plus the Breathing choreography of
+/// `../mini-whisper-py/src/mini_whisper/overlay.py:11-60` plus the Breathing choreography of
 /// design §5.6.
 ///
 /// | Swift | overlay.py | Value |

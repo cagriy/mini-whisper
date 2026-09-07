@@ -10,7 +10,7 @@ private func close(_ lhs: Double, _ rhs: Double, tolerance: Double = 1e-9) -> Bo
 }
 
 /// Cost maths and the two menu rows, ported from
-/// `../mini-whisper/tests/test_pricing.py` plus F35's added `speech_analyzer` rate.
+/// `../mini-whisper-py/tests/test_pricing.py` plus F35's added `speech_analyzer` rate.
 @Suite struct PricingTests {
     // MARK: - Per-minute streaming rates
 

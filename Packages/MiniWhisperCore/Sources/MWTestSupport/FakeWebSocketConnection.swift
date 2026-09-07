@@ -4,7 +4,7 @@ import MWStreaming
 import MWSupport
 
 /// Scripted websocket: server events are gated on what the client has sent, mirroring
-/// `FakeSocket` in `../mini-whisper/tests/test_websocket_engines.py`. When the script
+/// `FakeSocket` in `../mini-whisper-py/tests/test_websocket_engines.py`. When the script
 /// runs out, `receive()` blocks until the connection is closed or the task cancelled.
 public final class FakeWebSocketConnection: WebSocketConnection, @unchecked Sendable {
     public enum ScriptedError: Error, CustomStringConvertible {

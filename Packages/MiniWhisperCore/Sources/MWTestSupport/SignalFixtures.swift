@@ -1,7 +1,7 @@
 import Foundation
 
 /// Deterministic float32 signals for the audio tests, mirroring the generators
-/// in `../mini-whisper/tests/test_audio_convert.py`.
+/// in `../mini-whisper-py/tests/test_audio_convert.py`.
 public enum SignalFixtures {
     /// A 440 Hz sine with a little additive noise, seeded so failures reproduce.
     public static func sine(
