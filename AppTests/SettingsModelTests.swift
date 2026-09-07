@@ -1,6 +1,7 @@
 import Foundation
 import MWConfig
 import MWHotkeys
+import MWOverlaySim
 import MWStreaming
 import Testing
 @testable import MiniWhisper
@@ -452,5 +453,49 @@ import Testing
 
         model.checkForUpdatesNow()
         #expect(harness.updates.checks == 1)
+    }
+
+    // MARK: - Overlay (design §5.4)
+
+    @Test func overlaySectionSitsBetweenHistoryAndSound() {
+        #expect(SettingsModel.Section.allCases == [
+            .general, .hotkeys, .keys, .cleanup, .vocabulary, .history, .overlay, .sound,
+        ])
+        #expect(SettingsModel.Section.overlay.title == "Overlay")
+        #expect(SettingsModel.Section.overlay.symbolName == "sparkles.rectangle.stack")
+    }
+
+    @Test func setOverlayStyleWritesTheConfigKey() async {
+        let harness = Harness()
+        defer { harness.cleanUp() }
+        let model = await harness.model()
+        #expect(model.selectedOverlayStyle == .softMeter)
+
+        await model.setOverlayStyle(.petalIris)
+
+        #expect(model.selectedOverlayStyle == .petalIris)
+        #expect(await harness.store.load().overlayStyle == .petalIris)
+    }
+
+    /// R15: an edit made outside Settings reaches the pane through the one
+    /// config-change consumer.
+    @Test func refreshFromConfigUpdatesTheSelection() async throws {
+        let harness = Harness()
+        defer { harness.cleanUp() }
+        let model = await harness.model()
+
+        try await harness.store.update { @Sendable in $0.overlayStyle = .resonantHalo }
+        model.refresh(from: await harness.store.load())
+
+        #expect(model.selectedOverlayStyle == .resonantHalo)
+    }
+
+    @Test func overlayStyleRowsMatchTheCatalog() async {
+        let harness = Harness()
+        defer { harness.cleanUp() }
+        let model = await harness.model()
+
+        #expect(model.overlayStyleRows == OverlayStyleCatalog.rows)
+        #expect(model.overlayStyleRows.count == OverlayStyle.allCases.count)
     }
 }

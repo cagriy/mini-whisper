@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// The sidebar Settings window of design §5.4, matching the accepted mockup
-/// `mockup-v1-settings-sidebar.html`: seven sections on the left, one pane on
+/// `mockup-v1-settings-sidebar.html`: eight sections on the left, one pane on
 /// the right, 780×560.
 struct SettingsView: View {
     @Bindable var model: SettingsModel
@@ -28,6 +28,7 @@ struct SettingsView: View {
         case .cleanup: CleanupSection(model: model)
         case .vocabulary: VocabularySection(model: model)
         case .history: HistorySection(model: model)
+        case .overlay: OverlaySection(model: model)
         case .sound: SoundSection(model: model)
         }
     }

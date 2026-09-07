@@ -1,6 +1,7 @@
 import Foundation
 import MWConfig
 import MWHotkeys
+import MWOverlaySim
 import MWStreaming
 import MWSupport
 import Observation
@@ -55,7 +56,7 @@ final class SettingsModel {
     }
 
     enum Section: String, CaseIterable, Identifiable {
-        case general, hotkeys, keys, cleanup, vocabulary, history, sound
+        case general, hotkeys, keys, cleanup, vocabulary, history, overlay, sound
 
         var id: String { rawValue }
 
@@ -67,6 +68,7 @@ final class SettingsModel {
             case .cleanup: "Cleanup"
             case .vocabulary: "Vocabulary"
             case .history: "History"
+            case .overlay: "Overlay"
             case .sound: "Sound"
             }
         }
@@ -79,6 +81,7 @@ final class SettingsModel {
             case .cleanup: "wand.and.sparkles"
             case .vocabulary: "textformat.abc"
             case .history: "clock.arrow.circlepath"
+            case .overlay: "sparkles.rectangle.stack"
             case .sound: "speaker.wave.2"
             }
         }
@@ -108,6 +111,15 @@ final class SettingsModel {
         var accessory: EngineAccessory?
 
         var id: EngineName { name }
+    }
+
+    struct OverlayStyleRow: Identifiable, Equatable {
+        var style: OverlayStyle
+        var title: String
+        var summary: String
+        var isDefault: Bool
+
+        var id: OverlayStyle { style }
     }
 
     static let idleStopSecondsRange = 10...600
@@ -343,6 +355,15 @@ final class SettingsModel {
 
     func openHistory() {
         deps.openHistory()
+    }
+
+    // MARK: - Overlay (design v3 §5.4)
+
+    var overlayStyleRows: [OverlayStyleRow] { OverlayStyleCatalog.rows }
+    var selectedOverlayStyle: OverlayStyle { config.overlayStyle }
+
+    func setOverlayStyle(_ style: OverlayStyle) async {
+        await write { $0.overlayStyle = style }
     }
 
     // MARK: - Keys (F3)
