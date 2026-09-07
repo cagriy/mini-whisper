@@ -756,3 +756,11 @@ With all eight stages merged, against design §3's acceptance criteria:
 ## Deviations from the design
 
 None — plan matches design v3 exactly.
+
+## Deviations from plan
+
+1. **Stage 3, step 3: `StyleGeometry.points` is `public internal(set)`, not `public private(set)`.**
+   `private(set)` confines the setter to `StyleGeometry.swift`, so `StyleSampler` — which the same
+   step puts in its own file — could not write into the buffer at all. `internal(set)` is also what
+   the shape the step points at, `Frame.swift`'s `dots`/`links`, actually uses, and design §5.1
+   specifies a plain `var`. `count` and `glowX` are `internal(set)` as the step says.
