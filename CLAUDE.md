@@ -1,7 +1,12 @@
 # Mini Whisper (Swift) — repository guide
 
-Native Swift/AppKit rewrite of the Python app `../mini-whisper` (v0.1.8). Same bundle ID
-`com.ips.mini-whisper`, same `~/.config/mini-whisper/` files, same Keychain items, same cask.
+Native Swift/AppKit rewrite of the Python app `../mini-whisper` (v0.1.8), and since v0.3.0 the
+shipping app. Same bundle ID `com.ips.mini-whisper`, same `~/.config/mini-whisper/` files, same
+Keychain items, same cask token `mini-whisper`.
+
+This repo is `github.com/cagriy/mini-whisper`. The Python original was renamed to
+`cagriy/mini-whisper-py`, to be archived once the signed Swift release is proven; its local
+checkout is still `../mini-whisper`, so the directory name and the remote no longer match.
 
 **`../mini-whisper` is a read-only reference.** Never create, modify or delete anything under it.
 Read it freely for behaviour, constants and test cases.
