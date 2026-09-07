@@ -1,5 +1,4 @@
 import AppKit
-import CoreText
 import MWOverlaySim
 import QuartzCore
 
@@ -63,21 +62,18 @@ final class ConstellationLayer: CALayer {
         context.translateBy(x: offsetX, y: 0)
 
         let card = CGRect(x: 0, y: 0, width: side, height: side)
-        context.setFillColor(gray: 0, alpha: Constants.backgroundAlpha * cardAlpha)
-        context.addPath(CGPath(
-            roundedRect: card,
-            cornerWidth: Constants.backgroundCornerRadius,
-            cornerHeight: Constants.backgroundCornerRadius,
-            transform: nil
-        ))
-        context.fillPath()
+        CardChrome.drawCard(in: context, rect: card, alpha: cardAlpha)
 
         if dotsVisible {
             drawLinks(in: context)
             drawDots(in: context)
-            drawLabel(in: context, rect: card)
+            CardChrome.drawLabel(
+                in: context, rect: card, text: label, alpha: cardAlpha, font: labelFont
+            )
         } else if !errorText.isEmpty {
-            drawError(in: context, rect: card)
+            CardChrome.drawError(
+                in: context, rect: card, text: errorText, alpha: cardAlpha, font: errorFont
+            )
         }
     }
 
@@ -104,62 +100,5 @@ final class ConstellationLayer: CALayer {
             ))
         }
         context.fillPath()
-    }
-
-    /// Bottom-right, 12 pt in from the edge and 10 pt up, as `overlay.py` draws it.
-    private func drawLabel(in context: CGContext, rect: CGRect) {
-        guard !label.isEmpty else { return }
-        let line = CTLineCreateWithAttributedString(
-            attributed(label, font: labelFont, alpha: Constants.dotAlpha)
-        )
-        let width = CTLineGetTypographicBounds(line, nil, nil, nil)
-        context.textPosition = CGPoint(x: rect.maxX - width - 12, y: rect.minY + 10)
-        CTLineDraw(line, context)
-    }
-
-    private func drawError(in context: CGContext, rect: CGRect) {
-        let margin = 20.0
-        let text = attributed(errorText, font: errorFont, alpha: 1, centred: true)
-        let framesetter = CTFramesetterCreateWithAttributedString(text)
-        let width = rect.width - 2 * margin
-        let size = CTFramesetterSuggestFrameSizeWithConstraints(
-            framesetter,
-            CFRange(location: 0, length: 0),
-            nil,
-            CGSize(width: width, height: rect.height),
-            nil
-        )
-        // The source's geometry: centred, nudged 30 pt down, with 20 pt of slack.
-        let box = CGRect(
-            x: rect.minX + margin,
-            y: (rect.height - size.height) / 2 - 30,
-            width: width,
-            height: size.height + 20
-        )
-        let frame = CTFramesetterCreateFrame(
-            framesetter,
-            CFRange(location: 0, length: 0),
-            CGPath(rect: box, transform: nil),
-            nil
-        )
-        CTFrameDraw(frame, context)
-    }
-
-    private func attributed(
-        _ string: String,
-        font: NSFont,
-        alpha: Double,
-        centred: Bool = false
-    ) -> NSAttributedString {
-        var attributes: [NSAttributedString.Key: Any] = [
-            .font: font,
-            .foregroundColor: NSColor.white.withAlphaComponent(alpha * cardAlpha),
-        ]
-        if centred {
-            let style = NSMutableParagraphStyle()
-            style.alignment = .center
-            attributes[.paragraphStyle] = style
-        }
-        return NSAttributedString(string: string, attributes: attributes)
     }
 }
