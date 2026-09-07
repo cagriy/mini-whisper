@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- The release pipeline signs the app with a Developer ID, notarizes and staples the
+  DMG, and publishes it. 0.3.0 was tagged but produced no downloadable build, and an
+  unsigned one would not have opened.
+
 ## [0.3.0] - 2026-09-06
 
 ### Added
