@@ -13,6 +13,14 @@ protocol HotkeyCapturing: AnyObject, Sendable {
     func update(binding: BindingName, combo: HotkeyCombo)
 }
 
+/// Sparkle's automatic-check preference and its manual check. One conformer:
+/// `SparkleUpdateChecking`. Sparkle reads and writes this setting itself on every
+/// scheduled check, so it is the one preference that is not in `config.json`.
+protocol UpdateChecking: AnyObject, Sendable {
+    var automaticallyChecksForUpdates: Bool { get set }
+    func checkForUpdates()
+}
+
 /// The volume preview of F34. One conformer: `SoundPlayer`.
 protocol SoundPreviewing: AnyObject, Sendable {
     func setVolume(_ volume: Float)
@@ -31,6 +39,7 @@ final class SettingsModel {
         var secrets: any SecretStore
         var hotkeys: any HotkeyCapturing
         var sounds: any SoundPreviewing
+        var updates: any UpdateChecking
         var platform: PlatformInfo
         var assetStatus: @Sendable () async -> AssetStatus
         var installAssets: @Sendable () async throws -> Void
@@ -131,10 +140,14 @@ final class SettingsModel {
     private var displays: [BindingName: String] = [:]
     private var previousDisplay: String?
 
+    /// Mirrors Sparkle's preference so the Settings toggle is observable.
+    var automaticUpdatesEnabled: Bool
+
     init(config: Config, deps: Dependencies) {
         self.config = config
         self.deps = deps
         volume = config.soundVolume
+        automaticUpdatesEnabled = deps.updates.automaticallyChecksForUpdates
         vocabulary = VocabularyModel(terms: config.vocabulary, store: deps.store)
         profiles = ProfilesEditorModel(
             config: config,
@@ -152,6 +165,19 @@ final class SettingsModel {
         for binding in BindingName.allCases {
             displays[binding] = Self.displayString(of: stored(binding))
         }
+    }
+
+    var appVersion: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "?"
+    }
+
+    func setAutomaticUpdates(_ enabled: Bool) {
+        deps.updates.automaticallyChecksForUpdates = enabled
+        automaticUpdatesEnabled = enabled
+    }
+
+    func checkForUpdatesNow() {
+        deps.updates.checkForUpdates()
     }
 
     /// R36: a config written elsewhere — the correction window, or the Python app —

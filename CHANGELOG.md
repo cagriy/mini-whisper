@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+### Added
+
+- Automatic updates, via Sparkle. Mini Whisper checks for a new version once a day, shows the
+  changelog entry for it, and installs and relaunches once you approve. `Check for Updates…` in
+  the menu bar checks on demand; Settings → General turns the daily check off. Homebrew no longer
+  needs to upgrade the app, and no longer tries to.
+- **This release has to be installed the old way.** 0.3.1 and earlier have no updater, and the
+  cask is now `auto_updates true`, so plain `brew upgrade` skips it. Run
+  `brew upgrade --cask --greedy mini-whisper` (or install the DMG) once to get here; updates are
+  automatic from then on.
+
 ## [0.3.1] - 2026-09-07
 
 ### Fixed

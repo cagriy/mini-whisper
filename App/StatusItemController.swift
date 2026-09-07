@@ -81,6 +81,7 @@ final class StatusItemController: NSObject {
         case .correctLast: onCorrectLast()
         case .history: onHistory()
         case .settings: onSettings()
+        case .checkForUpdates: AppUpdater.checkForUpdates()
         case .about: AboutPanel.show()
         case .quit: onQuit()
         }

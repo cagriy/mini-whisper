@@ -41,6 +41,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         guard SingleInstanceGuard.claim() else { exit(0) }
         configureLogging()
+        AppUpdater.start()
 
         let permitted = PermissionMonitor.allGranted
         statusItem = StatusItemController(
@@ -166,6 +167,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             secrets: secrets,
             hotkeys: listener,
             sounds: sounds,
+            updates: SparkleUpdateChecking(),
             platform: PlatformInfo(),
             assetStatus: { await SpeechModelAssets.status(api: analyzer) },
             installAssets: { try await SpeechModelAssets.install(api: analyzer) },

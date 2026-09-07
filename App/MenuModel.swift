@@ -10,6 +10,7 @@ struct MenuItem: Equatable {
         case correctLast
         case history
         case settings
+        case checkForUpdates
         case about
         case quit
     }
@@ -42,6 +43,7 @@ struct MenuModel {
             MenuItem(title: "History...", action: .history),
             MenuItem(title: "Settings...", action: .settings),
             .separator,
+            MenuItem(title: "Check for Updates…", action: .checkForUpdates),
             MenuItem(title: "About Mini Whisper", action: .about),
             MenuItem(title: "Quit", action: .quit),
         ]

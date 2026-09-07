@@ -8,6 +8,10 @@ options:
 packages:
   MiniWhisperCore:
     path: Packages/MiniWhisperCore
+  # The one third-party runtime dependency, app target only (CLAUDE.md).
+  Sparkle:
+    url: https://github.com/sparkle-project/Sparkle
+    from: 2.9.6
 
 settings:
   base:
@@ -51,16 +55,22 @@ targets:
         product: MWOverlaySim
       - package: MiniWhisperCore
         product: MWPipeline
+      - package: Sparkle
     settings:
       base:
         PRODUCT_NAME: Mini Whisper
         PRODUCT_MODULE_NAME: MiniWhisper
         PRODUCT_BUNDLE_IDENTIFIER: com.ips.mini-whisper
         MARKETING_VERSION: "0.3.1"
+        # Sparkle compares CFBundleVersion; a frozen build number would make
+        # every update look non-newer, so it tracks the release version.
         CURRENT_PROJECT_VERSION: "0.3.1"
         INFOPLIST_FILE: App/Info.plist
         CODE_SIGN_ENTITLEMENTS: App/MiniWhisper.entitlements
         ENABLE_HARDENED_RUNTIME: YES
+        # Without this the binary links @rpath/Sparkle.framework with no
+        # LC_RPATH and dyld aborts at launch, signed and notarized or not.
+        LD_RUNPATH_SEARCH_PATHS: "@executable_path/../Frameworks"
     scheme:
       testTargets:
         - AppTests

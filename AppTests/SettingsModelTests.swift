@@ -33,12 +33,20 @@ import Testing
         func playOn() { onPlays += 1 }
     }
 
+    private final class FakeUpdater: UpdateChecking, @unchecked Sendable {
+        var automaticallyChecksForUpdates = true
+        var checks = 0
+
+        func checkForUpdates() { checks += 1 }
+    }
+
     private struct Harness {
         let directory: URL
         let store: ConfigStore
         let secrets = FakeSecrets()
         let hotkeys = FakeHotkeys()
         let sounds = FakeSounds()
+        let updates = FakeUpdater()
 
         init() {
             directory = FileManager.default.temporaryDirectory
@@ -60,6 +68,7 @@ import Testing
                     secrets: secrets,
                     hotkeys: hotkeys,
                     sounds: sounds,
+                    updates: updates,
                     platform: PlatformInfo(osMajor: osMajor, locale: Locale(identifier: "en_US")),
                     assetStatus: status ?? { speechModel },
                     installAssets: installAssets,
@@ -425,5 +434,23 @@ import Testing
         #expect(await harness.store.load().soundVolume == 0.42)
         #expect(harness.sounds.volume == 0.42)
         #expect(harness.sounds.onPlays == 1)
+    }
+
+    /// Sparkle owns this preference, so the toggle reads and writes it through the
+    /// updater rather than `config.json`.
+    @Test func automaticUpdatesReadAndWriteThroughTheUpdater() async {
+        let harness = Harness()
+        defer { harness.cleanUp() }
+        harness.updates.automaticallyChecksForUpdates = true
+        let model = await harness.model()
+
+        #expect(model.automaticUpdatesEnabled)
+
+        model.setAutomaticUpdates(false)
+        #expect(!harness.updates.automaticallyChecksForUpdates)
+        #expect(!model.automaticUpdatesEnabled)
+
+        model.checkForUpdatesNow()
+        #expect(harness.updates.checks == 1)
     }
 }

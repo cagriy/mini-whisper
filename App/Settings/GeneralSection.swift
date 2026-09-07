@@ -38,6 +38,26 @@ struct GeneralSection: View {
                 step: 1,
                 footnote: "A tap arms toggle mode; recording ends at the next tap or at this limit."
             )
+
+            VStack(alignment: .leading, spacing: 6) {
+                // Not `settingsBinding`: Sparkle owns this preference and rewrites it
+                // on every scheduled check, so config.json never holds a copy.
+                Toggle(
+                    "Automatically check for updates",
+                    isOn: Binding(
+                        get: { model.automaticUpdatesEnabled },
+                        set: { model.setAutomaticUpdates($0) }
+                    )
+                )
+                HStack {
+                    Button("Check Now") { model.checkForUpdatesNow() }
+                    Spacer()
+                }
+                SettingsFootnote(
+                    "Version \(model.appVersion). Checked once a day; an update installs"
+                        + " only after you approve it."
+                )
+            }
         }
         .task { await model.refreshSpeechModel() }
     }

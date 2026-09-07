@@ -32,5 +32,16 @@
 	<string>Mini Whisper needs microphone access to record your dictation.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>Mini Whisper uses on-device speech recognition to show a live transcript while you dictate.</string>
+	<key>SUEnableAutomaticChecks</key>
+	<true/>
+	<key>SUFeedURL</key>
+	<string>https://raw.githubusercontent.com/cagriy/mini-whisper/main/appcast.xml</string>
+	<!-- Sparkle's EdDSA public key. The matching private key is in the login
+	     Keychain under account `mini-whisper` and in the SPARKLE_PRIVATE_KEY
+	     repository secret; lose it and no installed copy can verify an update.
+	     The daily check cadence is Sparkle's default SUScheduledCheckInterval
+	     (86400) — don't set it. -->
+	<key>SUPublicEDKey</key>
+	<string>B9qIbbyrm94/7juAgPzB9aWzV9GVTv+gOWhSIZ2aX2c=</string>
 </dict>
 </plist>

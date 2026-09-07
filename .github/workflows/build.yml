@@ -23,7 +23,9 @@ jobs:
       - name: Select Xcode 26.6
         run: sudo xcode-select -s /Applications/Xcode_26.6.app
       - name: Install xcodegen
-        run: brew install xcodegen
+        run: brew install xcodegen uv
+      - name: Appcast script tests
+        run: uv run --no-project --with pytest pytest scripts/tests/
       - name: Core package tests
         working-directory: Packages/MiniWhisperCore
         run: swift test
@@ -94,6 +96,21 @@ jobs:
         run: |
           IDENTITY="Developer ID Application"
 
+          # Sparkle's helpers ship ad-hoc signed, which notarization rejects.
+          # They keep their own entitlements, not the app's.
+          SPARKLE_FW="$APP_PATH/Contents/Frameworks/Sparkle.framework"
+          for nested in \
+            "$SPARKLE_FW/Versions/B/XPCServices/Downloader.xpc" \
+            "$SPARKLE_FW/Versions/B/XPCServices/Installer.xpc" \
+            "$SPARKLE_FW/Versions/B/Autoupdate" \
+            "$SPARKLE_FW/Versions/B/Updater.app"; do
+            [[ -e "$nested" ]] || continue
+            codesign --force --options runtime --timestamp \
+              --preserve-metadata=entitlements --sign "$IDENTITY" "$nested"
+          done
+          codesign --force --options runtime --timestamp \
+            --sign "$IDENTITY" "$SPARKLE_FW"
+
           # Nested code first, outermost last. A SwiftPM-only app normally has
           # nothing here, but an embedded framework would break the outer seal.
           find "$APP_PATH" -type f \( -name "*.dylib" -o -name "*.so" \) \
@@ -106,7 +123,34 @@ jobs:
             --timestamp \
             "$APP_PATH"
 
-          codesign --verify --verbose=2 "$APP_PATH"
+          codesign --verify --deep --strict --verbose=2 "$APP_PATH"
+
+      - name: Verify embedded frameworks resolve
+        run: |
+          # codesign, notarytool and stapler all pass on a binary dyld refuses
+          # to start. herdr-notch v1.4.0 shipped notarized and stapled and died
+          # with "Library not loaded: @rpath/Sparkle.framework/... no LC_RPATH's
+          # found", so this is the only check that catches a missing runpath.
+          binary="$APP_PATH/Contents/MacOS/Mini Whisper"
+          rpaths=()
+          while read -r p; do [[ -n "$p" ]] && rpaths+=("$p"); done < <(
+            otool -l "$binary" | awk '/cmd LC_RPATH/{f=1} f&&/ path /{print $2; f=0}')
+          while read -r dep; do
+            [[ -n "$dep" ]] || continue
+            rel="${dep#@rpath/}"
+            found=false
+            for rp in "${rpaths[@]}"; do
+              resolved="${rp//@executable_path/$APP_PATH/Contents/MacOS}"
+              resolved="${resolved//@loader_path/$APP_PATH/Contents/MacOS}"
+              [[ -e "$resolved/$rel" ]] && { found=true; break; }
+            done
+            $found || {
+              echo "error: $dep does not resolve (LC_RPATH: ${rpaths[*]:-none})" >&2
+              echo "       the app would abort at launch; check LD_RUNPATH_SEARCH_PATHS" >&2
+              exit 1
+            }
+          done < <(otool -L "$binary" | awk '/@rpath\//{print $1}' | sort -u)
+          echo "all @rpath dependencies resolve"
 
       - name: Create DMG
         run: |
@@ -147,18 +191,70 @@ jobs:
 
           xcrun stapler staple "${{ env.dmg_path }}"
 
+      - name: Sparkle-sign the DMG
+        if: >-
+          (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v'))
+          || (github.event.inputs.sign == 'true')
+        env:
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+        run: |
+          # After stapling, never before: stapling rewrites the DMG.
+          version=2.9.6
+          sha256=52bf9e88cdd972fc0c81501377a880e90d47031bd8ca5462488f843e2609e192
+          tarball="$RUNNER_TEMP/Sparkle-$version.tar.xz"
+          tools="$RUNNER_TEMP/sparkle-$version"
+
+          mkdir -p "$tools"
+          curl -fsSL -o "$tarball" \
+            "https://github.com/sparkle-project/Sparkle/releases/download/$version/Sparkle-$version.tar.xz"
+          echo "$sha256  $tarball" | shasum -a 256 -c - >/dev/null
+          tar -xJf "$tarball" -C "$tools"
+
+          # By path, not argv, and outside the workspace.
+          key_file="$RUNNER_TEMP/sparkle_ed_key"
+          (umask 077; printf '%s' "$SPARKLE_PRIVATE_KEY" > "$key_file")
+
+          out="$("$tools/bin/sign_update" --ed-key-file "$key_file" "${{ env.dmg_path }}")"
+          echo "$out"
+
+          echo "sparkle_signature=$(sed -E 's/.*sparkle:edSignature="([^"]+)".*/\1/' <<<"$out")" \
+            >> "$GITHUB_ENV"
+          echo "sparkle_length=$(sed -E 's/.*length="([^"]+)".*/\1/' <<<"$out")" \
+            >> "$GITHUB_ENV"
+
+      - name: Remove the Sparkle key
+        if: always()
+        run: rm -f "$RUNNER_TEMP/sparkle_ed_key"
+
       - name: Upload DMG artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.dmg_name }}
           path: ${{ env.dmg_path }}
 
+      - name: Extract release notes
+        if: startsWith(github.ref, 'refs/tags/v') && (github.event_name == 'push' || github.event.inputs.sign == 'true')
+        env:
+          APP_VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          notes="$RUNNER_TEMP/notes.md"
+          awk -v heading="## [$APP_VERSION]" '
+            index($0, heading) == 1 { found = 1; next }
+            found && /^## \[/ { exit }
+            found { print }
+          ' CHANGELOG.md > "$notes"
+          if [[ ! -s "$notes" ]]; then
+            echo "error: CHANGELOG.md has no section for $APP_VERSION" >&2
+            exit 1
+          fi
+          echo "notes_path=$notes" >> "$GITHUB_ENV"
+
       - name: Create GitHub Release
         if: startsWith(github.ref, 'refs/tags/v') && (github.event_name == 'push' || github.event.inputs.sign == 'true')
         uses: softprops/action-gh-release@v2
         with:
           files: ${{ env.dmg_path }}
-          generate_release_notes: true
+          body_path: ${{ env.notes_path }}
           draft: false
           prerelease: ${{ contains(github.ref, '-beta') || contains(github.ref, '-rc') }}
 
@@ -182,3 +278,30 @@ jobs:
           git add Casks/mini-whisper.rb
           git commit -m "Update mini-whisper to ${VERSION}"
           git push
+
+      - name: Publish appcast
+        if: startsWith(github.ref, 'refs/tags/v') && (github.event_name == 'push' || github.event.inputs.sign == 'true')
+        env:
+          APP_VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          # A tag build is a detached HEAD; the feed Sparkle reads lives on main.
+          git fetch origin main
+          git checkout -B main origin/main
+
+          python3 scripts/appcast.py \
+            --appcast appcast.xml \
+            --version "$APP_VERSION" \
+            --signature "$sparkle_signature" \
+            --length "$sparkle_length" \
+            --notes-file "$notes_path"
+
+          if git diff --quiet appcast.xml; then
+            echo "appcast already current for $APP_VERSION"
+            exit 0
+          fi
+
+          git config user.email "1134069+cagriy@users.noreply.github.com"
+          git config user.name "Cagri Yucel"
+          git add appcast.xml
+          git commit -m "Appcast: Mini Whisper $APP_VERSION"
+          git push origin main

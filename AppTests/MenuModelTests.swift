@@ -28,11 +28,14 @@ import Testing
             "History...",
             "Settings...",
             "",
+            "Check for Updates…",
             "About Mini Whisper",
             "Quit",
         ])
-        #expect(model.items.map(\.isSeparator) == [false, false, true, false, false, true, false, false])
-        #expect(model.items.map(\.action) == [nil, nil, nil, .history, .settings, nil, .about, .quit])
+        #expect(model.items.map(\.isSeparator) == [false, false, true, false, false, true, false, false, false])
+        #expect(model.items.map(\.action) == [
+            nil, nil, nil, .history, .settings, nil, .checkForUpdates, .about, .quit,
+        ])
     }
 
     /// R27: both rows are absent until a dictation has been delivered.
@@ -48,6 +51,7 @@ import Testing
             "History...",
             "Settings...",
             "",
+            "Check for Updates…",
             "About Mini Whisper",
             "Quit",
         ])

@@ -35,6 +35,7 @@ AppTests/                    xcodebuild-run tests for app-only pieces
 | Core package build | `cd Packages/MiniWhisperCore && swift build` |
 | App build | `xcodegen generate && xcodebuild -project "Mini Whisper.xcodeproj" -scheme MiniWhisper -destination 'platform=macOS' -derivedDataPath .dd build` |
 | App tests | `xcodegen generate && xcodebuild -project "Mini Whisper.xcodeproj" -scheme MiniWhisper -destination 'platform=macOS' -derivedDataPath .dd test` |
+| Appcast script tests | `uv run --no-project --with pytest pytest scripts/tests/` |
 
 Swift Testing output is preceded by an XCTest line `Executed 0 tests, with 0 failures` — that is the
 empty XCTest bundle, not the result. Read the `✔/✘ Test run with N tests in M suites …` line.
@@ -84,10 +85,35 @@ Dependencies flow downwards only; nothing depends on `MWPipeline`.
 - Every duration (hold threshold, tick, finish timeout, drain, idle stop, restore window, toggle cap)
   is tested on `VirtualClock`. A real sleep in a test is a defect.
 
+## Releases and auto-updates
+
+A release is cut by bumping `MARKETING_VERSION` and `CURRENT_PROJECT_VERSION` in `project.yml`,
+moving the `[Unreleased]` CHANGELOG entries into a `## [X.Y.Z] - YYYY-MM-DD` section, committing
+`Release vX.Y.Z` and pushing the tag. `.github/workflows/build.yml` does the rest: build, sign
+(Sparkle's nested helpers inside-out, then the app), verify every `@rpath` resolves, DMG,
+notarize, staple, `sign_update`, GitHub release, Homebrew tap bump, then the appcast commit.
+
+The updater is Sparkle 2.9.6, reading `appcast.xml` from this repo's `main` over
+`raw.githubusercontent.com`, with the DMG on the GitHub release as the enclosure. `App/AppUpdater.swift`
+is the whole client side. `SUFeedURL` and `SUPublicEDKey` live in `App/Info.plist`; the daily
+cadence is Sparkle's default, deliberately unset.
+
+- The EdDSA **private** key is in the login Keychain under its own account
+  (`generate_keys --account mini-whisper`, kept separate from other apps' keys) and in the
+  `SPARKLE_PRIVATE_KEY` repository secret. Lose it and no client can verify another update.
+- `CURRENT_PROJECT_VERSION` must track `MARKETING_VERSION`: Sparkle compares `CFBundleVersion`.
+- Sparkle owns its own preferences (`SUEnableAutomaticChecks`, `SULastCheckTime`) in
+  `UserDefaults`. That is the one piece of app state outside `config.json`; don't mirror it.
+- The Homebrew cask carries `auto_updates true`, so `brew upgrade` leaves the app alone.
+- Test an update without publishing: serve a doctored appcast locally, then
+  `defaults write com.ips.mini-whisper SUFeedURL http://localhost:8000/appcast.xml` and
+  `defaults delete com.ips.mini-whisper SULastCheckTime`. Clean up with `defaults delete`.
+
 ## Rules
 
 - Bundle ID is `com.ips.mini-whisper` and never changes — TCC and Keychain continuity depend on it,
   together with Team `XPRCQRLN7Y`.
-- macOS 14 deployment target, arm64, Swift 6 language mode with complete strict concurrency,
-  **no third-party runtime dependencies**.
+- macOS 14 deployment target, arm64, Swift 6 language mode with complete strict concurrency.
+- **One third-party runtime dependency: Sparkle**, in the app target only, for auto-updates.
+  `MiniWhisperCore` stays dependency-free — no core module imports it. Nothing else gets added.
 - Secrets live only in the Keychain. Never write an API key to disk, a log, a fixture or a comment.

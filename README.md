@@ -17,6 +17,11 @@ Homebrew refuses to load casks from a third-party tap until you trust it, so the
 
 Requires macOS 14 (Sonoma) or newer, on Apple silicon.
 
+Mini Whisper updates itself: it checks once a day, shows what changed, and installs only
+after you approve. `Check for Updates…` in the menu bar checks on demand, and the General
+tab of Settings turns the daily check off. Homebrew leaves the app alone once installed, so
+there is no need to `brew upgrade` it.
+
 ## Permissions
 
 On first launch Mini Whisper asks for:
