@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-09-07
+
 ### Added
 
 - Six overlay animation styles for the recording card: Soft meter, Silk ribbon, Resonant halo,
