@@ -27,3 +27,4 @@ xcuserdata/
 # Python bytecode from scripts/
 __pycache__/
 .pytest_cache/
+.codex/.last

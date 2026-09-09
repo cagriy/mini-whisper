@@ -1,0 +1,1227 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mini Whisper · Application review</title>
+<style>
+:root{color-scheme:light;--ink:#203348;--muted:#56677b;--blue:#164ba1;--pale:#eaf1fb;--line:#ced8e4;--paper:#fff;--back:#f3f6fa;--urgent:#9d352a;--green:#20624f;--radius:10px;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:16px;line-height:1.55;color:var(--ink);background:var(--back)}*{box-sizing:border-box}body{margin:0}button,input,select{font:inherit}button,select{cursor:pointer}button,a,input,select,summary{touch-action:manipulation}button{border:1px solid var(--line);border-radius:6px;background:white;color:var(--ink);padding:7px 12px;min-height:38px}button:hover{border-color:var(--blue);background:var(--pale)}a{color:var(--blue);text-underline-offset:3px}button:focus-visible,input:focus-visible,select:focus-visible,a:focus-visible,summary:focus-visible{outline:3px solid #3775c8;outline-offset:3px}button[disabled]{opacity:.55;cursor:default}.skip{position:fixed;top:-80px;left:20px;z-index:10;background:white;padding:12px}.skip:focus{top:12px}.shell{display:grid;grid-template-columns:238px minmax(0,1fr);max-width:1680px;margin:auto;min-height:100vh}aside{position:sticky;top:0;height:100vh;padding:30px 18px;border-right:1px solid var(--line);display:flex;flex-direction:column;background:#edf2f8}.identity{display:flex;align-items:center;gap:10px;padding:0 8px 22px}.identity img{width:40px;height:40px;border-radius:9px}.identity strong{display:block;line-height:1.2}.small{font-size:.875rem;color:var(--muted)}nav{display:grid;gap:5px}nav button{text-align:left;border-color:transparent;background:transparent;padding:10px 13px;display:flex;justify-content:space-between;align-items:center}nav button[aria-current="page"]{background:white;border-color:var(--line);color:var(--blue);font-weight:600}.sidebar-note{margin-top:auto;padding:24px 8px 0;font-size:.875rem;color:var(--muted)}.sidebar-note p{margin:8px 0}main{min-width:0;padding:36px clamp(22px,4vw,65px) 60px}h1{font-size:clamp(1.9rem,3vw,2.7rem);line-height:1.15;letter-spacing:-.035em;margin:10px 0 18px;font-weight:650}h2{font-size:1.45rem;line-height:1.3;letter-spacing:-.015em;margin:0 0 12px}h3{font-size:1.06rem;line-height:1.4;margin:0 0 8px}p{max-width:78ch;margin:0 0 13px}.topline{display:flex;justify-content:space-between;align-items:center;gap:20px;font-size:.875rem;color:var(--muted)}.lede{font-size:1.12rem;max-width:75ch}.verdict{border-left:4px solid var(--blue);padding:5px 0 4px 20px;margin-bottom:28px}.verdict p{margin:0}.priorities{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;margin:24px 0 30px}.priority-link{display:block;text-align:left;padding:16px;background:var(--paper);border-radius:var(--radius)}.priority-link span{display:block;color:var(--muted);font-size:.875rem;margin-top:7px}.priority-link b{font-size:1rem;color:var(--blue)}.toolbar{border-top:1px solid var(--line);padding:20px 0 14px}.filter-grid{display:grid;grid-template-columns:minmax(200px,1fr) 155px 150px;gap:12px;align-items:end}.field label{display:block;font-size:.875rem;margin-bottom:5px;font-weight:600}.field input,.field select{width:100%;min-height:42px;padding:8px 10px;border:1px solid #adbbca;border-radius:6px;background:white;color:var(--ink)}.tools{display:flex;align-items:center;justify-content:space-between;gap:15px;flex-wrap:wrap;margin-top:14px}.tools>div{display:flex;gap:8px;flex-wrap:wrap}.tools label{font-size:.875rem;display:flex;align-items:center;gap:6px}.tools input{width:18px;height:18px}.result-count{font-size:.875rem;color:var(--muted);margin:14px 0}.finding{background:white;border:1px solid var(--line);border-radius:var(--radius);margin-bottom:13px;overflow:hidden}.finding summary{cursor:pointer;list-style:none;display:grid;grid-template-columns:64px minmax(0,1fr) 20px;align-items:start;gap:14px;padding:18px 20px}.finding summary::-webkit-details-marker{display:none}.finding summary:after{content:'+';font-size:1.35rem;color:var(--blue);line-height:1.4}.finding[open] summary:after{content:'−'}.finding summary strong{font-weight:620}.meta{display:block;font-size:.875rem;color:var(--muted);margin-top:4px}.badge{font-size:.8rem;line-height:1.2;padding:6px 8px;border-radius:5px;background:#e9eff5;color:#38516c;font-weight:650;display:inline-block;text-align:center}.badge.p1{background:#f9e9e6;color:var(--urgent)}.badge.p2{background:#e9f0fb;color:var(--blue)}.badge.p3{background:#e9f2ef;color:var(--green)}.detail{padding:0 20px 22px 98px}.detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:22px}.detail h4{font-size:.875rem;margin:14px 0 5px;color:var(--muted)}.detail p{font-size:.96rem}.evidence{border-top:1px solid var(--line);padding-top:12px;margin-top:16px}.evidence a{display:block;font-size:.82rem;overflow-wrap:anywhere;margin:4px 0}.detail-foot{display:flex;justify-content:space-between;align-items:center;gap:18px;flex-wrap:wrap;margin-top:18px}.save[aria-pressed="true"]{background:var(--pale);color:var(--blue);border-color:#91aed2}.note{background:var(--pale);padding:18px 20px;border-radius:var(--radius);margin:22px 0}.empty{padding:35px;text-align:center;border:1px dashed var(--line);border-radius:var(--radius)}[hidden]{display:none!important}.section-intro{margin-bottom:26px}.table-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:var(--radius);background:white;margin:18px 0 30px}table{border-collapse:collapse;width:100%;font-size:.92rem}th,td{text-align:left;vertical-align:top;padding:14px 16px;border-bottom:1px solid var(--line)}th{background:#eaf0f7;font-weight:600}td{min-width:130px}tr:last-child td{border-bottom:0}td:first-child{font-weight:600}.flow{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin:24px 0}.flow button{text-align:left;padding:14px;background:white;border-radius:8px}.flow button b{display:block;color:var(--blue)}.flow button span{font-size:.85rem;display:block;margin-top:6px}.step-detail{padding:24px;background:white;border:1px solid var(--line);border-radius:var(--radius)}.flow button[aria-pressed="true"]{border:2px solid var(--blue);background:var(--pale);padding:13px}.split{display:grid;grid-template-columns:1fr 1fr;gap:28px}.list{padding-left:22px}.list li{margin:9px 0}.phase{display:grid;grid-template-columns:140px minmax(0,1fr);gap:24px;border-top:1px solid var(--line);padding:24px 0}.phase strong{color:var(--blue)}.phase ul{padding-left:20px;margin:7px 0 10px}.swatch{display:inline-block;width:13px;height:13px;border-radius:3px;margin-right:7px;vertical-align:-1px;border:1px solid #abb8c7}.status{min-height:1.4em;font-size:.875rem;color:var(--green)}footer{border-top:1px solid var(--line);margin-top:30px;padding-top:15px;font-size:.8rem;color:var(--muted)}.print-only{display:none}@media(max-width:1050px){.shell{grid-template-columns:200px minmax(0,1fr)}aside{padding:24px 12px}.priorities{grid-template-columns:1fr;gap:8px}.priority-link{padding:12px 16px}.priority-link span{margin-top:3px}.filter-grid{grid-template-columns:1fr 1fr}.field:first-child{grid-column:1/-1}.detail-grid,.split{grid-template-columns:1fr;gap:6px}.flow{grid-template-columns:1fr 1fr}.flow button:last-child{grid-column:1/-1}}
+@media(max-width:700px){.shell{display:block}aside{position:static;height:auto;padding:16px;border-right:0;border-bottom:1px solid var(--line)}.identity{padding:0 0 14px}nav{display:flex;overflow:auto;gap:4px}nav button{white-space:nowrap;padding:8px 10px}.sidebar-note{display:none}main{padding:24px 18px 40px}.topline{align-items:start}.topline button{font-size:.8rem}h1{font-size:2rem}.finding summary{padding:15px 13px;grid-template-columns:48px minmax(0,1fr) 16px;gap:10px}.detail{padding:0 16px 20px}.phase{grid-template-columns:1fr;gap:7px}.flow{grid-template-columns:1fr}.flow button:last-child{grid-column:auto}.badge{font-size:.75rem}.filter-grid{gap:10px}.tools{align-items:start}.table-wrap{max-width:100%}}
+@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
+@media print{body{background:white;font-size:11pt}.shell{display:block}aside,.toolbar,.topline button,.priority-link,.detail-foot,.flow,.no-print{display:none!important}main{padding:0}.view[hidden]{display:block!important}.view{margin:30px 0;break-before:page}.view:first-of-type{break-before:auto}.finding{break-inside:avoid}.finding summary{grid-template-columns:50px 1fr;padding:10px}.finding summary:after{display:none}.detail{padding:0 12px 14px}.detail-grid{display:block}.print-only{display:block}.table-wrap{overflow:visible}a{color:inherit;text-decoration:none}.evidence a{font-size:9pt}.priorities{display:none}.step-detail{border:0}.note{background:#f3f6fa}}
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to review</a>
+<div class="shell">
+<aside>
+<div class="identity"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACQAAAAkCAMAAADW3miqAAAAAXNSR0IB2cksfwAAAAlwSFlzAAAuIwAALiMBeKU/dgAAAl5QTFRF////////////////AAAAISEhCgoKBwcHBAQEBgYGCAgIExMTEBEQBAQEAQEBDQwNFRYVCwsLBwgIBgcGCgoKERERAwMDAgICEBERDAwMCAgIBgYGCgoKExMTZGNkEBAQAwMDAQECAgICCQkJHR0eHBwcAwMDAAAAAQEBDQ0NCgoKBQUFJiYmBgYGAgICFhYWdnd5FBQUBAQEERIRHh4eXV1dDg4OAQEBBwcHGBgXDw8PCQkJZmVmLy8vBAQECQkJCgoKAQEBBQUFDAwMBAQEAgICCwsLCAkIAQICHx8fERERAwMDDAwMCgoKBAQELS0tGhoaAgICEBAPTExMCQkJDg4ODA0NAgICDw8PEBAQCAgILzAvBAQEFxcWDQ0NDw8PHBscAwMDBgYGFBUUEhISBQUFEhIRFRUVDAwMBwgIFBQUERERFRUVVFZVAgICAwMDAwMDBQUFOjk4IyMjBwcHAwMDFBQUGhoaCQkJBwcHERERBgYGGxsbBwgHBAQEHRwcEhISCAgIPTw7LzAvCwwLBQUFFRUVKSkpBgYFCgsKCQoKBQUFDQ0NHR0dRkZGFxcXDw8PKCgpJCUkCAgIBgYGICAgPD09FhYWDg4OKCkoMTIxEBEQBgYGBAQECQkJIyQkJiYmCQkJBQUFCAgIGBgYZWZlGxoaDg4OFhYWNzc3S0xMCwsLBwcHTk1PLy8wAwMEIB8gPz8/CQkIBgYGMjIzNDQ0Nzc2KywrBgcGGBgZDw8PBgYGBwcHHh4ev7+/Ly8vo6OjT09PODg4WVlZR0ZGFRUVBwcHHx8f5OLj////cz0q5gAAAMp0Uk5TNxszIAAZkN3z6LBLXOz/kiR+t72ZW+f8a3q3wJw9AU/q//maCiHr//56oN0N6f0uAUf+hQ0Bf/3MG3G7AQvdv7z84Kzn+7TC/yom+4aP6xAp8nICpGIp/l9q1RDlSn9sGOzNLi7RYSF5vyY0RgH69vjfCBDB80QbtdRW9DjF7hpZrgIDkNgjBe+/xuaYFgg3PRsEndMRCjY/HQVX4PecEA+i3rQnAjFJPQwCscUDEeoVBLbIBgkKGec7Q9XXKQETAgUFAwQ5vyEBPGiPdGsAAAH6SURBVHicnZRPSFRRFMa/DzcK7QxklEAXJgO6iP7BoEkQDYYkomI4FqJIkKCii0GSBMNBXBQqioiogRoOajIapRFhtahEESSUdKEgPRcqboRaTHjfu3fezNibN+BZXN6553e/e+657x6CiGdkQnwoeB6I0v7aQYmUHk8soQtS4o+cTlKKv6OgNB5F7ZB8KIaL5E4ElMH9/9J1aEjlVgR0eS8UgSaiIi7tEjfDkHPX+vDp/BmCssltawiZXJPQFR4cxGDgJJcN6EZww0xVDUZu0nL4TUAuXVGfZwq5gmvkD9wkd2WN4OIHAbn5Rbq33qPgVxbfFvLjnUARF5WU+42ASvhObnFvCmWrV/0oZ6DoNSpmFVQ8LqCHnJZeqbiHSTwgJ+Ah19cU9GhAQE+0kHDVvDhlqntBZFP9b1RN1rBHP10DB2NVwKE95gtZzGb2x6Lq2GVei7f3rIIqVX0nTKil21qokR1hqPVoNCJklttRwfYw1Ma5jej9DM7LZwhDeL7p9CGpaUTdBVo5pBVcpxeRENBl/NRPpeMznDq14sxr6SebgJdkLTCkc1UWEPBKD3nExwRrgGGWW0Gm+WcC+pJSW2ialcC4kL1v1wvmPvf5jfzddg1jUQBjk2i+nW/fVT4de3C3MS9O61niTEle/P70NVck/t1lDwkLngJYPpdJfV+OVAAAAABJRU5ErkJggg==" alt=""><div><strong>Mini Whisper</strong><span class="small">Application review</span></div></div>
+<nav aria-label="Review sections">
+<button data-view="findings" aria-current="page">Findings <span id="nav-count"></span></button>
+<button data-view="journey">End-to-end journey</button>
+<button data-view="language">Design language</button>
+<button data-view="roadmap">Recommended sequence</button>
+<button data-view="scope">Scope & evidence</button>
+</nav>
+<div class="sidebar-note"><p>Version 0.5.0<br>9 September 2026</p><p>Three independent reviews.<br>One consolidated assessment.</p><p>Source-based findings.<br>Native runtime checks remain.</p></div>
+</aside>
+<main id="main" tabindex="-1">
+<div class="topline"><span>Review of <a href="https://github.com/cagriy/mini-whisper/tree/a83561bc3de0c425cf0da4319dc3775064f52f1f">a83561b</a></span><button id="print">Print / Save PDF</button></div>
+<h1>Make every dictation recoverable.</h1>
+<div class="verdict"><p class="lede">The core workflow is focused and the feature set is broad. The next release should protect recognized text, explain where data goes, and make state and settings consistent.</p></div>
+<section class="view" id="view-findings" aria-label="Findings">
+<div class="priorities">
+<button class="priority-link" data-focus="UX-01"><b>Protect the result</b><span>Cleanup and delivery failures can leave no recoverable text.</span></button>
+<button class="priority-link" data-focus="UX-03"><b>Make routing explicit</b><span>On-device recognition can still lead to cloud processing.</span></button>
+<button class="priority-link" data-focus="DS-01"><b>Expose status accessibly</b><span>Custom overlays need semantic state and recovery actions.</span></button>
+</div>
+<h2>Review findings</h2>
+<p class="small">Expand a finding for evidence and a completion criterion. UX covers existing behavior; features extend capability; design covers shared visual and interaction rules.</p>
+<div class="toolbar">
+<div class="filter-grid">
+<div class="field"><label for="search">Search findings</label><input id="search" type="search" placeholder="Try “history”, “privacy”, or “keyboard”…"></div>
+<div class="field"><label for="category">Review track</label><select id="category"><option value="all">All tracks</option><option>UX</option><option>Features</option><option>Design</option></select></div>
+<div class="field"><label for="priority">Priority</label><select id="priority"><option value="all">All priorities</option><option value="P1">P1 · Next release</option><option value="P2">P2 · Follow-up</option><option value="P3">P3 · Explore</option></select></div>
+</div>
+<div class="tools"><label><input id="shortlist-only" type="checkbox">Shortlist only <span id="shortlist-count">(0)</span></label><div><button id="reset">Reset filters</button><button id="expand">Expand results</button><button id="export" disabled>Export shortlist</button></div></div>
+</div>
+<div id="result-count" class="result-count" role="status" aria-live="polite"></div>
+<div id="findings"></div>
+<p class="status" id="status" role="status" aria-live="polite"></p>
+<p class="small">P1: trust, lost work, or core access. P2: recurring friction and coherence. P3: optional expansion. Effort S / M / L is relative engineering scope, not an estimate. Shortlist selections stay in this browser when storage is available.</p>
+</section>
+<section class="view" id="view-journey" hidden aria-labelledby="journey-title">
+<h2 id="journey-title">The whole dictation journey</h2><p>Improve the transitions between surfaces before adding more controls. Select a stage to inspect its current behavior and recommended change.</p>
+<div class="flow" aria-label="Journey stages"><button data-step="0" aria-pressed="true"><b>1. Set up</b><span>Prove readiness</span></button><button data-step="1" aria-pressed="false"><b>2. Record</b><span>Show mode & target</span></button><button data-step="2" aria-pressed="false"><b>3. Process</b><span>Protect useful text</span></button><button data-step="3" aria-pressed="false"><b>4. Deliver</b><span>Confirm the outcome</span></button><button data-step="4" aria-pressed="false"><b>5. Reuse & improve</b><span>Read, correct, retain</span></button></div><div id="step-detail" class="step-detail"></div>
+<h2 style="margin-top:30px">Preserve what works</h2>
+<div class="split"><ul class="list"><li>Hold and tap recording share one shortcut; the overlay does not take focus.</li><li>Clipboard restoration checks for intervening copies before overwriting.</li><li>Correction rules have scope, impact previews, enable/disable, and deterministic application.</li></ul><ul class="list"><li>Keychain storage, local history retention, and no telemetry provide a useful privacy foundation.</li><li>Native controls and system colors already support much of Settings and History.</li><li>Overlay previews reuse production animators; reduced-motion simulation already exists.</li></ul></div>
+<p class="small">Evidence: <a href="https://github.com/cagriy/mini-whisper/blob/a83561bc3de0c425cf0da4319dc3775064f52f1f/Packages/MiniWhisperCore/Sources/MWPaste/Paster.swift#L25">clipboard restoration</a>, <a href="https://github.com/cagriy/mini-whisper/blob/a83561bc3de0c425cf0da4319dc3775064f52f1f/App/Correction/CorrectionView.swift#L125">correction flow</a>, <a href="https://github.com/cagriy/mini-whisper/blob/a83561bc3de0c425cf0da4319dc3775064f52f1f/App/Settings/OverlayPreview.swift#L20">production preview</a>, and the surface inventory below.</p>
+</section>
+<section class="view" id="view-language" hidden aria-labelledby="language-title">
+<h2 id="language-title">One native language, two surface types</h2><p class="section-intro">Keep standard macOS windows for editing and a quiet, temporary overlay for recording. Share status meaning, typography roles, copy, and accessibility behavior across both. The overlay does not need to resemble a settings form.</p>
+<div class="table-wrap"><table><thead><tr><th>Dimension</th><th>Current inconsistency</th><th>Recommended rule</th></tr></thead><tbody>
+<tr><td>Typography</td><td>SwiftUI title/caption styles coexist with fixed 10–13 pt metadata, prompt fields, captions, and mini actions.</td><td>Use semantic title, body, secondary, and status roles. Reserve compact text for optional metadata; make status, errors, transcript, and help readable. Validate enlarged text rather than assuming a fixed size is accessible.</td></tr>
+<tr><td>Color</td><td>System colors in forms; fixed white-on-black overlay; custom colored initials; orange availability notices dimmed with the row.</td><td>Use system semantic colors for controls and states. Keep the dark overlay as a deliberate exception with verified contrast, high-contrast treatment, and solid backing when transparency is reduced. Never use color as the only state cue.</td></tr>
+<tr><td>Spacing & size</td><td>Settings use 24 pt insets / 18 pt groups; History uses 14 pt edges; editors pack mini controls into fixed windows.</td><td>Define shared spacing roles, suggested 4 / 8 / 12 / 16 / 24 pt. Use 24 pt pane insets and 12–16 pt list insets where appropriate. Let text editors and reading windows resize.</td></tr>
+<tr><td>Controls</td><td>Plain buttons imitate radio circles; frequent actions use mini controls; hidden row actions have no explicit accessibility visibility policy.</td><td>Use native selection semantics, clearly associated labels, standard controls for primary actions, and a stable keyboard action path. Compact controls remain suitable for secondary table actions after usability validation.</td></tr>
+<tr><td>State & feedback</td><td>Processing, error, copy, prompt save, and delete each have different feedback patterns.</td><td>Use a shared state vocabulary: Ready, Recording, Processing, Pasted, Copied, Needs attention. Couple failure text with a next action and preserve the result. Put persistent errors in an accessible window/menu surface.</td></tr>
+<tr><td>Save model</td><td>Most settings apply immediately; keys, prompts, and profile drafts require explicit save.</td><td>Keep immediate toggles. Mark edited drafts “Unsaved changes”; acknowledge Save; protect navigation away. Do not force one persistence model on unlike controls.</td></tr>
+<tr><td>Writing</td><td>“Record”, “Record and submit”, “Text cleanup”, “Engine”, provider implementation notes, and inconsistent ellipses.</td><td>Use “Dictate”, “Dictate and send”, “Speech engine”, and “AI text cleanup” where the meaning is clearer. Explain that send presses the configured key. Use one ellipsis character for actions opening another step.</td></tr>
+<tr><td>Motion & placement</td><td>Motion preferences are captured at creation; copy promises placement beside a field although geometry is screen-centered.</td><td>Make descriptions match actual placement now. Refresh accessibility preferences during use; keep state changes perceptible without animation. Treat caret anchoring as a later capability.</td></tr>
+<tr><td>Icons</td><td>SF Symbols coexist with invented app initials and provider radio artwork.</td><td>Keep SF Symbols for actions, real app icons when available, neutral fallback initials, and selected state expressed by the control itself.</td></tr>
+</tbody></table></div>
+<div class="note"><h3>Design direction (Recommended)</h3><p>Retain native macOS styling and invest in consistency, legibility, and state feedback. A broad visual rebrand would leave the most consequential workflow gaps unresolved.</p><p class="small">This is a proposed design policy, not a tested UI mockup. Findings DS-01 through DS-10 contain the source evidence and acceptance criteria.</p></div>
+<h3>Settings hierarchy</h3><p>Group around tasks: Dictation (engine, language, microphone, shortcuts); Text (cleanup, prompts, app profiles, vocabulary); Privacy & history; Appearance & sound; Providers; Updates. Start with better labels and cross-links. Validate the grouping before moving every pane.</p>
+<p class="small">Apple’s <a href="https://developer.apple.com/design/human-interface-guidelines/settings">Settings guidance</a> cautions that too many settings can make controls harder to find. Its <a href="https://developer.apple.com/design/human-interface-guidelines/color">Color guidance</a> describes dynamic system colors. These support the direction; the specific findings come from this repository.</p>
+</section>
+<section class="view" id="view-roadmap" hidden aria-labelledby="roadmap-title">
+<h2 id="roadmap-title">Sequence by dependency and user impact</h2><p class="section-intro">This is a recommended order, not a release commitment. Fixes and feature extensions are related; do not count both as separate estimates when they share the same implementation.</p>
+<div class="phase"><strong>First<br><span class="small">Protect trust</span></strong><div><h3>Recoverable text and explicit routing</h3><ul><li>Retain recognized text through cleanup and paste failure; provide Copy and retry actions (UX-01, FT-01).</li><li>Show the effective speech / cleanup / fallback path; implement a hard local-only policy (UX-03, FT-02).</li><li>Provide persistent, accessible failure/status feedback and confirm destructive retention changes (UX-04, UX-06, UX-13, DS-01).</li></ul><p class="small">Exit: simulated cleanup, target disappearance, missing permission, and network failure preserve useful text without violating history-off or local-only settings.</p></div></div>
+<div class="phase"><strong>Then<br><span class="small">Make it learnable</span></strong><div><h3>First success, readable history, coherent editing</h3><ul><li>Replace repeated key setup with a path based on the chosen engine and a first-dictation rehearsal (UX-02, FT-03).</li><li>Expose shortcut behavior, stop/cancel, full transcript detail, and action results (UX-05, UX-07, UX-08).</li><li>Align save feedback, control semantics, readable type, resizable windows, and copy (UX-09, DS-02–DS-10).</li></ul><p class="small">Exit: a new user completes one dictation without an OpenAI key on a supported local engine, reads a long result, and corrects a phrase using keyboard navigation.</p></div></div>
+<div class="phase"><strong>Afterward<br><span class="small">Expand deliberately</span></strong><div><h3>Language, input control, and result reuse</h3><ul><li>Add microphone and language preferences, task presets, and a visible effective profile (FT-04–FT-06).</li><li>Add prompt previews, selected correction-pack import/export, and local cost/reliability detail (FT-06–FT-08).</li><li>Add optional review before insertion on top of pending results; explore Shortcuts text return after policy and delivery are dependable (FT-09, FT-10).</li></ul><p class="small">Exit: test each feature against its finding’s completion criterion; validate demand before the larger automation workflow.</p></div></div>
+<div class="note"><h3>Defer</h3><p>More decorative overlay styles, team workspaces, sync, meeting bots, and subscription infrastructure. The repository already has six overlay styles; a stronger daily dictation loop has a clearer connection to this app’s purpose.</p></div>
+</section>
+<section class="view" id="view-scope" hidden aria-labelledby="scope-title">
+<h2 id="scope-title">Scope, evidence, and limits</h2><p>Reviewed the Swift app at version 0.5.0, commit <a href="https://github.com/cagriy/mini-whisper/tree/a83561bc3de0c425cf0da4319dc3775064f52f1f">a83561b</a>. Three subagents independently examined UX, new feature opportunities, and design language. The consolidating review cross-checked the highest-impact code paths and removed overlapping recommendations.</p>
+<div class="note"><h3>What this review establishes</h3><p>Findings describe source-observed behavior or clearly labeled opportunities. No native app session, live dictation, paid provider request, VoiceOver audit, or user study was performed. No personal history, configuration, or stored credentials were inspected. Visual clipping and accessibility consequences that require runtime testing remain hypotheses, not reproduced defects.</p><p>Historical mockups and feature plans are context only; current production source determines whether a feature exists. This report changes no application code.</p></div>
+<h3>Coverage</h3><div class="table-wrap"><table><thead><tr><th>Surface / subsystem</th><th>Current capability reviewed</th><th>Main finding</th></tr></thead><tbody><tr><td>Launch & permissions</td><td>Microphone / Accessibility wizard, speech permission and model prompt, keyless launch<br><a href="https://github.com/cagriy/mini-whisper/blob/a83561bc3de0c425cf0da4319dc3775064f52f1f/App/AppDelegate.swift#L224">Source</a></td><td>Readiness and keyless setup: UX-02</td></tr><tr><td>Menu & updates</td><td>Usage totals, last copy/correction, History, Settings, About, Sparkle<br><a href="https://github.com/cagriy/mini-whisper/blob/a83561bc3de0c425cf0da4319dc3775064f52f1f/App/MenuModel.swift#L37">Source</a></td><td>Action naming, status, attribution: DS-09–DS-10</td></tr><tr><td>Recording & hotkeys</td><td>Hold/tap, submit binding, idle/cap, capture validation, session generations<br><a href="https://github.com/cagriy/mini-whisper/blob/a83561bc3de0c425cf0da4319dc3775064f52f1f/Packages/MiniWhisperCore/Sources/MWPipeline/DictationController.swift#L69">Source</a></td><td>Cancel, destination and overlapping work: UX-05, UX-08, UX-11</td></tr><tr><td>Audio & engines</td><td>Five live engine choices; input lifecycle; model availability; OpenAI batch fallback<br><a href="https://github.com/cagriy/mini-whisper/blob/a83561bc3de0c425cf0da4319dc3775064f52f1f/App/Settings/SettingsModel.swift#L207">Source</a></td><td>Explicit language / input controls: FT-04–FT-05</td></tr><tr><td>Processing & paste</td><td>Stream finish, fallback, cleanup, corrections, usage, synthetic paste, clipboard restore<br><a href="https://github.com/cagriy/mini-whisper/blob/a83561bc3de0c425cf0da4319dc3775064f52f1f/Packages/MiniWhisperCore/Sources/MWPipeline/ProcessingJob.swift#L40">Source</a></td><td>Recoverability and route disclosure: UX-01, UX-03</td></tr><tr><td>Settings: General / Hotkeys / Keys</td><td>Engine gating, timers, updates, shortcut capture, masked provider fields<br><a href="https://github.com/cagriy/mini-whisper/blob/a83561bc3de0c425cf0da4319dc3775064f52f1f/App/Settings/GeneralSection.swift#L10">Source</a></td><td>Readiness, credentials and semantics: UX-10–UX-11, DS-02</td></tr><tr><td>Settings: Cleanup / Profiles</td><td>Global prompts, per-app prompt/cleanup/submit, app selection<br><a href="https://github.com/cagriy/mini-whisper/blob/a83561bc3de0c425cf0da4319dc3775064f52f1f/App/Settings/ProfilesEditor.swift#L9">Source</a></td><td>Draft protection and task presets: UX-09, FT-06</td></tr><tr><td>Settings: Vocabulary / Corrections</td><td>Terms, deterministic scoped rules, variants, impact preview, tally, engine hint report<br><a href="https://github.com/cagriy/mini-whisper/blob/a83561bc3de0c425cf0da4319dc3775064f52f1f/App/Settings/CorrectionsEditor.swift#L11">Source</a></td><td>Creation/import extension: FT-07; not a proposal to re-add rules</td></tr><tr><td>Settings: History / Sound</td><td>0–30 day retention, clear/open History; volume and preview<br><a href="https://github.com/cagriy/mini-whisper/blob/a83561bc3de0c425cf0da4319dc3775064f52f1f/App/Settings/HistorySection.swift#L15">Source</a></td><td>Deletion/expiry and cue consistency: UX-06, UX-13, DS-09</td></tr><tr><td>Settings: Overlay / preview</td><td>Six styles with shared production animators and a simulated preview<br><a href="https://github.com/cagriy/mini-whisper/blob/a83561bc3de0c425cf0da4319dc3775064f52f1f/App/Settings/OverlayStyleCatalog.swift#L8">Source</a></td><td>Preserve renderer reuse; correct placement copy: DS-08</td></tr><tr><td>Live overlay & captions</td><td>Recording/processing/result/error, animated card, fading text, cursor, notices<br><a href="https://github.com/cagriy/mini-whisper/blob/a83561bc3de0c425cf0da4319dc3775064f52f1f/App/Overlay/CaptionLayerStack.swift#L19">Source</a></td><td>Semantics, readable text and motion policy: DS-01–DS-04</td></tr><tr><td>History</td><td>Search, day groups, copy, paste without submit, delete, clear and correction<br><a href="https://github.com/cagriy/mini-whisper/blob/a83561bc3de0c425cf0da4319dc3775064f52f1f/App/History/HistoryView.swift#L13">Source</a></td><td>Full reading, empty states, recovery: UX-04, UX-07</td></tr><tr><td>Correction window</td><td>Selectable source, phrase replacement, variants, scope, preview, validation, save<br><a href="https://github.com/cagriy/mini-whisper/blob/a83561bc3de0c425cf0da4319dc3775064f52f1f/App/Correction/CorrectionView.swift#L20">Source</a></td><td>Clarify future-rule versus current-text action: UX-12</td></tr><tr><td>Persistence & privacy</td><td>Keychain, local JSONL history, retention, configuration, local usage totals<br><a href="https://github.com/cagriy/mini-whisper/blob/a83561bc3de0c425cf0da4319dc3775064f52f1f/Packages/MiniWhisperCore/Sources/MWHistory/HistoryStore.swift#L29">Source</a></td><td>Read-time expiry and per-app privacy: UX-13, FT-02</td></tr><tr><td>Existing plans & validation</td><td>v1–v3 designs and deferrals, remembered-correction hint evaluation<br><a href="https://github.com/cagriy/mini-whisper/blob/a83561bc3de0c425cf0da4319dc3775064f52f1f/features/feature-v2-Remembered-corrections/feature-plan-v2-Remembered-corrections.md#L128">Source</a></td><td>Hint accuracy still needs audio evaluation; no comparative quality claim</td></tr></tbody></table></div>
+<h3>How to read the evidence</h3><p>Each finding links to immutable source lines on GitHub. “Source-confirmed” means the stated code behavior is visible; it does not establish frequency or user impact. “Runtime validation needed” identifies a plausible interaction or rendering risk. Feature effort is an informed relative judgment from the architecture.</p>
+<h3>Native validation still required</h3><ul class="list"><li>Fresh install and denied/revoked permissions; supported local-engine setup without credentials; model download failure.</li><li>Hold vs tap, rapid consecutive recordings, interruption, no speech, sleep/wake, and device switching.</li><li>Offline / rejected provider requests, cleanup failure, app exit before paste, and unsupported paste targets.</li><li>Multiple displays, full-screen apps, light/dark appearance, Increase Contrast, Reduce Transparency, and Reduce Motion changed while running.</li><li>VoiceOver labels and announcements, keyboard traversal of rows and editors, enlarged text, and long transcripts.</li><li>Retention reduction / off, failed writes, correction ambiguity / overlap, stale target scope, and exports with synthetic sensitive text.</li></ul>
+<h3>Report validation</h3><p id="validation-copy">All 14 report tests pass. Initial tests failed because filtering, ordering, shortlist selection, and evidence content were missing; a later navigation test caught the missing scroll reset before it was fixed. Tests execute the inline controller with a minimal DOM fixture, covering filters, empty results, navigation, journey selection, expansion, local shortlist persistence, export content, unavailable storage, and print-state restoration. All finding source paths and line bounds were checked, followed by a content and diff consistency review. Browser preview was unavailable: no connected browser was available and Computer Use was not approved for Safari. Native screenshots, browser rendering, responsive layout, actual download/print dialogs, and VoiceOver remain unverified. No Swift application tests, app build, or live dictation flows were run for this documentation-only change.</p>
+<p class="small">Independent review notes: UX reviewer, feature reviewer, design reviewer. All three worked from the repository; this is an expert assessment, not evidence from three end users.</p>
+</section>
+<footer>Mini Whisper application review · 9 September 2026 · Source snapshot a83561b · Local, self-contained HTML; evidence links need internet access.</footer>
+</main></div>
+<noscript><p style="padding:24px">Enable JavaScript to read and filter the consolidated findings. Scope and design guidance remain available in the HTML source.</p></noscript>
+<script id="review-model">
+var Review = {
+ filterFindings(items, filters = {}) {
+  const q = (filters.query || '').trim().toLocaleLowerCase();
+  return items.filter(item => (!filters.category || filters.category === 'all' || item.category === filters.category) && (!filters.priority || filters.priority === 'all' || item.priority === filters.priority) && (!q || JSON.stringify(item).toLocaleLowerCase().includes(q))).sort((a,b) => a.priority.localeCompare(b.priority));
+ },
+ selectedFindings(items, ids) { const known = new Set(ids); return items.filter(item => known.has(item.id)); }
+};
+</script>
+<script id="review-data" type="application/json">[
+  {
+    "id": "UX-01",
+    "category": "UX",
+    "priority": "P1",
+    "title": "Keep recognized text when cleanup or paste fails",
+    "surface": "Delivery",
+    "effort": "M",
+    "detail": "Recognition can succeed, then cleanup or paste throws. Both paths return through fail before History and Last Dictation are populated. When the target exits, Paster restores the old clipboard.",
+    "impact": "The user may have to dictate again even though usable text was already produced.",
+    "recommendation": "Retain an ephemeral pending result before cleanup and delivery. Offer Use original text, Copy, and Retry paste. Show recognition and delivery as separate states.",
+    "acceptance": "Injected cleanup and paste failures leave text available to copy without recording again, including with history disabled.",
+    "evidence": [
+      {
+        "path": "Packages/MiniWhisperCore/Sources/MWPipeline/ProcessingJob.swift",
+        "line": 103,
+        "note": "cleanup failure precedes result storage"
+      },
+      {
+        "path": "Packages/MiniWhisperCore/Sources/MWPipeline/ProcessingJob.swift",
+        "line": 156,
+        "note": "paste precedes History"
+      },
+      {
+        "path": "Packages/MiniWhisperCore/Sources/MWPaste/Paster.swift",
+        "line": 54,
+        "note": "target-gone clipboard restoration"
+      }
+    ],
+    "dependencies": "FT-01 extends this repair into a recovery surface; count shared work once. Clear the buffer explicitly and never persist audio by default.",
+    "confidence": "Source-confirmed; user impact not measured"
+  },
+  {
+    "id": "UX-02",
+    "category": "UX",
+    "priority": "P1",
+    "title": "Make first-run setup match the chosen engine",
+    "surface": "Setup",
+    "effort": "M",
+    "detail": "The unclosable setup checks microphone and Accessibility. Speech authorization happens later during engine creation; an undetermined grant is usable on a later dictation. Startup opens Settings whenever the OpenAI key is absent, including for local-engine users.",
+    "impact": "Permission completion can look like readiness while the first real attempt still fails; keyless use is treated as unfinished setup.",
+    "recommendation": "Choose local or cloud capabilities first, preflight only their dependencies, expose Quit or Set up later, and stop reopening Settings solely because no OpenAI key exists.",
+    "acceptance": "A clean local-engine profile can reach a ready state without an OpenAI key; denied speech access and missing models show specific recovery steps.",
+    "evidence": [
+      {
+        "path": "App/AppDelegate.swift",
+        "line": 224,
+        "note": "keyless launch opens Settings"
+      },
+      {
+        "path": "App/Onboarding/OnboardingModel.swift",
+        "line": 5,
+        "note": "permission scope"
+      },
+      {
+        "path": "App/Onboarding/OnboardingWindowController.swift",
+        "line": 90,
+        "note": "close veto"
+      },
+      {
+        "path": "Packages/MiniWhisperCore/Sources/MWStreaming/EngineFactory.swift",
+        "line": 77,
+        "note": "speech permission at engine construction"
+      }
+    ],
+    "dependencies": "FT-03 adds a practice field on top of corrected readiness. Exact macOS prompt ordering needs clean-account validation.",
+    "confidence": "Source-confirmed; user impact not measured"
+  },
+  {
+    "id": "UX-03",
+    "category": "UX",
+    "priority": "P1",
+    "title": "Explain the complete local and cloud processing path",
+    "surface": "Setup / privacy",
+    "effort": "M",
+    "detail": "General describes local recognition as offline. With an OpenAI key, an unusable stream can fall back to cloud batch transcription; cleanup can separately send recognized text to OpenAI. Engine choice controls recognition, not every stage.",
+    "impact": "Users cannot infer where audio and text go from the selected engine alone.",
+    "recommendation": "Show Recognition, AI cleanup, and Fallback with their provider and data type. Narrow offline copy to recognition until an enforceable local-only mode exists.",
+    "acceptance": "Every effective configuration explains its audio and text destinations, including fallback. Local-only fault tests make no cloud calls.",
+    "evidence": [
+      {
+        "path": "App/Settings/SettingsModel.swift",
+        "line": 227,
+        "note": "local engine description"
+      },
+      {
+        "path": "Packages/MiniWhisperCore/Sources/MWPipeline/ProcessingJob.swift",
+        "line": 40,
+        "note": "stream result and fallback"
+      },
+      {
+        "path": "Packages/MiniWhisperCore/Sources/MWPipeline/ProcessingJob.swift",
+        "line": 100,
+        "note": "independent cleanup"
+      }
+    ],
+    "dependencies": "FT-02 adds policy enforcement. Do not imply the local recognizer itself transmits audio.",
+    "confidence": "Source-confirmed; user impact not measured"
+  },
+  {
+    "id": "UX-04",
+    "category": "UX",
+    "priority": "P1",
+    "title": "Make failures persistent and actionable",
+    "surface": "Errors / history",
+    "effort": "M",
+    "detail": "Recording errors appear for three seconds in a click-through overlay. Processing forwards generic error descriptions. History hides its window before paste; failures are logged without an in-app recovery state. Short or silent input can return directly to idle.",
+    "impact": "Users can miss the message and have no clear action or explanation for an absent result.",
+    "recommendation": "Keep a last-error item in the menu or result window. Map failures to concise titles and Retry, Copy text, Review provider, or Open System Settings. Distinguish No speech detected from processing failure.",
+    "acceptance": "A user returning after the transient overlay disappears can find the error and recover; History paste failure leaves an actionable result.",
+    "evidence": [
+      {
+        "path": "Packages/MiniWhisperCore/Sources/MWOverlaySim/Constants.swift",
+        "line": 78,
+        "note": "three-second error hold"
+      },
+      {
+        "path": "App/UIEventRouter.swift",
+        "line": 46,
+        "note": "error overlay"
+      },
+      {
+        "path": "App/History/HistoryListModel.swift",
+        "line": 127,
+        "note": "hide then paste; log-only failure"
+      },
+      {
+        "path": "Packages/MiniWhisperCore/Sources/MWPipeline/DictationController.swift",
+        "line": 206,
+        "note": "short or silent recording"
+      }
+    ],
+    "dependencies": "",
+    "confidence": "Source-confirmed; user impact not measured"
+  },
+  {
+    "id": "UX-05",
+    "category": "UX",
+    "priority": "P1",
+    "title": "Expose recording mode, destination, Stop and Cancel",
+    "surface": "Recording",
+    "effort": "M",
+    "detail": "A short press arms tap mode; the next stop processes the text. The menu has no recording command and the overlay ignores clicks. The delivery target is taken at release while recognition context starts with the app at press.",
+    "impact": "An accidental tap is hard to abandon, and switching apps can change the destination or context without visible explanation.",
+    "recommendation": "Add keyboard and menu Stop / Cancel actions; display tap versus hold mode, destination, and whether a submit key will follow. Define and communicate when the destination locks.",
+    "acceptance": "A user cancels without paste, understands which app receives text after an app switch, and can stop a recording without memorizing a hidden gesture.",
+    "evidence": [
+      {
+        "path": "Packages/MiniWhisperCore/Sources/MWPipeline/DictationController.swift",
+        "line": 69,
+        "note": "press and mode handling"
+      },
+      {
+        "path": "Packages/MiniWhisperCore/Sources/MWPipeline/DictationController.swift",
+        "line": 197,
+        "note": "release target selection"
+      },
+      {
+        "path": "App/MenuModel.swift",
+        "line": 8,
+        "note": "available actions"
+      },
+      {
+        "path": "App/Overlay/OverlayPanel.swift",
+        "line": 17,
+        "note": "click-through overlay"
+      }
+    ],
+    "dependencies": "Keep the overlay non-activating. Destination and per-app policy must use a consistent recording snapshot.",
+    "confidence": "Source-confirmed; user impact not measured"
+  },
+  {
+    "id": "UX-06",
+    "category": "UX",
+    "priority": "P1",
+    "title": "Disclose deletion before reducing history retention",
+    "surface": "History settings",
+    "effort": "S",
+    "detail": "The retention slider immediately commits and prunes. Zero days deletes existing history, while the footnote only says history turns off and writes nothing. Explicit Clear History is confirmed; destructive retention changes are not.",
+    "impact": "A preference adjustment can remove saved dictations without the same warning as the dedicated delete action.",
+    "recommendation": "Separate history enablement from duration and explain deletion. Before reducing retention, show the affected count and confirm when entries will be removed.",
+    "acceptance": "Turning history off or shortening its window clearly states which saved entries will be deleted before applying the change.",
+    "evidence": [
+      {
+        "path": "App/Settings/HistorySection.swift",
+        "line": 18,
+        "note": "immediate slider commit and footnote"
+      },
+      {
+        "path": "App/AppDelegate.swift",
+        "line": 181,
+        "note": "prune on change"
+      },
+      {
+        "path": "Packages/MiniWhisperCore/Sources/MWHistory/HistoryStore.swift",
+        "line": 96,
+        "note": "zero retention deletes file"
+      }
+    ],
+    "dependencies": "",
+    "confidence": "Source-confirmed; user impact not measured"
+  },
+  {
+    "id": "UX-07",
+    "category": "UX",
+    "priority": "P2",
+    "title": "Give History a full transcript reader",
+    "surface": "History",
+    "effort": "M",
+    "detail": "Rows cap transcripts at two lines in a fixed 680 × 480 window. There is no dedicated detail action. Correct… exposes the full source, but is an indirect reading path. Empty and disabled history share No dictations yet.",
+    "impact": "Long results are difficult to inspect and an empty screen does not explain how to proceed.",
+    "recommendation": "Add selectable full-text detail with Copy / Paste / Correct, keyboard search, and app/date filters. Distinguish first use, history off, cleared, and no matches. Add Undo for a single delete.",
+    "acceptance": "A long dictation can be read and copied without opening correction mode; every empty state supplies a relevant next action.",
+    "evidence": [
+      {
+        "path": "App/History/HistoryView.swift",
+        "line": 21,
+        "note": "fixed view"
+      },
+      {
+        "path": "App/History/HistoryView.swift",
+        "line": 81,
+        "note": "empty messages"
+      },
+      {
+        "path": "App/History/HistoryView.swift",
+        "line": 136,
+        "note": "two-line row"
+      },
+      {
+        "path": "App/Correction/CorrectionView.swift",
+        "line": 40,
+        "note": "full transcript currently in correction"
+      }
+    ],
+    "dependencies": "",
+    "confidence": "Source-confirmed; user impact not measured"
+  },
+  {
+    "id": "UX-08",
+    "category": "UX",
+    "priority": "P1",
+    "title": "Do not silently discard a pending dictation",
+    "surface": "Processing",
+    "effort": "M",
+    "detail": "Every new press advances the generation. Processing checks staleness before network work and paste; a superseded result is discarded and idle is emitted. No recoverable pending item explains this replacement.",
+    "impact": "Rapid consecutive dictations can cause the earlier work to disappear.",
+    "recommendation": "Queue results in recording order, or require an explicit Replace pending dictation action. Keep cancelled and failed results distinguishable.",
+    "acceptance": "Two rapid recordings are delivered in order or remain individually recoverable; a fresh press alone does not silently erase recognized text.",
+    "evidence": [
+      {
+        "path": "Packages/MiniWhisperCore/Sources/MWPipeline/DictationController.swift",
+        "line": 69,
+        "note": "generation advances on press"
+      },
+      {
+        "path": "Packages/MiniWhisperCore/Sources/MWPipeline/ProcessingJob.swift",
+        "line": 57,
+        "note": "staleness checkpoint"
+      },
+      {
+        "path": "Packages/MiniWhisperCore/Sources/MWPipeline/ProcessingJob.swift",
+        "line": 195,
+        "note": "discard terminal path"
+      }
+    ],
+    "dependencies": "Design queue limits and destination handling with FT-01. Do not let an older completion overwrite a newer recording status.",
+    "confidence": "Source-confirmed; user impact not measured"
+  },
+  {
+    "id": "UX-09",
+    "category": "UX",
+    "priority": "P2",
+    "title": "Protect drafts and show whether changes saved",
+    "surface": "Settings / editors",
+    "effort": "M",
+    "detail": "Toggles save immediately, prompts use Save, profile names and correction fields commit on Return. Loading another selection replaces draft fields; no consistent dirty state is shown. Some save and model-download errors only reach logs.",
+    "impact": "Visible edits can appear complete without being saved, and failure can resemble success.",
+    "recommendation": "Use immediate persistence for simple controls and explicit Save / Cancel with an unsaved marker for complex drafts. Protect navigation away, preserve invalid input for correction, and show save / download failures in place.",
+    "acceptance": "Switching pane, profile, or correction does not silently lose edited text. A failed save never displays the saved state.",
+    "evidence": [
+      {
+        "path": "App/Settings/SettingsView.swift",
+        "line": 65,
+        "note": "write-through binding"
+      },
+      {
+        "path": "App/Settings/CleanupSection.swift",
+        "line": 41,
+        "note": "reload prompts on appearance"
+      },
+      {
+        "path": "App/Settings/ProfilesEditor.swift",
+        "line": 56,
+        "note": "Return commit"
+      },
+      {
+        "path": "App/Settings/CorrectionsEditor.swift",
+        "line": 158,
+        "note": "selection-driven drafts"
+      },
+      {
+        "path": "App/Settings/SettingsModel.swift",
+        "line": 480,
+        "note": "write error handling"
+      }
+    ],
+    "dependencies": "Source shows mixed commit rules; exact SwiftUI navigation draft loss needs a live reproduction.",
+    "confidence": "Source-confirmed patterns; runtime validation needed"
+  },
+  {
+    "id": "UX-10",
+    "category": "UX",
+    "priority": "P2",
+    "title": "Turn API key fields into manageable provider connections",
+    "surface": "Providers",
+    "effort": "M",
+    "detail": "Keys offers three masked fields and Save. The footnote mentions removal, but there is no Remove button and blank values are rejected. Format checking does not verify a live connection.",
+    "impact": "Users cannot remove a connection from the app or know whether a stored key will work until dictating.",
+    "recommendation": "Add explicit Stored / Unverified / Verified / Error states, Verify connection, Replace, and Remove. Explain which features depend on each provider. Preserve Keychain storage and masking.",
+    "acceptance": "A user can remove a key and understand the effect without opening Keychain Access; connection verification reports a useful result without revealing credentials.",
+    "evidence": [
+      {
+        "path": "App/Settings/KeysSection.swift",
+        "line": 19,
+        "note": "three secure fields"
+      },
+      {
+        "path": "App/Settings/KeysSection.swift",
+        "line": 25,
+        "note": "removal claim"
+      },
+      {
+        "path": "App/Settings/SettingsModel.swift",
+        "line": 388,
+        "note": "blank and format validation"
+      }
+    ],
+    "dependencies": "Verification is an explicit network action; choose an appropriate low-impact provider endpoint during implementation.",
+    "confidence": "Source-confirmed; user impact not measured"
+  },
+  {
+    "id": "UX-11",
+    "category": "UX",
+    "priority": "P2",
+    "title": "Explain rejected and duplicate shortcuts",
+    "surface": "Keyboard shortcuts",
+    "effort": "S",
+    "detail": "The capture handler ignores rejected combinations and keeps waiting. Record and Record-and-submit are assigned independently without a duplicate check in Settings.",
+    "impact": "Users cannot tell why capture failed, and matching shortcuts can make the intended action ambiguous.",
+    "recommendation": "Explain the accepted modifier/key pattern inline, show Escape to cancel, reject conflicting assignments, and offer Restore defaults and a shortcut test.",
+    "acceptance": "Invalid input gets a reason; duplicate assignments cannot be saved without a clear resolution; cancellation restores the old binding.",
+    "evidence": [
+      {
+        "path": "App/Settings/SettingsModel.swift",
+        "line": 435,
+        "note": "capture handling"
+      },
+      {
+        "path": "App/Settings/HotkeyCaptureField.swift",
+        "line": 19,
+        "note": "capture UI"
+      },
+      {
+        "path": "App/Settings/HotkeysSection.swift",
+        "line": 12,
+        "note": "instructions"
+      }
+    ],
+    "dependencies": "Test matcher precedence before calling the duplicate outcome a reproduced runtime defect.",
+    "confidence": "Source-confirmed; user impact not measured"
+  },
+  {
+    "id": "UX-12",
+    "category": "UX",
+    "priority": "P2",
+    "title": "Distinguish remembering a rule from fixing text now",
+    "surface": "Corrections",
+    "effort": "S",
+    "detail": "Save remembers a future replacement; copying corrected text is separate. With Remember disabled, Save is disabled and Cancel remains the close action. canSave only checks Remember before validation.",
+    "impact": "Users can expect Save to repair text already pasted or stored, and the one-off correction path is awkward.",
+    "recommendation": "Name the primary action Remember correction, show Copy corrected text with acknowledgement, and use Copy and Done for one-off edits. Explain that existing pasted/history text is unchanged.",
+    "acceptance": "The user can predict whether an action changes future dictations, copies a revised result, or modifies existing text; invalid fields explain why saving is unavailable.",
+    "evidence": [
+      {
+        "path": "App/Correction/CorrectionView.swift",
+        "line": 189,
+        "note": "copy and save actions"
+      },
+      {
+        "path": "App/Correction/CorrectionModel.swift",
+        "line": 147,
+        "note": "canSave and save validation"
+      }
+    ],
+    "dependencies": "",
+    "confidence": "Source-confirmed; user impact not measured"
+  },
+  {
+    "id": "UX-13",
+    "category": "UX",
+    "priority": "P1",
+    "title": "Apply history expiry when reading after inactivity",
+    "surface": "History / privacy",
+    "effort": "S",
+    "detail": "History prunes on append or explicit prune. entries(), search(), and loaded() return stored entries without applying the retention cutoff. No startup or history-open prune was found in the reviewed paths.",
+    "impact": "Opening the app after days of inactivity can expose entries beyond the stated retention period until another pruning event occurs.",
+    "recommendation": "Apply retention on load/read and schedule appropriate cleanup. Keep displayed retention and actual deletion behavior aligned; report storage errors instead of silently implying deletion succeeded.",
+    "acceptance": "With an injected clock advanced past the retention window, opening/searching History never exposes expired records and the stored file is pruned as defined.",
+    "evidence": [
+      {
+        "path": "Packages/MiniWhisperCore/Sources/MWHistory/HistoryStore.swift",
+        "line": 41,
+        "note": "entries reads loaded cache"
+      },
+      {
+        "path": "Packages/MiniWhisperCore/Sources/MWHistory/HistoryStore.swift",
+        "line": 59,
+        "note": "search bypasses retention"
+      },
+      {
+        "path": "App/History/HistoryListModel.swift",
+        "line": 96,
+        "note": "reload searches history"
+      }
+    ],
+    "dependencies": "Clock-based tests can verify this source-derived concern without accessing personal history.",
+    "confidence": "Source-confirmed read path; runtime reproduction pending"
+  },
+  {
+    "id": "DS-01",
+    "category": "Design",
+    "priority": "P1",
+    "title": "Give the overlay an accessible state representation",
+    "surface": "Recording / accessibility",
+    "effort": "M",
+    "detail": "The overlay is a bare NSView hosting custom CALayer/CoreText drawing. No corresponding custom accessibility elements or announcements for recording state, captions, and errors were found.",
+    "impact": "The only visible recording feedback may not be available to assistive technology.",
+    "recommendation": "Expose mode, destination, and a readable transcript; announce start, completion, and failure without speaking every live token. Provide an accessible persistent result surface without stealing focus.",
+    "acceptance": "Onboarding → recording → failure recovery → correction can be completed with keyboard and VoiceOver, without interpreting animation.",
+    "evidence": [
+      {
+        "path": "App/Overlay/OverlayPanel.swift",
+        "line": 22,
+        "note": "bare layer host"
+      },
+      {
+        "path": "App/Overlay/CardChrome.swift",
+        "line": 21,
+        "note": "drawn state label"
+      },
+      {
+        "path": "App/Overlay/CaptionLayerStack.swift",
+        "line": 25,
+        "note": "drawn captions"
+      }
+    ],
+    "dependencies": "Actual VoiceOver output was not tested. Validate announcements with real assistive-technology users.",
+    "confidence": "Source-confirmed custom rendering; runtime validation needed"
+  },
+  {
+    "id": "DS-02",
+    "category": "Design",
+    "priority": "P1",
+    "title": "Use real selection semantics and contextual control labels",
+    "surface": "Settings / accessibility",
+    "effort": "S",
+    "detail": "Engine and style choices are plain buttons decorated with radio-circle images. Several steppers/pickers have empty labels; add/remove symbols lack explicit contextual names.",
+    "impact": "Selection, control purpose, or the object being removed can be unclear to keyboard and screen-reader users.",
+    "recommendation": "Use native selection controls or explicit selected traits. Associate labels with values and name actions Add profile, Remove profile, and Remove [term]. Test hidden History actions in the accessibility tree.",
+    "acceptance": "Each control exposes a meaningful role, name, value, and selected state, and can be operated in a predictable keyboard order.",
+    "evidence": [
+      {
+        "path": "App/Settings/GeneralSection.swift",
+        "line": 65,
+        "note": "custom engine radio"
+      },
+      {
+        "path": "App/Settings/GeneralSection.swift",
+        "line": 136,
+        "note": "empty stepper label"
+      },
+      {
+        "path": "App/Settings/OverlaySection.swift",
+        "line": 45,
+        "note": "custom style choice"
+      },
+      {
+        "path": "App/Settings/VocabularySection.swift",
+        "line": 43,
+        "note": "chip removal"
+      }
+    ],
+    "dependencies": "SwiftUI may infer some names; confirm actual output before finalizing labels.",
+    "confidence": "Source-confirmed patterns; runtime validation needed"
+  },
+  {
+    "id": "DS-03",
+    "category": "Design",
+    "priority": "P1",
+    "title": "Apply accessibility preferences to the whole overlay",
+    "surface": "Motion / appearance",
+    "effort": "M",
+    "detail": "The card receives Reduce Motion at creation and retains that value. Caption slide/fade and cursor blink do not consult it. Translucent black surfaces use fixed opacity.",
+    "impact": "Changing the preference while the app runs does not update the full experience; readability over different desktops remains variable.",
+    "recommendation": "Observe preference changes and share the policy between card, preview, and captions. Offer static state feedback, an opaque Reduce Transparency treatment, and stronger contrast where requested.",
+    "acceptance": "Toggling accessibility preferences during a session updates both overlay and preview, including caption animations, without restarting.",
+    "evidence": [
+      {
+        "path": "App/Overlay/OverlayPanelController.swift",
+        "line": 11,
+        "note": "fixed motion preference"
+      },
+      {
+        "path": "App/Overlay/CaptionLayerStack.swift",
+        "line": 93,
+        "note": "new-line animation"
+      },
+      {
+        "path": "App/Overlay/CaptionLayerStack.swift",
+        "line": 120,
+        "note": "cursor blink"
+      },
+      {
+        "path": "App/Overlay/CardChrome.swift",
+        "line": 11,
+        "note": "constant translucency"
+      }
+    ],
+    "dependencies": "Preserve the reduced-motion support already implemented by the simulations.",
+    "confidence": "Source-confirmed; user impact not measured"
+  },
+  {
+    "id": "DS-04",
+    "category": "Design",
+    "priority": "P2",
+    "title": "Keep old captions and app markers readable",
+    "surface": "Captions / history",
+    "effort": "S",
+    "detail": "Old captions are rendered at 0.45 alpha, falling to 0.40 when dimmed, over a translucent panel. App glyphs use small white initials on an unrelated fixed palette.",
+    "impact": "Recent words and app identity become less readable on some backgrounds. This is a source-derived contrast risk, not a measured screenshot result.",
+    "recommendation": "Increase text opacity and use position or weight to distinguish older words. Prefer real app icons with neutral initials fallback; contrast-check any retained colored glyphs.",
+    "acceptance": "Old/current/dimmed text and fallback initials remain readable across light, dark, high-contrast, and representative desktop backgrounds.",
+    "evidence": [
+      {
+        "path": "Packages/MiniWhisperCore/Sources/MWOverlaySim/Constants.swift",
+        "line": 107,
+        "note": "caption opacity roles"
+      },
+      {
+        "path": "App/History/AppGlyph.swift",
+        "line": 16,
+        "note": "fixed glyph palette"
+      },
+      {
+        "path": "App/History/HistoryView.swift",
+        "line": 130,
+        "note": "white small initials"
+      }
+    ],
+    "dependencies": "No contrast compliance claim is made here; measure rendered states before sign-off.",
+    "confidence": "Runtime validation needed"
+  },
+  {
+    "id": "DS-05",
+    "category": "Design",
+    "priority": "P2",
+    "title": "Let reading and editing windows resize",
+    "surface": "Windows / layout",
+    "effort": "M",
+    "detail": "Settings, History, and Correction have fixed frames and omit resizable window style. Prompt editors are fixed at 90 pt. Profile app chips use a single horizontal row.",
+    "impact": "Long content and larger text have limited space; clipping and excess scrolling are plausible risks.",
+    "recommendation": "Use minimum sizes with resizable windows, growing transcript/prompt detail, and wrapping app chips. Preserve native intrinsic control sizing.",
+    "acceptance": "Long transcripts, profile names, and app-chip collections remain usable at minimum size and with enlarged text; window resizing creates useful reading space.",
+    "evidence": [
+      {
+        "path": "App/Settings/SettingsView.swift",
+        "line": 20,
+        "note": "fixed Settings size"
+      },
+      {
+        "path": "App/History/HistoryWindowController.swift",
+        "line": 19,
+        "note": "window style"
+      },
+      {
+        "path": "App/Correction/CorrectionWindowController.swift",
+        "line": 17,
+        "note": "window style"
+      },
+      {
+        "path": "App/Settings/CleanupSection.swift",
+        "line": 75,
+        "note": "90-point prompt editor"
+      },
+      {
+        "path": "App/Settings/ProfilesEditor.swift",
+        "line": 109,
+        "note": "horizontal app chips"
+      }
+    ],
+    "dependencies": "Native screenshots are required to establish actual clipping; this review did not capture them.",
+    "confidence": "Source-confirmed geometry; runtime validation needed"
+  },
+  {
+    "id": "DS-06",
+    "category": "Design",
+    "priority": "P2",
+    "title": "Define shared typography and spacing roles",
+    "surface": "All windows",
+    "effort": "S",
+    "detail": "Settings uses semantic title and caption styles, while History and Correction use explicit 13/11 pt text and uppercase headings. Setup has independent 18/12/13/11 pt sizes; pane insets and grouping differ.",
+    "impact": "Screens feel assembled independently, and important help/action text competes with metadata-sized content.",
+    "recommendation": "Define title, group, body, helper, status, and validation roles using system fonts. Share named insets and spacing, keep field labels in sentence case, and reserve compact styles for genuinely secondary information.",
+    "acceptance": "Every screen maps to the same role table; key actions and explanatory text remain legible with enlarged text and long labels.",
+    "evidence": [
+      {
+        "path": "App/Settings/SettingsView.swift",
+        "line": 43,
+        "note": "shared pane baseline"
+      },
+      {
+        "path": "App/History/HistoryView.swift",
+        "line": 74,
+        "note": "small uppercase headings"
+      },
+      {
+        "path": "App/Correction/CorrectionView.swift",
+        "line": 217,
+        "note": "field heading style"
+      },
+      {
+        "path": "App/Onboarding/OnboardingWindowController.swift",
+        "line": 106,
+        "note": "independent setup typography"
+      }
+    ],
+    "dependencies": "",
+    "confidence": "Source-confirmed; user impact not measured"
+  },
+  {
+    "id": "DS-07",
+    "category": "Design",
+    "priority": "P2",
+    "title": "Organize settings and copy around user tasks",
+    "surface": "Settings / terminology",
+    "effort": "S",
+    "detail": "Keys sits beside Hotkeys; General mixes recognition, microphone lifetime, tap limits, and updates. Cleanup contains transcription instructions and app profiles. Some helpers expose prompt.txt and bundle IDs.",
+    "impact": "Users need knowledge of the implementation to find the right setting or understand its effect.",
+    "recommendation": "Start with clear labels and cross-links: Keyboard shortcuts, Providers, Speech engine, and AI text cleanup. Group transcription instructions with recognition; use an Advanced disclosure for identifiers and files.",
+    "acceptance": "A user can locate input, engine, cleanup, app behavior, and history settings from their task without knowing module or file names.",
+    "evidence": [
+      {
+        "path": "App/Settings/SettingsModel.swift",
+        "line": 65,
+        "note": "section labels"
+      },
+      {
+        "path": "App/Settings/GeneralSection.swift",
+        "line": 10,
+        "note": "mixed General controls"
+      },
+      {
+        "path": "App/Settings/CleanupSection.swift",
+        "line": 29,
+        "note": "transcription instructions under Cleanup"
+      },
+      {
+        "path": "App/Settings/ProfilesEditor.swift",
+        "line": 97,
+        "note": "file-oriented helper"
+      }
+    ],
+    "dependencies": "Validate the proposed information architecture before moving all sections. Avoid replacing native controls with a custom settings framework.",
+    "confidence": "Source-confirmed; user impact not measured"
+  },
+  {
+    "id": "DS-08",
+    "category": "Design",
+    "priority": "P2",
+    "title": "Make overlay placement copy match its geometry",
+    "surface": "Overlay settings",
+    "effort": "S",
+    "detail": "The description promises a card beside the dictation text field. cardFrame centers it on the chosen display; the screen is resolved from focused-window/pointer context, not the caret.",
+    "impact": "The product promises a nearby indicator but can cover central workspace content.",
+    "recommendation": "Change the description to reflect display-centered placement now. Consider a compact position preference later; only promise caret-relative placement once it is implemented.",
+    "acceptance": "The visible description accurately predicts placement on one and multiple displays.",
+    "evidence": [
+      {
+        "path": "App/Settings/OverlaySection.swift",
+        "line": 23,
+        "note": "beside-field promise"
+      },
+      {
+        "path": "App/Overlay/DisplayPlacement.swift",
+        "line": 29,
+        "note": "display resolution"
+      },
+      {
+        "path": "App/Overlay/DisplayPlacement.swift",
+        "line": 41,
+        "note": "centered frame"
+      }
+    ],
+    "dependencies": "",
+    "confidence": "Source-confirmed; user impact not measured"
+  },
+  {
+    "id": "DS-09",
+    "category": "Design",
+    "priority": "P2",
+    "title": "Use consistent success, copy, and save feedback",
+    "surface": "Cross-surface feedback",
+    "effort": "S",
+    "detail": "Correction has an explicit saved state; other saves vary between inline errors and logs. Menu Copy plays the recording-start sound, while History Copy has no acknowledgement.",
+    "impact": "The same operation has different signals, and the start cue can imply recording when text was merely copied.",
+    "recommendation": "Use a shared feedback grammar: inline validation, Saved / Copied text for completion, and persistent actionable failures. Reserve microphone sounds for microphone state.",
+    "acceptance": "Copy and save actions use consistent text and timing, and no copy action plays the recording-start cue.",
+    "evidence": [
+      {
+        "path": "App/StatusItemController.swift",
+        "line": 90,
+        "note": "menu copy sound"
+      },
+      {
+        "path": "App/History/HistoryListModel.swift",
+        "line": 103,
+        "note": "History copy"
+      },
+      {
+        "path": "App/Correction/CorrectionView.swift",
+        "line": 170,
+        "note": "confirmation state"
+      },
+      {
+        "path": "App/Settings/SettingsModel.swift",
+        "line": 288,
+        "note": "model install error"
+      }
+    ],
+    "dependencies": "UX-04 handles failure recovery and UX-09 handles drafts. This is the common presentation layer.",
+    "confidence": "Source-confirmed; user impact not measured"
+  },
+  {
+    "id": "DS-10",
+    "category": "Design",
+    "priority": "P2",
+    "title": "Align product claims and menu action names",
+    "surface": "About / menu / setup",
+    "effort": "S",
+    "detail": "About credits one OpenAI model regardless of the selected engine. SpeechAnalyzer copy says best/most accurate without measured comparative evidence in this review. Menus mix three periods and ellipses; Last: copies text without naming the action.",
+    "impact": "Capability and privacy claims can be broader than the active pipeline, while action labels are harder to predict.",
+    "recommendation": "Describe supported engines or the effective pipeline in About. Use neutral on-device recognition wording until comparative accuracy is measured. Rename Last: to Copy last dictation, standardize ellipses, and move frequent actions ahead of accounting.",
+    "acceptance": "All provider/privacy claims match current configuration, each action names its result, and punctuation is consistent across menu and windows.",
+    "evidence": [
+      {
+        "path": "App/AboutPanel.swift",
+        "line": 18,
+        "note": "fixed OpenAI attribution"
+      },
+      {
+        "path": "App/Settings/SettingsModel.swift",
+        "line": 222,
+        "note": "accuracy claim"
+      },
+      {
+        "path": "App/Onboarding/SpeechModelPrompt.swift",
+        "line": 48,
+        "note": "download claims"
+      },
+      {
+        "path": "App/MenuModel.swift",
+        "line": 37,
+        "note": "usage-first menu and action text"
+      }
+    ],
+    "dependencies": "Existing hint evaluation remains unfinished validation, not a new feature. Do not invent accuracy rankings.",
+    "confidence": "Source-confirmed; user impact not measured"
+  },
+  {
+    "id": "FT-01",
+    "category": "Features",
+    "priority": "P1",
+    "title": "Add a recoverable result inbox",
+    "surface": "Delivery extension",
+    "effort": "M",
+    "detail": "There is no pending-result surface; History records delivered text only. UX-01 and UX-08 expose why result state needs to survive failure and overlap.",
+    "impact": "Users need to resume work instead of speaking again after an interruption.",
+    "recommendation": "Start with the last undelivered result in memory: raw/final text, failure stage, named destination, Copy, Use original, and Retry. Add a bounded queue only after single-result behavior is clear.",
+    "acceptance": "Cleanup timeout and target disappearance retain text; retry checks the destination and cannot duplicate submission.",
+    "evidence": [
+      {
+        "path": "Packages/MiniWhisperCore/Sources/MWPipeline/ProcessingJob.swift",
+        "line": 90,
+        "note": "raw text exists before transformation"
+      },
+      {
+        "path": "Packages/MiniWhisperCore/Sources/MWPipeline/ProcessingJob.swift",
+        "line": 166,
+        "note": "History only after delivery"
+      }
+    ],
+    "dependencies": "New result-state capability built on UX-01; not a separate estimate for the same repair. Expire memory buffers and respect history-off. Defer durable audio storage.",
+    "confidence": "Source-confirmed; user impact not measured"
+  },
+  {
+    "id": "FT-02",
+    "category": "Features",
+    "priority": "P1",
+    "title": "Add enforceable local-only and per-app privacy policies",
+    "surface": "Privacy capability",
+    "effort": "M/L",
+    "detail": "Engine selection, cleanup, fallback, and retention are separate. Profile currently contains apps, cleanup, prompt, and submit key, with no routing/history policy.",
+    "impact": "A person working in a sensitive app needs a simple guarantee about where its dictation goes.",
+    "recommendation": "First add one local-only policy enforced at every network boundary. Then add per-app cloud rules and history exclusion, with a visible effective policy for each recording.",
+    "acceptance": "On-device failure with cloud keys present makes zero provider calls in local-only mode. Excluded apps leave no history entries.",
+    "evidence": [
+      {
+        "path": "Packages/MiniWhisperCore/Sources/MWProfiles/EffectiveCleanup.swift",
+        "line": 6,
+        "note": "cleanup eligibility"
+      },
+      {
+        "path": "Packages/MiniWhisperCore/Sources/MWConfig/Profile.swift",
+        "line": 4,
+        "note": "current profile fields"
+      },
+      {
+        "path": "Packages/MiniWhisperCore/Sources/MWPipeline/ProcessingJob.swift",
+        "line": 60,
+        "note": "key-based fallback"
+      }
+    ],
+    "dependencies": "Resolve policy against a defined target snapshot; app switching must not relax it silently. History policy is distinct from whether processing is local.",
+    "confidence": "Source-confirmed; user impact not measured"
+  },
+  {
+    "id": "FT-03",
+    "category": "Features",
+    "priority": "P1",
+    "title": "Add a first-dictation practice field",
+    "surface": "Onboarding capability",
+    "effort": "M",
+    "detail": "Current setup ends when two permissions are granted; it does not exercise capture, the shortcut, recognition, or insertion.",
+    "impact": "New users need evidence that the complete workflow works and a place to learn hold versus tap safely.",
+    "recommendation": "Provide a disposable practice field with input level, shortcut demonstration, a recognized result, and Ready confirmation. Reopen it through Troubleshoot and allow Skip.",
+    "acceptance": "A new profile completes a practice dictation; silent mic, missing model, and denied permission each lead to the relevant next action.",
+    "evidence": [
+      {
+        "path": "App/Onboarding/OnboardingModel.swift",
+        "line": 61,
+        "note": "permission-based completion"
+      },
+      {
+        "path": "App/Onboarding/OnboardingWindowController.swift",
+        "line": 136,
+        "note": "Continue action"
+      },
+      {
+        "path": "App/Settings/HotkeysSection.swift",
+        "line": 12,
+        "note": "gesture teaching today"
+      }
+    ],
+    "dependencies": "Build after UX-02. Reuse real capture and processing, route only into the practice field, avoid saving practice history, and disclose any cloud use.",
+    "confidence": "Source-confirmed; user impact not measured"
+  },
+  {
+    "id": "FT-04",
+    "category": "Features",
+    "priority": "P2",
+    "title": "Choose and test the microphone",
+    "surface": "Input control",
+    "effort": "M",
+    "detail": "The audio backend uses its current engine input and watches route changes, but Settings and Config expose no preferred microphone.",
+    "impact": "Multiple-device users cannot easily confirm whether a headset, display, or USB microphone is being used.",
+    "recommendation": "Offer System default and available inputs, show the actual active device, add a temporary level test, and define fallback when a preferred device disconnects.",
+    "acceptance": "Plug/unplug and sleep/wake retain the preference, identify the actual fallback, and never silently change the input mid-recording.",
+    "evidence": [
+      {
+        "path": "Packages/MiniWhisperCore/Sources/MWAudio/AVAudioEngineBackend.swift",
+        "line": 20,
+        "note": "route-change observer"
+      },
+      {
+        "path": "Packages/MiniWhisperCore/Sources/MWAudio/AVAudioEngineBackend.swift",
+        "line": 38,
+        "note": "current input format"
+      },
+      {
+        "path": "App/Settings/GeneralSection.swift",
+        "line": 9,
+        "note": "current controls"
+      }
+    ],
+    "dependencies": "Requires stable device identity and capture lifecycle tests. Stop microphone testing when dismissed; do not save test clips.",
+    "confidence": "Source-confirmed; user impact not measured"
+  },
+  {
+    "id": "FT-05",
+    "category": "Features",
+    "priority": "P2",
+    "title": "Select dictation language consistently across engines",
+    "surface": "Language capability",
+    "effort": "M/L",
+    "detail": "Speechmatics hardcodes English, SpeechAnalyzer defaults to current locale, and Apple Speech uses the default recognizer. There is no shared language selector. This does not mean all engines lack multilingual recognition.",
+    "impact": "Users dictating outside their system language cannot control or predict every recognition and fallback path.",
+    "recommendation": "Add System language plus explicit supported languages, engine capability/model status, and recent-language switching. Carry selection through fallback.",
+    "acceptance": "Two selected languages configure each supported engine correctly; unsupported selections never silently revert to English.",
+    "evidence": [
+      {
+        "path": "Packages/MiniWhisperCore/Sources/MWStreaming/Adapters/SpeechmaticsAdapter.swift",
+        "line": 26,
+        "note": "English request configuration"
+      },
+      {
+        "path": "Packages/MiniWhisperCore/Sources/MWStreaming/SpeechAnalyzerEngine.swift",
+        "line": 37,
+        "note": "current locale default"
+      },
+      {
+        "path": "Packages/MiniWhisperCore/Sources/MWStreaming/SFSpeechRecognitionBridge.swift",
+        "line": 22,
+        "note": "default recognizer"
+      }
+    ],
+    "dependencies": "Verify provider language support in current primary documentation before implementation. Defer automatic code switching until measured.",
+    "confidence": "Source-confirmed; user impact not measured"
+  },
+  {
+    "id": "FT-06",
+    "category": "Features",
+    "priority": "P2",
+    "title": "Offer task presets and a prompt preview",
+    "surface": "Profile extension",
+    "effort": "M",
+    "detail": "Per-app profiles already edit cleanup and submit behavior. Built-in task presets, sample output preview, and a one-dictation override are absent.",
+    "impact": "Users often know the desired writing result but do not want to author model instructions.",
+    "recommendation": "Offer inspectable As spoken, Polished prose, and Developer dictation templates; preview synthetic input with the exact effective prompt/rules; permit a one-dictation override.",
+    "acceptance": "Preview and saved execution use identical configuration, custom text survives preset switches, and the active preset is visible while recording.",
+    "evidence": [
+      {
+        "path": "Packages/MiniWhisperCore/Sources/MWConfig/Profile.swift",
+        "line": 4,
+        "note": "existing per-app capability"
+      },
+      {
+        "path": "App/Settings/ProfilesEditor.swift",
+        "line": 70,
+        "note": "current editing surface"
+      },
+      {
+        "path": "App/Settings/CleanupSection.swift",
+        "line": 23,
+        "note": "free-form prompt editors"
+      }
+    ],
+    "dependencies": "Presets and per-app instructions were previously deferred. Preview may use a paid cloud request; show its provider before running and use synthetic input by default.",
+    "confidence": "Source-confirmed; user impact not measured"
+  },
+  {
+    "id": "FT-07",
+    "category": "Features",
+    "priority": "P2",
+    "title": "Create and exchange correction packs",
+    "surface": "Vocabulary extension",
+    "effort": "S/M",
+    "detail": "Rules must currently originate from a dictation. Direct creation and import/export were explicitly deferred; scope, conflict validation, impact preview, and hints already exist.",
+    "impact": "Users know project names in advance and need to move a selected glossary between Macs without copying all app state.",
+    "recommendation": "Add correction directly from Vocabulary and a versioned selected-rule export/import. Preview scope, duplicates, and conflicts before merging.",
+    "acceptance": "Selected rules round-trip, conflicts cannot silently overwrite existing rules, and exports contain no keys, history, usage, or unrelated configuration.",
+    "evidence": [
+      {
+        "path": "App/Settings/CorrectionsEditor.swift",
+        "line": 52,
+        "note": "rule creation guidance"
+      },
+      {
+        "path": "features/feature-v2-Remembered-corrections/feature-storm-v2-Remembered-corrections.md",
+        "line": 36,
+        "note": "direct creation deferred"
+      },
+      {
+        "path": "features/feature-v2-Remembered-corrections/feature-storm-v2-Remembered-corrections.md",
+        "line": 42,
+        "note": "import/export deferred"
+      }
+    ],
+    "dependencies": "Reuse correction validation and app scopes. Imported content is data, never executable instructions; support explicit selected-pack sharing only.",
+    "confidence": "Source-confirmed; user impact not measured"
+  },
+  {
+    "id": "FT-08",
+    "category": "Features",
+    "priority": "P2",
+    "title": "Show local cost and reliability insights",
+    "surface": "Usage extension",
+    "effort": "M",
+    "detail": "The menu shows passive totals. Current-month usage is retained; History has engine/cost fields but not stage latency or fallback/failure detail. Error-path accounting needs review before using these numbers for decisions.",
+    "impact": "Users choosing engines lack local evidence of delay, reliability, and estimated cost.",
+    "recommendation": "Open a usage detail from totals: provider estimates, release-to-result latency, fallback/failure counts, and an estimated-spend reminder. Keep numeric aggregates local and label estimates.",
+    "acceptance": "Success, fallback, failure, and discarded jobs produce reconcilable counts; reminders never discard already-captured work.",
+    "evidence": [
+      {
+        "path": "App/MenuModel.swift",
+        "line": 38,
+        "note": "passive usage rows"
+      },
+      {
+        "path": "Packages/MiniWhisperCore/Sources/MWUsage/UsageStore.swift",
+        "line": 11,
+        "note": "usage persistence"
+      },
+      {
+        "path": "Packages/MiniWhisperCore/Sources/MWHistory/HistoryEntry.swift",
+        "line": 14,
+        "note": "entry fields"
+      },
+      {
+        "path": "Packages/MiniWhisperCore/Sources/MWPipeline/ProcessingJob.swift",
+        "line": 113,
+        "note": "early cleanup failure before normal billing"
+      }
+    ],
+    "dependencies": "Complete accounting first. No transcript analytics or telemetry; no claim to enforce a provider-wide budget shared with other apps.",
+    "confidence": "Source-confirmed; user impact not measured"
+  },
+  {
+    "id": "FT-09",
+    "category": "Features",
+    "priority": "P2",
+    "title": "Review before insertion for selected apps",
+    "surface": "Output mode",
+    "effort": "M/L",
+    "detail": "The pipeline goes directly from corrections to paste. Profiles support a submit key but no preview mode. Record already avoids submit; the missing capability is reviewing final text before insertion.",
+    "impact": "Commands and consequential messages benefit from inspecting cleanup and corrections before they enter another app.",
+    "recommendation": "Add optional per-app Review first with editable final text, named destination, Copy, and Insert. Keep any submit action separate and deliberate.",
+    "acceptance": "A user edits and inserts into the named target; app switching or target disappearance never silently redirects the text or triggers submit.",
+    "evidence": [
+      {
+        "path": "Packages/MiniWhisperCore/Sources/MWPipeline/ProcessingJob.swift",
+        "line": 118,
+        "note": "correction to delivery path"
+      },
+      {
+        "path": "Packages/MiniWhisperCore/Sources/MWConfig/Profile.swift",
+        "line": 4,
+        "note": "no review mode"
+      }
+    ],
+    "dependencies": "Depends on FT-01 pending results and destination checks. Keep preview ephemeral with history off; do not use blind undo keystrokes as recovery.",
+    "confidence": "Source-confirmed; user impact not measured"
+  },
+  {
+    "id": "FT-10",
+    "category": "Features",
+    "priority": "P3",
+    "title": "Return dictation text to macOS Shortcuts",
+    "surface": "Automation capability",
+    "effort": "L",
+    "detail": "Launch arguments currently handle debug mode; normal output is the paste seam. Shortcuts/CLI integration was explicitly deferred.",
+    "impact": "Power users could send dictated text into note templates or workflows without depending on a focused field.",
+    "recommendation": "Add an explicitly invoked Shortcuts action returning text with a chosen preset/language and cancellation. Keep the first version focused on text return.",
+    "acceptance": "Cancellation stops capture and returns no text; successful text goes only to the invoking workflow and never auto-pastes.",
+    "evidence": [
+      {
+        "path": "App/LaunchArguments.swift",
+        "line": 4,
+        "note": "current launch options"
+      },
+      {
+        "path": "Packages/MiniWhisperCore/Sources/MWPaste/Paster.swift",
+        "line": 8,
+        "note": "paste output seam"
+      },
+      {
+        "path": "features/feature-v1-Native-Swift-macOS-rewrite/feature-storm-v1-Native-Swift-macOS-rewrite.md",
+        "line": 40,
+        "note": "automation deferred"
+      }
+    ],
+    "dependencies": "Implement after recovery and privacy policy. Requires separating produce-text from paste-text. Avoid ambient recording, shell execution, and transcript logs.",
+    "confidence": "Source-confirmed; user impact not measured"
+  }
+]</script>
+<script id="journey-data" type="application/json">[{"title": "Set up", "short": "Prove readiness", "today": "Permission wizard → normal startup → keyless Settings prompt → optional model dialog. A first successful dictation is not part of completion.", "future": "Choose the intended processing path, complete its permissions/model needs, then try one harmless dictation. Keep an explicit exit.", "ids": "UX-02, UX-03, FT-03"}, {"title": "Record", "short": "Show mode & target", "today": "Hold or tap a global shortcut; custom animated card and separate live captions. No menu Cancel; destination can be chosen at release.", "future": "Show active mode, input, effective policy, and destination. Expose Stop and Cancel without stealing focus; announce state accessibly.", "ids": "UX-05, DS-01–DS-04, FT-04, FT-05"}, {"title": "Process", "short": "Protect useful text", "today": "Finish streaming → optional batch fallback → optional cleanup → deterministic correction. Failures return early; new presses supersede pending work.", "future": "Keep raw and final text, make routing visible, and queue or explicitly replace results. Use original text when cleanup fails.", "ids": "UX-01, UX-03, UX-08, FT-01, FT-02"}, {"title": "Deliver", "short": "Confirm the outcome", "today": "Synthetic paste → optional submit → History append → Last Dictation. Failure has no saved result in this path.", "future": "Distinguish recognized, ready, inserted, and failed states. Recover through Copy or destination-checked retry; optionally review before insertion.", "ids": "UX-01, UX-04, FT-09"}, {"title": "Reuse & improve", "short": "Read, correct, retain", "today": "Two-line History rows, correction window, vocabulary/rules and app profiles. Draft saves and retention behavior vary by surface.", "future": "Read the full result, distinguish one-off editing from future rules, protect unsaved changes, and make retention/deletion explicit.", "ids": "UX-06, UX-07, UX-09, UX-12, UX-13, FT-06–FT-08"}]</script>
+<script>
+(() => {
+ const $ = id => document.getElementById(id);
+ const data = JSON.parse($('review-data').textContent), journey = JSON.parse($('journey-data').textContent);
+ const key = 'mini-whisper-review-2026-09-09'; let selected = new Set(), expanded = false, activeView = 'findings';
+ try { const stored = JSON.parse(localStorage.getItem(key) || '[]'); if (Array.isArray(stored)) selected = new Set(Review.selectedFindings(data, stored).map(x=>x.id)); } catch {}
+ const esc = text => String(text).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+ const source = ref => 'https://github.com/cagriy/mini-whisper/blob/a83561bc3de0c425cf0da4319dc3775064f52f1f/' + ref.path + '#L' + ref.line;
+ function setView(name, focus = false) {
+  activeView = name;
+  document.querySelectorAll('.view').forEach(el => el.hidden = el.id !== 'view-' + name);
+  document.querySelectorAll('nav button').forEach(el => { if (el.dataset.view === name) el.setAttribute('aria-current','page'); else el.removeAttribute('aria-current'); });
+  if(focus) { $('main').focus({preventScroll:true}); $('main').scrollIntoView({block:'start'}); }
+ }
+ function render() {
+  let items = Review.filterFindings(data, {query:$('search').value,category:$('category').value,priority:$('priority').value});
+  if($('shortlist-only').checked) items = Review.selectedFindings(items, [...selected]);
+  $('result-count').textContent = `${items.length} of ${data.length} findings · sorted by priority`;
+  $('shortlist-count').textContent = `(${selected.size})`; $('export').disabled = !selected.size;
+  $('findings').innerHTML = items.length ? items.map(item=>`<details class="finding" id="${esc(item.id)}" ${expanded?'open':''}><summary><span class="badge ${item.priority.toLowerCase()}">${esc(item.priority)}</span><span><strong>${esc(item.title)}</strong><span class="meta">${esc(item.id)} · ${esc(item.category)} · ${esc(item.surface)} · Effort ${esc(item.effort)}</span></span></summary><div class="detail"><div class="detail-grid"><div><h4>Current behavior / opportunity</h4><p>${esc(item.detail)}</p><h4>User consequence</h4><p>${esc(item.impact)}</p></div><div><h4>Recommendation</h4><p>${esc(item.recommendation)}</p><h4>Done when</h4><p>${esc(item.acceptance)}</p></div></div>${item.dependencies?`<h4>Dependencies & tradeoffs</h4><p>${esc(item.dependencies)}</p>`:''}<div class="evidence"><h4>Source evidence</h4>${item.evidence.map(ref=>`<a href="${source(ref)}" target="_blank" rel="noopener">${esc(ref.path)}:${ref.line} — ${esc(ref.note)}</a>`).join('')}</div><div class="detail-foot"><span class="small">${esc(item.confidence)}</span><button class="save" data-save="${esc(item.id)}" aria-pressed="${selected.has(item.id)}">${selected.has(item.id)?'Shortlisted':'Add to shortlist'}</button></div></div></details>`).join('') : '<div class="empty"><h3>No matching findings</h3><p>Change the search or filters. Use “Reset filters” to show the full review.</p></div>';
+ }
+ function reset(){ $('search').value='';$('category').value='all';$('priority').value='all';$('shortlist-only').checked=false;render(); }
+ document.querySelectorAll('nav button').forEach(el=>el.addEventListener('click',()=>setView(el.dataset.view,true)));
+ ['search','category','priority','shortlist-only'].forEach(id=>$(id).addEventListener(id==='search'?'input':'change',render));
+ $('reset').addEventListener('click',reset);
+ $('expand').addEventListener('click',()=>{ expanded=!expanded;$('expand').textContent=expanded?'Collapse results':'Expand results';document.querySelectorAll('.finding').forEach(el=>el.open=expanded); });
+ $('findings').addEventListener('click',event=>{ const button=event.target.closest('[data-save]');if(!button)return;const id=button.dataset.save;selected.has(id)?selected.delete(id):selected.add(id);let persisted=true;try{localStorage.setItem(key,JSON.stringify([...selected]));}catch{persisted=false;}const openIds=[...document.querySelectorAll('.finding[open]')].map(x=>x.id);render();openIds.forEach(id=>{if($(id))$(id).open=true;});document.querySelector(`[data-save="${id}"]`)?.focus({preventScroll:true});$('status').textContent=persisted?'Shortlist updated.':'Shortlist updated for this session; browser storage is unavailable.'; });
+ document.querySelectorAll('[data-focus]').forEach(el=>el.addEventListener('click',()=>{setView('findings');reset();const card=$(el.dataset.focus);if(card){card.open=true;card.scrollIntoView({block:'start'});card.querySelector('summary').focus({preventScroll:true});}}));
+ $('export').addEventListener('click',()=>{ const rows=Review.selectedFindings(data,[...selected]);const text='# Mini Whisper review shortlist\n\nSource: a83561b · 9 September 2026\n\n'+rows.map(x=>`## ${x.id} · ${x.title}\n\n${x.priority} · ${x.category} · Relative effort ${x.effort}\n\n${x.detail}\n\nRecommendation: ${x.recommendation}\n\nDone when: ${x.acceptance}\n\n${x.evidence.map(r=>source(r)).join('\n')}`).join('\n\n');const url=URL.createObjectURL(new Blob([text],{type:'text/markdown;charset=utf-8'}));const a=document.createElement('a');a.href=url;a.download='mini-whisper-review-shortlist.md';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);$('status').textContent=`Exported ${rows.length} shortlisted findings.`; });
+ function showStep(index){const step=journey[index];$('step-detail').innerHTML=`<h3>${esc(step.title)}</h3><div class="split"><div><h4>Today</h4><p>${esc(step.today)}</p></div><div><h4>Recommended experience</h4><p>${esc(step.future)}</p></div></div><p class="small">Related findings: ${esc(step.ids)}</p>`;document.querySelectorAll('[data-step]').forEach(el=>el.setAttribute('aria-pressed',Number(el.dataset.step)===index));}
+ document.querySelectorAll('[data-step]').forEach(el=>el.addEventListener('click',()=>showStep(Number(el.dataset.step))));
+ let printState;
+ window.addEventListener('beforeprint',()=>{printState={view:activeView,open:[...document.querySelectorAll('.finding[open]')].map(x=>x.id),query:$('search').value,category:$('category').value,priority:$('priority').value,shortlist:$('shortlist-only').checked};reset();document.querySelectorAll('.finding').forEach(el=>el.open=true);});
+ window.addEventListener('afterprint',()=>{if(!printState)return;$('search').value=printState.query;$('category').value=printState.category;$('priority').value=printState.priority;$('shortlist-only').checked=printState.shortlist;render();document.querySelectorAll('.finding').forEach(el=>el.open=printState.open.includes(el.id));setView(printState.view);printState=null;});
+ $('print').addEventListener('click',()=>window.print());$('nav-count').textContent=data.length;render();showStep(0);
+})();
+</script>
+</body></html>
