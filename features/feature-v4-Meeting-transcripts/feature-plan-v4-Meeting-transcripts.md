@@ -2441,6 +2441,15 @@ None — plan matches design v4 exactly.
   with it the engine's failure log, names the close code. An empty close reason is `nil`.
   `RecordingSink.revisions` keeps one array per callback. `WebSocketEngine` sends everything
   accumulated once the minimum is reached, not exact minimum-sized slices.
+- **Stage 11.** Every meeting file shares `MeetingCoding.encoder()`/`decoder()`: whole-second ISO 8601
+  dates, as `history.jsonl` uses, so dates round-trip at second precision. `audioURL(_:)` and
+  `directory` are `nonisolated`. `refreshIndex()` always rescans and returns the entries.
+  `rewriteSegments` and `deleteAudio` also refresh the index entry; `delete` tolerates a missing
+  folder. The index is newest first; its `costUSD` adds the summary's cost, and its `excerpt` is the
+  summary's first sentence, both per the list mockup. `northwind()` gives Alex (the user) id 0,
+  Marta 1, Priya 2, segments without words, `endedAt` 15:19:20Z. Its notes at 00:12:40 and 00:27:15
+  precede the mockup transcript's first paragraph (00:39:02), so Stage 12's transcript golden shows
+  them first.
 
 ## Execution schedule
 
