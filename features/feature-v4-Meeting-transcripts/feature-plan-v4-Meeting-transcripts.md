@@ -2618,6 +2618,10 @@ None — plan matches design v4 exactly.
   on the summary. The notes composer is an `NSTextView`, because its `insertNewline:` command tells
   Enter from Shift+Enter. A dictation release while a meeting is active is ignored, as planned, so
   a dictation held across the meeting's start ends through its own toggle cap.
+- **After Stage 24 (not a stage).** `MeetingCoordinator.start()` first calls a new `endDictation`
+  dependency (`DictationController.abort()`): a toggle dictation running at Start would otherwise
+  keep the microphone, its stopping press would get the R19 notice, and its cap would paste
+  mid-meeting.
 
 ## Execution schedule
 
