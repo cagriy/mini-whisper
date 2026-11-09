@@ -2437,6 +2437,10 @@ None — plan matches design v4 exactly.
   UID `com.ips.mini-whisper.system-audio.<tapUID>`. New `SystemAudioTapError` names the failing
   Core Audio call and its `OSStatus`. With no Core Audio process object for our PID, nothing is
   excluded.
+- **Stage 4.** `WebSocketConnectionError` is now `LocalizedError` and `Equatable`, so `AnyError`, and
+  with it the engine's failure log, names the close code. An empty close reason is `nil`.
+  `RecordingSink.revisions` keeps one array per callback. `WebSocketEngine` sends everything
+  accumulated once the minimum is reached, not exact minimum-sized slices.
 
 ## Execution schedule
 
