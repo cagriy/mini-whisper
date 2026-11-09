@@ -1,0 +1,533 @@
+<title>Meetings List</title>
+<style>
+*,*::before,*::after{box-sizing:border-box}
+:root{--page-bg:#1c1e22;--page-text:#e8e8ea;--page-muted:#9a9aa2;--accent:#7cc4ff;--banner:#26292f;--rule:#34383f;
+--win:#ececec;--win2:#fff;--txt:#1d1d1f;--mut:#6e6e73;--bd:#d2d2d7;--blue:#0a60ff;--red:#c62828;--amber:#b25000;--remote:#243b63;--room:#1a7f8e}
+body{margin:0;background:var(--page-bg);color:var(--page-text);font:14px/1.45 -apple-system,BlinkMacSystemFont,"Helvetica Neue",sans-serif;-webkit-font-smoothing:antialiased}
+.banner{background:var(--banner);border-bottom:1px solid var(--rule);padding:14px 22px;font-size:13px}
+.banner strong{color:#fff}.banner p{margin:4px 0 0;color:var(--page-muted);max-width:95ch}.banner .axis{color:var(--accent)}
+main{padding:26px 22px 40px;display:flex;flex-direction:column;align-items:center;gap:34px}
+.state{display:flex;flex-direction:column;align-items:center;gap:10px;width:100%}
+.state h2{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--page-muted);margin:0;font-weight:600}
+.state .why{font-size:12.5px;color:var(--page-muted);margin:0;max-width:92ch;text-align:center}
+.mac{width:680px;max-width:100%;height:480px;background:var(--win);color:var(--txt);border-radius:11px;box-shadow:0 24px 60px rgba(0,0,0,.45);display:grid;grid-template-rows:52px 1fr;overflow:hidden;font-size:13px}
+.title{background:#e3e3e7;border-bottom:1px solid #cfcfd4;display:flex;align-items:center;padding:0 14px;gap:14px;position:relative}
+.title .lights{display:flex;gap:7px}.title .lights i{width:12px;height:12px;border-radius:50%}
+.title h1{font-size:13px;font-weight:600;margin:0;position:absolute;left:50%;transform:translateX(-50%);color:#3a3a3f}
+.search{margin-left:auto;width:220px;padding:5px 9px 5px 26px;border:1px solid #c3c3c8;border-radius:7px;background:#fff url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 16 16%27%3E%3Ccircle cx=%277%27 cy=%277%27 r=%275%27 fill=%27none%27 stroke=%27%23888%27 stroke-width=%271.6%27/%3E%3Cpath d=%27M11 11l3.5 3.5%27 stroke=%27%23888%27 stroke-width=%271.6%27/%3E%3C/svg%3E") 7px 50%/13px no-repeat;color:#9a9aa2;font-size:12px;white-space:nowrap;overflow:hidden}
+.search.on{color:var(--txt);border-color:var(--blue);box-shadow:0 0 0 2px rgba(10,96,255,.15)}
+.mini{font:12px -apple-system,sans-serif;padding:4px 10px;border-radius:6px;border:1px solid #c3c3c8;background:#fff;color:var(--txt);cursor:default}
+.mini.primary{background:var(--blue);color:#fff;border-color:var(--blue)}.mini.danger{color:var(--red)}
+.num{font-variant-numeric:tabular-nums}.mut{color:var(--mut)}
+.body{display:grid;grid-template-rows:1fr auto;min-height:0}
+.list{overflow:auto;background:#fff;padding:6px 0}
+.item{display:grid;grid-template-columns:34px 1fr auto;gap:12px;padding:10px 16px;border-bottom:1px solid #ededf0;align-items:start;position:relative}
+.item .ico{width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#fff}
+.item .ico.remote{background:var(--remote)}.item .ico.room{background:var(--room)}
+.item h3{margin:0;font-size:13px;font-weight:600;line-height:1.4;display:flex;align-items:baseline;gap:8px;min-width:0}
+.item h3 span{font-weight:400;color:var(--mut);font-size:11.5px;white-space:nowrap}
+.item p{margin:1px 0 0;font-size:12.5px;line-height:1.4;color:#3a3a3f;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;max-width:62ch}
+.item p.none{color:var(--mut);font-style:italic}
+.item .meta{font-size:11.5px;color:var(--mut);margin-top:3px}
+.item .meta .warn{color:var(--amber)}
+.item .acts{display:flex;gap:6px;opacity:0;transition:opacity .12s}.item:hover .acts,.item.hover .acts{opacity:1}
+.item.sel{background:#eef4ff}
+.day{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--mut);padding:10px 16px 4px;background:#fff;position:sticky;top:0}
+.foot{display:flex;justify-content:space-between;align-items:center;font-size:11.5px;color:var(--mut);padding:8px 14px;border-top:1px solid #cfcfd4;background:#f6f6f8}
+.foot .r{display:flex;gap:8px}
+/* search hits */
+.hit{display:grid;grid-template-columns:auto 1fr;gap:8px;font-size:12px;line-height:1.4;margin-top:4px;color:#3a3a3f}
+.hit .src{color:var(--mut);font-size:11px;white-space:nowrap;padding-top:1px;font-variant-numeric:tabular-nums}
+mark{background:#fff1a8;color:inherit;border-radius:2px;padding:0 1px}
+/* empty */
+.empty{display:grid;place-items:center;background:#fff;text-align:center;padding:30px}
+.empty .box{display:flex;flex-direction:column;align-items:center;gap:10px;max-width:360px}
+.empty .big{width:56px;height:56px;border-radius:14px;background:#e6e6ea;display:grid;place-items:center;color:#8e8e95}
+.empty b{font-size:15px}.empty p{margin:0;color:var(--mut);font-size:12.5px;line-height:1.5}
+.empty kbd{font:11.5px ui-monospace,Menlo,monospace;background:#f1f1f3;border:1px solid #d2d2d7;border-bottom-width:2px;border-radius:5px;padding:1px 6px;color:var(--txt)}
+.wrap{position:relative}
+.menu{position:absolute;background:#fff;border:1px solid #c3c3c8;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.18);padding:4px;display:flex;flex-direction:column;width:190px;font-size:12.5px;z-index:2}
+.menu span{padding:5px 10px;border-radius:5px}.menu span.on{background:var(--blue);color:#fff}.menu hr{border:0;border-top:1px solid #e3e3e7;margin:3px 0}.menu .h{color:var(--mut);font-size:11px;padding:4px 10px 2px}
+@media (max-width:720px){.mac{height:auto;min-height:480px}.search{width:150px}}
+@media (prefers-reduced-motion:reduce){.item .acts{transition:none}}
+</style>
+<div class="banner"><strong>Mockup — not shipping code · Feature v4 · “Meetings List” · Accepted 2026-11-09</strong>
+<p>The Meetings window: every recorded meeting, newest first, grouped by day, in the accepted History list's shape (680×480, search in the title bar, two-line rows, hover actions, footer). Shown in three states top to bottom: the populated list with the Export menu open, a search across titles, transcripts, notes and summaries, and the empty state before the first meeting. <span class="axis">What to judge: what a row shows (title, summary excerpt, meta line), how search hits are presented, and where Start Meeting sits.</span> Design language: the accepted v1 History list mockup — Messages/Notes-style list, light appearance, 13 pt system type, 30 px glyph per row.</p></div>
+<main><div id="overview" data-mf-option="overview" style="display:contents">
+
+<section class="state"><h2>State 1 · The list</h2>
+<p class="why">One row per meeting: title (default is “&lt;app&gt; · &lt;date time&gt;” until renamed), the first sentence of the summary or, when there is none, the first transcript line in italics, then a meta line with start time, duration, mode, speaker count, cost and what is on disk. Hover shows Open, Export and Delete; the Export menu offers transcript, summary, both, and Delete audio.</p>
+<div class="mac"><div class="title"><span class="lights"><i style="background:#ff5f57"></i><i style="background:#febc2e"></i><i style="background:#28c840"></i></span><h1>Meetings</h1><span class="search">Search meetings</span></div>
+<div class="body"><div class="list wrap">
+<div class="day">Today</div>
+<div class="item sel hover"><span class="ico remote"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><rect x="1.5" y="2.5" width="13" height="8.5" rx="1.5" fill="none" stroke="#fff" stroke-width="1.4"/><path d="M5.5 13.5h5M8 11v2.5" stroke="#fff" stroke-width="1.4" stroke-linecap="round"/></svg></span><div><h3>Northwind rollout sync</h3><p>The Northwind rollout stays on schedule provided the migration script is reviewed by Wednesday, after Priya refreshes staging data tonight.</p><div class="meta"><span class="num">14:30</span> · 48 min · Remote call · 3 speakers · $0.40 · Audio 23 MB</div></div><span class="acts"><button class="mini primary" type="button">Open</button><button class="mini" type="button">Export ▾</button><button class="mini danger" type="button">Delete</button></span></div>
+<div class="menu" style="top:96px;right:68px"><span class="on">Export transcript…</span><span>Export summary…</span><span>Export both…</span><hr><span>Delete audio (23 MB)</span></div>
+<div class="item"><span class="ico remote"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><rect x="1.5" y="2.5" width="13" height="8.5" rx="1.5" fill="none" stroke="#fff" stroke-width="1.4"/><path d="M5.5 13.5h5M8 11v2.5" stroke="#fff" stroke-width="1.4" stroke-linecap="round"/></svg></span><div><h3>Zoom · 9 Nov 2026 11:00</h3><p class="none">Morning everyone, let's start with the open incidents from the weekend…</p><div class="meta"><span class="num">11:00</span> · 27 min · Remote call · 2 speakers · $0.20 · <span class="warn">No summary</span> · Audio 13 MB</div></div><span class="acts"><button class="mini primary" type="button">Open</button><button class="mini" type="button">Export ▾</button><button class="mini danger" type="button">Delete</button></span></div>
+<div class="day">Yesterday</div>
+<div class="item"><span class="ico room"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><circle cx="5.5" cy="5.5" r="2.5" fill="none" stroke="#fff" stroke-width="1.4"/><circle cx="11" cy="6" r="2" fill="none" stroke="#fff" stroke-width="1.4"/><path d="M1.5 13c.5-2.5 2.2-3.8 4-3.8s3.5 1.3 4 3.8M9.5 12.8c.3-1.6 1.2-2.6 2.6-2.6 1.1 0 2 .7 2.4 2.1" fill="none" stroke="#fff" stroke-width="1.4" stroke-linecap="round"/></svg></span><div><h3>Design review</h3><p>The onboarding flow drops the third screen; the permissions step moves to first launch and the team revisits copy on Friday.</p><div class="meta"><span class="num">16:05</span> · 1 h 12 min · In the room · 4 speakers · $0.57 · Audio 34 MB</div></div><span class="acts"><button class="mini primary" type="button">Open</button><button class="mini" type="button">Export ▾</button><button class="mini danger" type="button">Delete</button></span></div>
+<div class="item"><span class="ico remote"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><rect x="1.5" y="2.5" width="13" height="8.5" rx="1.5" fill="none" stroke="#fff" stroke-width="1.4"/><path d="M5.5 13.5h5M8 11v2.5" stroke="#fff" stroke-width="1.4" stroke-linecap="round"/></svg></span><div><h3>Hiring loop debrief</h3><p>Both panels lean towards an offer for the second candidate; the take-home needs a tighter rubric before the next loop.</p><div class="meta"><span class="num">10:00</span> · 35 min · Remote call · 3 speakers · $0.29 · Audio deleted</div></div><span class="acts"><button class="mini primary" type="button">Open</button><button class="mini" type="button">Export ▾</button><button class="mini danger" type="button">Delete</button></span></div>
+<div class="day">Monday 3 Nov</div>
+<div class="item"><span class="ico room"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><circle cx="5.5" cy="5.5" r="2.5" fill="none" stroke="#fff" stroke-width="1.4"/><circle cx="11" cy="6" r="2" fill="none" stroke="#fff" stroke-width="1.4"/><path d="M1.5 13c.5-2.5 2.2-3.8 4-3.8s3.5 1.3 4 3.8M9.5 12.8c.3-1.6 1.2-2.6 2.6-2.6 1.1 0 2 .7 2.4 2.1" fill="none" stroke="#fff" stroke-width="1.4" stroke-linecap="round"/></svg></span><div><h3>Q4 planning</h3><p>Three themes for the quarter: reliability of the sync service, the enterprise tier launch, and a maintenance window for the database move.</p><div class="meta"><span class="num">09:30</span> · 2 h 04 min · In the room · 5 speakers · $0.96 · Audio 58 MB</div></div><span class="acts"><button class="mini primary" type="button">Open</button><button class="mini" type="button">Export ▾</button><button class="mini danger" type="button">Delete</button></span></div>
+</div>
+<div class="foot"><span>12 meetings · 310 MB audio</span><span class="r"><button class="mini" type="button">Show in Finder</button><button class="mini primary" type="button">Start Meeting…</button></span></div></div>
+</div></section>
+
+<section class="state"><h2>State 2 · Searching</h2>
+<p class="why">Search matches titles, transcript text, notes and summaries as you type. A matching row keeps its title and meta line and swaps the excerpt for up to two hit snippets, each labelled with where it was found and, for transcript and note hits, the meeting time. Opening a hit opens the meeting scrolled to that segment.</p>
+<div class="mac"><div class="title"><span class="lights"><i style="background:#ff5f57"></i><i style="background:#febc2e"></i><i style="background:#28c840"></i></span><h1>Meetings</h1><span class="search on">maintenance window</span></div>
+<div class="body"><div class="list">
+<div class="day">Today</div>
+<div class="item"><span class="ico remote"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><rect x="1.5" y="2.5" width="13" height="8.5" rx="1.5" fill="none" stroke="#fff" stroke-width="1.4"/><path d="M5.5 13.5h5M8 11v2.5" stroke="#fff" stroke-width="1.4" stroke-linecap="round"/></svg></span><div><h3>Northwind rollout sync</h3>
+<div class="hit"><span class="src">Note · 00:40:05</span><span>Ask ops for a Wednesday <mark>maintenance window</mark></span></div>
+<div class="hit"><span class="src">Summary</span><span>Alex: ask ops for a Wednesday <mark>maintenance window</mark>.</span></div>
+<div class="meta"><span class="num">14:30</span> · 48 min · Remote call · 3 speakers · $0.40 · Audio 23 MB</div></div><span class="acts"><button class="mini primary" type="button">Open</button><button class="mini" type="button">Export ▾</button><button class="mini danger" type="button">Delete</button></span></div>
+<div class="day">Monday 3 Nov</div>
+<div class="item"><span class="ico room"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><circle cx="5.5" cy="5.5" r="2.5" fill="none" stroke="#fff" stroke-width="1.4"/><circle cx="11" cy="6" r="2" fill="none" stroke="#fff" stroke-width="1.4"/><path d="M1.5 13c.5-2.5 2.2-3.8 4-3.8s3.5 1.3 4 3.8M9.5 12.8c.3-1.6 1.2-2.6 2.6-2.6 1.1 0 2 .7 2.4 2.1" fill="none" stroke="#fff" stroke-width="1.4" stroke-linecap="round"/></svg></span><div><h3>Q4 planning</h3>
+<div class="hit"><span class="src">Speaker 3 · 01:12:48</span><span>…we cannot move the database without a <mark>maintenance window</mark>, so ops needs two weeks' notice…</span></div>
+<div class="hit"><span class="src">Summary</span><span>…and a <mark>maintenance window</mark> for the database move.</span></div>
+<div class="meta"><span class="num">09:30</span> · 2 h 04 min · In the room · 5 speakers · $0.96 · Audio 58 MB</div></div><span class="acts"><button class="mini primary" type="button">Open</button><button class="mini" type="button">Export ▾</button><button class="mini danger" type="button">Delete</button></span></div>
+</div>
+<div class="foot"><span>2 of 12 meetings match</span><span class="r"><button class="mini" type="button">Show in Finder</button><button class="mini primary" type="button">Start Meeting…</button></span></div></div>
+</div></section>
+
+<section class="state"><h2>State 3 · Nothing recorded yet</h2>
+<p class="why">Before the first meeting the list is replaced by one message naming the hotkey and the menu item. The footer keeps Start Meeting so the window itself can begin one.</p>
+<div class="mac"><div class="title"><span class="lights"><i style="background:#ff5f57"></i><i style="background:#febc2e"></i><i style="background:#28c840"></i></span><h1>Meetings</h1><span class="search">Search meetings</span></div>
+<div class="body"><div class="empty"><div class="box">
+<span class="big"><svg width="28" height="28" viewBox="0 0 16 16" aria-hidden="true"><circle cx="5.5" cy="5.5" r="2.5" fill="none" stroke="currentColor" stroke-width="1.2"/><circle cx="11" cy="6" r="2" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M1.5 13c.5-2.5 2.2-3.8 4-3.8s3.5 1.3 4 3.8M9.5 12.8c.3-1.6 1.2-2.6 2.6-2.6 1.1 0 2 .7 2.4 2.1" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg></span>
+<b>No meetings yet</b>
+<p>Press <kbd>⌃⌥⌘M</kbd> or choose <b>Start Meeting…</b> from the menu bar. Mini Whisper transcribes live with speaker labels, keeps your notes beside the transcript and writes a summary when you stop.</p>
+<button class="mini primary" type="button">Start Meeting…</button>
+</div></div>
+<div class="foot"><span>0 meetings</span><span class="r"><button class="mini" type="button">Show in Finder</button><button class="mini primary" type="button">Start Meeting…</button></span></div></div>
+</div></section>
+
+</div></main>
+
+<!-- mockup-feedback:start -->
+<style>
+.mf-bar {
+  --mf-bg: #f6f7f9;
+  --mf-fg: #1a2127;
+  --mf-muted: #59646d;
+  --mf-line: #d3d9de;
+  --mf-field: #ffffff;
+  --mf-accent: #2f5fd0;
+  --mf-accent-fg: #ffffff;
+  --mf-ok: #1d7a4c;
+  --mf-warn: #8f5d00;
+  --mf-err: #b2322b;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .mf-bar {
+    --mf-bg: #161b20;
+    --mf-fg: #e3e8ec;
+    --mf-muted: #98a3ab;
+    --mf-line: #2d363e;
+    --mf-field: #0f1317;
+    --mf-accent: #7ea2f5;
+    --mf-accent-fg: #0b1220;
+    --mf-ok: #57c48c;
+    --mf-warn: #e2ac45;
+    --mf-err: #f08077;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] .mf-bar {
+  --mf-bg: #161b20;
+  --mf-fg: #e3e8ec;
+  --mf-muted: #98a3ab;
+  --mf-line: #2d363e;
+  --mf-field: #0f1317;
+  --mf-accent: #7ea2f5;
+  --mf-accent-fg: #0b1220;
+  --mf-ok: #57c48c;
+  --mf-warn: #e2ac45;
+  --mf-err: #f08077;
+  color-scheme: dark;
+}
+.mf-bar, .mf-bar * { box-sizing: border-box; }
+.mf-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 2147483000;
+  margin: 24px 0 0;
+  padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px));
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--mf-bg);
+  color: var(--mf-fg);
+  border-top: 1px solid var(--mf-line);
+  box-shadow: 0 -6px 18px rgba(0, 0, 0, 0.08);
+  font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  text-align: left;
+}
+.mf-bar[hidden] { display: none; }
+.mf-bar .mf-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+.mf-bar .mf-tag {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--mf-muted);
+}
+.mf-bar .mf-title { font-weight: 600; }
+.mf-bar .mf-context { color: var(--mf-muted); min-width: 0; overflow-wrap: anywhere; }
+.mf-bar .mf-toggle {
+  margin-left: auto;
+  padding: 2px 6px;
+  border: 0;
+  background: none;
+  color: var(--mf-accent);
+  font: inherit;
+  font-size: 13px;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.mf-bar .mf-body { display: flex; flex-direction: column; gap: 8px; }
+.mf-bar.mf-collapsed .mf-body { display: none; }
+.mf-bar .mf-options { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; border: 0; }
+.mf-bar .mf-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border: 1.5px solid var(--mf-line);
+  border-radius: 999px;
+  background: var(--mf-field);
+  cursor: pointer;
+}
+.mf-bar .mf-chip input { margin: 0; accent-color: var(--mf-accent); }
+.mf-bar .mf-chip:has(input:checked) { border-color: var(--mf-accent); }
+.mf-bar .mf-chip:has(input:focus-visible) { outline: 2px solid var(--mf-accent); outline-offset: 2px; }
+.mf-bar .mf-note {
+  width: 100%;
+  min-height: 38px;
+  max-height: 140px;
+  padding: 7px 10px;
+  resize: vertical;
+  font: inherit;
+  color: var(--mf-fg);
+  background: var(--mf-field);
+  border: 1.5px solid var(--mf-line);
+  border-radius: 8px;
+}
+.mf-bar .mf-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.mf-bar .mf-btn {
+  padding: 7px 12px;
+  border: 1.5px solid var(--mf-line);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--mf-fg);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.mf-bar .mf-btn.mf-primary { background: var(--mf-accent); border-color: var(--mf-accent); color: var(--mf-accent-fg); }
+.mf-bar .mf-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.mf-bar .mf-btn:focus-visible, .mf-bar .mf-toggle:focus-visible, .mf-bar .mf-note:focus-visible {
+  outline: 2px solid var(--mf-accent);
+  outline-offset: 2px;
+}
+.mf-bar .mf-channel { display: flex; align-items: center; gap: 6px; margin: 0; font-size: 13px; color: var(--mf-muted); }
+.mf-bar .mf-dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--mf-muted); }
+.mf-bar .mf-channel[data-state="available"] .mf-dot { background: var(--mf-ok); }
+.mf-bar .mf-channel[data-state="no_session"] .mf-dot,
+.mf-bar .mf-channel[data-state="writers_only"] .mf-dot { background: var(--mf-warn); }
+.mf-bar .mf-channel[data-state="blocked"] .mf-dot { background: var(--mf-err); }
+.mf-bar .mf-result { margin: 0; font-size: 13px; }
+.mf-bar .mf-result[data-kind="ok"] { color: var(--mf-ok); }
+.mf-bar .mf-result[data-kind="err"] { color: var(--mf-err); }
+.mf-bar .mf-verdict { margin: 0; font-weight: 600; }
+[data-mf-option].mf-selected { outline: 3px solid #3b6fe0; outline-offset: 4px; }
+</style>
+<aside class="mf-bar" id="mf-bar" role="region" aria-label="Mockup feedback" data-uncommentable hidden>
+  <div class="mf-head">
+    <span class="mf-tag">Feedback</span>
+    <span class="mf-title" id="mf-title"></span>
+    <span class="mf-context" id="mf-context"></span>
+    <button type="button" class="mf-toggle" id="mf-toggle" aria-expanded="true" aria-controls="mf-body">Hide</button>
+  </div>
+  <div class="mf-body" id="mf-body">
+    <p class="mf-verdict" id="mf-verdict" hidden></p>
+    <fieldset class="mf-options" id="mf-options" hidden></fieldset>
+    <textarea class="mf-note" id="mf-note" maxlength="1500" placeholder="Note for Claude (optional; required to request changes)" aria-label="Note for Claude"></textarea>
+    <div class="mf-actions" id="mf-actions"></div>
+    <p class="mf-channel" id="mf-channel" data-state="checking">
+      <span class="mf-dot" aria-hidden="true"></span>
+      <span id="mf-channel-text">Checking whether a Claude session is listening.</span>
+      <button type="button" class="mf-toggle" id="mf-recheck" hidden>Check again</button>
+    </p>
+    <p class="mf-result" id="mf-result" role="status" aria-live="polite" hidden></p>
+  </div>
+</aside>
+<script type="application/json" id="mf-config">{"set":"v4-s2","setLabel":"Meetings list","mode":"review","options":[{"id":"overview","label":"Meetings list overview"}],"this":null,"status":"accepted","chosen":null}</script>
+<script>
+(function () {
+  var cfg;
+  try { cfg = JSON.parse(document.getElementById("mf-config").textContent); } catch (e) { return; }
+  if (!cfg || !cfg.options || !cfg.options.length) return;
+
+  var PREFIX = "Mockup feedback · ";
+  var CHANNEL = {
+    checking: "Checking whether a Claude session is listening.",
+    available: "A Claude session is listening. Sending wakes it.",
+    no_session: "No Claude session is listening. Reply in chat, or check again once the session is back.",
+    writers_only: "Only editors of this page can send to Claude. Reply in chat instead.",
+    off: "Sending to Claude is not offered here. Reply in chat instead.",
+    absent: "Sending works on the published page. Here, reply in chat instead.",
+    blocked: "Commenting from this page is turned off. Reply in chat instead."
+  };
+  var KNOWN = ["available", "writers_only", "no_session", "off"];
+
+  var bar = document.getElementById("mf-bar");
+  var titleEl = document.getElementById("mf-title");
+  var contextEl = document.getElementById("mf-context");
+  var toggleBtn = document.getElementById("mf-toggle");
+  var verdictEl = document.getElementById("mf-verdict");
+  var optionsEl = document.getElementById("mf-options");
+  var noteEl = document.getElementById("mf-note");
+  var actionsEl = document.getElementById("mf-actions");
+  var channelEl = document.getElementById("mf-channel");
+  var channelText = document.getElementById("mf-channel-text");
+  var recheckBtn = document.getElementById("mf-recheck");
+  var resultEl = document.getElementById("mf-result");
+
+  var comments = null;
+  var state = "checking";
+  var busy = false;
+  var sent = false;
+  var buttons = [];
+
+  function byId(list, id) {
+    for (var i = 0; i < list.length; i++) if (list[i].id === id) return list[i];
+    return null;
+  }
+  function label(id) { var o = byId(cfg.options, id); return o ? o.label : id; }
+  function root(id) { return document.querySelector('[data-mf-option="' + id + '"]'); }
+  function picked() {
+    if (cfg.mode !== "compare") return cfg.mode === "pick" ? cfg["this"] : cfg.options[0].id;
+    var r = optionsEl.querySelector("input:checked");
+    return r ? r.value : null;
+  }
+  function say(text, kind) {
+    resultEl.hidden = !text;
+    resultEl.textContent = text || "";
+    if (kind) resultEl.setAttribute("data-kind", kind);
+    else resultEl.removeAttribute("data-kind");
+  }
+  function clean(text) {
+    return text.replace(/[\u0000-\u0008\u000B-\u001F\u007F]/g, "").trim();
+  }
+
+  // Header: the set, and where this page sits in it.
+  titleEl.textContent = cfg.setLabel;
+  if (cfg.mode === "pick") {
+    var others = [];
+    var position = 0;
+    for (var i = 0; i < cfg.options.length; i++) {
+      if (cfg.options[i].id === cfg["this"]) position = i + 1;
+      else others.push(cfg.options[i].label);
+    }
+    contextEl.textContent = "Option " + position + " of " + cfg.options.length + ": " + label(cfg["this"]) +
+      ". The others are on their own pages: " + others.join(", ") + ". Choosing here rules them out.";
+  } else if (cfg.mode === "compare") {
+    contextEl.textContent = cfg.options.length + " options on this page. Pick one.";
+  } else {
+    contextEl.textContent = label(cfg.options[0].id);
+  }
+
+  toggleBtn.addEventListener("click", function () {
+    var collapsed = bar.classList.toggle("mf-collapsed");
+    toggleBtn.textContent = collapsed ? "Show" : "Hide";
+    toggleBtn.setAttribute("aria-expanded", collapsed ? "false" : "true");
+  });
+
+  // A settled page shows its verdict and nothing to act on.
+  if (cfg.status !== "open") {
+    var verdict = {
+      accepted: cfg.mode === "compare" ? "Accepted: " + label(cfg.chosen) + "." : "Accepted.",
+      "not-chosen": "Not chosen.",
+      closed: "Closed. Choices on this page are no longer read."
+    }[cfg.status] || "Closed.";
+    verdictEl.textContent = verdict;
+    verdictEl.hidden = false;
+    noteEl.hidden = true;
+    channelEl.hidden = true;
+    if (cfg.mode === "compare" && cfg.status === "accepted" && root(cfg.chosen)) root(cfg.chosen).classList.add("mf-selected");
+    bar.hidden = false;
+    return;
+  }
+
+  // Compare: one chip per option, outlining its section when picked.
+  if (cfg.mode === "compare") {
+    var legend = document.createElement("legend");
+    legend.className = "mf-tag";
+    legend.textContent = "Options";
+    optionsEl.appendChild(legend);
+    cfg.options.forEach(function (o) {
+      var chip = document.createElement("label");
+      chip.className = "mf-chip";
+      var input = document.createElement("input");
+      input.type = "radio";
+      input.name = "mf-option";
+      input.id = "mf-option-" + o.id;
+      input.value = o.id;
+      input.addEventListener("change", function () {
+        var all = document.querySelectorAll("[data-mf-option]");
+        for (var k = 0; k < all.length; k++) all[k].classList.remove("mf-selected");
+        var el = root(o.id);
+        if (el) {
+          el.classList.add("mf-selected");
+          var still = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+          el.scrollIntoView({ block: "nearest", behavior: still ? "auto" : "smooth" });
+        }
+        refresh();
+      });
+      chip.appendChild(input);
+      chip.appendChild(document.createTextNode(o.label));
+      optionsEl.appendChild(chip);
+    });
+    optionsEl.hidden = false;
+  }
+
+  // Actions per shape. needsNote: a change request must say what to change.
+  var ACTIONS = {
+    review: [
+      { action: "accept", text: "Looks right", primary: true },
+      { action: "revise", text: "Request changes", needsNote: true },
+      { action: "alternatives", text: "Show alternatives" }
+    ],
+    compare: [
+      { action: "choose", text: "Send choice", primary: true, needsPick: true },
+      { action: "none", text: "None of these", needsNote: true },
+      { action: "comment", text: "Comment on this option", needsPick: true }
+    ],
+    pick: [
+      { action: "choose", text: "Choose this one", primary: true },
+      { action: "revise", text: "Request changes", needsNote: true },
+      { action: "none", text: "None of these", needsNote: true }
+    ]
+  }[cfg.mode] || [];
+
+  ACTIONS.forEach(function (a) {
+    var b = document.createElement("button");
+    b.type = "button";
+    b.className = "mf-btn" + (a.primary ? " mf-primary" : "");
+    b.id = "mf-" + a.action;
+    b.textContent = a.text;
+    b.addEventListener("click", function () {
+      if (a.action === "comment") compose();
+      else send(a);
+    });
+    actionsEl.appendChild(b);
+    buttons.push({ el: b, spec: a });
+  });
+
+  function render() {
+    channelEl.setAttribute("data-state", state);
+    channelText.textContent = CHANNEL[state] || CHANNEL.off;
+    recheckBtn.hidden = !comments || state === "available" || state === "checking" || state === "blocked";
+    var pick = picked();
+    buttons.forEach(function (b) {
+      if (b.spec.action === "comment") {
+        b.el.disabled = !comments || !pick;
+        b.el.hidden = !comments;
+        return;
+      }
+      b.el.disabled = busy || sent || state !== "available" || (b.spec.needsPick && !pick);
+    });
+    noteEl.disabled = sent;
+  }
+
+  function refresh() {
+    if (!comments || state === "blocked") { render(); return; }
+    comments.canSendToClaude().then(function (v) {
+      return KNOWN.indexOf(v) === -1 ? "off" : v;
+    }, function () {
+      return "off";
+    }).then(function (v) {
+      if (comments && state !== "blocked") state = v;
+      render();
+    });
+  }
+
+  function fail(err) {
+    var code = err && err.code;
+    if (code === "consent_required") {
+      say("Not sent. The page was not allowed to comment as you. Your note is kept.", "err");
+    } else if (code === "forbidden") {
+      state = "blocked";
+      say("Not sent. Commenting from this page is turned off.", "err");
+    } else if (code === "claude_unavailable") {
+      say("Not sent. No Claude session could receive it. Nothing was posted.", "err");
+      refresh();
+    } else if (code === "rate_limited") {
+      say("Not sent. Too many sends in a row. Wait a moment.", "err");
+    } else if (code === "invalid" || code === "transform_error") {
+      say("Not sent. The note has characters a comment cannot carry.", "err");
+    } else if (code === "not_granted" || code === "capability_disabled" || code === "capability_removed") {
+      comments = null;
+      state = "absent";
+      say("Not sent. This view cannot post comments from the page.", "err");
+    } else {
+      say("Not sent. Comments are unavailable right now. Try once more.", "err");
+    }
+  }
+
+  function send(spec) {
+    if (!comments || busy || sent) return;
+    var option = spec.action === "choose" || spec.action === "accept" || spec.action === "revise" ? picked() : null;
+    if (spec.needsPick && !option) { say("Pick an option first.", "err"); return; }
+    var note = clean(noteEl.value);
+    if (spec.needsNote && !note) {
+      say("Add a note saying what to change.", "err");
+      noteEl.focus();
+      return;
+    }
+    var text = PREFIX + cfg.set + " · " + spec.action + (option ? " " + option : "") + (note ? "\nNote: " + note : "");
+    var target = root(option || picked() || cfg.options[0].id) || bar.parentNode;
+    busy = true;
+    say("", null);
+    render();
+    comments.anchorFor(target).then(function (anchor) {
+      return comments.sendToClaude({ anchor: anchor, text: text });
+    }).then(function () {
+      sent = true;
+      say("Sent to Claude: " + spec.text.toLowerCase() + (option ? " (" + label(option) + ")" : "") +
+        ". Claude replies in the comment thread and updates this page.", "ok");
+    }, fail).then(function () {
+      busy = false;
+      render();
+    });
+  }
+
+  function compose() {
+    var option = picked();
+    var el = option && root(option);
+    if (!comments || !el) return;
+    comments.openComposer({ element: el }).then(function (r) {
+      if (r && r.opened) say("Comment box opened on " + label(option) + ". Write your comment and press Send to Claude.", "ok");
+    }, function (err) {
+      say(err && err.code === "rate_limited" ? "Too many tries in a row. Wait a moment." : "The comment box is unavailable here.", "err");
+    });
+  }
+
+  recheckBtn.addEventListener("click", refresh);
+  window.addEventListener("focus", refresh);
+  bar.hidden = false;
+  render();
+
+  var ready = window.claude && typeof window.claude.use === "function"
+    ? window.claude.use("comments")
+    : Promise.resolve(null);
+  ready.then(function (ns) { return ns; }, function () { return null; }).then(function (ns) {
+    comments = ns;
+    if (!ns) { state = "absent"; render(); return; }
+    refresh();
+  });
+})();
+</script>
+<!-- mockup-feedback:end -->

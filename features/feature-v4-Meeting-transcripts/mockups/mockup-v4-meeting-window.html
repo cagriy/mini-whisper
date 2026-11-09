@@ -1,0 +1,605 @@
+<title>Meeting Window</title>
+<style>
+*,*::before,*::after{box-sizing:border-box}
+:root{--page-bg:#1c1e22;--page-text:#e8e8ea;--page-muted:#9a9aa2;--accent:#7cc4ff;--banner:#26292f;--rule:#34383f;
+--win:#ececec;--win2:#f6f6f6;--txt:#1d1d1f;--mut:#6e6e73;--bd:#d2d2d7;--blue:#0a60ff;--red:#c62828;--green:#1f8a3b;--amber:#b25000;--you:#0a60ff;--s1:#6a3fb5;--s2:#1a7f8e;--s3:#b2651b}
+body{margin:0;background:var(--page-bg);color:var(--page-text);font:14px/1.45 -apple-system,BlinkMacSystemFont,"Helvetica Neue",sans-serif;-webkit-font-smoothing:antialiased}
+.banner{background:var(--banner);border-bottom:1px solid var(--rule);padding:14px 22px;font-size:13px}
+.banner strong{color:#fff}.banner p{margin:4px 0 0;color:var(--page-muted);max-width:95ch}.banner .axis{color:var(--accent)}
+main{padding:26px 22px 40px;display:flex;flex-direction:column;align-items:center;gap:34px}
+.state{display:flex;flex-direction:column;align-items:center;gap:10px;width:100%}
+.state h2{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--page-muted);margin:0;font-weight:600}
+.state .why{font-size:12.5px;color:var(--page-muted);margin:0;max-width:92ch;text-align:center}
+.mac{width:920px;max-width:100%;height:620px;background:var(--win);color:var(--txt);border-radius:11px;box-shadow:0 24px 60px rgba(0,0,0,.45);display:grid;grid-template-rows:52px 1fr;overflow:hidden;font-size:13px}
+.title{background:#e3e3e7;border-bottom:1px solid #cfcfd4;display:flex;align-items:center;padding:0 14px;gap:14px;position:relative}
+.title .lights{display:flex;gap:7px}.title .lights i{width:12px;height:12px;border-radius:50%}
+.title h1{font-size:13px;font-weight:600;margin:0;position:absolute;left:50%;transform:translateX(-50%);color:#3a3a3f;white-space:nowrap}
+.title .tools{margin-left:auto;display:flex;gap:8px;align-items:center}
+.mini{font:12px -apple-system,sans-serif;padding:4px 10px;border-radius:6px;border:1px solid #c3c3c8;background:#fff;color:var(--txt);cursor:default}
+.mini.primary{background:var(--blue);color:#fff;border-color:var(--blue)}.mini.danger{color:var(--red)}.mini.stop{background:var(--red);color:#fff;border-color:var(--red)}
+.mini.big{font-size:13px;padding:7px 14px}
+.num{font-variant-numeric:tabular-nums}.mut{color:var(--mut)}
+/* chooser */
+.choose{display:grid;place-items:center;padding:30px}
+.choose .card{width:560px;max-width:100%;background:#fff;border:1px solid var(--bd);border-radius:12px;padding:26px 28px 22px;display:flex;flex-direction:column;gap:16px}
+.choose h3{margin:0;font-size:17px;font-weight:600}
+.choose p{margin:0;color:var(--mut);font-size:12.5px;line-height:1.5}
+.modes{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.mode{border:1px solid var(--bd);border-radius:10px;padding:14px 14px 12px;background:var(--win2);display:flex;flex-direction:column;gap:6px;position:relative}
+.mode.sel{border-color:var(--blue);box-shadow:0 0 0 2px rgba(10,96,255,.15);background:#fff}
+.mode b{font-size:14px}.mode small{color:var(--mut);font-size:11.5px;line-height:1.4}
+.mode .price{margin-top:4px;font-size:11.5px;color:var(--txt)}.mode .price b{font-size:11.5px}
+.mode .key{position:absolute;top:10px;right:10px;width:14px;height:14px;border-radius:50%;border:1.5px solid var(--bd);background:#fff}.mode.sel .key{border:4.5px solid var(--blue)}
+.note{display:flex;gap:10px;align-items:flex-start;background:#f3f6fb;border:1px solid #d6e2f5;border-radius:8px;padding:10px 12px;font-size:12px;color:#243b63;line-height:1.45}
+.note svg{flex:0 0 auto;margin-top:1px}
+.choose .row{display:flex;align-items:center;gap:10px}
+.choose .engine{font-size:12px;color:var(--mut)}.choose .engine a{color:var(--blue);text-decoration:none}
+.choose .actions{margin-left:auto;display:flex;gap:8px}
+/* recording / stopped */
+.body{display:grid;grid-template-rows:auto 1fr;min-height:0}
+.head{display:flex;align-items:center;gap:14px;padding:10px 16px;background:#f6f6f8;border-bottom:1px solid #d9d9de}
+.head .ttl{display:flex;align-items:center;gap:8px;min-width:0}
+.head .ttl b{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:360px}
+.head .ttl .pen{color:var(--mut);font-size:12px}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;border:1px solid var(--bd);background:#fff;color:var(--mut)}
+.chip.mode{color:#243b63;background:#edf3fd;border-color:#cfdcf4}
+.chip i{width:7px;height:7px;border-radius:50%;background:var(--mut);display:inline-block}
+.chip.live i{background:var(--green)}.chip.rec i{background:var(--amber);animation:pulse 1.2s infinite}.chip.paused i{background:var(--mut)}.chip.off i{background:#c8c8cc}
+@keyframes pulse{50%{opacity:.35}}
+.head .stats{margin-left:auto;display:flex;align-items:baseline;gap:14px;font-size:12px;color:var(--mut)}
+.head .stats b{font-size:15px;color:var(--txt);font-weight:600}
+.head .btns{display:flex;gap:8px;margin-left:10px}
+.split{display:grid;grid-template-columns:1fr 280px;min-height:0}
+.transcript{overflow:auto;background:#fff;padding:12px 18px 18px;display:flex;flex-direction:column;gap:14px}
+.src{display:flex;gap:8px;align-items:center;font-size:11.5px;color:var(--mut);padding:0 0 6px;border-bottom:1px solid #ededf0}
+.seg{display:grid;grid-template-columns:150px 1fr;gap:12px;align-items:start}
+.seg .who{display:flex;flex-direction:column;gap:2px;min-width:0}
+.seg .who b{font-size:12.5px;display:inline-flex;align-items:center;gap:5px;cursor:default}
+.seg .who b::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--c,var(--mut));flex:0 0 auto}
+.seg .who .t{font-size:11px;color:var(--mut);font-variant-numeric:tabular-nums}
+.seg p{margin:0;font-size:13px;line-height:1.5;max-width:68ch}
+.seg p.partial{color:#7a7a80}.seg p.partial::after{content:"▍";color:var(--blue);animation:pulse 1s infinite}
+.seg.editing p{outline:2px solid var(--blue);border-radius:4px;padding:2px 4px;background:#f7faff}
+.marker{display:flex;align-items:center;gap:10px;font-size:11.5px;color:var(--mut)}
+.marker::before,.marker::after{content:"";flex:1;border-top:1px dashed #d2d2d7}
+.marker.gap{color:var(--amber)}.marker.gap::before,.marker.gap::after{border-color:#e7c8a8}
+.marker.note{color:#243b63}.marker.note::before,.marker.note::after{border-color:#cfdcf4}
+.rename{position:absolute;background:#fff;border:1px solid #c3c3c8;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.18);padding:10px;display:flex;flex-direction:column;gap:8px;width:220px;font-size:12px}
+.rename input{font:12px -apple-system,sans-serif;padding:4px 8px;border:1px solid #c3c3c8;border-radius:6px}
+.rename .r{display:flex;gap:6px;justify-content:flex-end}
+.menu{position:absolute;background:#fff;border:1px solid #c3c3c8;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.18);padding:4px;display:flex;flex-direction:column;width:200px;font-size:12.5px}
+.menu span{padding:5px 10px;border-radius:5px}.menu span.on{background:var(--blue);color:#fff}.menu hr{border:0;border-top:1px solid #e3e3e7;margin:3px 0}.menu .h{color:var(--mut);font-size:11px;padding:4px 10px 2px}
+.notes{background:#f6f6f8;border-left:1px solid #d9d9de;display:grid;grid-template-rows:auto 1fr auto;min-height:0}
+.notes h4{margin:0;padding:10px 14px 8px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--mut);font-weight:600;border-bottom:1px solid #e3e3e7}
+.notes .list{overflow:auto;padding:8px 14px;display:flex;flex-direction:column;gap:10px}
+.nt{display:grid;grid-template-columns:auto 1fr;gap:8px;font-size:12.5px;line-height:1.4}
+.nt .t{font-size:11px;color:var(--mut);font-variant-numeric:tabular-nums;padding-top:2px}
+.notes .in{border-top:1px solid #e3e3e7;padding:10px 14px}
+.notes .in .field{background:#fff;border:1px solid #c3c3c8;border-radius:7px;padding:6px 9px;font-size:12px;color:#9a9aa2;min-height:52px}
+.notes .in small{display:block;color:var(--mut);font-size:11px;margin-top:5px}
+/* summary */
+.summary{background:#fff;border-bottom:1px solid #d9d9de;padding:14px 18px 12px;display:grid;grid-template-columns:1fr 1fr;gap:10px 28px;position:relative}
+.summary h4{margin:0 0 4px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--mut);font-weight:600}
+.summary .sec{font-size:12.5px;line-height:1.5}
+.summary .sec ul{margin:0;padding-left:16px}.summary .sec li{margin:0 0 2px}
+.summary .meta{grid-column:1/-1;display:flex;gap:12px;font-size:11px;color:var(--mut);align-items:center}
+.summary.empty{display:flex;align-items:center;gap:14px;padding:14px 18px}
+.summary.empty .msg{font-size:12.5px;color:var(--amber)}
+.wrap{position:relative}
+.callout{position:absolute;font-size:11px;color:var(--accent);background:rgba(28,30,34,.92);border:1px solid var(--rule);border-radius:6px;padding:4px 8px;white-space:nowrap;pointer-events:none}
+@media (max-width:960px){.mac{height:auto;min-height:620px}.split{grid-template-columns:1fr}.notes{border-left:0;border-top:1px solid #d9d9de}.summary{grid-template-columns:1fr}.modes{grid-template-columns:1fr}}
+@media (prefers-reduced-motion:reduce){.chip i,.seg p.partial::after{animation:none}}
+</style>
+<div class="banner"><strong>Mockup — not shipping code · Feature v4 · “Meeting Window” · Accepted 2026-11-09</strong>
+<p>The one window a meeting lives in, shown in its three states top to bottom: the chooser a hotkey press opens, the live recording view, and the finished meeting with its summary. One window per meeting, 920×620, reopened from the menu bar if closed; recording never stops on close. <span class="axis">What to judge: placement of the notes pane, how speakers and times read in the transcript, how connection state and running cost sit in the header, and the summary panel's position above the transcript.</span> Design language: the accepted v1 History and Settings mockups — light macOS window on the dark review page, 13 pt system type, hairline-bordered white controls. Names and text are placeholders.</p></div>
+<main><div id="overview" data-mf-option="overview" style="display:contents">
+
+<section class="state"><h2>State 1 · Hotkey pressed, nothing recording yet</h2>
+<p class="why">The press opens the window on this chooser; nothing is captured until Start. The blue note appears only before the first remote meeting on this Mac, ahead of the macOS permission prompt. On macOS 14.0 and 14.1 the Remote card is greyed with “needs macOS 14.2”.</p>
+<div class="mac"><div class="title"><span class="lights"><i style="background:#ff5f57"></i><i style="background:#febc2e"></i><i style="background:#28c840"></i></span><h1>New Meeting</h1></div>
+<div class="choose"><div class="card">
+<h3>Start a meeting</h3>
+<p>Mini Whisper transcribes the meeting live with speaker labels, keeps your typed notes beside it, and writes a summary when you stop.</p>
+<div class="modes">
+<div class="mode sel"><span class="key"></span><b>Remote call</b><small>Microphone plus the audio other apps play (Zoom, Teams, Meet). Your microphone is labelled <b>Alex</b>; other voices become Speaker 1, 2…</small><span class="price">About <b>$0.45</b> per hour</span></div>
+<div class="mode"><span class="key"></span><b>In the room</b><small>Microphone only. Every voice is diarized into Speaker 1, 2…; rename yourself once the first words appear.</small><span class="price">About <b>$0.45</b> per hour</span></div>
+</div>
+<div class="note"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7" fill="none" stroke="#243b63" stroke-width="1.4"/><path d="M8 7v4M8 4.6v.2" stroke="#243b63" stroke-width="1.6" stroke-linecap="round"/></svg><span>macOS will ask to allow <b>System Audio Recording</b> when the meeting starts. Mini Whisper captures only the sound other apps play; it never records your screen. If you decline, the meeting continues with the microphone alone.</span></div>
+<div class="row"><span class="engine">Engine: Speechmatics Standard · change under <a href="#">Settings → Meetings</a></span><span class="actions"><button class="mini big" type="button">Cancel</button><button class="mini big primary" type="button">Start</button></span></div>
+</div></div></div></section>
+
+<section class="state"><h2>State 2 · Recording, 42 minutes in</h2>
+<p class="why">Transcript on the left in speaker paragraphs; consecutive segments of one speaker merge under one heading with the time of its first word. Click a name to rename it everywhere. Partial text is grey with a cursor. In a remote call the microphone and system audio are mixed into one stream; words spoken while the microphone is active are attributed to you on the Mac. The connection dropped and is reconnecting; the gap marker shows where. Notes on the right carry the meeting time of their first keystroke; Enter adds one.</p>
+<div class="mac"><div class="title"><span class="lights"><i style="background:#ff5f57"></i><i style="background:#febc2e"></i><i style="background:#28c840"></i></span><h1>Meeting</h1></div>
+<div class="body">
+<div class="head">
+<div class="ttl"><b>Zoom · 9 Nov 2026 14:30</b><span class="pen">✎</span></div>
+<span class="chip mode">Remote call</span>
+<span class="chip live"><i></i>Mic · System audio</span>
+<span class="chip rec"><i></i>Reconnecting (2)</span>
+<div class="stats"><span><b class="num">00:42:17</b></span><span><b class="num">$0.32</b> so far</span></div>
+<div class="btns"><button class="mini big" type="button">Pause</button><button class="mini big stop" type="button">Stop</button></div>
+</div>
+<div class="split">
+<div class="transcript wrap">
+<div class="src">Speechmatics Standard · English</div>
+<div class="seg"><div class="who" style="--c:var(--s1)"><b>Speaker 1</b><span class="t">00:39:02</span></div><p>So the Northwind rollout slips a week if the migration script is not signed off by Thursday. Priya, can your team take the review?</p></div>
+<div class="seg"><div class="who" style="--c:var(--you)"><b>Alex</b><span class="t">00:39:21</span></div><p>Yes, if the staging data is refreshed first. The last snapshot is from October and the new columns are missing.</p></div>
+<div class="seg"><div class="who" style="--c:var(--s2)"><b>Priya</b><span class="t">00:39:40</span></div><p>I can do the refresh tonight. Let's put the sign-off on Wednesday instead so there is a day of slack.</p></div>
+<div class="marker note">📝 00:40:05 · Ask ops for a Wednesday maintenance window</div>
+<div class="seg"><div class="who" style="--c:var(--s1)"><b>Speaker 1</b><span class="t">00:40:12</span></div><p>Agreed. One more thing on pricing: the enterprise tier needs the per-seat cap before the demo.</p></div>
+<div class="marker gap">⚠ Transcript gap 00:41:48 – reconnecting (audio is still being recorded)</div>
+<div class="seg"><div class="who" style="--c:var(--you)"><b>Alex</b><span class="t">00:42:03</span></div><p class="partial">I think the cap should default to twenty five seats and</p></div>
+<div class="rename" style="top:188px;left:150px"><span class="mut">Rename Speaker 1 (every segment)</span><input type="text" value="Marta" id="rename-field"><div class="r"><button class="mini" type="button">Cancel</button><button class="mini primary" type="button">Rename</button></div></div>
+</div>
+<aside class="notes"><h4>Notes</h4><div class="list">
+<div class="nt"><span class="t">00:12:40</span><span>Marta owns the migration script; review by Thu</span></div>
+<div class="nt"><span class="t">00:27:15</span><span>Demo is on the 18th, not the 20th</span></div>
+<div class="nt"><span class="t">00:40:05</span><span>Ask ops for a Wednesday maintenance window</span></div>
+</div><div class="in"><div class="field">Type a note…</div><small>Enter adds the note · Shift+Enter for a new line</small></div></aside>
+</div></div></div></section>
+
+<section class="state"><h2>State 3 · Stopped, summary written</h2>
+<p class="why">Stop closes the session, bills the minutes into Today/Month and sends the transcript and notes to Claude Sonnet 5.5. The summary sits above the transcript so the result is the first thing seen; the transcript stays editable below: double-click a paragraph to edit its text, right-click a name to move that segment to another speaker. Export buttons open the save panel. When the summary failed, the panel is one line with the reason and a Summarise button (inset).</p>
+<div class="mac"><div class="title"><span class="lights"><i style="background:#ff5f57"></i><i style="background:#febc2e"></i><i style="background:#28c840"></i></span><h1>Meeting</h1><div class="tools"><button class="mini" type="button">Export transcript…</button><button class="mini" type="button">Export summary…</button></div></div>
+<div class="body">
+<div class="head">
+<div class="ttl"><b>Northwind rollout sync</b><span class="pen">✎</span></div>
+<span class="chip mode">Remote call</span>
+<span class="chip off"><i></i>Ended 15:19</span>
+<div class="stats"><span><b class="num">00:48:52</b></span><span><b class="num">$0.40</b> total</span><span class="mut">Speechmatics Standard + Claude Sonnet 5.5</span></div>
+</div>
+<div class="split">
+<div class="transcript wrap" style="padding:0">
+<div class="summary">
+<div class="sec"><h4>Summary</h4>The Northwind rollout stays on schedule provided the migration script is reviewed by Wednesday, after Priya refreshes staging data tonight. The enterprise pricing demo on the 18th needs the per-seat cap in place.</div>
+<div class="sec"><h4>Decisions</h4><ul><li>Migration script sign-off moves to Wednesday (Priya).</li><li>Per-seat cap defaults to 25 seats for the demo.</li></ul></div>
+<div class="sec"><h4>Action items</h4><ul><li>Priya: refresh staging data tonight.</li><li>Marta: migration script ready for review by Wednesday.</li><li>Alex: ask ops for a Wednesday maintenance window.</li></ul></div>
+<div class="sec"><h4>Open questions</h4><ul><li>Whether the cap applies to trial accounts (not settled in the meeting).</li></ul></div>
+<div class="meta"><span>Claude Sonnet 5.5 · 14:19 · 13.1k in / 412 out tokens · $0.03</span></div>
+</div>
+<div style="padding:12px 18px 18px;display:flex;flex-direction:column;gap:14px">
+<div class="seg"><div class="who" style="--c:var(--s1)"><b>Marta</b><span class="t">00:39:02</span></div><p>So the Northwind rollout slips a week if the migration script is not signed off by Thursday. Priya, can your team take the review?</p></div>
+<div class="seg editing"><div class="who" style="--c:var(--you)"><b>Alex</b><span class="t">00:39:21</span></div><p>Yes, if the staging data is refreshed first. The last snapshot is from October and the new columns are missing.</p></div>
+<div class="seg"><div class="who" style="--c:var(--s2)"><b>Priya</b><span class="t">00:39:40</span></div><p>I can do the refresh tonight. Let's put the sign-off on Wednesday instead so there is a day of slack.</p></div>
+<div class="marker note">📝 00:40:05 · Ask ops for a Wednesday maintenance window</div>
+<div class="seg"><div class="who" style="--c:var(--s1)"><b>Marta</b><span class="t">00:40:12</span></div><p>Agreed. One more thing on pricing: the enterprise tier needs the per-seat cap before the demo.</p></div>
+</div>
+<div class="menu" style="top:330px;left:40px"><span class="h">Move this segment to</span><span>Alex</span><span class="on">Marta</span><span>Priya</span><span>Speaker 3 (new)</span><hr><span>Rename “Marta”…</span></div>
+</div>
+<aside class="notes"><h4>Notes</h4><div class="list">
+<div class="nt"><span class="t">00:12:40</span><span>Marta owns the migration script; review by Thu</span></div>
+<div class="nt"><span class="t">00:27:15</span><span>Demo is on the 18th, not the 20th</span></div>
+<div class="nt"><span class="t">00:40:05</span><span>Ask ops for a Wednesday maintenance window</span></div>
+</div><div class="in"><div class="summary empty" style="border:1px solid var(--bd);border-radius:8px;padding:10px 12px;background:#fff"><span class="msg">No summary: add an Anthropic key under Keys.</span><button class="mini primary" type="button" style="margin-left:auto">Summarise</button></div><small>Inset: the panel when the Stop-time summary failed.</small></div></aside>
+</div></div></div></section>
+
+</div></main>
+
+<!-- mockup-feedback:start -->
+<style>
+.mf-bar {
+  --mf-bg: #f6f7f9;
+  --mf-fg: #1a2127;
+  --mf-muted: #59646d;
+  --mf-line: #d3d9de;
+  --mf-field: #ffffff;
+  --mf-accent: #2f5fd0;
+  --mf-accent-fg: #ffffff;
+  --mf-ok: #1d7a4c;
+  --mf-warn: #8f5d00;
+  --mf-err: #b2322b;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .mf-bar {
+    --mf-bg: #161b20;
+    --mf-fg: #e3e8ec;
+    --mf-muted: #98a3ab;
+    --mf-line: #2d363e;
+    --mf-field: #0f1317;
+    --mf-accent: #7ea2f5;
+    --mf-accent-fg: #0b1220;
+    --mf-ok: #57c48c;
+    --mf-warn: #e2ac45;
+    --mf-err: #f08077;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] .mf-bar {
+  --mf-bg: #161b20;
+  --mf-fg: #e3e8ec;
+  --mf-muted: #98a3ab;
+  --mf-line: #2d363e;
+  --mf-field: #0f1317;
+  --mf-accent: #7ea2f5;
+  --mf-accent-fg: #0b1220;
+  --mf-ok: #57c48c;
+  --mf-warn: #e2ac45;
+  --mf-err: #f08077;
+  color-scheme: dark;
+}
+.mf-bar, .mf-bar * { box-sizing: border-box; }
+.mf-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 2147483000;
+  margin: 24px 0 0;
+  padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px));
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--mf-bg);
+  color: var(--mf-fg);
+  border-top: 1px solid var(--mf-line);
+  box-shadow: 0 -6px 18px rgba(0, 0, 0, 0.08);
+  font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  text-align: left;
+}
+.mf-bar[hidden] { display: none; }
+.mf-bar .mf-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+.mf-bar .mf-tag {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--mf-muted);
+}
+.mf-bar .mf-title { font-weight: 600; }
+.mf-bar .mf-context { color: var(--mf-muted); min-width: 0; overflow-wrap: anywhere; }
+.mf-bar .mf-toggle {
+  margin-left: auto;
+  padding: 2px 6px;
+  border: 0;
+  background: none;
+  color: var(--mf-accent);
+  font: inherit;
+  font-size: 13px;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.mf-bar .mf-body { display: flex; flex-direction: column; gap: 8px; }
+.mf-bar.mf-collapsed .mf-body { display: none; }
+.mf-bar .mf-options { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; border: 0; }
+.mf-bar .mf-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border: 1.5px solid var(--mf-line);
+  border-radius: 999px;
+  background: var(--mf-field);
+  cursor: pointer;
+}
+.mf-bar .mf-chip input { margin: 0; accent-color: var(--mf-accent); }
+.mf-bar .mf-chip:has(input:checked) { border-color: var(--mf-accent); }
+.mf-bar .mf-chip:has(input:focus-visible) { outline: 2px solid var(--mf-accent); outline-offset: 2px; }
+.mf-bar .mf-note {
+  width: 100%;
+  min-height: 38px;
+  max-height: 140px;
+  padding: 7px 10px;
+  resize: vertical;
+  font: inherit;
+  color: var(--mf-fg);
+  background: var(--mf-field);
+  border: 1.5px solid var(--mf-line);
+  border-radius: 8px;
+}
+.mf-bar .mf-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.mf-bar .mf-btn {
+  padding: 7px 12px;
+  border: 1.5px solid var(--mf-line);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--mf-fg);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.mf-bar .mf-btn.mf-primary { background: var(--mf-accent); border-color: var(--mf-accent); color: var(--mf-accent-fg); }
+.mf-bar .mf-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.mf-bar .mf-btn:focus-visible, .mf-bar .mf-toggle:focus-visible, .mf-bar .mf-note:focus-visible {
+  outline: 2px solid var(--mf-accent);
+  outline-offset: 2px;
+}
+.mf-bar .mf-channel { display: flex; align-items: center; gap: 6px; margin: 0; font-size: 13px; color: var(--mf-muted); }
+.mf-bar .mf-dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--mf-muted); }
+.mf-bar .mf-channel[data-state="available"] .mf-dot { background: var(--mf-ok); }
+.mf-bar .mf-channel[data-state="no_session"] .mf-dot,
+.mf-bar .mf-channel[data-state="writers_only"] .mf-dot { background: var(--mf-warn); }
+.mf-bar .mf-channel[data-state="blocked"] .mf-dot { background: var(--mf-err); }
+.mf-bar .mf-result { margin: 0; font-size: 13px; }
+.mf-bar .mf-result[data-kind="ok"] { color: var(--mf-ok); }
+.mf-bar .mf-result[data-kind="err"] { color: var(--mf-err); }
+.mf-bar .mf-verdict { margin: 0; font-weight: 600; }
+[data-mf-option].mf-selected { outline: 3px solid #3b6fe0; outline-offset: 4px; }
+</style>
+<aside class="mf-bar" id="mf-bar" role="region" aria-label="Mockup feedback" data-uncommentable hidden>
+  <div class="mf-head">
+    <span class="mf-tag">Feedback</span>
+    <span class="mf-title" id="mf-title"></span>
+    <span class="mf-context" id="mf-context"></span>
+    <button type="button" class="mf-toggle" id="mf-toggle" aria-expanded="true" aria-controls="mf-body">Hide</button>
+  </div>
+  <div class="mf-body" id="mf-body">
+    <p class="mf-verdict" id="mf-verdict" hidden></p>
+    <fieldset class="mf-options" id="mf-options" hidden></fieldset>
+    <textarea class="mf-note" id="mf-note" maxlength="1500" placeholder="Note for Claude (optional; required to request changes)" aria-label="Note for Claude"></textarea>
+    <div class="mf-actions" id="mf-actions"></div>
+    <p class="mf-channel" id="mf-channel" data-state="checking">
+      <span class="mf-dot" aria-hidden="true"></span>
+      <span id="mf-channel-text">Checking whether a Claude session is listening.</span>
+      <button type="button" class="mf-toggle" id="mf-recheck" hidden>Check again</button>
+    </p>
+    <p class="mf-result" id="mf-result" role="status" aria-live="polite" hidden></p>
+  </div>
+</aside>
+<script type="application/json" id="mf-config">{"set":"v4-s1","setLabel":"Meeting window","mode":"review","options":[{"id":"overview","label":"Meeting window overview"}],"this":null,"status":"accepted","chosen":null}</script>
+<script>
+(function () {
+  var cfg;
+  try { cfg = JSON.parse(document.getElementById("mf-config").textContent); } catch (e) { return; }
+  if (!cfg || !cfg.options || !cfg.options.length) return;
+
+  var PREFIX = "Mockup feedback · ";
+  var CHANNEL = {
+    checking: "Checking whether a Claude session is listening.",
+    available: "A Claude session is listening. Sending wakes it.",
+    no_session: "No Claude session is listening. Reply in chat, or check again once the session is back.",
+    writers_only: "Only editors of this page can send to Claude. Reply in chat instead.",
+    off: "Sending to Claude is not offered here. Reply in chat instead.",
+    absent: "Sending works on the published page. Here, reply in chat instead.",
+    blocked: "Commenting from this page is turned off. Reply in chat instead."
+  };
+  var KNOWN = ["available", "writers_only", "no_session", "off"];
+
+  var bar = document.getElementById("mf-bar");
+  var titleEl = document.getElementById("mf-title");
+  var contextEl = document.getElementById("mf-context");
+  var toggleBtn = document.getElementById("mf-toggle");
+  var verdictEl = document.getElementById("mf-verdict");
+  var optionsEl = document.getElementById("mf-options");
+  var noteEl = document.getElementById("mf-note");
+  var actionsEl = document.getElementById("mf-actions");
+  var channelEl = document.getElementById("mf-channel");
+  var channelText = document.getElementById("mf-channel-text");
+  var recheckBtn = document.getElementById("mf-recheck");
+  var resultEl = document.getElementById("mf-result");
+
+  var comments = null;
+  var state = "checking";
+  var busy = false;
+  var sent = false;
+  var buttons = [];
+
+  function byId(list, id) {
+    for (var i = 0; i < list.length; i++) if (list[i].id === id) return list[i];
+    return null;
+  }
+  function label(id) { var o = byId(cfg.options, id); return o ? o.label : id; }
+  function root(id) { return document.querySelector('[data-mf-option="' + id + '"]'); }
+  function picked() {
+    if (cfg.mode !== "compare") return cfg.mode === "pick" ? cfg["this"] : cfg.options[0].id;
+    var r = optionsEl.querySelector("input:checked");
+    return r ? r.value : null;
+  }
+  function say(text, kind) {
+    resultEl.hidden = !text;
+    resultEl.textContent = text || "";
+    if (kind) resultEl.setAttribute("data-kind", kind);
+    else resultEl.removeAttribute("data-kind");
+  }
+  function clean(text) {
+    return text.replace(/[\u0000-\u0008\u000B-\u001F\u007F]/g, "").trim();
+  }
+
+  // Header: the set, and where this page sits in it.
+  titleEl.textContent = cfg.setLabel;
+  if (cfg.mode === "pick") {
+    var others = [];
+    var position = 0;
+    for (var i = 0; i < cfg.options.length; i++) {
+      if (cfg.options[i].id === cfg["this"]) position = i + 1;
+      else others.push(cfg.options[i].label);
+    }
+    contextEl.textContent = "Option " + position + " of " + cfg.options.length + ": " + label(cfg["this"]) +
+      ". The others are on their own pages: " + others.join(", ") + ". Choosing here rules them out.";
+  } else if (cfg.mode === "compare") {
+    contextEl.textContent = cfg.options.length + " options on this page. Pick one.";
+  } else {
+    contextEl.textContent = label(cfg.options[0].id);
+  }
+
+  toggleBtn.addEventListener("click", function () {
+    var collapsed = bar.classList.toggle("mf-collapsed");
+    toggleBtn.textContent = collapsed ? "Show" : "Hide";
+    toggleBtn.setAttribute("aria-expanded", collapsed ? "false" : "true");
+  });
+
+  // A settled page shows its verdict and nothing to act on.
+  if (cfg.status !== "open") {
+    var verdict = {
+      accepted: cfg.mode === "compare" ? "Accepted: " + label(cfg.chosen) + "." : "Accepted.",
+      "not-chosen": "Not chosen.",
+      closed: "Closed. Choices on this page are no longer read."
+    }[cfg.status] || "Closed.";
+    verdictEl.textContent = verdict;
+    verdictEl.hidden = false;
+    noteEl.hidden = true;
+    channelEl.hidden = true;
+    if (cfg.mode === "compare" && cfg.status === "accepted" && root(cfg.chosen)) root(cfg.chosen).classList.add("mf-selected");
+    bar.hidden = false;
+    return;
+  }
+
+  // Compare: one chip per option, outlining its section when picked.
+  if (cfg.mode === "compare") {
+    var legend = document.createElement("legend");
+    legend.className = "mf-tag";
+    legend.textContent = "Options";
+    optionsEl.appendChild(legend);
+    cfg.options.forEach(function (o) {
+      var chip = document.createElement("label");
+      chip.className = "mf-chip";
+      var input = document.createElement("input");
+      input.type = "radio";
+      input.name = "mf-option";
+      input.id = "mf-option-" + o.id;
+      input.value = o.id;
+      input.addEventListener("change", function () {
+        var all = document.querySelectorAll("[data-mf-option]");
+        for (var k = 0; k < all.length; k++) all[k].classList.remove("mf-selected");
+        var el = root(o.id);
+        if (el) {
+          el.classList.add("mf-selected");
+          var still = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+          el.scrollIntoView({ block: "nearest", behavior: still ? "auto" : "smooth" });
+        }
+        refresh();
+      });
+      chip.appendChild(input);
+      chip.appendChild(document.createTextNode(o.label));
+      optionsEl.appendChild(chip);
+    });
+    optionsEl.hidden = false;
+  }
+
+  // Actions per shape. needsNote: a change request must say what to change.
+  var ACTIONS = {
+    review: [
+      { action: "accept", text: "Looks right", primary: true },
+      { action: "revise", text: "Request changes", needsNote: true },
+      { action: "alternatives", text: "Show alternatives" }
+    ],
+    compare: [
+      { action: "choose", text: "Send choice", primary: true, needsPick: true },
+      { action: "none", text: "None of these", needsNote: true },
+      { action: "comment", text: "Comment on this option", needsPick: true }
+    ],
+    pick: [
+      { action: "choose", text: "Choose this one", primary: true },
+      { action: "revise", text: "Request changes", needsNote: true },
+      { action: "none", text: "None of these", needsNote: true }
+    ]
+  }[cfg.mode] || [];
+
+  ACTIONS.forEach(function (a) {
+    var b = document.createElement("button");
+    b.type = "button";
+    b.className = "mf-btn" + (a.primary ? " mf-primary" : "");
+    b.id = "mf-" + a.action;
+    b.textContent = a.text;
+    b.addEventListener("click", function () {
+      if (a.action === "comment") compose();
+      else send(a);
+    });
+    actionsEl.appendChild(b);
+    buttons.push({ el: b, spec: a });
+  });
+
+  function render() {
+    channelEl.setAttribute("data-state", state);
+    channelText.textContent = CHANNEL[state] || CHANNEL.off;
+    recheckBtn.hidden = !comments || state === "available" || state === "checking" || state === "blocked";
+    var pick = picked();
+    buttons.forEach(function (b) {
+      if (b.spec.action === "comment") {
+        b.el.disabled = !comments || !pick;
+        b.el.hidden = !comments;
+        return;
+      }
+      b.el.disabled = busy || sent || state !== "available" || (b.spec.needsPick && !pick);
+    });
+    noteEl.disabled = sent;
+  }
+
+  function refresh() {
+    if (!comments || state === "blocked") { render(); return; }
+    comments.canSendToClaude().then(function (v) {
+      return KNOWN.indexOf(v) === -1 ? "off" : v;
+    }, function () {
+      return "off";
+    }).then(function (v) {
+      if (comments && state !== "blocked") state = v;
+      render();
+    });
+  }
+
+  function fail(err) {
+    var code = err && err.code;
+    if (code === "consent_required") {
+      say("Not sent. The page was not allowed to comment as you. Your note is kept.", "err");
+    } else if (code === "forbidden") {
+      state = "blocked";
+      say("Not sent. Commenting from this page is turned off.", "err");
+    } else if (code === "claude_unavailable") {
+      say("Not sent. No Claude session could receive it. Nothing was posted.", "err");
+      refresh();
+    } else if (code === "rate_limited") {
+      say("Not sent. Too many sends in a row. Wait a moment.", "err");
+    } else if (code === "invalid" || code === "transform_error") {
+      say("Not sent. The note has characters a comment cannot carry.", "err");
+    } else if (code === "not_granted" || code === "capability_disabled" || code === "capability_removed") {
+      comments = null;
+      state = "absent";
+      say("Not sent. This view cannot post comments from the page.", "err");
+    } else {
+      say("Not sent. Comments are unavailable right now. Try once more.", "err");
+    }
+  }
+
+  function send(spec) {
+    if (!comments || busy || sent) return;
+    var option = spec.action === "choose" || spec.action === "accept" || spec.action === "revise" ? picked() : null;
+    if (spec.needsPick && !option) { say("Pick an option first.", "err"); return; }
+    var note = clean(noteEl.value);
+    if (spec.needsNote && !note) {
+      say("Add a note saying what to change.", "err");
+      noteEl.focus();
+      return;
+    }
+    var text = PREFIX + cfg.set + " · " + spec.action + (option ? " " + option : "") + (note ? "\nNote: " + note : "");
+    var target = root(option || picked() || cfg.options[0].id) || bar.parentNode;
+    busy = true;
+    say("", null);
+    render();
+    comments.anchorFor(target).then(function (anchor) {
+      return comments.sendToClaude({ anchor: anchor, text: text });
+    }).then(function () {
+      sent = true;
+      say("Sent to Claude: " + spec.text.toLowerCase() + (option ? " (" + label(option) + ")" : "") +
+        ". Claude replies in the comment thread and updates this page.", "ok");
+    }, fail).then(function () {
+      busy = false;
+      render();
+    });
+  }
+
+  function compose() {
+    var option = picked();
+    var el = option && root(option);
+    if (!comments || !el) return;
+    comments.openComposer({ element: el }).then(function (r) {
+      if (r && r.opened) say("Comment box opened on " + label(option) + ". Write your comment and press Send to Claude.", "ok");
+    }, function (err) {
+      say(err && err.code === "rate_limited" ? "Too many tries in a row. Wait a moment." : "The comment box is unavailable here.", "err");
+    });
+  }
+
+  recheckBtn.addEventListener("click", refresh);
+  window.addEventListener("focus", refresh);
+  bar.hidden = false;
+  render();
+
+  var ready = window.claude && typeof window.claude.use === "function"
+    ? window.claude.use("comments")
+    : Promise.resolve(null);
+  ready.then(function (ns) { return ns; }, function () { return null; }).then(function (ns) {
+    comments = ns;
+    if (!ns) { state = "absent"; render(); return; }
+    refresh();
+  });
+})();
+</script>
+<!-- mockup-feedback:end -->

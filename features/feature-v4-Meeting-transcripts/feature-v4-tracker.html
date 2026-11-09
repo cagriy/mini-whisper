@@ -1,0 +1,1632 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Meeting transcripts</title>
+
+  <!--
+    ===================================================================
+    feature-tracker template
+    -------------------------------------------------------------------
+    Replace every {{TOKEN}} below with HTML. Each of the four panels
+    follows the same three-part shape:
+
+        timestamp chip  →  Highlights (≤10 bullets)  →  Detail (prose)
+
+    so a reader can pick up the section at a glance and then drill in.
+    Tokens for a panel are owned by the skill that produces that panel:
+
+      Brainstorming  ←  /feature-storm
+      Design         ←  /feature-design
+      Plan           ←  /feature-plan
+      Implementation ←  /feature-implement
+
+    A skill substitutes its own panel's tokens with real HTML. For
+    any panel whose owning skill has not yet run, the currently
+    running skill substitutes the placeholder values:
+
+      {{X_AT}}        → "Awaiting /feature-<step>"
+      {{X_BULLETS}}   → <p class="empty">Not yet filled — pending /feature-<step>.</p>
+      {{X_DETAILS}}   → <p class="empty">Not yet filled — pending /feature-<step>.</p>
+
+    Header tokens (any skill substitutes if still literal):
+      {{FEATURE_VERSION}}        integer, e.g. "3"
+      {{FEATURE_TITLE}}          readable title, max 10 words
+                                 (e.g. "Add payment checkout flow")
+      {{FEATURE_SLUG}}           "feature-v3-add-payment-checkout-flow"
+      {{GENERATED_AT}}           ISO date, e.g. "2026-05-26"
+
+    Per-panel tokens:
+      Brainstorming (owned by /feature-storm):
+        {{BRAINSTORMING_AT}}        chip text — "Updated <UTC ts>"
+                                    or "Awaiting /feature-storm"
+        {{BRAINSTORMING_BULLETS}}   <ul><li>…</li>…</ul>, ≤10 items
+        {{BRAINSTORMING_DETAILS}}   free-form HTML continuing the
+                                    requirement specifics
+
+      Design (owned by /feature-design):
+        {{DESIGN_AT}}               chip text — "Updated <UTC ts>"
+                                    or "Awaiting /feature-design"
+        {{DESIGN_BULLETS}}          <ul><li>…</li>…</ul>, ≤10 highlights
+        {{DESIGN_DETAILS}}          free-form HTML rendering the
+                                    design's key sections in
+                                    increasing detail
+
+      Plan (owned by /feature-plan):
+        {{PLAN_AT}}                 chip text — "Updated <UTC ts>"
+                                    or "Awaiting /feature-plan"
+        {{PLAN_BULLETS}}            <ul><li>…</li>…</ul>, ≤10 highlights
+        {{PLAN_DETAILS}}            free-form HTML rendering the
+                                    plan's stages, coverage map,
+                                    deviations, etc.
+
+      Implementation (owned by /feature-implement):
+        {{IMPLEMENTATION_AT}}       chip text — "Updated <UTC ts>"
+                                    or "Awaiting /feature-implement"
+        {{IMPLEMENTATION_BULLETS}}  <ul><li>…</li>…</ul>, ≤10 highlights
+        {{IMPLEMENTATION_DETAILS}}  free-form HTML — stage list,
+                                    test results, coverage,
+                                    deviations, etc.
+
+      Run usage (all eight owned by usage-report — never by the
+      panel's own skill):
+        {{BRAINSTORMING_USAGE_CHIP}}, {{DESIGN_USAGE_CHIP}},
+        {{PLAN_USAGE_CHIP}}, {{IMPLEMENTATION_USAGE_CHIP}}
+                                    headline chip beside the panel's
+                                    timestamp chip, e.g.
+                                    "8m 08s · 25,924 out · 76.0 tok/s"
+        {{BRAINSTORMING_USAGE}}, {{DESIGN_USAGE}},
+        {{PLAN_USAGE}}, {{IMPLEMENTATION_USAGE}}
+                                    <div class="usage-pair"> of two
+                                    <table class="usage"> halves, below
+                                    the panel's Highlights bullets
+
+      These eight are the one exception to the substitute-only-if-
+      literal rule: usage-report fills its own stage's pair and blanks
+      the other six on every run, so a re-run shows the latest figures
+      rather than a second table. Safe because they have exactly one
+      owner. Note the template has TWO consumers — usage-report and
+      bug-tracker-render, which blanks all twenty feature-panel
+      tokens — so adding or renaming one here is a two-skill change.
+
+    Progress stepper (Storming → Design → Plan → Implement):
+      The four <li class="step" data-stage="…"> elements track stage
+      lifecycle via data-state="pending|complete". The raw template
+      ships with every step set to "pending", which renders a grey
+      "nothing started yet" view. Each feature-* skill is responsible
+      for updating its own step:
+
+        data-stage="storm"      ← /feature-storm
+        data-stage="design"     ← /feature-design
+        data-stage="plan"       ← /feature-plan
+        data-stage="implement"  ← /feature-implement
+
+      The skill flips its own step pending → complete as part of its
+      tracker update step, only when its stage file is committed (or
+      finalised). There is no in-flight "current" state — a step is
+      either not done (grey) or done (green). Edits target both
+      attributes for uniqueness:
+
+        old: data-stage="design" data-state="pending"
+        new: data-stage="design" data-state="complete"
+
+      Do NOT touch sibling steps from another skill — the stepper is
+      an additive timeline, not a global state machine.
+
+    Tracker kind (feature view vs. bug tracker):
+      The page BODY element carries an optional data-tracker-kind attr.
+
+        (absent)            → feature view: stepper + the four feature
+                              tabs are shown; the Issues tab and its
+                              panel are hidden. This is the default the
+                              feature-* skills seed via feature-resolve.
+        data-tracker-kind   → bug tracker: the stepper and the four
+          ="bugs"             feature tabs/panels are hidden; only the
+                              Issues tab/panel is shown, and the header
+                              version chip + slug are hidden. /bug-submit
+                              sets this when it generates the repo-wide
+                              bugs/bugs-tracker.html from this template.
+
+    Issues panel (owned by /bug-submit, bug tracker only):
+      Unlike the four feature panels — each filled ONCE by its owning
+      skill via {{TOKEN}} substitution — the Issues panel is a LIVING
+      list regenerated wholesale on every /bug-submit run. Its content
+      lives between three pairs of HTML-comment markers (written with
+      real comment syntax in the panel markup below), NOT in {{tokens}}.
+      The marker names — each a :START / :END pair — are:
+
+        ISSUES_AT       the "Updated <UTC>" chip text
+        ISSUES_OPEN     one .issue card per open bug (folders in
+                        bugs/), else the empty placeholder
+        ISSUES_CLOSED   one .issue card per closed bug (folders in
+                        bugs/archive/), else the empty placeholder
+
+      (Note: do NOT paste those literal comment markers into THIS doc
+      block — an inner end-of-comment would close the doc comment early.)
+
+      /bug-submit replaces everything between each START/END pair. The
+      Open/Closed counts are computed at load time from the rendered
+      cards, so the skill never writes them. Each card is a
+      details.issue[data-status="open|closed"] with a summary
+      (#N, title, severity badge, filed date) and an expandable body
+      (report sections + img screenshots referenced by RELATIVE path).
+    ===================================================================
+  -->
+
+  <style>
+    :root {
+      --bg: #f9fafb;
+      --surface: #ffffff;
+      --surface-muted: #f3f4f6;
+      --border: #e5e7eb;
+      --text: #0f172a;
+      --text-muted: #6b7280;
+      --text-subtle: #9ca3af;
+      --accent: #4f46e5;
+      --accent-soft: #eef2ff;
+      --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04);
+      --shadow-md: 0 1px 2px rgba(15, 23, 42, 0.04), 0 12px 32px rgba(15, 23, 42, 0.06);
+      --radius: 14px;
+      --radius-sm: 8px;
+      --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+      --sans: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, system-ui, sans-serif;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0b0b0d;
+        --surface: #131316;
+        --surface-muted: #1a1a1f;
+        --border: #26262b;
+        --text: #f5f5f7;
+        --text-muted: #a1a1aa;
+        --text-subtle: #71717a;
+        --accent: #818cf8;
+        --accent-soft: rgba(129, 140, 248, 0.12);
+        --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+        --shadow-md: 0 1px 2px rgba(0, 0, 0, 0.4), 0 12px 32px rgba(0, 0, 0, 0.32);
+      }
+    }
+
+    *,
+    *::before,
+    *::after { box-sizing: border-box; }
+
+    html, body { margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      font-size: 16px;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    .container {
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 56px 32px 96px;
+    }
+
+    /* Header --------------------------------------------------------- */
+
+    .feature-header {
+      margin-bottom: 32px;
+      padding-bottom: 28px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .version-chip {
+      display: inline-flex;
+      align-items: center;
+      padding: 4px 10px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      border-radius: 999px;
+      font-size: 11.5px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .feature-title {
+      margin: 16px 0 10px;
+      font-size: 34px;
+      font-weight: 700;
+      letter-spacing: -0.022em;
+      line-height: 1.18;
+      color: var(--text);
+    }
+
+    .feature-slug {
+      font-family: var(--mono);
+      font-size: 13px;
+      color: var(--text-muted);
+      background: var(--surface-muted);
+      padding: 3px 9px;
+      border-radius: var(--radius-sm);
+      display: inline-block;
+      border: 1px solid var(--border);
+    }
+
+    /* Progress stepper ---------------------------------------------- */
+
+    .progress-stepper {
+      display: flex;
+      list-style: none;
+      margin: 0 0 36px;
+      padding: 0;
+      gap: 0;
+    }
+
+    .step {
+      position: relative;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    /* Connector line — drawn rightward from each step except the last.
+       Coloured by THIS step's state: a complete step extends an accent
+       line toward the next; anything else extends a muted line. */
+    .step::after {
+      content: "";
+      position: absolute;
+      top: 13px;
+      left: calc(50% + 18px);
+      right: calc(-50% + 18px);
+      height: 2px;
+      background: var(--border);
+      z-index: 0;
+      transition: background 0.2s ease;
+    }
+
+    .step:last-child::after { display: none; }
+
+    .step[data-state="complete"]::after { background: var(--accent); }
+
+    .step-indicator {
+      position: relative;
+      z-index: 1;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      border: 2px solid var(--border);
+      background: var(--surface);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-muted);
+      font-variant-numeric: tabular-nums;
+      transition: background 0.2s ease,
+                  border-color 0.2s ease,
+                  color 0.2s ease,
+                  box-shadow 0.2s ease;
+    }
+
+    .step-check { display: none; line-height: 1; }
+    .step-number { display: inline; line-height: 1; }
+
+    .step[data-state="complete"] .step-indicator {
+      border-color: var(--accent);
+      background: var(--accent);
+      color: #ffffff;
+    }
+
+    .step[data-state="complete"] .step-check { display: inline; }
+    .step[data-state="complete"] .step-number { display: none; }
+
+    .step-label {
+      font-size: 12.5px;
+      font-weight: 500;
+      color: var(--text-muted);
+      letter-spacing: 0.02em;
+      text-align: center;
+      line-height: 1.25;
+    }
+
+    .step[data-state="complete"] .step-label {
+      color: var(--text);
+      font-weight: 600;
+    }
+
+    /* Tabs ----------------------------------------------------------- */
+
+    .tabs {
+      position: sticky;
+      top: 0;
+      z-index: 5;
+      display: flex;
+      gap: 0;
+      margin-bottom: 28px;
+      border-bottom: 1px solid var(--border);
+      background: color-mix(in srgb, var(--bg) 88%, transparent);
+      backdrop-filter: saturate(180%) blur(10px);
+      -webkit-backdrop-filter: saturate(180%) blur(10px);
+      padding-top: 4px;
+    }
+
+    .tab {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 14px 18px;
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-family: inherit;
+      font-size: 14.5px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: color 0.15s ease;
+      border-radius: 0;
+      outline: none;
+    }
+
+    .tab:hover { color: var(--text); }
+
+    .tab:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: -4px;
+      border-radius: var(--radius-sm);
+    }
+
+    .tab[aria-selected="true"] {
+      color: var(--accent);
+      font-weight: 600;
+    }
+
+    .tab .tab-icon {
+      width: 16px;
+      height: 16px;
+      stroke-width: 2;
+      flex-shrink: 0;
+    }
+
+    .tab-indicator {
+      position: absolute;
+      left: 0;
+      bottom: -1px;
+      height: 2px;
+      width: 0;
+      background: var(--accent);
+      border-radius: 2px 2px 0 0;
+      transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+                  width 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+      pointer-events: none;
+    }
+
+    /* Panels --------------------------------------------------------- */
+
+    .panel { display: none; }
+
+    .panel.active {
+      display: block;
+      animation: panel-in 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    @keyframes panel-in {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .panel-section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 28px 32px;
+      margin-bottom: 16px;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .panel-section:last-child { margin-bottom: 0; }
+
+    .section-label {
+      margin: 0 0 18px;
+      font-size: 11.5px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--text-subtle);
+    }
+
+    /* Bullets -------------------------------------------------------- */
+
+    .bullets ul,
+    .prose ul {
+      list-style: none;
+      margin: 0;
+      padding-left: 0;
+    }
+
+    .bullets ol,
+    .prose ol {
+      margin: 0;
+      padding-left: 24px;
+    }
+
+    .bullets ul > li,
+    .prose ul > li {
+      position: relative;
+      padding-left: 22px;
+      margin-bottom: 10px;
+    }
+
+    .bullets ul > li::before,
+    .prose ul > li::before {
+      content: "";
+      position: absolute;
+      left: 6px;
+      top: 12px;
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: var(--accent);
+      opacity: 0.9;
+    }
+
+    .bullets ol > li,
+    .prose ol > li { margin-bottom: 10px; }
+
+    .bullets li:last-child,
+    .prose li:last-child { margin-bottom: 0; }
+
+    .bullets li > ul, .bullets li > ol,
+    .prose li > ul, .prose li > ol { margin-top: 8px; }
+
+    /* Prose ---------------------------------------------------------- */
+
+    .prose p { margin: 0 0 14px; }
+    .prose p:last-child { margin-bottom: 0; }
+    .prose strong { font-weight: 600; }
+
+    .prose a {
+      color: var(--accent);
+      text-decoration: none;
+      border-bottom: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
+      transition: border-color 0.15s ease;
+    }
+    .prose a:hover { border-bottom-color: var(--accent); }
+
+    .prose h2,
+    .prose h3,
+    .prose h4 {
+      margin: 28px 0 10px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      line-height: 1.3;
+    }
+    .prose h2 { font-size: 20px; }
+    .prose h3 { font-size: 16px; }
+    .prose h4 {
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+    }
+    .prose h2:first-child,
+    .prose h3:first-child,
+    .prose h4:first-child { margin-top: 0; }
+
+    .prose code {
+      font-family: var(--mono);
+      font-size: 0.9em;
+      background: var(--surface-muted);
+      color: var(--text);
+      padding: 1.5px 6px;
+      border-radius: 5px;
+      border: 1px solid var(--border);
+    }
+
+    .prose pre {
+      background: #0f172a;
+      color: #e2e8f0;
+      padding: 16px 18px;
+      border-radius: var(--radius-sm);
+      overflow-x: auto;
+      font-family: var(--mono);
+      font-size: 13px;
+      line-height: 1.55;
+      margin: 14px 0;
+    }
+    .prose pre code {
+      background: transparent;
+      border: none;
+      padding: 0;
+      color: inherit;
+      font-size: inherit;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      .prose pre { background: #05050a; }
+    }
+
+    .prose blockquote {
+      margin: 14px 0;
+      padding: 10px 16px;
+      border-left: 3px solid var(--accent);
+      background: var(--accent-soft);
+      color: var(--text);
+      border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+    }
+    .prose blockquote p:last-child { margin-bottom: 0; }
+
+    .prose table {
+      border-collapse: collapse;
+      width: 100%;
+      margin: 16px 0;
+      font-size: 14px;
+    }
+    .prose th,
+    .prose td {
+      text-align: left;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    .prose th {
+      font-weight: 600;
+      color: var(--text-muted);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      background: var(--surface-muted);
+    }
+
+    .empty {
+      color: var(--text-subtle);
+      font-style: italic;
+      margin: 0;
+    }
+
+    /* Section timestamp chip --------------------------------------- */
+
+    .section-timestamp {
+      margin: 0 0 16px;
+      display: inline-block;
+      padding: 4px 12px;
+      background: var(--surface-muted);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      font-family: var(--mono);
+      font-size: 11.5px;
+      font-weight: 500;
+      color: var(--text-muted);
+      letter-spacing: 0.02em;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* Run-usage chip and table (both filled by usage-report) --------- */
+
+    .chip.usage {
+      display: inline-block;
+      margin: 0 0 16px 8px;
+      padding: 4px 12px;
+      background: var(--accent-soft);
+      border: 1px solid var(--accent);
+      border-radius: 999px;
+      font-family: var(--mono);
+      font-size: 11.5px;
+      font-weight: 600;
+      color: var(--accent);
+      letter-spacing: 0.02em;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* The usage fragment is two halves side by side — the small total-only
+       groups beside the token breakdown — reflowing to stacked when the panel
+       is narrow. Each half is an ordinary table.usage, so every rule below
+       applies to both unchanged. */
+    .usage-pair {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0 28px;
+      align-items: flex-start;
+    }
+    .usage-pair > table.usage {
+      flex: 1 1 320px;
+      width: auto;
+      min-width: 0;
+    }
+
+    /* The usage fragment sits outside .prose, so it carries its own
+       table rules rather than inheriting the ones above. */
+    table.usage {
+      border-collapse: collapse;
+      width: 100%;
+      margin-top: 16px;
+      font-family: var(--mono);
+      font-size: 12px;
+      font-variant-numeric: tabular-nums;
+    }
+    table.usage th {
+      text-align: right;
+      padding: 5px 10px;
+      border-bottom: 1px solid var(--border);
+      font-weight: 600;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-subtle);
+    }
+    table.usage td {
+      text-align: right;
+      padding: 4px 10px;
+      border-bottom: 1px solid var(--surface-muted);
+      color: var(--text-muted);
+    }
+    table.usage th:first-child,
+    table.usage td:first-child { text-align: left; }
+    table.usage td:first-child { color: var(--text); }
+    table.usage tr.grp td {
+      padding-top: 12px;
+      border-bottom: none;
+      font-weight: 600;
+      font-size: 10.5px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-subtle);
+    }
+    table.usage tr.sub td:first-child {
+      padding-left: 24px;
+      color: var(--text-subtle);
+    }
+    table.usage tr.tp td {
+      background: var(--accent-soft);
+      font-weight: 600;
+      color: var(--accent);
+    }
+
+    /* Footer --------------------------------------------------------- */
+
+    .feature-footer {
+      margin-top: 40px;
+      padding-top: 20px;
+      border-top: 1px solid var(--border);
+      font-size: 12px;
+      color: var(--text-subtle);
+      text-align: center;
+      letter-spacing: 0.02em;
+    }
+
+    /* Responsive ----------------------------------------------------- */
+
+    @media (max-width: 720px) {
+      .container { padding: 32px 18px 64px; }
+      .feature-title { font-size: 26px; }
+      .tabs { overflow-x: auto; }
+      .tabs::-webkit-scrollbar { display: none; }
+      .tab {
+        white-space: nowrap;
+        padding: 12px 12px;
+        font-size: 13.5px;
+      }
+      .panel-section { padding: 20px 18px; }
+      .progress-stepper { margin-bottom: 24px; }
+      .step-label { font-size: 11px; }
+      .step-indicator { width: 26px; height: 26px; font-size: 12px; }
+      .step::after { top: 12px; left: calc(50% + 17px); right: calc(-50% + 17px); }
+    }
+
+    /* Tracker kind — feature view (default) vs. bug tracker --------- */
+
+    /* Feature view (no data-tracker-kind): hide the Issues tab + panel. */
+    body:not([data-tracker-kind="bugs"]) .tab[data-kind="issues"],
+    body:not([data-tracker-kind="bugs"]) #panel-issues { display: none !important; }
+
+    /* Bug tracker: only the Issues tab/panel; no stepper, no feature tabs,
+       no version chip/slug in the header. */
+    body[data-tracker-kind="bugs"] .progress-stepper,
+    body[data-tracker-kind="bugs"] .feature-header .version-chip,
+    body[data-tracker-kind="bugs"] .feature-header .feature-slug,
+    body[data-tracker-kind="bugs"] .tab:not([data-kind="issues"]) { display: none; }
+
+    body[data-tracker-kind="bugs"] .panel:not(#panel-issues) { display: none !important; }
+    body[data-tracker-kind="bugs"] #panel-issues { display: block; }
+
+    /* Issues panel --------------------------------------------------- */
+
+    .issue-filter {
+      display: inline-flex;
+      gap: 4px;
+      margin: 0 0 20px;
+      padding: 4px;
+      background: var(--surface-muted);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+    }
+
+    .issue-tab {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 6px 16px;
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      font-family: inherit;
+      font-size: 13.5px;
+      font-weight: 500;
+      border-radius: 999px;
+      cursor: pointer;
+      transition: background 0.15s ease, color 0.15s ease;
+    }
+
+    .issue-tab:hover { color: var(--text); }
+
+    .issue-tab:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    .issue-tab[aria-pressed="true"] {
+      background: var(--surface);
+      color: var(--accent);
+      font-weight: 600;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .issue-count {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 20px;
+      height: 18px;
+      padding: 0 6px;
+      border-radius: 999px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-size: 11.5px;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .issue-tab[aria-pressed="false"] .issue-count {
+      background: var(--border);
+      color: var(--text-muted);
+    }
+
+    .issue-list[hidden] { display: none; }
+
+    .issue {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      margin-bottom: 12px;
+      box-shadow: var(--shadow-sm);
+      overflow: hidden;
+    }
+    .issue:last-child { margin-bottom: 0; }
+
+    .issue-summary {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 16px 20px;
+      cursor: pointer;
+      list-style: none;
+      user-select: none;
+    }
+    .issue-summary::-webkit-details-marker { display: none; }
+
+    .issue-summary::before {
+      content: "";
+      width: 7px;
+      height: 7px;
+      border-right: 2px solid var(--text-subtle);
+      border-bottom: 2px solid var(--text-subtle);
+      transform: rotate(-45deg);
+      transition: transform 0.18s ease;
+      flex-shrink: 0;
+    }
+    .issue[open] > .issue-summary::before { transform: rotate(45deg); }
+
+    .issue-number {
+      font-family: var(--mono);
+      font-size: 12.5px;
+      font-weight: 600;
+      color: var(--text-subtle);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .issue-title {
+      flex: 1;
+      min-width: 0;
+      font-weight: 600;
+      font-size: 15px;
+      color: var(--text);
+    }
+
+    .issue-sev {
+      padding: 2px 9px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      flex-shrink: 0;
+    }
+    .sev-low      { background: #ecfdf5; color: #047857; }
+    .sev-medium   { background: #fffbeb; color: #b45309; }
+    .sev-high     { background: #fef2f2; color: #b91c1c; }
+    .sev-critical { background: #b91c1c; color: #ffffff; }
+
+    @media (prefers-color-scheme: dark) {
+      .sev-low      { background: rgba(16, 185, 129, 0.16); color: #34d399; }
+      .sev-medium   { background: rgba(245, 158, 11, 0.16); color: #fbbf24; }
+      .sev-high     { background: rgba(239, 68, 68, 0.16);  color: #f87171; }
+      .sev-critical { background: #dc2626; color: #ffffff; }
+    }
+
+    .issue-date {
+      font-family: var(--mono);
+      font-size: 11.5px;
+      color: var(--text-subtle);
+      font-variant-numeric: tabular-nums;
+      flex-shrink: 0;
+    }
+
+    .issue-body {
+      padding: 4px 20px 22px;
+      border-top: 1px solid var(--border);
+    }
+
+    .issue-body img {
+      max-width: 100%;
+      height: auto;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      margin: 10px 0;
+      display: block;
+    }
+
+    @media (max-width: 720px) {
+      .issue-summary { flex-wrap: wrap; gap: 8px; padding: 14px 16px; }
+      .issue-title { flex-basis: 100%; order: 3; }
+      .issue-body { padding: 4px 16px 18px; }
+    }
+
+    /* Print ---------------------------------------------------------- */
+
+    @media print {
+      .tabs,
+      .tab-indicator { display: none; }
+      body[data-tracker-kind="bugs"] .panel:not(#panel-issues) { display: none !important; }
+      .issue { break-inside: avoid; }
+      .panel {
+        display: block !important;
+        page-break-after: always;
+      }
+      .panel:last-of-type { page-break-after: auto; }
+      .container { max-width: none; padding: 24px; }
+      body { background: white; color: black; }
+      .panel-section {
+        box-shadow: none;
+        border: 1px solid #ccc;
+        break-inside: avoid;
+      }
+      .progress-stepper { break-inside: avoid; }
+    }
+  </style>
+</head>
+
+<body>
+  <main class="container">
+    <header class="feature-header">
+      <span class="version-chip">v4</span>
+      <h1 class="feature-title">Meeting transcripts</h1>
+      <code class="feature-slug">feature-v4-Meeting-transcripts</code>
+    </header>
+
+    <ol class="progress-stepper" aria-label="Feature progress: Storming, Design, Plan, Implement">
+      <li class="step" data-stage="storm" data-state="complete">
+        <span class="step-indicator" aria-hidden="true">
+          <span class="step-check">&#10003;</span>
+          <span class="step-number">1</span>
+        </span>
+        <span class="step-label">Storming</span>
+      </li>
+      <li class="step" data-stage="design" data-state="complete">
+        <span class="step-indicator" aria-hidden="true">
+          <span class="step-check">&#10003;</span>
+          <span class="step-number">2</span>
+        </span>
+        <span class="step-label">Design</span>
+      </li>
+      <li class="step" data-stage="plan" data-state="complete">
+        <span class="step-indicator" aria-hidden="true">
+          <span class="step-check">&#10003;</span>
+          <span class="step-number">3</span>
+        </span>
+        <span class="step-label">Plan</span>
+      </li>
+      <li class="step" data-stage="implement" data-state="pending">
+        <span class="step-indicator" aria-hidden="true">
+          <span class="step-check">&#10003;</span>
+          <span class="step-number">4</span>
+        </span>
+        <span class="step-label">Implement</span>
+      </li>
+    </ol>
+
+    <nav class="tabs" role="tablist" aria-label="Feature sections">
+      <button class="tab" role="tab" aria-selected="true"
+              aria-controls="panel-brainstorming" id="tab-brainstorming" tabindex="0">
+        <svg class="tab-icon" xmlns="http://www.w3.org/2000/svg"
+             viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M9 18h6"/>
+          <path d="M10 22h4"/>
+          <path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5A4.61 4.61 0 0 1 8.91 14"/>
+        </svg>
+        <span>Brainstorming</span>
+      </button>
+
+      <button class="tab" role="tab" aria-selected="false"
+              aria-controls="panel-design" id="tab-design" tabindex="-1">
+        <svg class="tab-icon" xmlns="http://www.w3.org/2000/svg"
+             viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="10"/>
+          <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/>
+        </svg>
+        <span>Design</span>
+      </button>
+
+      <button class="tab" role="tab" aria-selected="false"
+              aria-controls="panel-plan" id="tab-plan" tabindex="-1">
+        <svg class="tab-icon" xmlns="http://www.w3.org/2000/svg"
+             viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <line x1="8" y1="6" x2="21" y2="6"/>
+          <line x1="8" y1="12" x2="21" y2="12"/>
+          <line x1="8" y1="18" x2="21" y2="18"/>
+          <line x1="3" y1="6" x2="3.01" y2="6"/>
+          <line x1="3" y1="12" x2="3.01" y2="12"/>
+          <line x1="3" y1="18" x2="3.01" y2="18"/>
+        </svg>
+        <span>Plan</span>
+      </button>
+
+      <button class="tab" role="tab" aria-selected="false"
+              aria-controls="panel-implementation" id="tab-implementation" tabindex="-1">
+        <svg class="tab-icon" xmlns="http://www.w3.org/2000/svg"
+             viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <polyline points="16 18 22 12 16 6"/>
+          <polyline points="8 6 2 12 8 18"/>
+        </svg>
+        <span>Implementation</span>
+      </button>
+
+      <button class="tab" role="tab" aria-selected="false" data-kind="issues"
+              aria-controls="panel-issues" id="tab-issues" tabindex="-1">
+        <svg class="tab-icon" xmlns="http://www.w3.org/2000/svg"
+             viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="9"/>
+          <line x1="12" y1="8" x2="12" y2="13"/>
+          <line x1="12" y1="16.5" x2="12.01" y2="16.5"/>
+        </svg>
+        <span>Issues</span>
+      </button>
+
+      <span class="tab-indicator" aria-hidden="true"></span>
+    </nav>
+
+    <section class="panel active" role="tabpanel"
+             id="panel-brainstorming" aria-labelledby="tab-brainstorming">
+      <p class="section-timestamp">Updated 2026-11-09 14:22 UTC</p>
+      <!-- usage:BRAINSTORMING_USAGE_CHIP --><span class="chip usage">25m 18s · 94,793 out · 111.3 tok/s</span><!-- /usage:BRAINSTORMING_USAGE_CHIP -->
+      <article class="panel-section">
+        <h2 class="section-label">Highlights</h2>
+        <div class="bullets"><ul><li><strong>Meeting mode</strong> for Mini Whisper: a third hotkey or a menu item starts recording the microphone and the Mac's system audio, opens a live transcript window, and on Stop sends the transcript to Claude Sonnet 5.5 for a summary; transcript and summary export as Markdown. System audio needs macOS 14.2+; on 14.0 and 14.1 meeting mode records the microphone only, with a notice.</li><li><strong>Users and goal:</strong> Mini Whisper users on remote calls (Zoom, Teams, Meet) and in-room meetings, who want a speaker-attributed transcript and a summary with no clean-up beyond naming speakers.</li><li><strong>Speakers:</strong> your microphone is labelled as you; other voices get Speaker 1..N from live diarization; a rename at any time applies across the meeting and persists. After Stop the transcript text is editable and a segment can be reassigned to another speaker.</li><li><strong>Engines:</strong> Speechmatics (existing adapter) and AssemblyAI (new adapter) are the meeting engines, both with real-time diarization and selectable in Settings. OpenAI, ElevenLabs and Apple's engine cannot diarize live and are excluded. The summary uses Claude Sonnet 5.5 via a new Anthropic Keychain account; AssemblyAI adds a second new account.</li><li><strong>Window:</strong> live transcript, a timestamped notes pane whose notes land in the export and the summariser input, Pause/Resume, elapsed time and running cost. The dictation hotkey is locked for the meeting's duration with a short notice.</li><li><strong>Storage and prompt:</strong> an in-app Meetings list; each meeting keeps transcript, notes, summary and its audio (deletable, with a Settings toggle), kept until deleted. The summary prompt ships as a default and is edited like the existing prompts; re-summarise is available. Export uses the save panel.</li><li><strong>Dropouts:</strong> a lost provider connection reconnects and marks a gap in the transcript while audio keeps recording; re-transcribing from saved audio is deferred.</li><li><strong>Agent access:</strong> a read-only command-line entry point and a hand-written stdio MCP server to list meetings, fetch a transcript or summary, and search. No start/stop control.</li><li><strong>Constraints:</strong> bundle ID unchanged, macOS 14 target, Swift 6 strict concurrency, no new third-party dependency, secrets only in Keychain, config.json keys round-trip, every duration on the virtual clock; meeting costs flow into the existing usage rows and pricing overrides; languages beyond the current adapter configuration are out.</li><li><strong>Deferred by name:</strong> calendar integration, re-transcribe from audio, retroactive start, live running summary, on-device diarization, ask-your-meetings Q&amp;A, agent start/stop, auto-export folder, mark-moment hotkey, Haiku or OpenAI as summariser, Soniox and Deepgram, voice-profile speaker memory, dictation during a meeting. Top design questions: how the "you" label is derived (two streams double the per-hour cost versus one mixed stream), the system-audio capture mechanism and its permission flow, and the meeting storage format.</li></ul></div>
+        <!-- usage:BRAINSTORMING_USAGE --><div class="usage-pair">
+<table class="usage">
+<thead><tr><th>Metric</th><th>Main</th><th>Subagents</th><th>Total</th></tr></thead>
+<tbody>
+<tr class="grp"><td colspan="4">Time</td></tr>
+<tr><td>elapsed</td><td>—</td><td>—</td><td>25m 18s</td></tr>
+<tr><td>run time</td><td>—</td><td>—</td><td>11m 21s</td></tr>
+<tr class="grp"><td colspan="4">Requests</td></tr>
+<tr><td>model</td><td>20</td><td>12</td><td>32</td></tr>
+<tr><td>web_search</td><td>0</td><td>0</td><td>0</td></tr>
+<tr><td>web_fetch</td><td>0</td><td>0</td><td>0</td></tr>
+<tr class="grp"><td colspan="4">Throughput</td></tr>
+<tr class="tp"><td>output tok/s</td><td>—</td><td>—</td><td>111.3</td></tr>
+</tbody>
+</table>
+<table class="usage">
+<thead><tr><th>Metric</th><th>Main</th><th>Subagents</th><th>Total</th></tr></thead>
+<tbody>
+<tr class="grp"><td colspan="4">Tokens</td></tr>
+<tr><td>input_tokens</td><td>490</td><td>324</td><td>814</td></tr>
+<tr><td>output_tokens</td><td>48,517</td><td>46,276</td><td>94,793</td></tr>
+<tr class="sub"><td>thinking_tokens</td><td>26,451</td><td>20,193</td><td>46,644</td></tr>
+<tr><td>cache_write</td><td>140,366</td><td>239,872</td><td>380,238</td></tr>
+<tr class="sub"><td>ephemeral_1h</td><td>140,366</td><td>0</td><td>140,366</td></tr>
+<tr class="sub"><td>ephemeral_5m</td><td>0</td><td>239,872</td><td>239,872</td></tr>
+<tr><td>cache_read</td><td>3,110,353</td><td>1,762,663</td><td>4,873,016</td></tr>
+</tbody>
+</table>
+</div><!-- /usage:BRAINSTORMING_USAGE -->
+      </article>
+      <article class="panel-section">
+        <h2 class="section-label">Detail</h2>
+        <div class="prose"><h3>Summary</h3>
+<p>Mini Whisper records short dictations from the microphone and pastes the result into the front app. Users also sit in remote calls and in-room meetings where nobody keeps a reliable record, and the app already has the pieces a meeting recorder needs: audio capture, three cloud streaming adapters, Keychain-held keys, editable prompt files, a History window and per-day cost tracking. Meeting mode adds a hotkey or menu item that captures the microphone and the Mac's system audio, a window with the live transcript (the user's voice labelled as them, other voices as Speaker 1..N by real-time diarization, renamable at any point), a timestamped notes pane, and on Stop a Claude Sonnet 5.5 summary under an editable prompt. Transcript and summary export as Markdown, past meetings live in an in-app list, and a read-only command-line entry point and MCP server let agents fetch them. It is the meeting work the 2026-09 application review deferred, sized to the app's own strengths rather than to meeting bots or team workspaces.</p>
+<h3>In scope</h3>
+<ul>
+<li>Third configurable hotkey and menu items to start and stop a meeting; a <em>Meetings…</em> menu item.</li>
+<li>Microphone plus system audio capture (macOS 14.2+; microphone only with a notice on 14.0/14.1), with onboarding and Settings for the new System Audio Recording permission.</li>
+<li>Live meeting window: speaker-labelled transcript with times, user labelled from the microphone, Speaker 1..N from diarization, rename at any point, Pause/Resume, elapsed time, running cost.</li>
+<li>Timestamped notes pane; notes appear in the exported transcript at their time and are passed to the summariser.</li>
+<li>Two selectable meeting engines: Speechmatics (existing adapter) and AssemblyAI (new adapter, new Keychain account).</li>
+<li>Summary on Stop by Claude Sonnet 5.5 through a new Anthropic Keychain account; shipped default prompt editable like the existing prompts; Re-summarise.</li>
+<li>After Stop: edit transcript text and reassign segments to another speaker.</li>
+<li>In-app Meetings list (open, rename, re-summarise, export, delete); meetings kept until deleted, outside the history retention window.</li>
+<li>Audio kept per meeting, deletable, with a Settings toggle.</li>
+<li>Export of transcript and summary as Markdown via the save panel.</li>
+<li>Reconnect on a dropped connection with a marked gap; audio keeps recording.</li>
+<li>Dictation hotkey locked during a meeting, with a notice.</li>
+<li>Default title from date, time and front app; renamable.</li>
+<li>Costs counted in the existing usage rows and overridable through pricing overrides.</li>
+<li>Read-only agent access: CLI and hand-written stdio MCP server to list, fetch and search meetings.</li>
+</ul>
+<h3>Out of scope / deferred</h3>
+<ul>
+<li>Calendar integration; re-transcribe from saved audio; retroactive start; live running summary; on-device diarization; "ask your meetings"; agent start/stop control; auto-export folder; mark-moment hotkey.</li>
+<li>Haiku 5.5 or an OpenAI model as summariser; Soniox, Deepgram, OpenAI, ElevenLabs or Apple as meeting engines; voice-profile speaker recognition across meetings.</li>
+<li>Dictation during a meeting; editing text while recording; languages beyond the current adapter configuration; meeting bots, cloud sync, sharing, team workspaces.</li>
+</ul>
+<h3>Technical direction (constraints for design)</h3>
+<ul>
+<li>Bundle ID, Team, macOS 14 target, Swift 6 strict concurrency unchanged; Sparkle stays the only third-party dependency. AssemblyAI adapter, Anthropic client and MCP server are written on Foundation networking.</li>
+<li>System audio via a native API available on 14.2+, graceful microphone-only fallback below it, no Screen Recording permission if an audio-only route exists.</li>
+<li>Secrets only in Keychain as new accounts beside the existing three. <code>config.json</code> stays round-trippable with new keys for hotkey, engine, audio retention and summariser.</li>
+<li>Meeting data (segments, notes, summary, audio, metadata) under <code>~/.config/mini-whisper/</code>, never auto-deleted, single source for window and agent access.</li>
+<li>User labelled from the microphone source, others by provider diarization; stream topology is a design decision with a cost consequence to surface in Settings and README.</li>
+<li>Renames are a local mapping over stored segments; meetings are not bounded by the dictation toggle cap or idle stop; provider session limits handled without ending the meeting.</li>
+<li>New pricing constants in the existing rate tables; every duration tested on the virtual clock; request-contract tests per provider; agent access read-only by construction.</li>
+</ul></div>
+      </article>
+    </section>
+
+    <section class="panel" role="tabpanel"
+             id="panel-design" aria-labelledby="tab-design" hidden>
+      <p class="section-timestamp">Updated 2026-11-09 17:28 UTC</p>
+      <!-- usage:DESIGN_USAGE_CHIP --><span class="chip usage">3h 02m 45s · 204,742 out · 125.0 tok/s</span><!-- /usage:DESIGN_USAGE_CHIP -->
+      <article class="panel-section">
+        <h2 class="section-label">Highlights</h2>
+        <div class="bullets"><ul>
+<li>Meeting mode behind a third hotkey (⌃⌥⌘M) and menu items: a chooser offers Remote call (microphone plus system audio) or In the room (microphone only), both about $0.45 per hour on Speechmatics Standard.</li>
+<li>Remote calls mix microphone and the Core Audio process tap into one 16 kHz stream and one provider session; words spoken while the microphone is active are attributed to the user locally, other words take the provider's diarization label. Two sessions is kept as a future improvement.</li>
+<li>Four meeting engines in Settings with prices: Speechmatics Standard and Enhanced through the existing adapter with diarization on, AssemblyAI Universal-Streaming and 3.6 Pro through a new adapter; AssemblyAI also joins the dictation engines.</li>
+<li>A 920×620 meeting window with live speaker paragraphs, rename popover, notes pane with meeting-time stamps, running cost, Pause/Stop; after Stop a Claude Sonnet 5.5 summary (Summary, Decisions, Action items, Open questions) sits above the editable transcript.</li>
+<li>Dropped connections never end a meeting: audio keeps recording, the session reconnects with 1–30 s backoff, the transcript marks the gap; AssemblyAI sessions roll over 60 s before their 3 h expiry; sleep auto-pauses until Resume.</li>
+<li>Meetings live under ~/.config/mini-whisper/meetings/&lt;uuid&gt;/ (meeting.json, segments.jsonl, notes.jsonl, optional audio.m4a) with an index, 0700/0600 permissions, never auto-deleted.</li>
+<li>Meetings window (680×480) in the History list's shape with search across titles, transcripts, notes and summaries; exports as “&lt;title&gt; - transcript.md” and “&lt;title&gt; - summary.md” with YAML front matter.</li>
+<li>Read-only agent access: <code>mini-whisper meetings list|transcript|summary|search</code> and <code>mini-whisper mcp</code> (stdio JSON-RPC, four read-only tools, legacy and 2026-07-28 handshakes); an Install… button writes a /usr/local/bin wrapper script.</li>
+<li>Costs land in Today/Month through new pricing keys (Speechmatics corrected to $0.45/h, Enhanced, AssemblyAI tiers and diarization add-on, Sonnet 5.5 tokens), all overridable.</li>
+<li>Three new SwiftPM targets (MWMeetings, MWMeetingPipeline, MWAgentAccess), no new dependency, every duration on VirtualClock, provider wire shapes on fixtures.</li>
+</ul></div>
+        <!-- usage:DESIGN_USAGE --><div class="usage-pair">
+<table class="usage">
+<thead><tr><th>Metric</th><th>Main</th><th>Subagents</th><th>Total</th></tr></thead>
+<tbody>
+<tr class="grp"><td colspan="4">Time</td></tr>
+<tr><td>elapsed</td><td>—</td><td>—</td><td>3h 02m 45s</td></tr>
+<tr><td>run time</td><td>—</td><td>—</td><td>1h 02m 37s</td></tr>
+<tr class="grp"><td colspan="4">Requests</td></tr>
+<tr><td>model</td><td>81</td><td>0</td><td>81</td></tr>
+<tr><td>web_search</td><td>0</td><td>0</td><td>0</td></tr>
+<tr><td>web_fetch</td><td>0</td><td>0</td><td>0</td></tr>
+<tr class="grp"><td colspan="4">Throughput</td></tr>
+<tr class="tp"><td>output tok/s</td><td>—</td><td>—</td><td>125.0</td></tr>
+</tbody>
+</table>
+<table class="usage">
+<thead><tr><th>Metric</th><th>Main</th><th>Subagents</th><th>Total</th></tr></thead>
+<tbody>
+<tr class="grp"><td colspan="4">Tokens</td></tr>
+<tr><td>input_tokens</td><td>2,236</td><td>0</td><td>2,236</td></tr>
+<tr><td>output_tokens</td><td>204,742</td><td>0</td><td>204,742</td></tr>
+<tr class="sub"><td>thinking_tokens</td><td>83,953</td><td>0</td><td>83,953</td></tr>
+<tr><td>cache_write</td><td>1,165,581</td><td>0</td><td>1,165,581</td></tr>
+<tr class="sub"><td>ephemeral_1h</td><td>1,165,581</td><td>0</td><td>1,165,581</td></tr>
+<tr class="sub"><td>ephemeral_5m</td><td>0</td><td>0</td><td>0</td></tr>
+<tr><td>cache_read</td><td>18,262,713</td><td>0</td><td>18,262,713</td></tr>
+</tbody>
+</table>
+</div><!-- /usage:DESIGN_USAGE -->
+      </article>
+      <article class="panel-section">
+        <h2 class="section-label">Detail</h2>
+        <div class="prose">
+<p><strong>Design document:</strong> <a href="./feature-design-v4-Meeting-transcripts.md">feature-design-v4-Meeting-transcripts.md</a></p>
+<p><strong>Accepted mockups:</strong>
+<a href="./mockups/mockup-v4-meeting-window.html">Meeting Window</a> (<a href="https://claude.ai/artifact/TyA8BvbmphpAxbZeDpfuFf">artifact</a>) ·
+<a href="./mockups/mockup-v4-meetings-list.html">Meetings List</a> (<a href="https://claude.ai/artifact/8hLv1fbYG3YLQJQamkuKHg">artifact</a>) ·
+<a href="./mockups/mockup-v4-settings-one-pane.html">Settings — One Meetings section</a> (<a href="https://claude.ai/artifact/HAkM4WyxrSd7bUk1fdExeZ">artifact</a>) ·
+<a href="./mockups/mockup-v4-export-markdown.html">Export Files</a> (<a href="https://claude.ai/artifact/Ko7nAzDNRVU7CT1tFduP51">artifact</a>).
+Rejected: <a href="./mockups/mockup-v4-settings-two-panes.html">Settings — Meetings and Agents sections</a>.</p>
+
+<h3>Summary</h3>
+<p>A meeting mode for the menu-bar dictation app. A third hotkey or menu item opens a chooser between a remote call (microphone plus the Mac's own system audio) and an in-room meeting (microphone only). While recording, a window shows a live speaker-labelled transcript with the user's speech under the user's name and other voices as Speaker 1..N, a notes pane stamped with meeting time, elapsed time and running cost. Stop sends transcript and notes to Claude Sonnet 5.5 for a summary under an editable prompt. Meetings are stored under the config directory, listed in a searchable Meetings window, exported as two Markdown files, and readable by agents through a command-line tool and a stdio MCP server.</p>
+
+<h3>Goals and non-goals</h3>
+<ul>
+<li>Every segment carries a speaker and a time; the user's speech is labelled by name; renames apply everywhere and persist.</li>
+<li>Summary on Stop; a meeting without one can be summarised later by one button. No re-summarise, no summary versions.</li>
+<li>Dropped connections never end a meeting; gaps are marked; audio keeps recording.</li>
+<li>Costs appear in Today/Month and stay overridable.</li>
+<li>Deferred: two provider sessions per remote call, calendar integration, batch re-transcription, live running summary, on-device diarization, agent control of recording, other summarisers and engines, non-English meetings, consent features.</li>
+</ul>
+
+<h3>Architecture</h3>
+<table>
+<tr><th>Target</th><th>Responsibility</th></tr>
+<tr><td>MWMeetings (new)</td><td>Meeting, Segment, Note, Summary, SpeakerLabel models; MeetingStore (folder layout, jsonl, index); MeetingMarkdown; MeetingSearch; TitleSanitizer</td></tr>
+<tr><td>MWMeetingPipeline (new)</td><td>MeetingController state machine; AudioMixer; SpeechGate (mic VAD); SpeakerAttributor; SpeakerRegistry; SessionSupervisor (reconnect, rollover); MeetingRecorder (AAC); MeetingBilling; Summariser</td></tr>
+<tr><td>MWAgentAccess (new)</td><td>MeetingsCLI and MCPServer over a read-only MeetingReading view</td></tr>
+<tr><td>MWAudio</td><td>holdRunning and a continuous meeting listener on AudioCaptureEngine; SystemAudioTap (macOS 14.2+ process tap over a private aggregate device); AACFileWriter; voice processing switch</td></tr>
+<tr><td>MWStreaming</td><td>Emission.segment and .speakerRevision; TranscriptSink.onSegment/onSpeakerRevision; Speechmatics diarization option; new AssemblyAIAdapter; EngineFactory.makeMeeting; PlatformInfo.supportsSystemAudio</td></tr>
+<tr><td>MWConfig / MWUsage / MWTranscription / MWCorrections / MWSupport</td><td>meeting_* keys, MeetingEngine, KeyAccount.assemblyai/.anthropic, summary prompt file; pricing keys and meetingCost; AnthropicClient; AssemblyAI keyterms; Log.meeting</td></tr>
+<tr><td>App</td><td>Meeting window, Meetings window, Settings Meetings section, Keys/Hotkeys/General rows, menu items, main.swift branch for meetings/mcp, command-line tool installer, NSAudioCaptureUsageDescription</td></tr>
+</table>
+
+<h3>Data model</h3>
+<ul>
+<li>Config keys: meeting_hotkey (default ctrl+alt+cmd+m), meeting_engine (speechmatics_standard | speechmatics_enhanced | assemblyai_streaming | assemblyai_pro), meeting_keep_audio (default true), meeting_user_name, meeting_system_audio_explained.</li>
+<li>meetings/index.json plus meetings/&lt;uuid&gt;/meeting.json, segments.jsonl (speaker id, start/end, text, words, session, provider label, turn order, edited, pinned), notes.jsonl, audio.m4a (AAC 16 kHz mono).</li>
+<li>Speaker labels: id 0 is the user; (session, provider label) pairs map to numbered speakers; renames change the name only; rename-to-existing merges.</li>
+<li>Pricing per minute: speechmatics 0.0075 (was 0.0067), speechmatics_enhanced 0.013333, assemblyai 0.0025, assemblyai_pro 0.0075, assemblyai_diarization 0.002; per MTok: claude-sonnet-5-5_in 2.00, _out 10.00.</li>
+<li>Keychain accounts assemblyai-api-key and anthropic-api-key under the existing service.</li>
+</ul>
+
+<h3>Interfaces</h3>
+<ul>
+<li>Meeting window (920×620): chooser → recording (title, mode chip, capture chip, connection chip, elapsed, cost, Pause/Stop; speaker paragraphs; rename popover; inline note and gap markers; 280 px Notes pane) → stopped (export buttons, summary panel above editable transcript, failed-summary inset with Summarise).</li>
+<li>Meetings window (680×480): day-grouped rows with mode glyph, title, excerpt, meta line; hover Open / Export ▾ / Delete; footer with Show in Finder and Start Meeting…; title-bar search with labelled hit snippets; empty state.</li>
+<li>Settings → Meetings: engine rows with prices and key gating, Your name, Keep meeting audio, Open Privacy Settings…, Summary prompt editor, Storage, Command-line tool Install…, Claude Code MCP command. Keys gains AssemblyAI and Anthropic; Hotkeys gains Meeting; General's engines gain AssemblyAI.</li>
+<li>Exports: front matter (title, id, date, start, end, duration, mode, app, engine, speakers, generator), speaker paragraphs as <code>**Name** · hh:mm:ss</code> then text, notes/gaps/pauses as block quotes; summary file adds summary_model, summary_at, transcript, the four sections, a Notes list and a footer line.</li>
+<li>CLI: <code>mini-whisper meetings list|transcript &lt;id&gt;|summary &lt;id&gt;|search &lt;text&gt;</code>; MCP tools list_meetings, get_transcript, get_summary, search_meetings, all readOnlyHint.</li>
+</ul>
+
+<h3>Failure handling</h3>
+<ul>
+<li>Provider drop or close code → reconnect with backoff 1, 2, 4, 8, 15, 30 s indefinitely; gap marker on the first segment after; audio always recorded.</li>
+<li>System Audio Recording denied → silence from the tap; a hint appears after 60 s of one-sided speech with a button to the privacy pane; the meeting continues microphone-only.</li>
+<li>Sleep → auto-pause until Resume; device change → reinstall, gap marker if more than 2 s lost; quit while recording → confirmation, stop without summary.</li>
+<li>Anthropic error or refusal → message with a Summarise button; no key → "No summary: add an Anthropic key under Keys."</li>
+<li>Disk write failure → notice, segments kept in memory and retried; corrupt jsonl lines skipped; missing index rebuilt.</li>
+</ul>
+
+<h3>Security</h3>
+<ul>
+<li>Keys only in the Keychain and in provider request headers over TLS; logs carry sizes and status codes only.</li>
+<li>Transcript and notes enter the summary request as delimited data; the summary is rendered as text, never executed.</li>
+<li>Meeting files 0600 in a 0700 folder; audio retention optional and deletable per meeting; README states the consent responsibility.</li>
+<li>Agent access holds a read-only store view and links no audio or networking; ids validated before any path is built; the installer runs one privileged script with fixed content.</li>
+</ul>
+
+<h3>Testing</h3>
+<ul>
+<li>Unit tests per component on fakes: adapters on documented fixtures, SpeechGate and SpeakerAttributor on synthetic data, SessionSupervisor backoff and rollover on VirtualClock, MeetingStore permissions and atomic rewrites, MeetingMarkdown against golden files matching the export mockup, AnthropicClient request and refusal handling, MCPServer handshakes and tools, PricingTests updated to 0.0075.</li>
+<li>Opt-in integration (MW_INTEGRATION=1): 20 s diarized sessions on each provider, one summary, a real tap smoke test on 14.2+.</li>
+</ul>
+
+<h3>Risks</h3>
+<ul>
+<li>Overlapping speech garbles in a mixed stream — documented; two-session mode is the fallback design.</li>
+<li>Microphone gate false positives mis-attribute remote words — hysteresis, 70 % label rule, voice processing, per-segment reassignment.</li>
+<li>System Audio Recording denied or revoked silently — first-start note, silence hint, Settings shortcut.</li>
+<li>Long sessions hit provider limits or sleep — early rollover, backoff reconnect, auto-pause, gap markers.</li>
+<li>Summary invents content — prompt forbids invention, notes passed separately, transcript shown beneath.</li>
+<li>Sensitive recordings readable locally — restrictive permissions, retention toggle, README statement.</li>
+</ul>
+
+<h3>Rollout</h3>
+<p>One release (0.6.0) with CHANGELOG entries for the feature, the new permission, the two new keys, the AssemblyAI dictation engine, the Speechmatics price correction and the CLI/MCP surface. No feature flag: meeting mode is inert until used. Implementation order: config/keys/pricing → streaming extensions → audio → MWMeetings → pipeline → MWAgentAccess and main.swift → App surfaces → README/CHANGELOG. Rollback is the previous release; new config keys are ignored by older builds.</p>
+</div>
+      </article>
+    </section>
+
+    <section class="panel" role="tabpanel"
+             id="panel-plan" aria-labelledby="tab-plan" hidden>
+      <p class="section-timestamp">Updated 2026-11-09 18:09 UTC</p>
+      <!-- usage:PLAN_USAGE_CHIP --><span class="chip usage">39m 29s · 248,616 out · 149.3 tok/s</span><!-- /usage:PLAN_USAGE_CHIP -->
+      <article class="panel-section">
+        <h2 class="section-label">Highlights</h2>
+        <div class="bullets"><ul>
+<li>28 test-first stages: foundations (1–3), streaming (4–7), audio (8–10), meeting store (11–12), pipeline (13–18), CLI and MCP (19–21), app UI (22–27), README and CHANGELOG (28).</li>
+<li>Bottom-up along the module graph. Meeting mode stays unreachable until Stage 24 wires the hotkey and menu; there is no feature flag.</li>
+<li>Three new targets: MWMeetings (Stage 11), MWMeetingPipeline (Stage 13) and MWAgentAccess (Stage 19). The core package stays dependency-free.</li>
+<li>Stage 6 is atomic: the AssemblyAI adapter and the new <code>EngineName</code> case with all its exhaustive switch sites land together.</li>
+<li>Design facts corrected in place:
+  <ul>
+  <li>past Speechmatics totals do not change with the new price;</li>
+  <li><code>.segment</code> never reaches the assembler;</li>
+  <li>diarization seconds are not double-counted;</li>
+  <li>session limits reach the supervisor through a new <code>onSessionLimit</code> callback.</li>
+  </ul></li>
+<li>The core baseline is red: an <code>MWHistoryTests</code> date time-bomb. Fix it with /bug-submit and /bug-fix before Stage 1.</li>
+<li>Execution: 20 batches, 12 stages parallel-eligible, critical path 20 of 28 stages.</li>
+<li>Deviations from the design: none.</li>
+</ul></div>
+        <!-- usage:PLAN_USAGE --><div class="usage-pair">
+<table class="usage">
+<thead><tr><th>Metric</th><th>Main</th><th>Subagents</th><th>Total</th></tr></thead>
+<tbody>
+<tr class="grp"><td colspan="4">Time</td></tr>
+<tr><td>elapsed</td><td>—</td><td>—</td><td>39m 29s</td></tr>
+<tr><td>run time</td><td>—</td><td>—</td><td>39m 29s</td></tr>
+<tr class="grp"><td colspan="4">Requests</td></tr>
+<tr><td>model</td><td>9</td><td>136</td><td>145</td></tr>
+<tr><td>web_search</td><td>0</td><td>0</td><td>0</td></tr>
+<tr><td>web_fetch</td><td>0</td><td>0</td><td>0</td></tr>
+<tr class="grp"><td colspan="4">Throughput</td></tr>
+<tr class="tp"><td>output tok/s</td><td>—</td><td>—</td><td>149.3</td></tr>
+</tbody>
+</table>
+<table class="usage">
+<thead><tr><th>Metric</th><th>Main</th><th>Subagents</th><th>Total</th></tr></thead>
+<tbody>
+<tr class="grp"><td colspan="4">Tokens</td></tr>
+<tr><td>input_tokens</td><td>24</td><td>278</td><td>302</td></tr>
+<tr><td>output_tokens</td><td>18,348</td><td>230,268</td><td>248,616</td></tr>
+<tr class="sub"><td>thinking_tokens</td><td>851</td><td>123,591</td><td>124,442</td></tr>
+<tr><td>cache_write</td><td>30,421</td><td>622,054</td><td>652,475</td></tr>
+<tr class="sub"><td>ephemeral_1h</td><td>30,421</td><td>0</td><td>30,421</td></tr>
+<tr class="sub"><td>ephemeral_5m</td><td>0</td><td>622,054</td><td>622,054</td></tr>
+<tr><td>cache_read</td><td>787,922</td><td>25,585,736</td><td>26,373,658</td></tr>
+</tbody>
+</table>
+</div><!-- /usage:PLAN_USAGE -->
+      </article>
+      <article class="panel-section">
+        <h2 class="section-label">Detail</h2>
+        <div class="prose"><h3>Overview</h3>
+<p>Meeting mode for the menu-bar app: a chooser between a remote call (mic plus a Core Audio process tap, mixed into one diarized session) and an in-room meeting. It adds a live speaker-labelled transcript with notes, a Sonnet 5.5 summary on Stop, a stored and searchable Meetings list with Markdown exports, and a read-only CLI and MCP server.</p>
+<p>Twenty-eight stages land bottom-up along the module graph in design §9's order. Every stage leaves <code>swift test</code> and <code>xcodebuild … test</code> green, and meeting mode is unreachable until Stage 24.</p>
+<h3>Stages</h3>
+<h4>Stage 1 — Meeting config, MeetingEngine, two Keychain accounts, summary prompt</h4>
+<p>Five meeting_* keys, four engine tiers with fallback resolution, AssemblyAI/Anthropic keys with an sk-ant- check, and summary_prompt.txt with Restore Default. <em>Touches:</em> MWConfig (Config, MeetingEngine, SecretStore, PromptFiles), Log.swift, KeysSection, SettingsModel, default_summary_prompt.txt</p>
+
+<h4>Stage 2 — Meeting pricing</h4>
+<p>New per-minute and Sonnet 5.5 rates, Speechmatics 0.0075, meetingCost and perHour. <em>Touches:</em> MWUsage/Pricing.swift, PricingTests</p>
+
+<h4>Stage 3 — AnthropicClient</h4>
+<p>A Messages API call with the design's request shape, refusal category and error mapping; logs sizes only. <em>Touches:</em> MWTranscription/AnthropicClient.swift, FakeSummarizer</p>
+
+<h4>Stage 4 — Streaming seam</h4>
+<p>Segment, revision and session-limit emissions, close codes in onEngineError, and minimum chunk accumulation. <em>Touches:</em> MWStreaming (EngineAdapter, TranscriptSink, WebSocketEngine, connections), RecordingSink, TestAdapter, FixtureScript</p>
+
+<h4>Stage 5 — Speechmatics diarization</h4>
+<p>Speaker segments, the model field and the session_timeout warning; undiarized dictation stays byte-identical. <em>Touches:</em> SpeechmaticsAdapter, CloudAdapterTests, diarized fixture</p>
+
+<h4>Stage 6 — AssemblyAI adapter and dictation engine</h4>
+<p>A v3 streaming adapter plus EngineName.assemblyai across every switch site, keyterms and the hint-report row. <em>Touches:</em> AssemblyAIAdapter, EngineName, EngineFactory, HintSerializer, HintReport, App labels</p>
+
+<h4>Stage 7 — Meeting engines</h4>
+<p>MeetingEngineProviding with makeMeeting per tier, PlatformInfo.supportsSystemAudio, and opt-in live diarization tests. <em>Touches:</em> EngineFactory, PlatformInfo, FakeMeetingEngineProvider, two_speakers.wav</p>
+
+<h4>Stage 8 — Capture meeting mode</h4>
+<p>Hold against idle and sleep stop, a non-accumulating meeting listener, voice processing, and meetingEvents. <em>Touches:</em> AudioCapture, AudioCaptureEngine, AudioBackend, fakes</p>
+
+<h4>Stage 9 — AACFileWriter</h4>
+<p>16 kHz mono AAC, 0600, with silence padding. <em>Touches:</em> MWAudio/AACFileWriter.swift</p>
+
+<h4>Stage 10 — SystemAudioTap</h4>
+<p>Core Audio process tap behind a protocol and factory, plus the NSAudioCaptureUsageDescription. <em>Touches:</em> MWAudio tap files, FakeSystemAudioTap, Info.plist</p>
+
+<h4>Stage 11 — MWMeetings store</h4>
+<p>Model and an actor store with 0700/0600 files, atomic rewrites, index and read-only readers. <em>Touches:</em> new MWMeetings target, MeetingFixtures, CLAUDE.md</p>
+
+<h4>Stage 12 — Markdown, titles, search</h4>
+<p>Exports byte-equal to the mockup, file stems, default title, and two-snippet search. <em>Touches:</em> MeetingMarkdown, TitleSanitizer, MeetingSearch, golden files</p>
+
+<h4>Stage 13 — Pipeline target, gate, mixer</h4>
+<p>SpeechGate, AudioMixer, a 2 s system ring and float resampling. <em>Touches:</em> new MWMeetingPipeline target, PCMConverter, CLAUDE.md</p>
+
+<h4>Stage 14 — Speaker registry and attributor</h4>
+<p>Stable numbering, user binding, rename/merge, and the 50 % and 70 % rules. <em>Touches:</em> SpeakerRegistry, SpeakerAttributor</p>
+
+<h4>Stage 15 — SessionSupervisor</h4>
+<p>Backoff reconnect, gap markers, rollover and drop-while-closed, all on VirtualClock. <em>Touches:</em> SessionSupervisor</p>
+
+<h4>Stage 16 — Recorder, billing, summariser</h4>
+<p>Silence padding, no double-counted minutes, and the §5.5 request with truncation. <em>Touches:</em> MeetingRecorder, MeetingBilling, Summariser, FakeAudioFileWriter</p>
+
+<h4>Stage 17 — MeetingController I</h4>
+<p>Start through stop, persist, bill and summarise on fakes. <em>Touches:</em> MeetingController, MeetingAudioPath, MeetingEvent</p>
+
+<h4>Stage 18 — MeetingController II</h4>
+<p>Pause and sleep, device-change gaps, silence hint, rename, notes, revisions, edits, open/retitle and the write-error fallback. <em>Touches:</em> MeetingController</p>
+
+<h4>Stage 19 — MWAgentAccess and CLI</h4>
+<p>meetings list/transcript/summary/search, with id validation and exit codes. <em>Touches:</em> new MWAgentAccess target, MeetingsCLI, MeetingID</p>
+
+<h4>Stage 20 — MCPServer</h4>
+<p>Legacy and 2026-07-28 handshakes, four read-only tools and every error code. <em>Touches:</em> MCPServer, MCPMessages</p>
+
+<h4>Stage 21 — App CLI entry and installer</h4>
+<p>main.swift branch, AgentCommand, and the wrapper-script installer. <em>Touches:</em> project.yml, main.swift, AgentCommand, CommandLineToolInstaller</p>
+
+<h4>Stage 22 — Meeting hotkey binding</h4>
+<p>BindingName.meeting, capture with duplicate refusal, and fallbacks. <em>Touches:</em> MWHotkeys, AppDelegate.bindings, SettingsModel, HotkeysSection</p>
+
+<h4>Stage 23 — MeetingWindowModel</h4>
+<p>The chooser and live transcript reduction, host-tested. <em>Touches:</em> project.yml, App/Meeting/MeetingWindowModel.swift</p>
+
+<h4>Stage 24 — Coordinator, window, menu, lock, quit</h4>
+<p>Meeting mode becomes reachable: chooser and recording window, menu items, dictation lock and quit prompt. <em>Touches:</em> MeetingCoordinator, HotkeyRouting, MeetingWindowController, MeetingView, MenuModel, AppDelegate</p>
+
+<h4>Stage 25 — Stopped state and export</h4>
+<p>Summary panel states, Summarise, edit and reassign, title rename, and the Markdown exports. <em>Touches:</em> MeetingWindowModel, MeetingView, MeetingExporter, ExportPanels</p>
+
+<h4>Stage 26 — Meetings list window</h4>
+<p>Day-grouped rows, search snippets, Export menu, delete and rename, and the Meetings… menu item. <em>Touches:</em> App/Meetings/*, MenuModel, AppDelegate</p>
+
+<h4>Stage 27 — Settings → Meetings</h4>
+<p>Engine rows, name, keep audio, privacy, prompt editor, storage, installer and Claude Code rows. <em>Touches:</em> SettingsModel, SettingsView, MeetingsSection</p>
+
+<h4>Stage 28 — README and CHANGELOG</h4>
+<p>Permission, engines and prices, storage, consent, and CLI/MCP usage. <em>Touches:</em> README.md, CHANGELOG.md</p>
+
+<h3>Requirements coverage map</h3>
+<table>
+<tr><th>Requirement</th><th>Stages</th></tr>
+<tr><td>R1 meeting hotkey and menu</td><td>1, 22, 24, 26</td></tr>
+<tr><td>R2 chooser cards, price, 14.2 gate, note</td><td>2, 7, 17, 23, 24</td></tr>
+<tr><td>R3 mixed remote stream, mic attribution</td><td>13, 14, 17</td></tr>
+<tr><td>R4 engine tiers and key gating</td><td>1, 7, 23, 27</td></tr>
+<tr><td>R5 AssemblyAI dictation</td><td>6</td></tr>
+<tr><td>R6 two new keys</td><td>1</td></tr>
+<tr><td>R7 merged paragraphs, rename</td><td>18, 23, 24</td></tr>
+<tr><td>R8 notes</td><td>12, 16, 18, 23, 24</td></tr>
+<tr><td>R9 pause and sleep</td><td>8, 16, 18, 23, 24</td></tr>
+<tr><td>R10 reconnect and rollover</td><td>4, 5, 6, 15, 17, 23</td></tr>
+<tr><td>R11 labels, revisions, pinned</td><td>6, 14, 15, 18</td></tr>
+<tr><td>R12 stop and summary</td><td>3, 16, 17, 25</td></tr>
+<tr><td>R13 edit and reassign</td><td>18, 25</td></tr>
+<tr><td>R14 storage layout</td><td>9, 11, 16, 17</td></tr>
+<tr><td>R15 title</td><td>12, 17, 18, 25, 26</td></tr>
+<tr><td>R16 Meetings window</td><td>12, 26</td></tr>
+<tr><td>R17 exports</td><td>12, 25, 26</td></tr>
+<tr><td>R18 billing</td><td>2, 16, 17</td></tr>
+<tr><td>R19 dictation lock</td><td>18, 24</td></tr>
+<tr><td>R20 Settings → Meetings</td><td>1, 21, 27</td></tr>
+<tr><td>R21 CLI and MCP</td><td>11, 19, 20, 21</td></tr>
+<tr><td>R22 installer</td><td>21, 27</td></tr>
+<tr><td>R23 README and CHANGELOG</td><td>28</td></tr>
+<tr><td>R24 no new dependency, 14.2 guard</td><td>10, 11, 13, 19</td></tr>
+<tr><td>R25 VirtualClock and fixtures</td><td>3, 5, 6, 13, 15, 17, 18, 26</td></tr>
+<tr><td>R26 bounded memory</td><td>8, 11, 13, 23</td></tr>
+<tr><td>R27 no secrets</td><td>1, 3, 6, 15</td></tr>
+<tr><td>R28 config round-trip</td><td>1</td></tr>
+</table>
+<h3>Cross-cutting concerns</h3>
+<ul>
+<li><strong>Security:</strong>
+  <ul>
+  <li>Keys stay in the Keychain and travel only in their auth headers; logs carry sizes and codes only.</li>
+  <li>The transcript enters the summary request as delimited data.</li>
+  <li>MCP input is typed and capped. CLI and MCP take only <code>MeetingReading</code>, with ids validated before lookup.</li>
+  <li>Files are 0600 in 0700 folders. The installer writes a quoted wrapper script, never a symlink.</li>
+  </ul></li>
+<li><strong>Performance:</strong> the meeting listener never accumulates, the system ring holds 2 s, segments stream to disk, the tick stays off the main actor, the paragraph merge is incremental, and search is debounced.</li>
+<li><strong>Observability:</strong> <code>Log.meeting</code> covers start/stop, sessions and close codes, rollover, pause, tap, summary size/status/tokens, exports and CLI/MCP commands.</li>
+<li><strong>Compatibility:</strong>
+  <ul>
+  <li>The five optional config keys round-trip.</li>
+  <li>Dictation is unchanged: undiarized Speechmatics is byte-identical, and segments never reach the assembler.</li>
+  <li>The Speechmatics rate change affects new usage only.</li>
+  <li>macOS 14.0/14.1 keep everything except remote mode.</li>
+  </ul></li>
+</ul>
+<h3>Verification</h3>
+<ul>
+<li><strong>Automated:</strong> both suites green, plus an opt-in integration run (tap, voice processing, Anthropic, two-speaker diarization on both providers).</li>
+<li><strong>Acceptance (design §5.12):</strong> a remote Zoom call gives:
+  <ul>
+  <li>a named and speaker-labelled transcript with a note;</li>
+  <li>a summary on Stop;</li>
+  <li>two exports matching the mockup;</li>
+  <li>a Meetings row with its cost and a Today increment;</li>
+  <li>CLI output identical to the export.</li>
+  </ul></li>
+<li><strong>Spot checks:</strong> R9–R11, R13, R16, R19–R22 and R28, then AssemblyAI dictation.</li>
+</ul>
+<h3>Execution schedule</h3>
+<table>
+<tr><th>Batch</th><th>Stages</th><th>Mode</th><th>Why</th></tr>
+<tr><td>1</td><td>1</td><td>serial</td><td>Shared enums and config every stage uses</td></tr>
+<tr><td>2</td><td>2, 3, 9, 10</td><td>parallel</td><td>Disjoint new files; no shared registration or symbol; temp-dir tests only</td></tr>
+<tr><td>3</td><td>4</td><td>serial</td><td>Changes the shared TranscriptSink and Emission</td></tr>
+<tr><td>4</td><td>11</td><td>serial</td><td>New target (Package.swift)</td></tr>
+<tr><td>5</td><td>5, 12</td><td>parallel</td><td>Speechmatics adapter vs new MWMeetings files; disjoint</td></tr>
+<tr><td>6</td><td>6</td><td>serial</td><td>New EngineName case with exhaustive switches</td></tr>
+<tr><td>7</td><td>7</td><td>serial</td><td>Consumes Stages 5 and 6</td></tr>
+<tr><td>8</td><td>8</td><td>serial</td><td>Widens the shared AudioCapture protocol</td></tr>
+<tr><td>9</td><td>13</td><td>serial</td><td>New target</td></tr>
+<tr><td>10</td><td>19</td><td>serial</td><td>New target</td></tr>
+<tr><td>11</td><td>14, 15, 16, 20</td><td>parallel</td><td>Each creates its own files in existing targets; no cross-dependency</td></tr>
+<tr><td>12</td><td>17</td><td>serial</td><td>Consumes Stages 13–16</td></tr>
+<tr><td>13</td><td>18</td><td>serial</td><td>Edits Stage 17's controller</td></tr>
+<tr><td>14</td><td>21</td><td>serial</td><td>Adds products to project.yml</td></tr>
+<tr><td>15</td><td>22</td><td>serial</td><td>New BindingName case</td></tr>
+<tr><td>16</td><td>23</td><td>serial</td><td>Adds the MWMeetingPipeline product</td></tr>
+<tr><td>17</td><td>24</td><td>serial</td><td>Consumes Stage 23</td></tr>
+<tr><td>18</td><td>25</td><td>serial</td><td>Edits Stage 24's view and model</td></tr>
+<tr><td>19</td><td>26</td><td>serial</td><td>Consumes Stage 25's exporter</td></tr>
+<tr><td>20</td><td>27, 28</td><td>parallel</td><td>Settings sources vs README/CHANGELOG</td></tr>
+</table>
+<p><strong>Critical path:</strong> 1 → 2 → 4 → 11 → 5 → 6 → 7 → 8 → 13 → 19 → 15 → 17 → 18 → 21 → 22 → 23 → 24 → 25 → 26 → 27 (20 of 28 stages).</p>
+<h3>Planning decisions taken</h3>
+<p>There are 45 decisions in total; the full list is in the plan file. The most consequential:</p>
+<ul>
+<li><strong>Segment routing.</strong> <code>.segment</code> goes only to <code>onSegment</code>; adapters emit <code>.final</code> beside it. This resolves a design contradiction that would have doubled dictation text.</li>
+<li><strong>Session limits.</strong> They reach the supervisor through a new <code>Emission.sessionLimit</code> / <code>onSessionLimit</code>, because the supervisor cannot read the adapter behind <code>any StreamingEngine</code>.</li>
+<li><strong>Diarization billing.</strong> Diarization seconds are billed inside <code>costUSD</code> only, so the Today minutes are not doubled (R18 wins over §5.3).</li>
+<li><strong>Design fact corrections, made in place:</strong>
+  <ul>
+  <li>past Speechmatics totals are stored and do not recompute;</li>
+  <li><code>UsageRecording.add</code>;</li>
+  <li>no <code>operating_point</code> is sent today;</li>
+  <li><code>sk-ant-</code> is checked in <code>saveKey</code>;</li>
+  <li><code>symbolName</code>;</li>
+  <li>the float feed path;</li>
+  <li>MWMeetings depends on MWConfig;</li>
+  <li>the HintReport row.</li>
+  </ul></li>
+<li><strong>New seams:</strong>
+  <ul>
+  <li><code>AudioCapture.meetingEvents</code> for sleep and device change;</li>
+  <li><code>MeetingEngineProviding</code>;</li>
+  <li><code>EngineAdapter.minimumChunkSeconds</code> for AssemblyAI's 100 ms chunks;</li>
+  <li><code>MeetingController.open</code>/<code>retitle</code>;</li>
+  <li><code>stop(summarise:)</code>.</li>
+  </ul></li>
+</ul>
+<h3>Deviations from the design</h3>
+<p>None — plan matches design v4 exactly.</p></div>
+      </article>
+    </section>
+
+    <section class="panel" role="tabpanel"
+             id="panel-implementation" aria-labelledby="tab-implementation" hidden>
+      <p class="section-timestamp">Awaiting /feature-implement</p>
+      <!-- usage:IMPLEMENTATION_USAGE_CHIP --><!-- /usage:IMPLEMENTATION_USAGE_CHIP -->
+      <article class="panel-section">
+        <h2 class="section-label">Highlights</h2>
+        <div class="bullets"><p class="empty">Not yet filled — pending /feature-implement.</p></div>
+        <!-- usage:IMPLEMENTATION_USAGE --><!-- /usage:IMPLEMENTATION_USAGE -->
+      </article>
+      <article class="panel-section">
+        <h2 class="section-label">Detail</h2>
+        <div class="prose"><p class="empty">Not yet filled — pending /feature-implement.</p></div>
+      </article>
+    </section>
+
+    <section class="panel" role="tabpanel"
+             id="panel-issues" aria-labelledby="tab-issues" hidden>
+      <p class="section-timestamp"><!-- ISSUES_AT:START -->Awaiting /bug-submit<!-- ISSUES_AT:END --></p>
+
+      <div class="issue-filter" role="group" aria-label="Filter issues by status">
+        <button type="button" class="issue-tab" data-status="open" aria-pressed="true">
+          Open <span class="issue-count" data-for="open">0</span>
+        </button>
+        <button type="button" class="issue-tab" data-status="closed" aria-pressed="false">
+          Closed <span class="issue-count" data-for="closed">0</span>
+        </button>
+      </div>
+
+      <div class="issue-list" data-status="open">
+        <!-- ISSUES_OPEN:START -->
+        <p class="empty">No open issues.</p>
+        <!-- ISSUES_OPEN:END -->
+      </div>
+
+      <div class="issue-list" data-status="closed" hidden>
+        <!-- ISSUES_CLOSED:START -->
+        <p class="empty">No closed issues.</p>
+        <!-- ISSUES_CLOSED:END -->
+      </div>
+    </section>
+
+    <footer class="feature-footer">
+      Generated 2026-11-09
+    </footer>
+  </main>
+
+  <script>
+    (function () {
+      const tabs = Array.from(document.querySelectorAll('[role="tab"]'))
+        .filter((t) => getComputedStyle(t).display !== 'none');
+      const panels = Array.from(document.querySelectorAll('[role="tabpanel"]'));
+      const indicator = document.querySelector('.tab-indicator');
+
+      function positionIndicator(tab) {
+        if (!indicator || !tab) return;
+        const navRect = tab.parentElement.getBoundingClientRect();
+        const rect = tab.getBoundingClientRect();
+        indicator.style.transform = `translateX(${rect.left - navRect.left}px)`;
+        indicator.style.width = `${rect.width}px`;
+      }
+
+      function activate(tab, focus) {
+        if (!tab) return;
+        tabs.forEach((t) => {
+          const selected = t === tab;
+          t.setAttribute('aria-selected', selected ? 'true' : 'false');
+          t.setAttribute('tabindex', selected ? '0' : '-1');
+        });
+        panels.forEach((p) => {
+          const isActive = p.id === tab.getAttribute('aria-controls');
+          p.hidden = !isActive;
+          p.classList.toggle('active', isActive);
+        });
+        positionIndicator(tab);
+        if (focus) tab.focus();
+      }
+
+      tabs.forEach((tab) => {
+        tab.addEventListener('click', () => activate(tab));
+        tab.addEventListener('keydown', (e) => {
+          const i = tabs.indexOf(tab);
+          let target = null;
+          if (e.key === 'ArrowRight') target = tabs[(i + 1) % tabs.length];
+          else if (e.key === 'ArrowLeft') target = tabs[(i - 1 + tabs.length) % tabs.length];
+          else if (e.key === 'Home') target = tabs[0];
+          else if (e.key === 'End') target = tabs[tabs.length - 1];
+          if (target) {
+            e.preventDefault();
+            activate(target, true);
+          }
+        });
+      });
+
+      const initial = tabs.find((t) => t.getAttribute('aria-selected') === 'true') || tabs[0];
+      // Defer to next frame so layout is settled before placing the indicator
+      requestAnimationFrame(() => activate(initial));
+
+      window.addEventListener('resize', () => {
+        const selected = tabs.find((t) => t.getAttribute('aria-selected') === 'true');
+        if (selected) positionIndicator(selected);
+      });
+    })();
+
+    // Issues panel: Open/Closed filter + auto-computed counts.
+    (function () {
+      const filterBtns = Array.from(document.querySelectorAll('.issue-tab'));
+      const lists = Array.from(document.querySelectorAll('.issue-list'));
+      if (!filterBtns.length) return;
+
+      lists.forEach((list) => {
+        const status = list.getAttribute('data-status');
+        const badge = document.querySelector(`.issue-count[data-for="${status}"]`);
+        if (badge) badge.textContent = list.querySelectorAll('.issue').length;
+      });
+
+      function show(status) {
+        filterBtns.forEach((b) =>
+          b.setAttribute('aria-pressed', b.getAttribute('data-status') === status ? 'true' : 'false'));
+        lists.forEach((l) => { l.hidden = l.getAttribute('data-status') !== status; });
+      }
+
+      filterBtns.forEach((b) => b.addEventListener('click', () => show(b.getAttribute('data-status'))));
+      show('open');
+    })();
+  </script>
+</body>
+</html>

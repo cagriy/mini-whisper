@@ -1,0 +1,549 @@
+<title>Settings Two Panes</title>
+<style>
+*,*::before,*::after{box-sizing:border-box}
+:root{--page-bg:#1c1e22;--page-text:#e8e8ea;--page-muted:#9a9aa2;--accent:#7cc4ff;--banner:#26292f;--rule:#34383f;
+--win:#ececec;--win2:#f6f6f6;--txt:#1d1d1f;--mut:#6e6e73;--bd:#d2d2d7;--blue:#0a60ff;--dis:#a8a8ad;--amber:#b25000;--green:#1f8a3b}
+body{margin:0;background:var(--page-bg);color:var(--page-text);font:14px/1.45 -apple-system,BlinkMacSystemFont,"Helvetica Neue",sans-serif;-webkit-font-smoothing:antialiased}
+.banner{background:var(--banner);border-bottom:1px solid var(--rule);padding:14px 22px;font-size:13px}
+.banner strong{color:#fff}.banner p{margin:4px 0 0;color:var(--page-muted);max-width:95ch}.banner .axis{color:var(--accent)}
+main{padding:26px 22px 40px;display:flex;flex-direction:column;align-items:center;gap:26px}
+.why{font-size:12.5px;color:var(--page-muted);margin:0;max-width:92ch;text-align:center}
+.mac{width:780px;max-width:100%;height:560px;background:var(--win);color:var(--txt);border-radius:11px;box-shadow:0 24px 60px rgba(0,0,0,.45);display:grid;grid-template-rows:auto 1fr;overflow:hidden;font-size:13px}
+.title{height:52px;background:#e3e3e7;border-bottom:1px solid #cfcfd4;display:flex;align-items:center;padding:0 14px;gap:14px;position:relative}
+.title .lights{display:flex;gap:7px}.title .lights i{width:12px;height:12px;border-radius:50%}
+.title h1{font-size:13px;font-weight:600;margin:0;position:absolute;left:50%;transform:translateX(-50%);color:#3a3a3f}
+.body{display:grid;grid-template-columns:190px 1fr;min-height:0}
+.side{background:#e6e6ea;border-right:1px solid #d0d0d5;padding:10px 8px;display:flex;flex-direction:column;gap:2px}
+.side button{font:13px -apple-system,sans-serif;color:var(--txt);background:none;border:0;border-radius:7px;padding:6px 10px;display:flex;align-items:center;gap:10px;cursor:pointer;text-align:left;position:relative}
+.side button .ic{width:22px;height:22px;border-radius:6px;background:#8e8e95;color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:12px;flex:0 0 auto}
+.side button.on{background:var(--blue);color:#fff}.side button.on .ic{background:rgba(255,255,255,.3)}
+.side button.new::after{content:"";position:absolute;left:0;top:7px;bottom:7px;width:3px;border-radius:2px;background:var(--blue)}.side button.on.new::after{background:#fff}
+.content{min-height:0;overflow:auto}
+.pane{display:none;padding:18px 22px 24px}.pane.on{display:block}
+.pane h2{font-size:15px;margin:0 0 12px}.pane h3{font-size:12px;margin:18px 0 8px;color:var(--mut);text-transform:uppercase;letter-spacing:.05em}
+.group{background:var(--win2);border:1px solid var(--bd);border-radius:9px;padding:4px 12px;margin-bottom:12px}
+.row{display:flex;align-items:center;gap:10px;min-height:38px;padding:4px 0;border-bottom:1px solid #e3e3e7;position:relative}.row:last-child{border-bottom:0}.row.top{align-items:flex-start;padding:10px 0}
+.row>label{flex:0 0 190px;color:var(--txt)}
+.row.new::before{content:"";position:absolute;left:-12px;top:6px;bottom:6px;width:3px;border-radius:2px;background:var(--blue)}
+.foot{font-size:11.5px;color:var(--mut);padding:6px 0 10px 0;line-height:1.4}.foot.warn{color:var(--amber)}
+.sw{width:38px;height:22px;border-radius:11px;background:#cfcfd4;position:relative;display:inline-block;flex:0 0 auto}.sw::after{content:"";position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.3)}
+.sw.on{background:var(--blue)}.sw.on::after{left:18px}
+.engines{display:flex;flex-direction:column;gap:6px;flex:1}
+.eng{display:flex;align-items:center;gap:10px;padding:7px 10px;border:1px solid var(--bd);border-radius:8px;background:#fff}
+.eng span{display:flex;flex-direction:column;flex:1}.eng small{color:var(--mut);font-size:11px}.eng.needkey{opacity:.55}.eng .hint{color:var(--amber)}
+.eng.sel{border-color:var(--blue);box-shadow:0 0 0 2px rgba(10,96,255,.15)}
+.eng .price{font-size:11.5px;color:var(--txt);white-space:nowrap;font-variant-numeric:tabular-nums}
+.eng.new{position:relative}.eng.new::before{content:"";position:absolute;left:-22px;top:8px;bottom:8px;width:3px;border-radius:2px;background:var(--blue)}
+.mini{font:12px -apple-system,sans-serif;padding:4px 10px;border-radius:6px;border:1px solid #c3c3c8;background:#fff;color:var(--txt);cursor:default}.mini.primary{background:var(--blue);color:#fff;border-color:var(--blue)}
+.stepper{display:inline-flex;align-items:center;border:1px solid #c3c3c8;border-radius:6px;background:#fff;overflow:hidden}.stepper span{padding:3px 10px;font-variant-numeric:tabular-nums}.stepper i{width:18px;height:22px;border-left:1px solid #c3c3c8;background:linear-gradient(#fff,#f1f1f3)}
+.hk{padding:4px 12px;border:1px solid #c3c3c8;border-radius:6px;background:#fff;min-width:150px;text-align:center}
+.field{flex:1;max-width:260px;padding:4px 8px;border:1px solid #c3c3c8;border-radius:6px;background:#fff;min-height:26px}.field.ph{color:#9a9aa2}.field.wide{max-width:none}.mono{font-family:ui-monospace,Menlo,monospace;font-size:11.5px}
+.status{color:var(--mut);font-size:12.5px}.status.ok{color:var(--green)}
+.editor{flex:1;background:#fff;border:1px solid #c3c3c8;border-radius:6px;padding:8px 10px;min-height:96px;font-size:12px;color:#3a3a3f;line-height:1.45}.editor .btns{display:flex;gap:6px;margin-top:8px}
+.slider{flex:1;max-width:260px;height:4px;background:#cfcfd4;border-radius:2px;position:relative}.slider i{position:absolute;top:-8px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.35)}.val{font-variant-numeric:tabular-nums;color:var(--mut);min-width:52px}
+.stub{color:var(--mut);font-size:12.5px;padding:10px 0}
+.details{display:flex;gap:14px;flex-wrap:wrap;justify-content:center;width:780px;max-width:100%}
+.card{flex:1 1 230px;background:var(--win);color:var(--txt);border-radius:10px;padding:10px 12px 4px;font-size:12.5px;box-shadow:0 12px 30px rgba(0,0,0,.35)}
+.card h4{margin:0 0 8px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--mut);font-weight:600}
+.card .group{margin-bottom:8px}.card .row>label{flex-basis:120px}.card .hk{min-width:110px}
+a{color:var(--blue);text-decoration:none}
+button:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+@media (max-width:800px){.mac{height:auto}.body{grid-template-columns:1fr}.side{flex-direction:row;flex-wrap:wrap;border-right:0;border-bottom:1px solid #d0d0d5}.row{flex-wrap:wrap}.row>label{flex-basis:100%}}
+</style>
+<div class="banner"><strong>Mockup — not shipping code · Feature v4 · “Settings — Meetings and Agents sections” · Not chosen 2026-11-09</strong>
+<p>Option 2 of 2. Two new sections: Meetings holds the capture and summary settings and fits without scrolling; Agents holds the command-line tool and the Claude Code MCP command, with room for later agent-facing settings. Keys gains AssemblyAI and Anthropic rows, Hotkeys gains Meeting, General's dictation engines gain AssemblyAI. <span class="axis">Axis vs. Option 1: a second sidebar item — the agent hook-up is discoverable on its own and the Meetings pane stays short, at the cost of a ten-item sidebar.</span> Blue edges mark what this feature adds. Design language: the accepted v1 Settings sidebar mockup and the shipping Settings window — 780×560, 190 px sidebar, grouped rows with 190 px labels, native-style controls, 12–13 pt system type.</p></div>
+<main><div id="settings-two-panes" data-mf-option="settings-two-panes" style="display:contents">
+<p class="why">The sidebar works: click Keys, Hotkeys or General to see their added rows in place. The Meetings pane is shown first.</p>
+<div class="mac"><div class="title"><span class="lights"><i style="background:#ff5f57"></i><i style="background:#febc2e"></i><i style="background:#28c840"></i></span><h1>Mini Whisper Settings</h1></div>
+<div class="body"><nav class="side"><button type="button" data-tab="general" class=""><span class="ic">⚙︎</span>General</button><button type="button" data-tab="hotkeys" class=""><span class="ic">⌘</span>Hotkeys</button><button type="button" data-tab="keys" class=""><span class="ic">🔑</span>Keys</button><button type="button" data-tab="cleanup" class=""><span class="ic">✎</span>Cleanup</button><button type="button" data-tab="vocab" class=""><span class="ic">Aa</span>Vocabulary</button><button type="button" data-tab="history" class=""><span class="ic">🕘</span>History</button><button type="button" data-tab="meetings" class="on new"><span class="ic"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><circle cx="5.5" cy="5.5" r="2.5" fill="none" stroke="#fff" stroke-width="1.6"/><circle cx="11" cy="6" r="2" fill="none" stroke="#fff" stroke-width="1.6"/><path d="M1.5 13c.5-2.5 2.2-3.8 4-3.8s3.5 1.3 4 3.8M9.5 12.8c.3-1.6 1.2-2.6 2.6-2.6 1.1 0 2 .7 2.4 2.1" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round"/></svg></span>Meetings</button><button type="button" data-tab="agents" class="new"><span class="ic">&gt;_</span>Agents</button><button type="button" data-tab="overlay" class=""><span class="ic">✦</span>Overlay</button><button type="button" data-tab="sound" class=""><span class="ic">♪</span>Sound</button></nav><div class="content"><section class="pane" data-pane="general"><h2>General</h2>
+<div class="group">
+<div class="row"><label>Live transcript</label><span class="sw on" role="switch" aria-checked="true"></span></div>
+<div class="row top"><label>Engine</label><div class="engines">
+<label class="eng sel"><input type="radio" name="e" checked><span><b>SpeechAnalyzer</b><small>On-device · macOS 26 · best accuracy</small></span><span class="status ok">Installed</span></label>
+<label class="eng"><input type="radio" name="e"><span><b>On-device (Apple Speech)</b><small>Free, offline</small></span></label>
+<label class="eng"><input type="radio" name="e"><span><b>OpenAI Realtime</b><small>Cloud · $0.017 per minute</small></span></label>
+<label class="eng needkey"><input type="radio" name="e" disabled><span><b>ElevenLabs</b><small class="hint">Add an ElevenLabs key under Keys to enable</small></span></label>
+<label class="eng"><input type="radio" name="e"><span><b>Speechmatics</b><small>Cloud · $0.0075 per minute</small></span></label>
+<label class="eng needkey new"><input type="radio" name="e" disabled><span><b>AssemblyAI</b><small class="hint">Add an AssemblyAI key under Keys to enable</small></span></label>
+</div></div>
+</div>
+<div class="group">
+<div class="row"><label>Stop microphone after idle</label><span class="stepper"><span>60 s</span><i></i></span></div>
+<div class="row"><label>Stop tap-to-talk after</label><span class="stepper"><span>5 min</span><i></i></span></div>
+<div class="row"><label>Check for updates automatically</label><span class="sw on" role="switch" aria-checked="true"></span><button class="mini" type="button">Check Now</button></div>
+</div></section><section class="pane" data-pane="hotkeys"><h2>Hotkeys</h2>
+<div class="group">
+<div class="row"><label>Record</label><span class="hk">⇧ Right ⌘</span></div>
+<div class="row"><label>Record and submit</label><span class="hk">Right ⌘</span></div>
+<div class="row new"><label>Meeting</label><span class="hk">⌃ ⌥ ⌘ M</span></div>
+<div class="foot">Press once to open the meeting chooser; press again while a meeting records to stop it. Record and Record and submit do nothing while a meeting records.</div>
+</div></section><section class="pane" data-pane="keys"><h2>Keys</h2>
+<div class="group">
+<div class="row"><label>OpenAI</label><span class="field mono">sk-…ab12</span><button class="mini" type="button">Save</button></div>
+<div class="row"><label>ElevenLabs</label><span class="field ph">not set</span><button class="mini" type="button">Save</button></div>
+<div class="row"><label>Speechmatics</label><span class="field mono">••••…9f3e</span><button class="mini" type="button">Save</button></div>
+<div class="row new"><label>AssemblyAI</label><span class="field ph">not set</span><button class="mini" type="button">Save</button></div>
+<div class="row new"><label>Anthropic</label><span class="field ph">not set</span><button class="mini" type="button">Save</button></div>
+<div class="foot">Keys live in the login Keychain and never leave this Mac except to their provider. AssemblyAI enables the AssemblyAI engines for dictation and meetings; Anthropic enables meeting summaries.</div>
+</div></section><section class="pane" data-pane="cleanup"><h2>Cleanup</h2><div class="group"><div class="stub">Unchanged by this feature.</div></div></section><section class="pane" data-pane="vocab"><h2>Vocabulary</h2><div class="group"><div class="stub">Unchanged by this feature.</div></div></section><section class="pane" data-pane="history"><h2>History</h2><div class="group"><div class="stub">Unchanged by this feature.</div></div></section><section class="pane on" data-pane="meetings"><h2>Meetings</h2><div class="group"><div class="row top"><label>Engine</label><div class="engines">
+<label class="eng sel"><input type="radio" name="m" checked><span><b>Speechmatics Standard</b><small>Speaker labels included · English</small></span><span class="price">$0.45 / h</span></label>
+<label class="eng"><input type="radio" name="m"><span><b>Speechmatics Enhanced</b><small>Higher accuracy · speaker labels included</small></span><span class="price">$0.80 / h</span></label>
+<label class="eng needkey"><input type="radio" name="m" disabled><span><b>AssemblyAI Universal-Streaming</b><small class="hint">Add an AssemblyAI key under Keys to enable</small></span><span class="price">$0.15 + $0.12 / h</span></label>
+<label class="eng needkey"><input type="radio" name="m" disabled><span><b>AssemblyAI Universal 3.6 Pro</b><small class="hint">Add an AssemblyAI key under Keys to enable</small></span><span class="price">$0.45 + $0.12 / h</span></label>
+</div></div>
+<div class="foot">Meetings are English only. The second AssemblyAI figure is its speaker-labels add-on. These list prices drive the running cost in the meeting window and the Today/Month totals.</div></div><div class="group">
+<div class="row"><label>Your name</label><span class="field">Alex</span></div>
+<div class="foot">Labels your microphone in remote calls and in exports. Starts as your macOS account name.</div>
+<div class="row"><label>Keep meeting audio</label><span class="sw on" role="switch" aria-checked="true"></span></div>
+<div class="foot">Saves the audio as AAC beside the transcript, about 29 MB per hour. Off keeps transcripts only; audio of past meetings is deleted per meeting from the Meetings window.</div>
+<div class="row"><label>System Audio Recording</label><button class="mini" type="button">Open Privacy Settings…</button></div>
+<div class="foot">macOS asks for this permission at the first remote meeting. If a remote call's transcript shows only your side, allow Mini Whisper under Privacy &amp; Security → Screen &amp; System Audio Recording.</div>
+</div><div class="group">
+<div class="row top"><label>Summary prompt</label><div class="editor">You summarise a meeting for the person who attended it. Write four sections: Summary, Decisions, Action items, Open questions. Use the speaker names exactly as given. Do not invent names, decisions or owners; when something was not settled, list it under Open questions…<div class="btns"><button class="mini" type="button">Save Prompt</button><button class="mini" type="button">Open in Editor</button><button class="mini" type="button">Restore Default</button></div></div></div>
+<div class="foot warn">Claude Sonnet 5.5 writes the summary when a meeting stops. Add an Anthropic key under Keys to enable.</div>
+</div><div class="group"><div class="row"><label>Storage</label><span class="status">12 meetings · 310 MB audio</span><button class="mini" type="button">Show in Finder</button><button class="mini" type="button">Open Meetings…</button></div>
+<div class="foot">Meetings live in ~/.config/mini-whisper/meetings and are never deleted automatically.</div></div></section><section class="pane" data-pane="agents"><h2>Agents</h2><div class="group"><div class="row"><label>Command-line tool</label><span class="status">Not installed</span><button class="mini" type="button">Install…</button></div>
+<div class="foot">Installs <span class="mono">/usr/local/bin/mini-whisper</span>, a small launcher for this app; macOS asks for an administrator password once. Then <span class="mono">mini-whisper meetings list | transcript &lt;id&gt; | summary &lt;id&gt; | search &lt;text&gt;</span> works in any terminal.</div>
+<div class="row"><label>Claude Code</label><span class="field mono wide">claude mcp add --transport stdio mini-whisper -- mini-whisper mcp</span><button class="mini" type="button">Copy</button></div>
+<div class="foot">Registers a read-only MCP server with four tools: list_meetings, get_transcript, get_summary, search_meetings. Nothing in the app can be changed through it.</div></div><div class="foot">Both read the same files the Meetings window shows. Access stays on this Mac: nothing is uploaded, and no key is involved.</div></section><section class="pane" data-pane="overlay"><h2>Overlay</h2><div class="group"><div class="stub">Unchanged by this feature.</div></div></section><section class="pane" data-pane="sound"><h2>Sound</h2><div class="group"><div class="stub">Unchanged by this feature.</div></div></section></div></div></div>
+<div class="details">
+<div class="card"><h4>Keys · two rows added</h4><div class="group">
+<div class="row new"><label>AssemblyAI</label><span class="field ph">not set</span></div>
+<div class="row new"><label>Anthropic</label><span class="field ph">not set</span></div></div></div>
+<div class="card"><h4>Hotkeys · one row added</h4><div class="group">
+<div class="row new"><label>Meeting</label><span class="hk">⌃ ⌥ ⌘ M</span></div></div></div>
+<div class="card"><h4>General · one engine added</h4><div class="group">
+<div class="row new"><label>Engine</label><span class="status">AssemblyAI joins the dictation list</span></div></div></div>
+</div>
+</div></main>
+<script>
+document.querySelectorAll('[data-tab]').forEach(t=>t.addEventListener('click',()=>{document.querySelectorAll('[data-tab]').forEach(x=>x.classList.toggle('on',x===t));document.querySelectorAll('.pane').forEach(p=>p.classList.toggle('on',p.dataset.pane===t.dataset.tab))}));
+</script>
+
+<!-- mockup-feedback:start -->
+<style>
+.mf-bar {
+  --mf-bg: #f6f7f9;
+  --mf-fg: #1a2127;
+  --mf-muted: #59646d;
+  --mf-line: #d3d9de;
+  --mf-field: #ffffff;
+  --mf-accent: #2f5fd0;
+  --mf-accent-fg: #ffffff;
+  --mf-ok: #1d7a4c;
+  --mf-warn: #8f5d00;
+  --mf-err: #b2322b;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .mf-bar {
+    --mf-bg: #161b20;
+    --mf-fg: #e3e8ec;
+    --mf-muted: #98a3ab;
+    --mf-line: #2d363e;
+    --mf-field: #0f1317;
+    --mf-accent: #7ea2f5;
+    --mf-accent-fg: #0b1220;
+    --mf-ok: #57c48c;
+    --mf-warn: #e2ac45;
+    --mf-err: #f08077;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] .mf-bar {
+  --mf-bg: #161b20;
+  --mf-fg: #e3e8ec;
+  --mf-muted: #98a3ab;
+  --mf-line: #2d363e;
+  --mf-field: #0f1317;
+  --mf-accent: #7ea2f5;
+  --mf-accent-fg: #0b1220;
+  --mf-ok: #57c48c;
+  --mf-warn: #e2ac45;
+  --mf-err: #f08077;
+  color-scheme: dark;
+}
+.mf-bar, .mf-bar * { box-sizing: border-box; }
+.mf-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 2147483000;
+  margin: 24px 0 0;
+  padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px));
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--mf-bg);
+  color: var(--mf-fg);
+  border-top: 1px solid var(--mf-line);
+  box-shadow: 0 -6px 18px rgba(0, 0, 0, 0.08);
+  font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  text-align: left;
+}
+.mf-bar[hidden] { display: none; }
+.mf-bar .mf-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+.mf-bar .mf-tag {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--mf-muted);
+}
+.mf-bar .mf-title { font-weight: 600; }
+.mf-bar .mf-context { color: var(--mf-muted); min-width: 0; overflow-wrap: anywhere; }
+.mf-bar .mf-toggle {
+  margin-left: auto;
+  padding: 2px 6px;
+  border: 0;
+  background: none;
+  color: var(--mf-accent);
+  font: inherit;
+  font-size: 13px;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.mf-bar .mf-body { display: flex; flex-direction: column; gap: 8px; }
+.mf-bar.mf-collapsed .mf-body { display: none; }
+.mf-bar .mf-options { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; border: 0; }
+.mf-bar .mf-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border: 1.5px solid var(--mf-line);
+  border-radius: 999px;
+  background: var(--mf-field);
+  cursor: pointer;
+}
+.mf-bar .mf-chip input { margin: 0; accent-color: var(--mf-accent); }
+.mf-bar .mf-chip:has(input:checked) { border-color: var(--mf-accent); }
+.mf-bar .mf-chip:has(input:focus-visible) { outline: 2px solid var(--mf-accent); outline-offset: 2px; }
+.mf-bar .mf-note {
+  width: 100%;
+  min-height: 38px;
+  max-height: 140px;
+  padding: 7px 10px;
+  resize: vertical;
+  font: inherit;
+  color: var(--mf-fg);
+  background: var(--mf-field);
+  border: 1.5px solid var(--mf-line);
+  border-radius: 8px;
+}
+.mf-bar .mf-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.mf-bar .mf-btn {
+  padding: 7px 12px;
+  border: 1.5px solid var(--mf-line);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--mf-fg);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.mf-bar .mf-btn.mf-primary { background: var(--mf-accent); border-color: var(--mf-accent); color: var(--mf-accent-fg); }
+.mf-bar .mf-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.mf-bar .mf-btn:focus-visible, .mf-bar .mf-toggle:focus-visible, .mf-bar .mf-note:focus-visible {
+  outline: 2px solid var(--mf-accent);
+  outline-offset: 2px;
+}
+.mf-bar .mf-channel { display: flex; align-items: center; gap: 6px; margin: 0; font-size: 13px; color: var(--mf-muted); }
+.mf-bar .mf-dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--mf-muted); }
+.mf-bar .mf-channel[data-state="available"] .mf-dot { background: var(--mf-ok); }
+.mf-bar .mf-channel[data-state="no_session"] .mf-dot,
+.mf-bar .mf-channel[data-state="writers_only"] .mf-dot { background: var(--mf-warn); }
+.mf-bar .mf-channel[data-state="blocked"] .mf-dot { background: var(--mf-err); }
+.mf-bar .mf-result { margin: 0; font-size: 13px; }
+.mf-bar .mf-result[data-kind="ok"] { color: var(--mf-ok); }
+.mf-bar .mf-result[data-kind="err"] { color: var(--mf-err); }
+.mf-bar .mf-verdict { margin: 0; font-weight: 600; }
+[data-mf-option].mf-selected { outline: 3px solid #3b6fe0; outline-offset: 4px; }
+</style>
+<aside class="mf-bar" id="mf-bar" role="region" aria-label="Mockup feedback" data-uncommentable hidden>
+  <div class="mf-head">
+    <span class="mf-tag">Feedback</span>
+    <span class="mf-title" id="mf-title"></span>
+    <span class="mf-context" id="mf-context"></span>
+    <button type="button" class="mf-toggle" id="mf-toggle" aria-expanded="true" aria-controls="mf-body">Hide</button>
+  </div>
+  <div class="mf-body" id="mf-body">
+    <p class="mf-verdict" id="mf-verdict" hidden></p>
+    <fieldset class="mf-options" id="mf-options" hidden></fieldset>
+    <textarea class="mf-note" id="mf-note" maxlength="1500" placeholder="Note for Claude (optional; required to request changes)" aria-label="Note for Claude"></textarea>
+    <div class="mf-actions" id="mf-actions"></div>
+    <p class="mf-channel" id="mf-channel" data-state="checking">
+      <span class="mf-dot" aria-hidden="true"></span>
+      <span id="mf-channel-text">Checking whether a Claude session is listening.</span>
+      <button type="button" class="mf-toggle" id="mf-recheck" hidden>Check again</button>
+    </p>
+    <p class="mf-result" id="mf-result" role="status" aria-live="polite" hidden></p>
+  </div>
+</aside>
+<script type="application/json" id="mf-config">{"set":"v4-s3","setLabel":"Settings layout","mode":"pick","options":[{"id":"settings-one-pane","label":"One Meetings section"},{"id":"settings-two-panes","label":"Meetings and Agents sections"}],"this":"settings-two-panes","status":"not-chosen","chosen":null}</script>
+<script>
+(function () {
+  var cfg;
+  try { cfg = JSON.parse(document.getElementById("mf-config").textContent); } catch (e) { return; }
+  if (!cfg || !cfg.options || !cfg.options.length) return;
+
+  var PREFIX = "Mockup feedback · ";
+  var CHANNEL = {
+    checking: "Checking whether a Claude session is listening.",
+    available: "A Claude session is listening. Sending wakes it.",
+    no_session: "No Claude session is listening. Reply in chat, or check again once the session is back.",
+    writers_only: "Only editors of this page can send to Claude. Reply in chat instead.",
+    off: "Sending to Claude is not offered here. Reply in chat instead.",
+    absent: "Sending works on the published page. Here, reply in chat instead.",
+    blocked: "Commenting from this page is turned off. Reply in chat instead."
+  };
+  var KNOWN = ["available", "writers_only", "no_session", "off"];
+
+  var bar = document.getElementById("mf-bar");
+  var titleEl = document.getElementById("mf-title");
+  var contextEl = document.getElementById("mf-context");
+  var toggleBtn = document.getElementById("mf-toggle");
+  var verdictEl = document.getElementById("mf-verdict");
+  var optionsEl = document.getElementById("mf-options");
+  var noteEl = document.getElementById("mf-note");
+  var actionsEl = document.getElementById("mf-actions");
+  var channelEl = document.getElementById("mf-channel");
+  var channelText = document.getElementById("mf-channel-text");
+  var recheckBtn = document.getElementById("mf-recheck");
+  var resultEl = document.getElementById("mf-result");
+
+  var comments = null;
+  var state = "checking";
+  var busy = false;
+  var sent = false;
+  var buttons = [];
+
+  function byId(list, id) {
+    for (var i = 0; i < list.length; i++) if (list[i].id === id) return list[i];
+    return null;
+  }
+  function label(id) { var o = byId(cfg.options, id); return o ? o.label : id; }
+  function root(id) { return document.querySelector('[data-mf-option="' + id + '"]'); }
+  function picked() {
+    if (cfg.mode !== "compare") return cfg.mode === "pick" ? cfg["this"] : cfg.options[0].id;
+    var r = optionsEl.querySelector("input:checked");
+    return r ? r.value : null;
+  }
+  function say(text, kind) {
+    resultEl.hidden = !text;
+    resultEl.textContent = text || "";
+    if (kind) resultEl.setAttribute("data-kind", kind);
+    else resultEl.removeAttribute("data-kind");
+  }
+  function clean(text) {
+    return text.replace(/[\u0000-\u0008\u000B-\u001F\u007F]/g, "").trim();
+  }
+
+  // Header: the set, and where this page sits in it.
+  titleEl.textContent = cfg.setLabel;
+  if (cfg.mode === "pick") {
+    var others = [];
+    var position = 0;
+    for (var i = 0; i < cfg.options.length; i++) {
+      if (cfg.options[i].id === cfg["this"]) position = i + 1;
+      else others.push(cfg.options[i].label);
+    }
+    contextEl.textContent = "Option " + position + " of " + cfg.options.length + ": " + label(cfg["this"]) +
+      ". The others are on their own pages: " + others.join(", ") + ". Choosing here rules them out.";
+  } else if (cfg.mode === "compare") {
+    contextEl.textContent = cfg.options.length + " options on this page. Pick one.";
+  } else {
+    contextEl.textContent = label(cfg.options[0].id);
+  }
+
+  toggleBtn.addEventListener("click", function () {
+    var collapsed = bar.classList.toggle("mf-collapsed");
+    toggleBtn.textContent = collapsed ? "Show" : "Hide";
+    toggleBtn.setAttribute("aria-expanded", collapsed ? "false" : "true");
+  });
+
+  // A settled page shows its verdict and nothing to act on.
+  if (cfg.status !== "open") {
+    var verdict = {
+      accepted: cfg.mode === "compare" ? "Accepted: " + label(cfg.chosen) + "." : "Accepted.",
+      "not-chosen": "Not chosen.",
+      closed: "Closed. Choices on this page are no longer read."
+    }[cfg.status] || "Closed.";
+    verdictEl.textContent = verdict;
+    verdictEl.hidden = false;
+    noteEl.hidden = true;
+    channelEl.hidden = true;
+    if (cfg.mode === "compare" && cfg.status === "accepted" && root(cfg.chosen)) root(cfg.chosen).classList.add("mf-selected");
+    bar.hidden = false;
+    return;
+  }
+
+  // Compare: one chip per option, outlining its section when picked.
+  if (cfg.mode === "compare") {
+    var legend = document.createElement("legend");
+    legend.className = "mf-tag";
+    legend.textContent = "Options";
+    optionsEl.appendChild(legend);
+    cfg.options.forEach(function (o) {
+      var chip = document.createElement("label");
+      chip.className = "mf-chip";
+      var input = document.createElement("input");
+      input.type = "radio";
+      input.name = "mf-option";
+      input.id = "mf-option-" + o.id;
+      input.value = o.id;
+      input.addEventListener("change", function () {
+        var all = document.querySelectorAll("[data-mf-option]");
+        for (var k = 0; k < all.length; k++) all[k].classList.remove("mf-selected");
+        var el = root(o.id);
+        if (el) {
+          el.classList.add("mf-selected");
+          var still = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+          el.scrollIntoView({ block: "nearest", behavior: still ? "auto" : "smooth" });
+        }
+        refresh();
+      });
+      chip.appendChild(input);
+      chip.appendChild(document.createTextNode(o.label));
+      optionsEl.appendChild(chip);
+    });
+    optionsEl.hidden = false;
+  }
+
+  // Actions per shape. needsNote: a change request must say what to change.
+  var ACTIONS = {
+    review: [
+      { action: "accept", text: "Looks right", primary: true },
+      { action: "revise", text: "Request changes", needsNote: true },
+      { action: "alternatives", text: "Show alternatives" }
+    ],
+    compare: [
+      { action: "choose", text: "Send choice", primary: true, needsPick: true },
+      { action: "none", text: "None of these", needsNote: true },
+      { action: "comment", text: "Comment on this option", needsPick: true }
+    ],
+    pick: [
+      { action: "choose", text: "Choose this one", primary: true },
+      { action: "revise", text: "Request changes", needsNote: true },
+      { action: "none", text: "None of these", needsNote: true }
+    ]
+  }[cfg.mode] || [];
+
+  ACTIONS.forEach(function (a) {
+    var b = document.createElement("button");
+    b.type = "button";
+    b.className = "mf-btn" + (a.primary ? " mf-primary" : "");
+    b.id = "mf-" + a.action;
+    b.textContent = a.text;
+    b.addEventListener("click", function () {
+      if (a.action === "comment") compose();
+      else send(a);
+    });
+    actionsEl.appendChild(b);
+    buttons.push({ el: b, spec: a });
+  });
+
+  function render() {
+    channelEl.setAttribute("data-state", state);
+    channelText.textContent = CHANNEL[state] || CHANNEL.off;
+    recheckBtn.hidden = !comments || state === "available" || state === "checking" || state === "blocked";
+    var pick = picked();
+    buttons.forEach(function (b) {
+      if (b.spec.action === "comment") {
+        b.el.disabled = !comments || !pick;
+        b.el.hidden = !comments;
+        return;
+      }
+      b.el.disabled = busy || sent || state !== "available" || (b.spec.needsPick && !pick);
+    });
+    noteEl.disabled = sent;
+  }
+
+  function refresh() {
+    if (!comments || state === "blocked") { render(); return; }
+    comments.canSendToClaude().then(function (v) {
+      return KNOWN.indexOf(v) === -1 ? "off" : v;
+    }, function () {
+      return "off";
+    }).then(function (v) {
+      if (comments && state !== "blocked") state = v;
+      render();
+    });
+  }
+
+  function fail(err) {
+    var code = err && err.code;
+    if (code === "consent_required") {
+      say("Not sent. The page was not allowed to comment as you. Your note is kept.", "err");
+    } else if (code === "forbidden") {
+      state = "blocked";
+      say("Not sent. Commenting from this page is turned off.", "err");
+    } else if (code === "claude_unavailable") {
+      say("Not sent. No Claude session could receive it. Nothing was posted.", "err");
+      refresh();
+    } else if (code === "rate_limited") {
+      say("Not sent. Too many sends in a row. Wait a moment.", "err");
+    } else if (code === "invalid" || code === "transform_error") {
+      say("Not sent. The note has characters a comment cannot carry.", "err");
+    } else if (code === "not_granted" || code === "capability_disabled" || code === "capability_removed") {
+      comments = null;
+      state = "absent";
+      say("Not sent. This view cannot post comments from the page.", "err");
+    } else {
+      say("Not sent. Comments are unavailable right now. Try once more.", "err");
+    }
+  }
+
+  function send(spec) {
+    if (!comments || busy || sent) return;
+    var option = spec.action === "choose" || spec.action === "accept" || spec.action === "revise" ? picked() : null;
+    if (spec.needsPick && !option) { say("Pick an option first.", "err"); return; }
+    var note = clean(noteEl.value);
+    if (spec.needsNote && !note) {
+      say("Add a note saying what to change.", "err");
+      noteEl.focus();
+      return;
+    }
+    var text = PREFIX + cfg.set + " · " + spec.action + (option ? " " + option : "") + (note ? "\nNote: " + note : "");
+    var target = root(option || picked() || cfg.options[0].id) || bar.parentNode;
+    busy = true;
+    say("", null);
+    render();
+    comments.anchorFor(target).then(function (anchor) {
+      return comments.sendToClaude({ anchor: anchor, text: text });
+    }).then(function () {
+      sent = true;
+      say("Sent to Claude: " + spec.text.toLowerCase() + (option ? " (" + label(option) + ")" : "") +
+        ". Claude replies in the comment thread and updates this page.", "ok");
+    }, fail).then(function () {
+      busy = false;
+      render();
+    });
+  }
+
+  function compose() {
+    var option = picked();
+    var el = option && root(option);
+    if (!comments || !el) return;
+    comments.openComposer({ element: el }).then(function (r) {
+      if (r && r.opened) say("Comment box opened on " + label(option) + ". Write your comment and press Send to Claude.", "ok");
+    }, function (err) {
+      say(err && err.code === "rate_limited" ? "Too many tries in a row. Wait a moment." : "The comment box is unavailable here.", "err");
+    });
+  }
+
+  recheckBtn.addEventListener("click", refresh);
+  window.addEventListener("focus", refresh);
+  bar.hidden = false;
+  render();
+
+  var ready = window.claude && typeof window.claude.use === "function"
+    ? window.claude.use("comments")
+    : Promise.resolve(null);
+  ready.then(function (ns) { return ns; }, function () { return null; }).then(function (ns) {
+    comments = ns;
+    if (!ns) { state = "absent"; render(); return; }
+    refresh();
+  });
+})();
+</script>
+<!-- mockup-feedback:end -->
