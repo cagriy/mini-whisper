@@ -584,13 +584,13 @@ import MWStreaming
     }
 
     @Test func assemblyAIEndMessageIsTerminate() throws {
-        var adapter = AssemblyAIAdapter(apiKey: Self.key)
+        let adapter = AssemblyAIAdapter(apiKey: Self.key)
 
         #expect(try adapter.endMessages().map { try json($0) } == [.object(["type": .string("Terminate")])])
     }
 
     @Test func assemblyAITerminationCompletes() throws {
-        var adapter = AssemblyAIAdapter(apiKey: Self.key)
+        let adapter = AssemblyAIAdapter(apiKey: Self.key)
         var emitter = AdapterEmitter()
 
         let complete = try adapter.handle(

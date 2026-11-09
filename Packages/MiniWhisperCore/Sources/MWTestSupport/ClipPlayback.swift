@@ -17,11 +17,14 @@ public enum ClipPlayback {
 
     private static let frameCapacity: AVAudioFrameCount = 4_096
 
+    /// `realTime` paces the feed at the clip's own rate, for a provider that rejects
+    /// audio sent faster than real time.
     public static func play(
         _ clip: URL,
         through engine: any StreamingEngine,
         sink: any TranscriptSink,
-        timeout: Duration
+        timeout: Duration,
+        realTime: Bool = false
     ) async throws -> StreamResult {
         engine.start(sink: sink)
 
@@ -38,6 +41,9 @@ public enum ClipPlayback {
             try file.read(into: buffer, frameCount: min(frameCapacity, remaining))
             guard buffer.frameLength > 0 else { break }
             engine.feed(buffer)
+            if realTime {
+                try await Task.sleep(for: .seconds(Double(buffer.frameLength) / buffer.format.sampleRate))
+            }
         }
 
         return await engine.finish(timeout: timeout)

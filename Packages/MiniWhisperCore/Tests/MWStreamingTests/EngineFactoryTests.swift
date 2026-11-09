@@ -9,10 +9,15 @@ import MWStreaming
 
 private enum TestConnectError: Error { case refused }
 
-/// Records what the factory would dial without opening a socket.
+/// Records what the factory would dial; without a connection to hand back, no socket opens.
 private final class ConnectRecorder: @unchecked Sendable {
     private let lock = NSLock()
     private var calls: [(url: URL, headers: [String: String])] = []
+    let connection: (any WebSocketConnection)?
+
+    init(connection: (any WebSocketConnection)? = nil) {
+        self.connection = connection
+    }
 
     var urls: [URL] { lock.withLock { calls.map(\.url) } }
     var headers: [[String: String]] { lock.withLock { calls.map(\.headers) } }
@@ -20,7 +25,8 @@ private final class ConnectRecorder: @unchecked Sendable {
     var connect: @Sendable (URL, [String: String]) async throws -> any WebSocketConnection {
         { url, headers in
             self.lock.withLock { self.calls.append((url, headers)) }
-            throw TestConnectError.refused
+            guard let connection = self.connection else { throw TestConnectError.refused }
+            return connection
         }
     }
 }
@@ -288,6 +294,102 @@ private final class ConnectRecorder: @unchecked Sendable {
         for frame in frames {
             #expect(!Self.terms.contains { frame.contains($0) })
         }
+    }
+
+    // MARK: - Meeting engines
+
+    private struct MeetingSession {
+        let name: EngineName
+        let url: URL
+        let headers: [String: String]
+        let frames: [String]
+
+        var query: [String: String] {
+            let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
+            return Dictionary(uniqueKeysWithValues: items.map { ($0.name, $0.value ?? "") })
+        }
+    }
+
+    /// What a meeting engine dials and sends before the scripted server error ends it.
+    private func meetingSession(
+        _ tier: MeetingEngine,
+        hints: RecognitionHints = .none
+    ) async throws -> MeetingSession {
+        let clock = VirtualClock()
+        let recorder = ConnectRecorder(connection: FakeWebSocketConnection(
+            script: FixtureScript(steps: [.serverError("stop")]), clock: clock
+        ))
+        let engine = factory(clock: clock, connect: recorder.connect)
+            .makeMeeting(tier, key: Self.meetingKey, hints: hints)
+        engine.start(sink: RecordingSink())
+        _ = await engine.finish(timeout: .seconds(5))
+
+        let connection = try #require(recorder.connection as? FakeWebSocketConnection)
+        return MeetingSession(
+            name: engine.name,
+            url: try #require(recorder.urls.first),
+            headers: try #require(recorder.headers.first),
+            frames: connection.sentMessages.compactMap {
+                guard case .text(let frame) = $0 else { return nil }
+                return frame
+            }
+        )
+    }
+
+    private static let meetingKey = "placeholder-not-a-real-key"
+
+    @Test(arguments: [(MeetingEngine.speechmaticsStandard, "standard"), (.speechmaticsEnhanced, "enhanced")])
+    func makeMeetingSpeechmaticsTiersAreDiarizedWithTheirModel(_ tier: MeetingEngine, _ model: String) async throws {
+        let session = try await meetingSession(tier)
+        let start = try JSONDecoder().decode(JSONValue.self, from: Data(try #require(session.frames.first).utf8))
+        guard case .object(let fields) = start, case .object(let config)? = fields["transcription_config"] else {
+            Issue.record("no transcription_config in \(start)")
+            return
+        }
+
+        #expect(session.name == .speechmatics)
+        #expect(session.headers == ["Authorization": "Bearer \(Self.meetingKey)"])
+        #expect(config["diarization"] == .string("speaker"))
+        #expect(config["speaker_diarization_config"] == .object(["max_speakers": .number(10)]))
+        #expect(config["model"] == .string(model))
+    }
+
+    @Test func makeMeetingAssemblyAIStreamingFormatsTurns() async throws {
+        let session = try await meetingSession(.assemblyaiStreaming)
+
+        #expect(session.name == .assemblyai)
+        #expect(session.headers == ["Authorization": Self.meetingKey])
+        #expect(session.query == [
+            "speech_model": "universal-streaming-english",
+            "encoding": "pcm_s16le",
+            "sample_rate": "16000",
+            "speaker_labels": "true",
+            "max_speakers": "10",
+            "speaker_labels_revision_interval_ms": "300000",
+            "format_turns": "true",
+        ])
+    }
+
+    @Test func makeMeetingAssemblyAIProDoesNotFormatTurns() async throws {
+        let session = try await meetingSession(.assemblyaiPro)
+
+        #expect(session.query == [
+            "speech_model": "universal-3-6-pro",
+            "encoding": "pcm_s16le",
+            "sample_rate": "16000",
+            "speaker_labels": "true",
+            "max_speakers": "10",
+            "speaker_labels_revision_interval_ms": "300000",
+        ])
+    }
+
+    @Test func makeMeetingPassesHints() async throws {
+        let speechmatics = try await meetingSession(.speechmaticsStandard, hints: Self.hints)
+        let assemblyAI = try await meetingSession(.assemblyaiPro, hints: Self.hints)
+
+        #expect(speechmatics.frames.first?.contains("\"additional_vocab\"") == true)
+        #expect(speechmatics.frames.first?.contains("\"content\":\"Aoife\"") == true)
+        #expect(assemblyAI.query["keyterms_prompt"] == #"["Aoife","eefa","xcodegen"]"#)
     }
 
     // MARK: - SpeechAnalyzer gating
