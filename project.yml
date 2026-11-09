@@ -55,6 +55,10 @@ targets:
         product: MWOverlaySim
       - package: MiniWhisperCore
         product: MWPipeline
+      - package: MiniWhisperCore
+        product: MWMeetings
+      - package: MiniWhisperCore
+        product: MWAgentAccess
       - package: Sparkle
     settings:
       base:
