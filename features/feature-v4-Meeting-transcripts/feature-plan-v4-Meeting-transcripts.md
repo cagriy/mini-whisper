@@ -2605,6 +2605,19 @@ None — plan matches design v4 exactly.
   earlier, a revision) invalidates them for one rebuild on the next read, counted by `rebuilds`.
   Added `remoteDescriptionNamesTheUser`, `lateOrRevisedSegmentsRegroupParagraphs` and
   `headerShowsTheMeetingTitleModeAndEngine`.
+- **Stage 24.** `MeetingControlling` also exposes `events`, `meeting`, `pause`, `resume`, `rename`
+  and `addNote`, which the window needs. The window is behind `MeetingWindowPresenting` and its
+  buttons go through a `MeetingActions` value, so the coordinator is host-tested without AppKit.
+  The front app comes from an injected closure that skips Mini Whisper itself, and it is passed to
+  that meeting's controller. The coordinator also has `openChooser()` for *Start Meeting…*, which
+  brings an open chooser to the front, and `start()`. A press after a meeting has stopped opens a
+  new chooser (added test `pressAfterTheMeetingStoppedOpensANewChooser`); the stopped meeting's
+  window stays open until closed. A failed Start shows its error in the chooser
+  (`MeetingWindowModel.showError`). The chooser reads the config as last applied. Window titles are
+  "New Meeting", then "Meeting". The menu rows and usage totals refresh on every state change and
+  on the summary. The notes composer is an `NSTextView`, because its `insertNewline:` command tells
+  Enter from Shift+Enter. A dictation release while a meeting is active is ignored, as planned, so
+  a dictation held across the meeting's start ends through its own toggle cap.
 
 ## Execution schedule
 
