@@ -59,6 +59,8 @@ targets:
         product: MWMeetings
       - package: MiniWhisperCore
         product: MWAgentAccess
+      - package: MiniWhisperCore
+        product: MWMeetingPipeline
       - package: Sparkle
     settings:
       base:
