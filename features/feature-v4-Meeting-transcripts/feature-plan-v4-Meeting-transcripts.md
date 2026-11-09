@@ -2173,6 +2173,26 @@ CLI/MCP usage are in the README, and the CHANGELOG lists every item in design §
 
 **Risks specific to this stage:** None.
 
+### Stage 29 — Dead-code cleanup
+
+**Goal:** Remove what the whole-project dead-code sweep found after Stage 28 (added by
+`/feature-implement`).
+
+**Touches:**
+- edit `App/Meeting/MeetingView.swift`
+
+**Steps (refactor):**
+1. `periphery scan --project "Mini Whisper.xcodeproj" --schemes MiniWhisper --retain-public
+   --baseline <baseline>` reports `Renaming.speaker` as assign-only: the rename popover reads the
+   paragraph's speaker. Replace `Renaming` with the paragraph id.
+2. The other 41 findings are `MCPMessages` properties read only by synthesized `Encodable`; a rescan
+   with `--retain-codable-properties` reports nothing outside the baseline.
+3. Both suites stay green.
+
+**Definition of done:** periphery reports no finding outside the pre-feature baseline.
+
+**Risks specific to this stage:** None.
+
 ## Cross-cutting concerns
 
 **Security.**
@@ -2695,6 +2715,7 @@ Batches run in order; a batch starts only when the previous one has fully landed
 | 18 | Stage 25 | serial | Edits `MeetingWindowModel` and `MeetingView` from Stage 24 |
 | 19 | Stage 26 | serial | Consumes Stage 25's exporter; edits `MenuModel`, `AppDelegate`, `MeetingCoordinator` |
 | 20 | Stage 27, Stage 28 | parallel | Disjoint files: Settings sources, `AppDelegate` and `SettingsModelTests`, vs `README.md` and `CHANGELOG.md` (docs only). No symbol or string-keyed dependency (prose only). No shared registration point. Same base state. No excluded category. No security ordering involved. No shared test resource (Stage 28 runs no tests) |
+| 21 | Stage 29 | serial | Added by `/feature-implement`'s dead-code sweep; edits a file of Stage 25 |
 
 **Critical path:** Stage 1 → Stage 2 → Stage 4 → Stage 11 → Stage 5 → Stage 6 → Stage 7 → Stage 8 →
 Stage 13 → Stage 19 → Stage 15 → Stage 17 → Stage 18 → Stage 21 → Stage 22 → Stage 23 → Stage 24 →

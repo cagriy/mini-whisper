@@ -293,11 +293,6 @@ private struct TranscriptView: View {
     let model: MeetingWindowModel
     let actions: MeetingActions
 
-    private struct Renaming: Equatable {
-        var paragraph: UUID
-        var speaker: Int
-    }
-
     private struct PendingMerge {
         var speaker: Int
         var name: String
@@ -311,7 +306,8 @@ private struct TranscriptView: View {
         Color(red: 0.70, green: 0.40, blue: 0.11),
     ]
 
-    @State private var renaming: Renaming?
+    /// The paragraph whose speaker popover is open.
+    @State private var renaming: UUID?
     @State private var renameDraft = ""
     @State private var pendingMerge: PendingMerge?
     /// The paragraph being edited, and its segments' texts (R13).
@@ -389,13 +385,13 @@ private struct TranscriptView: View {
             HStack(spacing: 8) {
                 Button(model.name(of: paragraph.speaker)) {
                     renameDraft = model.name(of: paragraph.speaker)
-                    renaming = Renaming(paragraph: paragraph.id, speaker: paragraph.speaker)
+                    renaming = paragraph.id
                 }
                 .buttonStyle(.plain)
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(color(of: paragraph.speaker))
                 .popover(isPresented: Binding(
-                    get: { renaming?.paragraph == paragraph.id },
+                    get: { renaming == paragraph.id },
                     set: { if !$0 { renaming = nil } }
                 )) {
                     renamePopover(speaker: paragraph.speaker)
@@ -457,7 +453,7 @@ private struct TranscriptView: View {
         Divider()
         Button("Rename “\(model.name(of: paragraph.speaker))”…") {
             renameDraft = model.name(of: paragraph.speaker)
-            renaming = Renaming(paragraph: paragraph.id, speaker: paragraph.speaker)
+            renaming = paragraph.id
         }
     }
 
