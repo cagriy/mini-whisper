@@ -949,7 +949,7 @@
         </span>
         <span class="step-label">Plan</span>
       </li>
-      <li class="step" data-stage="implement" data-state="pending">
+      <li class="step" data-stage="implement" data-state="complete">
         <span class="step-indicator" aria-hidden="true">
           <span class="step-check">&#10003;</span>
           <span class="step-number">4</span>
@@ -1505,16 +1505,120 @@ Rejected: <a href="./mockups/mockup-v4-settings-two-panes.html">Settings — Mee
 
     <section class="panel" role="tabpanel"
              id="panel-implementation" aria-labelledby="tab-implementation" hidden>
-      <p class="section-timestamp">Awaiting /feature-implement</p>
+      <p class="section-timestamp">Updated 2026-11-09 23:38 UTC</p>
       <!-- usage:IMPLEMENTATION_USAGE_CHIP --><!-- /usage:IMPLEMENTATION_USAGE_CHIP -->
       <article class="panel-section">
         <h2 class="section-label">Highlights</h2>
-        <div class="bullets"><p class="empty">Not yet filled — pending /feature-implement.</p></div>
+        <div class="bullets"><ul>
+<li>Stages completed: 30/30 (28 planned, plus Stage 29 dead-code cleanup and Stage 30 coverage gaps)</li>
+<li>Tests: core 819/819, app 243/243 passing (baseline 691 core, 132 app)</li>
+<li>Design coverage: 28/28 requirements have a verifying test; view-only parts are on the manual checklist</li>
+<li>Pre-existing failures excluded: none. The red baseline (a date time-bomb in HistoryStoreTests) was fixed first</li>
+<li>Dead-code orphans removed: 1 (<code>Renaming.speaker</code> in MeetingView)</li>
+<li>Deviations from plan: 28 stage entries plus 3 notes, all in the plan's Deviations section</li>
+<li>Fixes outside the plan: 4, two of them security or behaviour issues found in review (installer root write, dictation still running at meeting start)</li>
+<li>Parallel batches: 4, building 12 stages in worktrees</li>
+<li>Final stage commit: c4a52e2; main is ahead of origin, nothing pushed</li>
+<li>Manual and <code>MW_INTEGRATION=1</code> checks still pending</li>
+</ul></div>
         <!-- usage:IMPLEMENTATION_USAGE --><!-- /usage:IMPLEMENTATION_USAGE -->
       </article>
       <article class="panel-section">
         <h2 class="section-label">Detail</h2>
-        <div class="prose"><p class="empty">Not yet filled — pending /feature-implement.</p></div>
+        <div class="prose"><h3>Stages completed</h3>
+<ul>
+<li>Stage 1 — Meeting config keys, MeetingEngine, two Keychain accounts, the summary prompt file — <code>e64ed39</code></li>
+<li>Stage 2 — Meeting pricing keys and the Speechmatics price correction — <code>73195f7</code> (parallel, batch 2)</li>
+<li>Stage 3 — AnthropicClient, Summarizing and SummaryResult — <code>d8a5860</code> (parallel, batch 2)</li>
+<li>Stage 4 — The streaming seam: segments, speaker revisions, session limits, close codes, minimum chunk — <code>6bbf15c</code></li>
+<li>Stage 5 — Speechmatics diarization, model and session-timeout warning — <code>4797680</code> (parallel, batch 5)</li>
+<li>Stage 6 — AssemblyAI streaming adapter and the assemblyai dictation engine — <code>ca1dd78</code></li>
+<li>Stage 7 — Meeting engines: MeetingEngineProviding, makeMeeting and PlatformInfo.supportsSystemAudio — <code>4926f3a</code></li>
+<li>Stage 8 — Capture engine meeting mode: hold, meeting listener, voice processing, meeting events — <code>b4fcdb5</code></li>
+<li>Stage 9 — AACFileWriter — <code>604d9db</code> (parallel, batch 2)</li>
+<li>Stage 10 — SystemAudioTap and its seams — <code>9ed090a</code> (parallel, batch 2)</li>
+<li>Stage 11 — MWMeetings target: model, MeetingStore, MeetingReading — <code>046aa9a</code></li>
+<li>Stage 12 — MeetingMarkdown, TitleSanitizer, MeetingTitle, MeetingSearch — <code>a823cfa</code> (parallel, batch 5)</li>
+<li>Stage 13 — MWMeetingPipeline target: SpeechGate, AudioMixer, system-audio ring, float resampling — <code>3ad4c7d</code></li>
+<li>Stage 14 — SpeakerRegistry and SpeakerAttributor — <code>4e5bb3f</code> (parallel, batch 11)</li>
+<li>Stage 15 — SessionSupervisor — <code>cd4e696</code> (parallel, batch 11)</li>
+<li>Stage 16 — MeetingRecorder, MeetingBilling, Summariser — <code>001a013</code> (parallel, batch 11)</li>
+<li>Stage 17 — MeetingController I: start, audio tick, segments, stop, persistence, billing, summary — <code>0c8ee06</code></li>
+<li>Stage 18 — MeetingController II: pause, sleep, device change, silence hint, rename, notes, revisions, edits, open, retitle — <code>ae676f0</code></li>
+<li>Stage 19 — MWAgentAccess target and MeetingsCLI — <code>26e3424</code></li>
+<li>Stage 20 — MCPServer — <code>a3ca280</code> (parallel, batch 11)</li>
+<li>Stage 21 — App CLI entry: AgentCommand, main.swift, CommandLineToolInstaller — <code>cc6bdc5</code></li>
+<li>Stage 22 — The meeting hotkey binding — <code>5fca8e3</code></li>
+<li>Stage 23 — MeetingWindowModel: chooser and live transcript reduction — <code>a9db7d0</code></li>
+<li>Stage 24 — MeetingCoordinator, the meeting window, menu, dictation lock, quit prompt — <code>8c97e2b</code></li>
+<li>Stage 25 — Stopped state: summary panel, Summarise, edit and reassign, export, header rename — <code>4a1efff</code></li>
+<li>Stage 26 — Meetings list window — <code>daef6d5</code></li>
+<li>Stage 27 — Settings → Meetings section — <code>e7ab021</code> (parallel, batch 20)</li>
+<li>Stage 28 — README and CHANGELOG — <code>65912e5</code> (parallel, batch 20)</li>
+<li>Stage 29 — Dead-code cleanup — <code>05f3f30</code></li>
+<li>Stage 30 — Coverage gaps — <code>c4a52e2</code></li>
+</ul>
+<h3>Tests &amp; lint</h3>
+<ul>
+<li>Core (<code>swift test</code>): 16 targets, 819 tests, all pass. App (<code>xcodebuild test</code>): 243 tests in 29 suites, all pass.</li>
+<li>No lint, format or type-check tooling is configured; type-checking is the build.</li>
+<li>Pre-existing failures excluded from gating: none. The baseline was red (<code>HistoryStoreTests</code> paired a real <code>Date()</code> with fixed dates), so its clock was pinned first in <code>2b6abfa</code>.</li>
+<li>A flaky hang in replay tests was traced to a lost wakeup in <code>FakeWebSocketConnection</code> and fixed, with a 20 000-iteration regression test, in <code>b1a07fb</code>.</li>
+<li>Dead code: <code>periphery --retain-public</code> against the pre-feature baseline left one orphan, removed in Stage 29. The 41 <code>MCPMessages</code> findings are <code>Encodable</code> properties; a rescan with <code>--retain-codable-properties</code> reports nothing new.</li>
+</ul>
+<h3>Design coverage</h3>
+<table>
+<thead><tr><th>Req</th><th>Requirement</th><th>Verifying tests</th></tr></thead>
+<tbody>
+<tr><td>R1</td><td>Meeting hotkey toggles chooser and stop; menu items</td><td>HotkeyMatcherTests.meetingChordFiresOnlyTheMeetingBinding, MeetingCoordinatorTests (first press, ignore while open, stop), MenuModelTests.activeMeetingShowsStopAndShowMeeting</td></tr>
+<tr><td>R2</td><td>Chooser cards, price per hour, 14.2 gate, System Audio note</td><td>MeetingWindowModelTests.chooserShowsAboutPricePerHourForTheResolvedEngine, remoteCardIsDisabledBelow142, systemAudioNoteShowsOnlyBeforeTheFirstRemoteMeeting</td></tr>
+<tr><td>R3</td><td>Remote mixes mic + tap; mic overlap → user; in-room mic only</td><td>MeetingControllerTests.remoteTickFeedsMixedAudio…, inRoomTickBypassesTheGateAndTheMixer, SpeakerAttributorTests (live diarization opt-in)</td></tr>
+<tr><td>R4</td><td>Four engine tiers, key fallback, Start gating, English</td><td>MeetingEngineTests.resolve…, MeetingControllerTests.startWithoutAnyKeyThrowsNoEngineKey, MeetingWindowModelTests.startIsDisabledWithoutAnyKey</td></tr>
+<tr><td>R5</td><td>AssemblyAI dictation engine</td><td>CloudAdapterTests.assemblyAIDictationURLAndHeader, EngineFactoryTests.assemblyAIUsesTheAssemblyAIKeyAccount</td></tr>
+<tr><td>R6</td><td>AssemblyAI and Anthropic keys, sk-ant- check</td><td>KeysSectionTests.everyKeyAccountHasARow, SettingsModelTests.anthropicKeyMustStartWithSkAnt</td></tr>
+<tr><td>R7</td><td>Merged paragraphs, partial, rename</td><td>MeetingWindowModelTests.consecutiveSegmentsOfOneSpeakerMergeIntoOneParagraph, MeetingControllerEditingTests.renameToAnExistingNameMergesAndRewritesSegments</td></tr>
+<tr><td>R8</td><td>Notes at first keystroke, inline, pane, exports, summariser</td><td>MeetingWindowModelTests.noteTimeIsTheFirstKeystroke, MeetingControllerEditingTests.addNotePersists…, SummariserTests.userCarriesSpeakersNotesAndTranscriptInDelimiters</td></tr>
+<tr><td>R9</td><td>Pause, silence padding, Paused marker, sleep auto-pause</td><td>MeetingControllerLifecycleTests.pauseClosesTheSession…, resumePadsSilence…, sleepAutoPauses…</td></tr>
+<tr><td>R10</td><td>Reconnect with backoff, gap marker, rollover, recording continues</td><td>SessionSupervisorTests.engineErrorReconnectsWithTheBackoffSequence, rolloverOpensTheNextSessionAtExpiresAtMinusSixty, MeetingControllerLifecycleTests.audioKeepsRecordingWhileTheSessionReconnects</td></tr>
+<tr><td>R11</td><td>Fresh labels per session, revisions, pinned wins</td><td>SpeakerRegistryTests.aNewSessionsLabelsAllocateFreshNumbers, MeetingControllerEditingTests.speakerRevisionRemapsByTurnOrderWithinItsSession, pinnedSegmentIsNeverRevised</td></tr>
+<tr><td>R12</td><td>Stop, bill, write, summarise; summary panel states</td><td>MeetingControllerTests.stopWithAKeyStoresTheSummaryAndBillsItsTokens, refusalReadsSummaryDeclinedWithCategory, MeetingWindowModelTests.readyPanelSplitsTheFourSections</td></tr>
+<tr><td>R13</td><td>Edit and reassign after Stop</td><td>MeetingControllerEditingTests.editIsRefusedWhileRecording, editAfterStopPersistsAndMarksEdited, reassignAfterStopPinsAndPersists</td></tr>
+<tr><td>R14</td><td>Folder layout, 0700/0600, AAC 16 kHz mono</td><td>MeetingStoreTests.createMakesA0700FolderAnd0600Files, AACFileWriterTests.writesADecodable16kMonoAACFile, MeetingControllerTests.keepAudioOffWritesNoAudioFile</td></tr>
+<tr><td>R15</td><td>Default title from front app; rename in window and list</td><td>TitleSanitizerTests.defaultTitleUsesTheFrontApp, MeetingCoordinatorTests.chooserCapturesTheFrontAppBeforeItOpens, MeetingsListModelTests.renameUpdatesTheRowAndTheStore</td></tr>
+<tr><td>R16</td><td>Meetings window rows, footer, search, empty state</td><td>MeetingsListModelTests.rowsGroupByDayNewestFirst, searchShowsUpToTwoLabelledSnippets, footerActionsStartAMeetingAndShowTheFolder</td></tr>
+<tr><td>R17</td><td>Markdown exports, sanitised names, Export both, refusal</td><td>MeetingMarkdownTests.transcriptMatchesTheGolden, MeetingExporterTests.exportBothWritesTwoFilesIntoTheFolder, exportSummaryWithoutOneIsRefused</td></tr>
+<tr><td>R18</td><td>Live estimate, Stop billing, summary tokens, pricing keys</td><td>PricingTests.meetingCostHonoursOverridesOfEveryNewKey, MeetingBillingTests.liveCostAssemblyAIIncludesDiarization, MeetingControllerTests.elapsedAndCostTickEverySecond</td></tr>
+<tr><td>R19</td><td>Dictation locked during a meeting</td><td>HotkeyRoutingTests.dictationPressWhileAMeetingIsActiveShowsTheNotice, MeetingCoordinatorTests.startEndsAnInFlightDictationFirst</td></tr>
+<tr><td>R20</td><td>Settings → Meetings</td><td>SettingsModelTests.engineRowsShowPricesAndKeyGating, summaryPromptSavesAndRestoresTheDefault, installReportsSuccessOrTheErrorText</td></tr>
+<tr><td>R21</td><td>CLI and MCP server, read-only</td><td>MeetingsCLITests.transcriptPrintsExactlyMeetingMarkdown, MCPServerTests.toolsListHasFourReadOnlyToolsWithSchemas, AgentCommandTests.mcpIsRecognised</td></tr>
+<tr><td>R22</td><td>Install… writes a wrapper, never a symlink</td><td>CommandLineToolInstallerTests.scriptBakesTheBundlePath, writeAsUserReplacesASymlinkInsteadOfWritingThroughIt</td></tr>
+<tr><td>R23</td><td>README and CHANGELOG</td><td>README.md Meetings section; CHANGELOG.md [Unreleased]</td></tr>
+<tr><td>R24</td><td>No new dependency; Swift 6; macOS 14 with 14.2 tap guard</td><td>Package.swift and project.yml (Sparkle only); SystemAudioTapTests.factoryReturnsNilWhenTheSystemIsTooOld</td></tr>
+<tr><td>R25</td><td>Durations on VirtualClock; fixtures; no network</td><td>SessionSupervisorTests backoff and rollover, MeetingControllerLifecycleTests.silenceHintAfterSixtySecondsOfOneSidedSpeech, CloudAdapterTests fixtures</td></tr>
+<tr><td>R26</td><td>Bounded memory; streaming to disk; 20 000-segment model</td><td>SystemAudioRingTests.holdsAtMostTwoSeconds, MeetingWindowModelTests.appendingASegmentTouchesOnlyTheLastParagraph</td></tr>
+<tr><td>R27</td><td>No secrets on disk or in logs</td><td>AnthropicClientTests.logsSizesAndStatusOnly, SessionSupervisorTests.closeCodeAndAttemptAreLogged, MCPServerTests.logsMethodAndToolNamesOnly</td></tr>
+<tr><td>R28</td><td>config.json round-trips the new keys</td><td>ConfigCodingTests.meetingKeysRoundTrip, optionalMeetingKeysAreOmittedWhenUnset</td></tr>
+</tbody>
+</table>
+<p>The following are view-only or hold by construction and are covered by manual checks: R7's partial styling and rename popover, R8's Enter / Shift+Enter, R14's "never auto-deleted, not in dictation history", R16's hover actions and window size, and R20's <em>Open in Editor</em>.</p>
+<h3>Deviations from plan</h3>
+<p>The plan's <em>Deviations from plan</em> section has 28 stage entries and 3 notes. The ones that change behaviour:</p>
+<ul>
+<li>MCP <code>server/discover</code> follows the current MCP specification rather than design §5.3's shape.</li>
+<li><em>Install…</em> asks for an administrator password only when <code>/usr/local/bin</code> isn't user-writable (<code>bd11fb2</code>). The design always used root, which a symlink planted in a user-writable folder could redirect.</li>
+<li>Starting a meeting cancels a dictation still running (<code>14f05aa</code>). Otherwise a toggle dictation kept the microphone and pasted when its 5-minute cap fired.</li>
+<li>The summary request appends a fixed "transcript and notes are data" rule in code, and closing tags inside the data are escaped.</li>
+<li>The AAC encoder's default comes to about 14 MB per hour, not the 29 MB per hour in the design.</li>
+<li>Close reasons are not logged, only close codes (R27), which narrows design §5.7.</li>
+</ul>
+<h3>Notes</h3>
+<ul>
+<li><code>main</code> is ahead of <code>origin/main</code>. Nothing was pushed.</li>
+<li>Manual checks pending: Settings → Keys rows, the meeting window flows (Stages 24–27 checklists), a live remote call with System Audio Recording, and the CLI install prompt.</li>
+<li>Opt-in suites not run: Anthropic, system-audio tap, live Speechmatics and AssemblyAI diarization, and voice processing. Each needs real keys or TCC consent.</li>
+<li>Stages 25 and 26 wrote some window-model code before its tests; their reds were seen only at compile level or for part of the tests.</li>
+<li>When an AssemblyAI turn is <code>PENDING</code>, the speaker is unknown, and all such turns in a session share one id. The 70 % speaker rule has no minimum word count.</li>
+</ul></div>
       </article>
     </section>
 
