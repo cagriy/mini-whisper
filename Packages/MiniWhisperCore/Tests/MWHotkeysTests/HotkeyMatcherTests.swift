@@ -7,11 +7,14 @@ import Testing
 
     private enum VK {
         static let a: UInt16 = 0
+        static let m: UInt16 = 46
         static let space: UInt16 = 49
         static let escape: UInt16 = 53
         static let cmdRight: UInt16 = 54
         static let cmdLeft: UInt16 = 55
         static let shiftLeft: UInt16 = 56
+        static let altLeft: UInt16 = 58
+        static let ctrlLeft: UInt16 = 59
     }
 
     /// The F8 defaults: `paste` = `shift+cmd_r`, `paste_submit` = `cmd_r`.
@@ -55,6 +58,24 @@ import Testing
         _ = matcher.handle(.flagsChanged(flags: [.command], vk: VK.cmdLeft), now: 0)
         _ = matcher.handle(.flagsChanged(flags: [.command, .shift], vk: VK.shiftLeft), now: 0)
         #expect(matcher.handle(.keyDown(vk: VK.space, chars: " "), now: 0) == [.pressed(.paste)])
+    }
+
+    @Test func meetingRawValue() {
+        #expect(BindingName.meeting.rawValue == "meeting")
+    }
+
+    @Test func meetingChordFiresOnlyTheMeetingBinding() throws {
+        var matcher = try makeMatcher([
+            .paste: "shift+cmd_r", .pasteSubmit: "cmd_r", .meeting: "ctrl+alt+cmd+m",
+        ])
+        #expect(matcher.handle(.flagsChanged(flags: [.control], vk: VK.ctrlLeft), now: 0) == [])
+        #expect(matcher.handle(.flagsChanged(flags: [.control, .option], vk: VK.altLeft), now: 0) == [])
+        #expect(
+            matcher.handle(.flagsChanged(flags: [.control, .option, .command], vk: VK.cmdLeft), now: 0)
+                == []
+        )
+        #expect(matcher.handle(.keyDown(vk: VK.m, chars: "m"), now: 0) == [.pressed(.meeting)])
+        #expect(matcher.handle(.keyUp(vk: VK.m), now: 0) == [.released(.meeting)])
     }
 
     // MARK: - release

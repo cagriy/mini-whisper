@@ -419,6 +419,40 @@ import Testing
         #expect(model.display(.paste) == previous)
     }
 
+    @Test func capturingMeetingStoresMeetingHotkey() async throws {
+        let harness = Harness()
+        defer { harness.cleanUp() }
+        let model = await harness.model()
+        #expect(model.display(.meeting) == "⌥⌘⌃M")
+
+        model.beginCapture(.meeting)
+        let combo = try HotkeyCombo.parse("ctrl+alt+cmd+j")
+        await model.handle(.captured(combo))
+
+        #expect(model.capturing == nil)
+        #expect(model.display(.meeting) == "⌥⌘⌃J")
+        #expect(harness.hotkeys.updates[.meeting] == combo)
+        #expect(await harness.store.load().meetingHotkey == "alt+cmd+ctrl+j")
+    }
+
+    @Test func captureEqualToAnotherBindingIsRefused() async throws {
+        let harness = Harness()
+        defer { harness.cleanUp() }
+        let model = await harness.model()
+
+        model.beginCapture(.meeting)
+        await model.handle(.captured(try HotkeyCombo.parse("shift+cmd_r")))
+
+        #expect(model.hotkeyError(for: .meeting) == "Already used by Record")
+        #expect(model.capturing == nil)
+        #expect(model.display(.meeting) == "⌥⌘⌃M")
+        #expect(harness.hotkeys.updates.isEmpty)
+        #expect(await harness.store.load() == Config())
+
+        model.beginCapture(.meeting)
+        #expect(model.hotkeyError(for: .meeting) == nil)
+    }
+
     @Test func idleStopStepperRange10sTo10min() async throws {
         let harness = Harness()
         defer { harness.cleanUp() }

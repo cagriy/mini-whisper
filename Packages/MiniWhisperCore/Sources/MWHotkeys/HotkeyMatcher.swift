@@ -1,6 +1,6 @@
 import Foundation
 
-/// Pure state machine over `KeyEvent`s for the two named bindings (F6, F7, F8).
+/// Pure state machine over `KeyEvent`s for the named bindings (F6, F7, F8).
 ///
 /// Port of `hotkey.py:238-378` with two deliberate corrections:
 /// - the watchdog releases modifier-trigger bindings too (`hotkey.py:286`

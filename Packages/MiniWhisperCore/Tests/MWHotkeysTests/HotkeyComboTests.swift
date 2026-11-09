@@ -75,6 +75,13 @@ import Testing
         #expect(error.errorDescription == "Multiple trigger keys in combo: cmd_r+shift_r")
     }
 
+    @Test func defaultMeetingComboParses() throws {
+        let combo = try HotkeyCombo.parse("ctrl+alt+cmd+m")
+        #expect(combo.modifiers == [.ctrl, .alt, .cmd])
+        #expect(combo.trigger == .char("m", vk: 46))
+        #expect(combo.displayString == "⌥⌘⌃M")
+    }
+
     // MARK: - configString
 
     @Test(arguments: ["shift+cmd_r", "cmd_r", "cmd+space", "cmd+shift+space", "ctrl+tab"])

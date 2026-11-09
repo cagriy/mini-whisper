@@ -155,6 +155,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             bindings: Self.bindings(from: config),
             onAction: { [weak self, weak controller] action in
                 switch action {
+                case .pressed(.meeting), .released(.meeting):
+                    break // wired in Stage 24
                 case .pressed(let name): controller?.hotkeyPressed(name)
                 case .released(let name): controller?.hotkeyReleased(name)
                 case .captured, .captureRejected:
@@ -323,19 +325,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         appliedBindings = bindings
     }
 
-    /// F8's two bindings, falling back to the shipped defaults when a stored combo no
-    /// longer parses.
-    private static func bindings(from config: Config) -> [BindingName: HotkeyCombo] {
+    /// F8's two bindings and the meeting toggle, falling back to the shipped defaults
+    /// when a stored combo no longer parses. A meeting combo equal to a dictation one
+    /// falls back too (design §5.7), and is dropped if the default clashes as well.
+    static func bindings(from config: Config) -> [BindingName: HotkeyCombo] {
         let configured: [(BindingName, String, String)] = [
             (.paste, config.hotkey, "shift+cmd_r"),
             (.pasteSubmit, config.submitHotkey, "cmd_r"),
+            (.meeting, config.meetingHotkey, "ctrl+alt+cmd+m"),
         ]
         return configured.reduce(into: [:]) { bindings, entry in
             let (name, stored, fallback) = entry
-            if let combo = try? HotkeyCombo.parse(stored) {
+            // Dictation keeps its pre-meeting behaviour; only the meeting toggle yields.
+            let taken = name == .meeting ? Set(bindings.values) : []
+            if let combo = try? HotkeyCombo.parse(stored), !taken.contains(combo) {
                 bindings[name] = combo
-            } else if let combo = try? HotkeyCombo.parse(fallback) {
-                Log.hotkey.warning("Unparsable \(name.rawValue) hotkey; using \(fallback)")
+            } else if let combo = try? HotkeyCombo.parse(fallback), !taken.contains(combo) {
+                Log.hotkey.warning("Unparsable or duplicate \(name.rawValue) hotkey; using \(fallback)")
                 bindings[name] = combo
             }
         }

@@ -134,6 +134,7 @@ final class SettingsModel {
     private(set) var speechModel: AssetStatus = .unavailable
     private(set) var capturing: BindingName?
     private(set) var keyErrors: [KeyAccount: String] = [:]
+    private var hotkeyErrors: [BindingName: String] = [:]
 
     /// The slider's live value; `commitVolume()` is what writes and previews (F34).
     var volume: Double
@@ -415,12 +416,25 @@ final class SettingsModel {
 
     // MARK: - Hotkeys (F7)
 
+    static func title(of binding: BindingName) -> String {
+        switch binding {
+        case .paste: "Record"
+        case .pasteSubmit: "Record and submit"
+        case .meeting: "Meeting"
+        }
+    }
+
     func display(_ binding: BindingName) -> String {
         displays[binding] ?? ""
     }
 
+    func hotkeyError(for binding: BindingName) -> String? {
+        hotkeyErrors[binding]
+    }
+
     func beginCapture(_ binding: BindingName) {
         if capturing != nil { cancelCapture() }
+        hotkeyErrors = [:]
         capturing = binding
         previousDisplay = display(binding)
         displays[binding] = Self.capturePlaceholder
@@ -436,19 +450,28 @@ final class SettingsModel {
     }
 
     /// The capture half of the listener's actions. A rejected combo leaves the
-    /// matcher in capture mode, so the field simply keeps waiting.
+    /// matcher in capture mode, so the field simply keeps waiting. A combo another
+    /// binding already uses is refused and the field keeps its value (design §5.7).
     func handle(_ action: HotkeyAction) async {
         guard let binding = capturing else { return }
         switch action {
         case .captured(let combo):
-            displays[binding] = combo.displayString
+            let clash = BindingName.allCases.first {
+                $0 != binding && (try? HotkeyCombo.parse(stored($0))) == combo
+            }
+            displays[binding] = clash == nil ? combo.displayString : previousDisplay ?? ""
             capturing = nil
             previousDisplay = nil
+            if let clash {
+                hotkeyErrors[binding] = "Already used by \(Self.title(of: clash))"
+                return
+            }
             deps.hotkeys.update(binding: binding, combo: combo)
             await write { config in
                 switch binding {
                 case .paste: config.hotkey = combo.configString
                 case .pasteSubmit: config.submitHotkey = combo.configString
+                case .meeting: config.meetingHotkey = combo.configString
                 }
             }
         case .captureRejected, .pressed, .released:
@@ -460,6 +483,7 @@ final class SettingsModel {
         switch binding {
         case .paste: config.hotkey
         case .pasteSubmit: config.submitHotkey
+        case .meeting: config.meetingHotkey
         }
     }
 
