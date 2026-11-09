@@ -17,9 +17,13 @@ final class MeetingAudioPath: BufferListener, Sendable {
         var gate = SpeechGate()
         var recorder: MeetingRecorder?
         var billing: MeetingBilling
+        /// False while paused: buffers only move the time on.
+        var streaming = true
         /// Meeting seconds of the 16 kHz sample count's zero.
         var anchor = 0.0
         var samples = 0
+        /// Meeting seconds of the latest system-audio buffer.
+        var lastSystemAudio = 0.0
 
         /// Meeting seconds of the next microphone sample.
         var time: Double { anchor + Double(samples) / MeetingAudioPath.sampleRate }
@@ -40,6 +44,8 @@ final class MeetingAudioPath: BufferListener, Sendable {
     var gateView: SpeechGate.View { state.withLock { $0.gate.view } }
     var isSpeakingNow: Bool { state.withLock { $0.gate.isSpeakingNow } }
     var billing: MeetingBilling { state.withLock { $0.billing } }
+    var time: Double { state.withLock { $0.time } }
+    var lastSystemAudio: Double { state.withLock { $0.lastSystemAudio } }
 
     /// A microphone buffer, on the capture thread.
     func feed(_ buffer: AVAudioPCMBuffer) {
@@ -54,22 +60,68 @@ final class MeetingAudioPath: BufferListener, Sendable {
             let mic = state.converter.resample(input)
             guard !mic.isEmpty else { return }
             let time = state.time
+            state.samples += mic.count
+            // Taken while paused too, so the ring stays in step with the microphone.
+            let system = mode == .remote ? ring.take(mic.count) : []
+            guard state.streaming else { return }
             var mixed = mic
             if mode == .remote {
                 state.gate.push(mic, at: time)
-                mixed = AudioMixer.mix(mic: mic, system: ring.take(mic.count))
+                mixed = AudioMixer.mix(mic: mic, system: system)
             }
-            state.samples += mic.count
-            Self.record(mixed, &state)
+            Self.withRecorder(&state) { try $0.write(mixed) }
             if supervisor?.feed(Self.buffer(mixed), at: time) == true {
                 state.billing.add(seconds: Double(mixed.count) / Self.sampleRate)
             }
         }
     }
 
-    /// A 16 kHz mono system-audio buffer, on the tap's thread.
-    func pushSystem(_ buffer: AVAudioPCMBuffer) {
+    /// A 16 kHz mono system-audio buffer, on the tap's thread, with the meeting time it arrived.
+    func pushSystem(_ buffer: AVAudioPCMBuffer, at time: Double) {
         ring.push(Self.samples(of: buffer))
+        state.withLock { $0.lastSystemAudio = time }
+    }
+
+    func systemPeakSinceLastCall() -> Float {
+        ring.peakSinceLastCall()
+    }
+
+    /// Stops streaming and recording; returns the meeting time it stopped at.
+    func pause() -> Double {
+        state.withLock { state in
+            let time = state.time
+            state.streaming = false
+            state.recorder?.pause(at: time)
+            return time
+        }
+    }
+
+    /// Streams and records again; the audio file gets silence for the paused span.
+    func resume() -> Double {
+        state.withLock { state in
+            state.streaming = true
+            let time = state.time
+            Self.withRecorder(&state) { try $0.resume(at: time) }
+            return time
+        }
+    }
+
+    /// Moves the next sample's time up to `time` when the microphone fell behind it: no
+    /// buffers arrive while the input device switches or the Mac sleeps. While streaming,
+    /// the audio file gets silence for the jump. Returns the time before.
+    @discardableResult
+    func catchUp(to time: Double) -> Double {
+        state.withLock { state in
+            let from = state.time
+            guard time > from else { return from }
+            state.anchor = time
+            state.samples = 0
+            if state.streaming {
+                state.recorder?.pause(at: from)
+                Self.withRecorder(&state) { try $0.resume(at: time) }
+            }
+            return from
+        }
     }
 
     /// Closes the audio file; nothing is recorded after.
@@ -86,13 +138,14 @@ final class MeetingAudioPath: BufferListener, Sendable {
     }
 
     /// A write error ends the audio file rather than failing every later buffer.
-    private static func record(_ samples: [Float], _ state: inout State) {
-        guard state.recorder != nil else { return }
+    private static func withRecorder(_ state: inout State, _ write: (inout MeetingRecorder) throws -> Void) {
+        guard var recorder = state.recorder else { return }
         do {
-            try state.recorder?.write(samples)
+            try write(&recorder)
+            state.recorder = recorder
         } catch {
             Log.meeting.error("audio recording stopped: \(AnyError(error).description)")
-            try? state.recorder?.finish()
+            try? recorder.finish()
             state.recorder = nil
         }
     }
