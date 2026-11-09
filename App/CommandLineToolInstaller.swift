@@ -4,7 +4,8 @@ import Foundation
 /// script, never a symlink, that runs this app's binary and finds the app by bundle id if it
 /// moved. The only input is the app's own path, single-quoted.
 enum CommandLineToolInstaller {
-    static let path = "/usr/local/bin/mini-whisper"
+    static let directory = "/usr/local/bin"
+    static let path = directory + "/mini-whisper"
     private static let bundleLookup = #"path to application id "com.ips.mini-whisper""#
 
     struct Failure: Error {
@@ -25,7 +26,7 @@ enum CommandLineToolInstaller {
 
     /// Run as root. `rm -f` first, so a symlink already at the path is replaced, not written through.
     static func installCommand(script: String) -> String {
-        "mkdir -p /usr/local/bin && rm -f \(path) && printf '%s' \(shellQuoted(script)) > \(path) && chmod 755 \(path)"
+        "mkdir -p \(directory) && rm -f \(path) && printf '%s' \(shellQuoted(script)) > \(path) && chmod 755 \(path)"
     }
 
     static func appleScript(command: String) -> String {
@@ -33,11 +34,34 @@ enum CommandLineToolInstaller {
         return "do shell script \"\(escaped)\" with administrator privileges"
     }
 
-    /// Asks for an administrator password; the failure carries AppleScript's message, such as
-    /// "User canceled.".
+    /// Root only where this user cannot write: in a directory they can, another of their
+    /// processes could plant a symlink between `rm` and a root write and redirect it.
+    static func needsAdministrator(directory: String = directory) -> Bool {
+        !FileManager.default.isWritableFile(atPath: directory)
+    }
+
+    /// Removes whatever is at `path` (a symlink itself, not its target), then creates the file
+    /// exclusively, so nothing planted in between is followed.
+    static func writeAsUser(_ script: String, to path: String = path) throws {
+        try? FileManager.default.removeItem(atPath: path)
+        try Data(script.utf8).write(to: URL(fileURLWithPath: path), options: .withoutOverwriting)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: path)
+    }
+
+    /// Asks for an administrator password unless the directory is the user's to write; the
+    /// failure carries the reason, such as AppleScript's "User canceled.".
     @MainActor
     static func install(appPath: String = Bundle.main.bundleURL.path) -> Result<Void, Failure> {
-        let source = appleScript(command: installCommand(script: script(appPath: appPath)))
+        let script = script(appPath: appPath)
+        guard needsAdministrator() else {
+            do {
+                try writeAsUser(script)
+                return .success(())
+            } catch {
+                return .failure(Failure(message: error.localizedDescription))
+            }
+        }
+        let source = appleScript(command: installCommand(script: script))
         var error: NSDictionary?
         guard let appleScript = NSAppleScript(source: source) else {
             return .failure(Failure(message: "Could not prepare the installer."))
