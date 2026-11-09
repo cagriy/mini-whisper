@@ -2495,6 +2495,16 @@ None — plan matches design v4 exactly.
   300 ms release; the open span is in `View.spans`. `resample` is unclipped. The silence-hint peak
   is `SystemAudioRing.peakSinceLastCall()`, reset on read. The module-map row also lists
   `SystemAudioRing`, and `Package.swift`'s header names both pipelines.
+- **Stage 19.** `MeetingID.resolve(_:in:)` takes the `MeetingReading` itself, so validation
+  provably precedes the index read; a full UUID must also be in the index. Prefixes may carry the
+  UUID's hyphens and match case-insensitively; ASCII hex only. `MeetingIDError` gains
+  `.unreadable(reason)` for an index read failure and carries the input in each case, with the
+  stderr text as its `errorDescription`. `MeetingsCLI` gains a defaulted `timeZone`; `out`/`err`
+  receive text verbatim, newline-terminated, so `transcript` output is byte-identical to the
+  export. `list`/`search` lines print lowercase ids; a title-only search hit prints
+  `<id>  -  title  <title>`; search words are joined into one query. Only a known command name
+  is logged. The seeded-store helper is `Tests/MWAgentAccessTests/SeededMeetings.swift`, for
+  Stage 20 to reuse.
 
 ## Execution schedule
 
