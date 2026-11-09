@@ -17,7 +17,7 @@ private func close(_ lhs: Double, _ rhs: Double, tolerance: Double = 1e-9) -> Bo
     @Test(arguments: [
         (EngineName.openai, "openai_realtime", 0.017),
         (EngineName.elevenlabs, "elevenlabs", 0.0065),
-        (EngineName.speechmatics, "speechmatics", 0.0067),
+        (EngineName.speechmatics, "speechmatics", 0.0075),
         (EngineName.onDevice, "on_device", 0.0),
         (EngineName.speechAnalyzer, "speech_analyzer", 0.0),
     ])
@@ -91,12 +91,91 @@ private func close(_ lhs: Double, _ rhs: Double, tolerance: Double = 1e-9) -> Bo
             engine: .speechmatics, seconds: 60, tokensByModel: [:], overrides: ["elevenlabs": 9.99]
         )
 
-        #expect(close(cost, 0.0067))
+        #expect(close(cost, 0.0075))
     }
 
     @Test func roundedToSixDecimals() {
         // 90 s of elevenlabs = 1.5 min × 0.0065 = 0.00975 exactly.
         #expect(Pricing.dictationCost(engine: .elevenlabs, seconds: 90, tokensByModel: [:]) == 0.00975)
+    }
+
+    // MARK: - Meetings (R2, R18)
+
+    @Test(arguments: [
+        ("speechmatics_enhanced", 0.013333),
+        ("assemblyai", 0.0025),
+        ("assemblyai_pro", 0.0075),
+        ("assemblyai_diarization", 0.002),
+    ])
+    func meetingRatesPerMinute(_ key: String, _ expected: Double) {
+        #expect(Pricing.perMinute[key] == expected)
+    }
+
+    @Test func sonnetRatesPerMTok() {
+        #expect(Pricing.perMTok["claude-sonnet-5-5_in"] == 2.00)
+        #expect(Pricing.perMTok["claude-sonnet-5-5_out"] == 10.00)
+    }
+
+    @Test func meetingCostSpeechmaticsStandardOneHourIs45Cents() {
+        let cost = Pricing.meetingCost(
+            engine: .speechmaticsStandard, seconds: 3600, tokens: TokenUsage(), overrides: [:]
+        )
+
+        #expect(close(cost, 0.45))
+    }
+
+    @Test func meetingCostAssemblyAIAddsDiarization() {
+        let cost = Pricing.meetingCost(
+            engine: .assemblyaiStreaming, seconds: 3600, tokens: TokenUsage(), overrides: [:]
+        )
+
+        #expect(close(cost, 0.15 + 0.12))
+    }
+
+    @Test func meetingCostIncludesSummaryTokens() {
+        let cost = Pricing.meetingCost(
+            engine: .speechmaticsStandard,
+            seconds: 0,
+            tokens: TokenUsage(inputTokens: 1_000_000, outputTokens: 100_000),
+            overrides: [:]
+        )
+
+        #expect(close(cost, 2.00 + 1.00))
+    }
+
+    @Test func meetingCostHonoursOverridesOfEveryNewKey() {
+        let overrides = [
+            "speechmatics": 0.01,
+            "speechmatics_enhanced": 0.02,
+            "assemblyai": 0.03,
+            "assemblyai_pro": 0.04,
+            "assemblyai_diarization": 0.005,
+            "claude-sonnet-5-5_in": 3.00,
+            "claude-sonnet-5-5_out": 15.00,
+        ]
+        func oneMinute(_ engine: MeetingEngine) -> Double {
+            Pricing.meetingCost(engine: engine, seconds: 60, tokens: TokenUsage(), overrides: overrides)
+        }
+
+        let summary = Pricing.meetingCost(
+            engine: .speechmaticsStandard,
+            seconds: 0,
+            tokens: TokenUsage(inputTokens: 1_000_000, outputTokens: 1_000_000),
+            overrides: overrides
+        )
+
+        #expect(close(oneMinute(.speechmaticsStandard), 0.01))
+        #expect(close(oneMinute(.speechmaticsEnhanced), 0.02))
+        #expect(close(oneMinute(.assemblyaiStreaming), 0.035))
+        #expect(close(oneMinute(.assemblyaiPro), 0.045))
+        #expect(close(summary, 18.00))
+    }
+
+    @Test func perHourMatchesTheChooserLabels() {
+        #expect(Pricing.perHour(.speechmaticsStandard, overrides: [:]) == 0.45)
+        #expect(Pricing.perHour(.speechmaticsEnhanced, overrides: [:]) == 0.80)
+        #expect(Pricing.perHour(.assemblyaiStreaming, overrides: [:]) == 0.27)
+        #expect(Pricing.perHour(.assemblyaiPro, overrides: [:]) == 0.57)
     }
 
     // MARK: - Menu rows (F31 formats)
