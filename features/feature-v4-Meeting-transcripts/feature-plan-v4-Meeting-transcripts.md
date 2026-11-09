@@ -2547,6 +2547,19 @@ None — plan matches design v4 exactly.
   and U+2029 are escaped. Only method and known tool names are logged. The `meeting`/`index`/`json`
   helpers copy `MeetingsCLI`'s; sharing them needed edits outside the stage. Stage 21 must flush
   stdout after each write.
+- **Stage 17.** `MeetingController` is `init(deps:config:)`: `MeetingDependencies` carries the
+  `clock`, a wall-clock `now` (start, end, note and summary stamps) and `makeAudioWriter`, and no
+  `platform`, since `CoreAudioTapFactory` already returns nil below 14.2. `userName` is the
+  fallback when `meeting_user_name` is blank. `MeetingEvent` has no `captureHint`: nothing produces
+  one; the capture chip reads `.systemAudio`. `SessionSupervisor.feed` returns a discardable `Bool`
+  so only audio a session took is billed (`feedReportsWhetherASessionTookTheBuffer`). Start creates
+  the folder and recorder before touching capture and undoes both on failure. Stop closes the
+  session, releases capture and arms `scheduleIdleStop(idle_stop_seconds)` (Stage 8), then drops the
+  supervisor and awaits its event stream so drained segments land before `meeting.json`. Audio-path
+  time counts 16 kHz samples from the first buffer; elapsed and duration read the clock. A recorder
+  write error ends the audio file. `summarise()` checks for an empty transcript before the
+  Anthropic key. The test harness (`MeetingHarness`) lives in `MeetingControllerTests.swift` for
+  Stage 18; a second session comes from a Speechmatics warning rollover.
 
 ## Execution schedule
 
