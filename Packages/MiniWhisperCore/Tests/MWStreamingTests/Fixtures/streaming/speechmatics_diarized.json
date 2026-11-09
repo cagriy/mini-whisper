@@ -1,0 +1,42 @@
+{
+  "steps": [
+    {"await_client": "StartRecognition"},
+    {"server": {"message": "RecognitionStarted", "id": "sess_1"}},
+    {"await_client": "__binary__"},
+    {"server": {"message": "AudioAdded", "seq_no": 1}},
+    {"server": {"message": "AddPartialTranscript", "format": "2.9",
+                "metadata": {"start_time": 0.5, "end_time": 1.1, "transcript": "Hello there"},
+                "results": [
+                  {"type": "word", "start_time": 0.5, "end_time": 0.82,
+                   "alternatives": [{"content": "Hello", "confidence": 0.9, "language": "en", "speaker": "S1"}]},
+                  {"type": "word", "start_time": 0.82, "end_time": 1.1,
+                   "alternatives": [{"content": "there", "confidence": 0.9, "language": "en", "speaker": "S1"}]}
+                ]}},
+    {"server": {"message": "AddTranscript", "format": "2.9",
+                "metadata": {"start_time": 0.5, "end_time": 2.4, "transcript": "Hello there. Hi Marta. "},
+                "results": [
+                  {"type": "word", "start_time": 0.5, "end_time": 0.82,
+                   "alternatives": [{"content": "Hello", "confidence": 0.98, "language": "en", "speaker": "S1"}]},
+                  {"type": "word", "start_time": 0.82, "end_time": 1.1,
+                   "alternatives": [{"content": "there", "confidence": 0.97, "language": "en", "speaker": "S1"}]},
+                  {"type": "punctuation", "start_time": 1.1, "end_time": 1.1, "attaches_to": "previous", "is_eos": true,
+                   "alternatives": [{"content": ".", "confidence": 1.0, "language": "en", "speaker": "S1"}]},
+                  {"type": "word", "start_time": 1.6, "end_time": 1.84,
+                   "alternatives": [{"content": "Hi", "confidence": 0.99, "language": "en", "speaker": "S2"}]},
+                  {"type": "word", "start_time": 1.84, "end_time": 2.4,
+                   "alternatives": [{"content": "Marta", "confidence": 0.95, "language": "en", "speaker": "S2"}]},
+                  {"type": "punctuation", "start_time": 2.4, "end_time": 2.4, "attaches_to": "previous", "is_eos": true,
+                   "alternatives": [{"content": ".", "confidence": 1.0, "language": "en", "speaker": "S2"}]}
+                ]}},
+    {"await_client": "EndOfStream"},
+    {"server": {"message": "AddTranscript", "format": "2.9",
+                "metadata": {"start_time": 2.9, "end_time": 3.2, "transcript": "Right."},
+                "results": [
+                  {"type": "word", "start_time": 2.9, "end_time": 3.2,
+                   "alternatives": [{"content": "Right", "confidence": 0.6, "language": "en", "speaker": "UU"}]},
+                  {"type": "punctuation", "start_time": 3.2, "end_time": 3.2, "attaches_to": "previous", "is_eos": true,
+                   "alternatives": [{"content": ".", "confidence": 1.0, "language": "en", "speaker": "UU"}]}
+                ]}},
+    {"server": {"message": "EndOfTranscript"}}
+  ]
+}

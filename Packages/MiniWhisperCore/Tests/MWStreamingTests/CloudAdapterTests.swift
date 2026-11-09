@@ -238,6 +238,119 @@ import MWStreaming
         """))
     }
 
+    /// Guards dictation's wire: diarization and the model ride on meetings only.
+    @Test func speechmaticsWithoutDiarizationSendsNoDiarizationOrModel() throws {
+        let plain = try transcriptionConfig(SpeechmaticsAdapter(apiKey: Self.key))
+        let hinted = try transcriptionConfig(SpeechmaticsAdapter(apiKey: Self.key, hints: Self.hints))
+
+        #expect(plain.keys.sorted() == ["enable_partials", "language"])
+        #expect(hinted.keys.sorted() == ["additional_vocab", "enable_partials", "language"])
+    }
+
+    @Test func speechmaticsWithoutDiarizationEmitsNoSegments() throws {
+        let emissions = try emissions(SpeechmaticsAdapter(apiKey: Self.key), Self.diarizedTranscript)
+
+        #expect(emissions == [.final("Hello there. ")])
+    }
+
+    @Test func speechmaticsDiarizedStartRecognitionShape() throws {
+        let enhanced = SpeechmaticsAdapter(apiKey: Self.key, hints: .none, diarization: true, model: "enhanced")
+        let standard = SpeechmaticsAdapter(apiKey: Self.key, diarization: true)
+        let undiarized = SpeechmaticsAdapter(apiKey: Self.key, diarization: false, model: "enhanced")
+
+        #expect(try json(enhanced.openMessages().first) == parse("""
+        {"message": "StartRecognition",
+         "audio_format": {"type": "raw", "encoding": "pcm_s16le", "sample_rate": 16000},
+         "transcription_config": {"language": "en", "enable_partials": true,
+                                  "diarization": "speaker",
+                                  "speaker_diarization_config": {"max_speakers": 10},
+                                  "model": "enhanced"}}
+        """))
+        #expect(try transcriptionConfig(standard)["model"] == .string("standard"))
+        #expect(try transcriptionConfig(undiarized).keys.sorted() == ["enable_partials", "language"])
+    }
+
+    @Test func speechmaticsDiarizedFixtureEmitsSegmentsSplitBySpeaker() async throws {
+        let replay = try await replay(
+            adapter: SpeechmaticsAdapter(apiKey: Self.key, diarization: true),
+            fixture: "speechmatics_diarized",
+            chunks: [chunk()]
+        )
+
+        #expect(replay.sink.segments == [
+            TranscriptSegment(
+                text: "Hello there.",
+                words: [
+                    TranscriptWord(text: "Hello", start: 0.5, end: 0.82),
+                    TranscriptWord(text: "there.", start: 0.82, end: 1.1),
+                ],
+                speaker: "S1", start: 0.5, end: 1.1
+            ),
+            TranscriptSegment(
+                text: "Hi Marta.",
+                words: [
+                    TranscriptWord(text: "Hi", start: 1.6, end: 1.84),
+                    TranscriptWord(text: "Marta.", start: 1.84, end: 2.4),
+                ],
+                speaker: "S2", start: 1.6, end: 2.4
+            ),
+            // `UU`: the provider could not tell who spoke.
+            TranscriptSegment(
+                text: "Right.",
+                words: [TranscriptWord(text: "Right.", start: 2.9, end: 3.2)],
+                speaker: nil, start: 2.9, end: 3.2
+            ),
+        ])
+    }
+
+    @Test func speechmaticsDiarizedFixtureStillEmitsFinals() async throws {
+        let replay = try await replay(
+            adapter: SpeechmaticsAdapter(apiKey: Self.key, diarization: true),
+            fixture: "speechmatics_diarized",
+            chunks: [chunk()]
+        )
+
+        #expect(replay.result.ok)
+        #expect(replay.result.text == "Hello there. Hi Marta. Right.")
+        #expect(replay.sink.partials == ["Hello there"])
+        #expect(replay.sink.finals == ["Hello there. Hi Marta. ", "Right."])
+    }
+
+    @Test func speechmaticsPunctuationJoinsThePrecedingWordsRun() throws {
+        let emissions = try emissions(SpeechmaticsAdapter(apiKey: Self.key, diarization: true), """
+        {"message": "AddTranscript", "metadata": {"transcript": "Yes. "},
+         "results": [
+           {"type": "word", "start_time": 4.0, "end_time": 4.3, "alternatives": [{"content": "Yes", "speaker": "S1"}]},
+           {"type": "punctuation", "start_time": 4.3, "end_time": 4.3, "attaches_to": "previous",
+            "alternatives": [{"content": "."}]}]}
+        """)
+
+        #expect(emissions == [
+            .final("Yes. "),
+            .segment(TranscriptSegment(
+                text: "Yes.", words: [TranscriptWord(text: "Yes.", start: 4.0, end: 4.3)],
+                speaker: "S1", start: 4.0, end: 4.3
+            )),
+        ])
+    }
+
+    @Test func speechmaticsSessionTimeoutWarningEmitsSessionLimit() throws {
+        let emissions = try emissions(SpeechmaticsAdapter(apiKey: Self.key, diarization: true), """
+        {"message": "Warning", "type": "session_timeout", "reason": "Session will timeout in 15 minutes"}
+        """)
+
+        #expect(emissions == [.sessionLimit(.warning)])
+    }
+
+    @Test func speechmaticsOtherWarningsAreIgnored() throws {
+        for type in ["idle_timeout", "duration_limit_exceeded", "add_audio_after_eos"] {
+            let emissions = try emissions(SpeechmaticsAdapter(apiKey: Self.key, diarization: true), """
+            {"message": "Warning", "type": "\(type)", "reason": "test"}
+            """)
+            #expect(emissions == [], "\(type)")
+        }
+    }
+
     @Test func speechmaticsErrorFails() async {
         let replay = await replayFailure(
             adapter: SpeechmaticsAdapter(apiKey: Self.key),
@@ -363,5 +476,34 @@ import MWStreaming
         try JSONDecoder().decode(JSONValue.self, from: Data(text.utf8))
     }
 
-    private enum HarnessError: Error { case notATextMessage }
+    /// `StartRecognition`'s `transcription_config`.
+    private func transcriptionConfig(_ adapter: SpeechmaticsAdapter) throws -> [String: JSONValue] {
+        guard case .object(let start) = try json(adapter.openMessages().first),
+              case .object(let config)? = start["transcription_config"]
+        else { throw HarnessError.missingTranscriptionConfig }
+        return config
+    }
+
+    /// What one server message makes the adapter emit, outside any engine.
+    private func emissions(_ adapter: SpeechmaticsAdapter, _ message: String) throws -> [AdapterEmitter.Emission] {
+        var adapter = adapter
+        var emitter = AdapterEmitter()
+        _ = try adapter.handle(.text(message), emit: &emitter)
+        return emitter.emissions
+    }
+
+    /// One `AddTranscript` from a diarized session, in the vendor's documented shape.
+    private static let diarizedTranscript = """
+    {"message": "AddTranscript", "format": "2.9",
+     "metadata": {"start_time": 0.5, "end_time": 1.1, "transcript": "Hello there. "},
+     "results": [
+       {"type": "word", "start_time": 0.5, "end_time": 0.82,
+        "alternatives": [{"content": "Hello", "confidence": 0.98, "language": "en", "speaker": "S1"}]},
+       {"type": "word", "start_time": 0.82, "end_time": 1.1,
+        "alternatives": [{"content": "there", "confidence": 0.97, "language": "en", "speaker": "S1"}]},
+       {"type": "punctuation", "start_time": 1.1, "end_time": 1.1, "attaches_to": "previous", "is_eos": true,
+        "alternatives": [{"content": ".", "confidence": 1.0, "language": "en", "speaker": "S1"}]}]}
+    """
+
+    private enum HarnessError: Error { case notATextMessage, missingTranscriptionConfig }
 }
