@@ -26,10 +26,13 @@ there is no need to `brew upgrade` it.
 
 On first launch Mini Whisper asks for:
 
-- **Microphone** — to record your dictation.
+- **Microphone** — to record your dictation and meetings.
 - **Accessibility** — to paste the transcript into the frontmost app.
 - **Input Monitoring** — to detect the global hotkey.
 - **Speech Recognition** — only when you choose the on-device live transcript engine.
+- **System Audio Recording** — macOS 14.2 or newer, at the first remote-call meeting, to hear
+  the other participants. Without it a remote call transcribes only you; Settings → Meetings →
+  **Open Privacy Settings…** opens the pane.
 
 ## Corrections and vocabulary
 
@@ -53,6 +56,8 @@ produce the right words in the first place. What each engine is sent:
 - **OpenAI Realtime** — every term as `keywords`.
 - **Speechmatics** — one `additional_vocab` entry per rule, carrying the variants as
   `sounds_like`, up to 1000 entries.
+- **AssemblyAI** — up to 100 terms as `keyterms_prompt`; a term over 50 characters is
+  skipped.
 - **ElevenLabs** — no hints in this version; the rule still rewrites the transcript.
 - **Batch transcription** — the terms are appended to the request's documented `prompt`
   field, which replaces the undocumented `instructions` field earlier versions sent. Your
@@ -62,17 +67,126 @@ produce the right words in the first place. What each engine is sent:
 Settings → Vocabulary shows, per engine, how many hints were sent and anything that was
 skipped.
 
+## Meetings
+
+Press **⌃⌥⌘M** (Settings → Hotkeys → Meeting) or choose **Start Meeting…** in the menu bar,
+then pick:
+
+- **Remote call** — the microphone plus the audio other apps play (Zoom, Teams, Meet), mixed
+  into one stream. Words spoken while your microphone hears you are labelled with your name
+  (Settings → Meetings → Your name, by default your macOS account's full name); other voices
+  become Speaker 1, 2…. Needs macOS 14.2 or newer.
+- **In the room** — the microphone only. Every voice becomes Speaker 1, 2…; rename yourself
+  once your first words appear.
+
+The window shows the live transcript, your notes, the elapsed time and the running cost.
+Click a speaker's name to rename them everywhere; a name already in use merges the two. Enter
+adds a note stamped with the meeting time, Shift+Enter a new line. **Pause** stops streaming
+until **Resume**; the Mac going to sleep pauses too. A dropped connection never ends a
+meeting: audio keeps recording, the session reconnects, and the transcript marks the gap.
+Dictation hotkeys are off while a meeting records or is paused, and starting a meeting cancels
+a dictation in progress. Your **All apps** correction rules and vocabulary reach the engine as
+hints; rules do not rewrite meeting transcripts.
+
+**Stop** sends the transcript and notes to Claude Sonnet 5.5 for a summary — Summary,
+Decisions, Action items, Open questions — under the prompt in Settings → Meetings
+(`summary_prompt.txt`). Without an Anthropic key (Settings → Keys), after a failed request, or
+when quitting stopped the meeting, **Summarise** writes it later; a meeting holds one summary.
+After Stop, double-click a paragraph to edit it, or right-click to move a segment to another
+speaker. **Export** writes `<title> - transcript.md` and `<title> - summary.md`.
+
+**Meetings…** in the menu bar lists meetings by day with their cost and searches titles,
+transcripts, notes and summaries.
+
+### Engines and prices
+
+Pick the engine under Settings → Meetings. Without a pick, or without its key, the first
+engine below whose key is under Settings → Keys is used. Meetings are English only.
+
+| Engine | Key | Per hour |
+|---|---|---|
+| Speechmatics Standard | Speechmatics | $0.45 |
+| Speechmatics Enhanced | Speechmatics | $0.80 |
+| AssemblyAI Universal-Streaming | AssemblyAI | $0.27, including $0.12 for speaker labels |
+| AssemblyAI Universal 3.6 Pro | AssemblyAI | $0.57, including $0.12 for speaker labels |
+
+The summary costs $2.00 per million input tokens and $10.00 per million output tokens — a few
+cents for an hour's meeting. Costs join the menu bar's Today/Month rows when a meeting stops;
+every rate can be overridden in `config.json`'s `pricing_overrides`.
+
+### Storage and consent
+
+```
+~/.config/mini-whisper/meetings/
+  index.json
+  <meeting id>/
+    meeting.json      title, speakers, gaps and pauses, summary, cost
+    segments.jsonl    transcript
+    notes.jsonl       notes
+    audio.m4a         AAC, 16 kHz mono, about 14 MB per hour
+```
+
+Folders are 0700, files 0600, and nothing is deleted automatically. Turn off **Keep meeting
+audio** (Settings → Meetings) to record no audio file. **Meetings…** deletes a meeting, or
+only its audio with **Export → Delete audio**.
+
+**You are responsible for getting consent to record.** Mini Whisper does not tell the other
+participants.
+
+### Limitations
+
+- A remote call is one mixed stream: overlapping voices can garble words, and words said over
+  you may be labelled as yours.
+- If the provider merges two voices into one speaker, renaming cannot split them; move their
+  segments one at a time after Stop.
+- After a reconnect, voices get new Speaker numbers; rename one to an existing name to merge.
+- English only.
+- Form ⌃⌥⌘M with the **left** ⌘. Right ⌘ alone is the default **Record and submit** hotkey,
+  so pressing it first starts a dictation.
+
+### Command line and agents
+
+Settings → Meetings → **Install…** writes `/usr/local/bin/mini-whisper`, a script that runs the
+app; it asks for an administrator password only when you cannot write to `/usr/local/bin`. The
+tool and its MCP server only read meetings: they never record or change one.
+
+```sh
+mini-whisper meetings list [--json]
+mini-whisper meetings transcript <id>    # the Markdown Export writes
+mini-whisper meetings summary <id>
+mini-whisper meetings search <text> [--json]
+```
+
+`<id>` is a meeting's UUID or at least its first 8 hex characters. A bad or unknown id, or a
+summary that does not exist, exits 2.
+
+`mini-whisper mcp` is a stdio MCP server (MCP 2025-06-18, 2025-11-25 and 2026-07-28) with the
+read-only tools `list_meetings`, `search_meetings`, `get_transcript` and `get_summary`. Add it
+to Claude Code:
+
+```sh
+claude mcp add --transport stdio mini-whisper -- mini-whisper mcp
+```
+
+Settings → Meetings → Claude Code copies this command, naming the app's binary by its full
+path until the tool is installed.
+
 ## Privacy
 
 - API keys are stored in the macOS login Keychain (service `mini-whisper`), never on disk.
-- Cloud engines send audio to the provider you select (OpenAI, ElevenLabs or Speechmatics).
-  On-device engines send nothing off the machine.
+- Cloud engines send audio to the provider you select (OpenAI, ElevenLabs, Speechmatics or
+  AssemblyAI); a meeting summary sends the transcript and notes to Anthropic. On-device
+  engines send nothing off the machine.
 - Dictation history is stored **locally only**, in `~/.config/mini-whisper/history.jsonl`
   (file mode 0600), for `history_retention_days` days — default 7, maximum 30. Set it to
   **0** to disable history entirely: the file is deleted and nothing further is written.
 - Correction rules and the tally of phrases you have corrected are stored **locally only**,
   in `~/.config/mini-whisper/config.json`. They leave the machine only as recognition hints,
   to the engine you selected.
+- Meetings, with their audio unless **Keep meeting audio** is off, are stored **locally
+  only**, in `~/.config/mini-whisper/meetings/` (folders 0700, files 0600), until you delete
+  them. They are not part of dictation history. An agent connected to the MCP server can
+  read every meeting.
 - There is no telemetry or analytics of any kind.
 
 ## Development

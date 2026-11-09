@@ -2,6 +2,34 @@
 
 ## [Unreleased]
 
+### Added
+
+- Meeting mode. **⌃⌥⌘M** or *Start Meeting…* records a remote call (microphone plus the audio
+  other apps play) or an in-room meeting (microphone only) with a live, speaker-labelled
+  transcript and timestamped notes; Stop writes a Claude Sonnet 5.5 summary. Four engines:
+  Speechmatics Standard ($0.45/h) and Enhanced ($0.80/h), AssemblyAI Universal-Streaming
+  ($0.27/h) and Universal 3.6 Pro ($0.57/h), the AssemblyAI prices including $0.12/h for speaker
+  labels. Meetings are stored locally in `~/.config/mini-whisper/meetings/`, listed and searched
+  in *Meetings…*, exported as Markdown, and billed into the Today/Month rows. Settings → Meetings
+  holds the engine, your name, Keep meeting audio and the summary prompt; `config.json` gains
+  `meeting_hotkey`, `meeting_engine`, `meeting_keep_audio`, `meeting_user_name` and
+  `meeting_system_audio_explained`.
+- The System Audio Recording permission (macOS 14.2+), asked at the first remote call.
+- AssemblyAI and Anthropic keys under Settings → Keys.
+- AssemblyAI Universal-Streaming as a dictation engine ($0.15/h), with vocabulary sent as key
+  terms.
+- The `mini-whisper` command-line tool, installed from Settings → Meetings:
+  `meetings transcript|summary <id>` print the exported Markdown, `meetings list|search` one line
+  per meeting or hit, or JSON with `--json`. `mini-whisper mcp` is a stdio MCP server with four
+  read-only tools for Claude Code and other agents. Neither records nor changes a meeting.
+
+### Changed
+
+- The Speechmatics rate is now $0.0075 per minute (was $0.0067): new usage costs more; past
+  Today/Month totals are unchanged.
+- Dictation hotkeys are off while a meeting records or is paused, and starting a meeting cancels
+  a dictation in progress.
+
 ## [0.5.0] - 2026-09-07
 
 ### Added
