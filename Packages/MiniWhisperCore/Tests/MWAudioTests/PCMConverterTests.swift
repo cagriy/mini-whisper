@@ -139,6 +139,31 @@ enum PCMReference {
         #expect(converter.convert(samples).count == 4800)
     }
 
+    @Test func resampleTo16kFloatHasTheExpectedCount() {
+        var converter = PCMConverter(from: 48000, to: 16000)
+        let samples = SignalFixtures.sine(count: 4800, sampleRate: 48000)
+        #expect(converter.resample(samples).count == 1600)
+    }
+
+    @Test func resampleCarriesStateAcrossChunks() {
+        let samples = SignalFixtures.sine(count: 48000, sampleRate: 48000)
+        var batch = PCMConverter(from: 48000, to: 16000)
+        let whole = batch.resample(samples)
+
+        var converter = PCMConverter(from: 48000, to: 16000)
+        var pieces: [Float] = []
+        for start in stride(from: 0, to: samples.count, by: 1023) {
+            pieces += converter.resample(Array(samples[start..<min(start + 1023, samples.count)]))
+        }
+
+        #expect(pieces == whole)
+        // Same interpolation as the int16 path, up to Float rounding.
+        let int16 = PCMReference.int16LE(single(samples, from: 48000, to: 16000))
+        #expect(int16.count == whole.count)
+        let worst = zip(whole, int16).map { abs(Int(min(max($0, -1), 1) * 32767) - Int($1)) }.max() ?? 0
+        #expect(worst <= 1)
+    }
+
     @Test func nonFiniteSamplesBecomeSilence() {
         let data = single([.nan, .nan, .nan, .nan], from: 48000, to: 48000)
         #expect(PCMReference.int16LE(data) == [0, 0, 0, 0])

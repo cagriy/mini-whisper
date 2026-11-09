@@ -2,7 +2,7 @@
 import PackageDescription
 
 /// Module dependency edges follow design §5.2: everything flows downwards and
-/// nothing depends on MWPipeline.
+/// nothing depends on MWPipeline or MWMeetingPipeline.
 let package = Package(
     name: "MiniWhisperCore",
     platforms: [.macOS(.v14)],
@@ -21,6 +21,7 @@ let package = Package(
         .library(name: "MWOverlaySim", targets: ["MWOverlaySim"]),
         .library(name: "MWPipeline", targets: ["MWPipeline"]),
         .library(name: "MWMeetings", targets: ["MWMeetings"]),
+        .library(name: "MWMeetingPipeline", targets: ["MWMeetingPipeline"]),
     ],
     targets: [
         .target(name: "MWSupport"),
@@ -47,6 +48,13 @@ let package = Package(
             ]
         ),
         .target(name: "MWMeetings", dependencies: ["MWConfig", "MWSupport"]),
+        .target(
+            name: "MWMeetingPipeline",
+            dependencies: [
+                "MWMeetings", "MWStreaming", "MWAudio", "MWConfig", "MWCorrections", "MWUsage",
+                "MWTranscription", "MWSupport",
+            ]
+        ),
         .target(
             name: "MWTestSupport",
             dependencies: [
@@ -81,6 +89,7 @@ let package = Package(
             dependencies: ["MWMeetings", "MWTestSupport"],
             resources: [.copy("Fixtures")]
         ),
+        .testTarget(name: "MWMeetingPipelineTests", dependencies: ["MWMeetingPipeline", "MWTestSupport"]),
     ],
     swiftLanguageModes: [.v6]
 )

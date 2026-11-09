@@ -1,6 +1,7 @@
 import Foundation
 
-/// Stateful chunked float32 → int16 LE resampler (N2).
+/// Stateful chunked float32 resampler with an int16 LE output (N2) and a float
+/// output (the meeting pipeline's 16 kHz path).
 ///
 /// Port of `streaming/audio_convert.py`: the fractional resample position
 /// (`nextOut`, `totalIn`) and the input `tail` still needed for interpolation
@@ -21,7 +22,27 @@ public struct PCMConverter: Sendable {
     }
 
     public mutating func convert(_ samples: [Float]) -> Data {
-        guard !samples.isEmpty else { return Data() }
+        let values = step(samples)
+        var out = Data()
+        out.reserveCapacity(values.count * 2)
+        for value in values {
+            let scaled = min(max(value, -1), 1) * 32767
+            withUnsafeBytes(of: (scaled.isFinite ? Int16(scaled) : 0).littleEndian) {
+                out.append(contentsOf: $0)
+            }
+        }
+        return out
+    }
+
+    /// The same resampling as `convert(_:)`, unclipped, as floats.
+    public mutating func resample(_ samples: [Float]) -> [Float] {
+        step(samples).map { Float($0) }
+    }
+
+    /// Consumes `samples` and returns the outputs they fully determine.
+    private mutating func step(_ samples: [Float]) -> LazyMapCollection<Range<Int>, Double> {
+        let ratio = ratio
+        guard !samples.isEmpty else { return (0..<0).lazy.map { _ in 0 } }
 
         // Global index of buffer[0].
         let base = totalIn - tail.count
@@ -31,26 +52,16 @@ public struct PCMConverter: Sendable {
         // Output j sits at input position j * ratio; emit while fully determined
         // by the input seen so far.
         let lastOut = Int((Double(totalIn - 1) / ratio).rounded(.down))
-        var out = Data()
-        if lastOut >= nextOut {
-            out.reserveCapacity((lastOut - nextOut + 1) * 2)
-            for j in nextOut...lastOut {
-                let value = interpolate(buffer, at: Double(j) * ratio - Double(base))
-                let scaled = min(max(value, -1), 1) * 32767
-                withUnsafeBytes(of: (scaled.isFinite ? Int16(scaled) : 0).littleEndian) {
-                    out.append(contentsOf: $0)
-                }
-            }
-            nextOut = lastOut + 1
-        }
+        let outputs = nextOut..<max(nextOut, lastOut + 1)
+        nextOut = outputs.upperBound
 
         let keepFrom = min(max(Int((Double(nextOut) * ratio).rounded(.down)) - base, 0), buffer.count)
         tail = Array(buffer[keepFrom...])
-        return out
+        return outputs.lazy.map { j in Self.interpolate(buffer, at: Double(j) * ratio - Double(base)) }
     }
 
     /// `np.interp` over the buffer's own indices, clamped at both ends.
-    private func interpolate(_ buffer: [Float], at position: Double) -> Double {
+    private static func interpolate(_ buffer: [Float], at position: Double) -> Double {
         if position <= 0 { return Double(buffer[0]) }
         if position >= Double(buffer.count - 1) { return Double(buffer[buffer.count - 1]) }
         let index = Int(position)

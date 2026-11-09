@@ -62,9 +62,10 @@ empty XCTest bundle, not the result. Read the `✔/✘ Test run with N tests in 
 | `MWOverlaySim` | `ConstellationSimulation`, `CaptionModel`, `OverlayStyle` | — |
 | `MWPipeline` | `StreamSink`, `ProcessingJob`, `DictationController` | all of the above |
 | `MWMeetings` | Meeting model, `MeetingStore`, `MeetingMarkdown`, `MeetingSearch`, `TitleSanitizer` | MWConfig, MWSupport |
+| `MWMeetingPipeline` | `SpeechGate`, `AudioMixer`, `SystemAudioRing`, `SpeakerAttributor`, `SpeakerRegistry`, `SessionSupervisor`, `MeetingRecorder`, `MeetingBilling`, `Summariser`, `MeetingController` | MWMeetings, MWStreaming, MWAudio, MWConfig, MWCorrections, MWUsage, MWTranscription, MWSupport |
 | `MWTestSupport` | Fakes and helpers shared across test targets | all except MWPipeline, MWMeetings included |
 
-Dependencies flow downwards only; nothing depends on `MWPipeline`.
+Dependencies flow downwards only; nothing depends on `MWPipeline` or `MWMeetingPipeline`.
 
 ## Test conventions
 
