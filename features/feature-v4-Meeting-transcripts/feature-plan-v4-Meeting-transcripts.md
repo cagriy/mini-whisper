@@ -2421,6 +2421,22 @@ None — plan matches design v4 exactly.
   also exposes `summaryPromptURL` beside `cleanupPromptURL` for Stage 27's *Open in Editor*.
   `Log.meeting` is a `LogCategory(name:)` like the six existing categories; `LogCategory` wraps
   `Logger`. `KeychainStore`'s doc comment no longer counts accounts.
+- **Stage 2.** `Pricing.perHour` rounds to the cent; unrounded, Speechmatics Enhanced is 0.79998
+  and the plan's `== 0.80` fails. `meetingCost` rounds to six decimals like `dictationCost`, which
+  now shares the private `tokenCost` and `roundedToMicros` helpers.
+- **Stage 3.** A `refusal` with a null `stop_details.category` reports `refusalCategory`
+  `"unspecified"`. Request parameters are public static constants on `AnthropicClient`, like
+  `OpenAIClient`. Request/response handling mirrors `OpenAIClient`'s private `send`; sharing it
+  would have meant editing `OpenAIClient.swift`, outside the stage.
+- **Stage 9.** The encoder accepts 16 kHz mono AAC at its default bit rate (≈ 24 kbit/s,
+  ≈ 13.6 MB/h, not design §5.9's ≈ 29 MB/h), so no bit-rate key is set; it rejects 64 kbit/s.
+  Writing after `finish()` throws the new `AACFileWriterError.finished`.
+- **Stage 10.** `SystemAudioTap.init(excluding:)` takes no clock: nothing in the tap is timed.
+  The integration test plays its fixture with `/usr/bin/afplay` in a child process, because the
+  tap excludes the test's own PID. The aggregate device holds only the tap and carries a name and
+  UID `com.ips.mini-whisper.system-audio.<tapUID>`. New `SystemAudioTapError` names the failing
+  Core Audio call and its `OSStatus`. With no Core Audio process object for our PID, nothing is
+  excluded.
 
 ## Execution schedule
 
