@@ -2651,6 +2651,21 @@ None — plan matches design v4 exactly.
   *Meetings…*. Added `openOpensTheMeeting`, `indexIsMissingOnlyBesideStoredMeetings`,
   `openShowsAStoredMeetingInItsOwnWindow`, `listRenameOfAnOpenMeetingGoesThroughItsController` and
   `headerRenameNotifiesTheList`.
+- **Stage 27.** Prices read "$0.45/h" (the plan's test), not the mockup's "$0.45 / h". AssemblyAI
+  rows show the speaker-labels add-on as a second figure, "$0.15 + $0.12/h" and "$0.45 + $0.12/h",
+  per the mockup's footnote; both figures follow `pricing_overrides`. Their subtitles, absent in the
+  mockup, read "Speaker labels add-on · English" and "Higher accuracy · speaker labels add-on".
+  Disabled rows reuse the dictation key hints. The Keep-audio footnote says about 14 MB per hour
+  (Stage 9); the Install footnote says an administrator password is asked "if that folder needs
+  one" (installer fix). Without an Anthropic key the summary note adds "Add an Anthropic key under
+  Keys to enable." `refreshMeetings()` runs when the pane appears, re-reading the index and install
+  state. The name field writes on Return, focus loss and disappearance, only when changed. Storage
+  text duplicates `MeetingsListModel`'s private count/size formatting (sharing needed edits outside
+  the stage). `SettingsModel` gains a private `hasKey(_:)`, now also used by the dictation rows.
+- **Stage 28.** The README also gains an AssemblyAI bullet in "Corrections and vocabulary" and a
+  note that meetings get the All-apps rules' vocabulary as hints while rules do not rewrite meeting
+  transcripts. The CHANGELOG puts the dictation lock under **Changed**. The MCP versions listed
+  include 2025-06-18, which the server also accepts.
 
 ## Execution schedule
 
