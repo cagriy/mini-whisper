@@ -2480,6 +2480,15 @@ None — plan matches design v4 exactly.
   so `ClipPlayback.play` gains `realTime: Bool = false` for the live tests. The fixture is
   Samantha and Daniel alternating four sentences with 0.6 s gaps (21.3 s). Stage 6's two
   never-mutated `var`s in `CloudAdapterTests` are fixed here.
+- **Stage 8.** An idle stop that fires while held re-arms for the same duration instead of being
+  dropped, so it applies once the hold is released and the tests have a barrier. Releasing the hold
+  schedules nothing: a meeting that started a stopped engine must `scheduleIdleStop` or `stop()`
+  after `holdRunning(false)` (Stage 17), or the microphone stays open. `setVoiceProcessing` always
+  forwards; `ensureRunning` reapplies only `true`, before the tap, logging rather than throwing on
+  failure. `AVAudioEngineBackend` skips an unchanged setting and restarts even when the toggle
+  fails. While held, a device change yields no `.stopped` on `events`. `FakeAudioCapture.feed`
+  reaches the meeting listener too, as the real tap does; `FakeAudioBackend` gains
+  `tapInstallCount`.
 
 ## Execution schedule
 
