@@ -26,6 +26,8 @@
 	<true/>
 	<key>NSAccessibilityUsageDescription</key>
 	<string>Mini Whisper needs accessibility access to detect hotkeys and paste text.</string>
+	<key>NSAudioCaptureUsageDescription</key>
+	<string>Mini Whisper records the audio other apps play during a remote meeting so it can transcribe the other participants.</string>
 	<key>NSInputMonitoringUsageDescription</key>
 	<string>Mini Whisper needs Input Monitoring access to detect global hotkeys.</string>
 	<key>NSMicrophoneUsageDescription</key>
