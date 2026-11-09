@@ -2587,6 +2587,11 @@ None — plan matches design v4 exactly.
   `/usr/local/bin` is not writable by the user (design §5.8 always used them); otherwise it writes
   the wrapper as the user, exclusively, so a symlink planted between `rm` and a root write cannot
   redirect it.
+- **Stage 22.** A refused capture ends capture and keeps the field's old combo, with the error
+  under the field until the next capture; the matcher has already left capture mode on
+  `.captured`. Only the meeting binding yields to a duplicate in `bindings(from:)`, so dictation is
+  unchanged; it is left unbound if its default clashes too. Field titles live in
+  `SettingsModel.title(of:)`, which the refusal and `HotkeysSection` share.
 
 ## Execution schedule
 
