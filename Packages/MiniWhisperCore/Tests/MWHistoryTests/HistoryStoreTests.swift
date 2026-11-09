@@ -92,7 +92,7 @@ import MWHistory
     @Test func batchDictationWritesNullEngine() async throws {
         let directory = try TempDirectory()
         let url = directory.file("history.jsonl")
-        let store = HistoryStore(url: url, retention: { 7 }, now: { Date() })
+        let store = HistoryStore(url: url, retention: { 7 }, now: { Self.at("2026-09-01T18:00:00Z") })
 
         try await store.append(entry(engine: nil, streamedSeconds: 0))
 
@@ -104,7 +104,7 @@ import MWHistory
     @Test func fileModeIs0600() async throws {
         let directory = try TempDirectory()
         let url = directory.file("history.jsonl")
-        let store = HistoryStore(url: url, retention: { 7 }, now: { Date() })
+        let store = HistoryStore(url: url, retention: { 7 }, now: { Self.at("2026-09-01T18:00:00Z") })
 
         try await store.append(entry())
         let afterAppend = try FileManager.default.attributesOfItem(atPath: url.path)
@@ -202,7 +202,7 @@ import MWHistory
         let directory = try TempDirectory()
         let url = directory.file("history.jsonl")
         let retention = Retention(7)
-        let store = HistoryStore(url: url, retention: { retention.days }, now: { Date() })
+        let store = HistoryStore(url: url, retention: { retention.days }, now: { Self.at("2026-09-01T18:00:00Z") })
         try await store.append(entry())
         #expect(FileManager.default.fileExists(atPath: url.path))
 
@@ -217,7 +217,7 @@ import MWHistory
         let directory = try TempDirectory()
         let url = directory.file("history.jsonl")
         let retention = Retention(0)
-        let store = HistoryStore(url: url, retention: { retention.days }, now: { Date() })
+        let store = HistoryStore(url: url, retention: { retention.days }, now: { Self.at("2026-09-01T18:00:00Z") })
         try await store.append(entry(text: "dropped"))
         #expect(!FileManager.default.fileExists(atPath: url.path))
 
