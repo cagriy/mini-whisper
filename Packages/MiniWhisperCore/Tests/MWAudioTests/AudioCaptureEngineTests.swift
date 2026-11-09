@@ -213,6 +213,145 @@ private final class RecordingListener: BufferListener, @unchecked Sendable {
         }
     }
 
+    // MARK: - Meeting mode
+
+    @Test func heldEngineIgnoresIdleStop() async throws {
+        let backend = FakeAudioBackend()
+        let clock = VirtualClock()
+        let engine = AudioCaptureEngine(backend: backend, clock: clock)
+
+        try await engine.ensureRunning()
+        await engine.scheduleIdleStop(after: .seconds(5))
+        await clock.waitUntilSleeping()
+        await engine.holdRunning(true)
+        clock.advance(by: 6)
+        // The suppressed stop re-arms itself, which marks it as handled.
+        await clock.waitUntilSleeping()
+
+        #expect(backend.stopCount == 0)
+    }
+
+    @Test func releasingTheHoldRestoresIdleStop() async throws {
+        let backend = FakeAudioBackend()
+        let clock = VirtualClock()
+        let engine = AudioCaptureEngine(backend: backend, clock: clock)
+        var events = engine.events.makeAsyncIterator()
+
+        try await engine.ensureRunning()
+        await engine.scheduleIdleStop(after: .seconds(5))
+        await clock.waitUntilSleeping()
+        await engine.holdRunning(true)
+        clock.advance(by: 6)
+        await clock.waitUntilSleeping()
+        await engine.holdRunning(false)
+        clock.advance(by: 5)
+
+        #expect(await events.next() == .stopped)
+        #expect(backend.stopCount == 1)
+    }
+
+    @Test func heldEngineSurvivesSleepAndReportsIt() async throws {
+        let backend = FakeAudioBackend()
+        let engine = AudioCaptureEngine(backend: backend, clock: VirtualClock())
+        var meetingEvents = engine.meetingEvents.makeAsyncIterator()
+
+        try await engine.ensureRunning()
+        await engine.holdRunning(true)
+        backend.emit(.systemWillSleep)
+
+        #expect(await meetingEvents.next() == .systemWillSleep)
+        #expect(backend.stopCount == 0)
+    }
+
+    @Test func unheldEngineStillStopsOnSleep() async throws {
+        let backend = FakeAudioBackend()
+        let engine = AudioCaptureEngine(backend: backend, clock: VirtualClock())
+        var events = engine.events.makeAsyncIterator()
+
+        try await engine.ensureRunning()
+        await engine.holdRunning(true)
+        await engine.holdRunning(false)
+        backend.emit(.systemWillSleep)
+
+        #expect(await events.next() == .stopped)
+        #expect(backend.stopCount == 1)
+    }
+
+    @Test func meetingListenerReceivesBuffersWithoutACapture() async throws {
+        let backend = FakeAudioBackend()
+        let engine = AudioCaptureEngine(backend: backend, clock: VirtualClock())
+        let listener = RecordingListener()
+
+        try await engine.ensureRunning()
+        await engine.attachMeetingListener(listener)
+        backend.deliver(buffer(0.1))
+        backend.deliver(buffer(0.1, count: 512))
+
+        // Asserted without an await: the listener runs on the tap thread before `deliver` returns.
+        #expect(listener.frameCounts == [1024, 512])
+        #expect(listener.threads == [currentThreadID(), currentThreadID()])
+    }
+
+    /// R26: a meeting runs for hours, so its buffers must never pile up in the engine.
+    @Test func meetingListenerNeverGrowsTheDictationSnapshot() async throws {
+        let backend = FakeAudioBackend()
+        let engine = AudioCaptureEngine(backend: backend, clock: VirtualClock())
+        let listener = RecordingListener()
+
+        try await engine.ensureRunning()
+        await engine.attachMeetingListener(listener)
+        backend.deliver(buffer(0.9))
+        backend.deliver(buffer(0.9))
+        try await engine.beginCapture()
+        backend.deliver(buffer(0.2))
+        let recording = await engine.endCapture()
+        backend.deliver(buffer(0.4))
+
+        #expect(abs(recording.duration - 1024 / Self.rate) < 1e-9)
+        #expect(abs(recording.meanRMS - 0.2) < 1e-5)
+        // Ending a dictation leaves the meeting listener attached.
+        #expect(listener.frameCounts.count == 4)
+        let empty = await engine.endCapture()
+        #expect(empty.duration == 0)
+    }
+
+    @Test func heldEngineRestartsAfterAConfigurationChange() async throws {
+        let backend = FakeAudioBackend()
+        let engine = AudioCaptureEngine(backend: backend, clock: VirtualClock())
+        var meetingEvents = engine.meetingEvents.makeAsyncIterator()
+        let listener = RecordingListener()
+
+        try await engine.ensureRunning()
+        try await engine.setVoiceProcessing(true)
+        await engine.holdRunning(true)
+        await engine.attachMeetingListener(listener)
+        #expect(backend.voiceProcessingCalls == [true])
+
+        backend.emit(.configurationChanged)
+
+        #expect(await meetingEvents.next() == .deviceChanged)
+        #expect(backend.stopCount == 1)
+        #expect(backend.startCount == 2)
+        #expect(backend.tapInstallCount == 2)
+        #expect(backend.voiceProcessingCalls == [true, true])
+        backend.deliver(buffer(0.1))
+        #expect(listener.frameCounts == [1024])
+    }
+
+    @Test func setVoiceProcessingForwardsToTheBackend() async throws {
+        let backend = FakeAudioBackend()
+        let engine = AudioCaptureEngine(backend: backend, clock: VirtualClock())
+
+        try await engine.ensureRunning()
+        try await engine.setVoiceProcessing(true)
+        try await engine.setVoiceProcessing(false)
+        // Off: a later start leaves the backend's setting alone.
+        await engine.stop()
+        try await engine.ensureRunning()
+
+        #expect(backend.voiceProcessingCalls == [true, false])
+    }
+
     @Test func tapUses1024FramesAtInputFormat() async throws {
         let backend = FakeAudioBackend()
         let engine = AudioCaptureEngine(backend: backend, clock: VirtualClock())

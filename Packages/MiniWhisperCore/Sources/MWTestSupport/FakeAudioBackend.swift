@@ -11,6 +11,8 @@ public final class FakeAudioBackend: AudioBackend, @unchecked Sendable {
         var stopCount = 0
         var tapBufferSize: AVAudioFrameCount?
         var tapFormat: AVAudioFormat?
+        var tapInstallCount = 0
+        var voiceProcessingCalls: [Bool] = []
         var startError: (any Error)?
     }
 
@@ -30,6 +32,8 @@ public final class FakeAudioBackend: AudioBackend, @unchecked Sendable {
     public var stopCount: Int { lock.withLock { state.stopCount } }
     public var tapBufferSize: AVAudioFrameCount? { lock.withLock { state.tapBufferSize } }
     public var tapFormat: AVAudioFormat? { lock.withLock { state.tapFormat } }
+    public var tapInstallCount: Int { lock.withLock { state.tapInstallCount } }
+    public var voiceProcessingCalls: [Bool] { lock.withLock { state.voiceProcessingCalls } }
 
     public var startError: (any Error)? {
         get { lock.withLock { state.startError } }
@@ -50,7 +54,12 @@ public final class FakeAudioBackend: AudioBackend, @unchecked Sendable {
             state.handler = handler
             state.tapBufferSize = bufferSize
             state.tapFormat = inputFormat
+            state.tapInstallCount += 1
         }
+    }
+
+    public func setVoiceProcessing(_ on: Bool) throws {
+        lock.withLock { state.voiceProcessingCalls.append(on) }
     }
 
     /// Runs the tap handler on the caller's thread, like the real tap does.

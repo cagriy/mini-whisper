@@ -14,11 +14,16 @@ public final class FakeAudioCapture: AudioCapture, @unchecked Sendable {
         case scheduleIdleStop(Duration)
         case cancelIdleStop
         case stop
+        case holdRunning(Bool)
+        /// `true` when a meeting listener was attached, `false` when it was cleared.
+        case attachMeetingListener(Bool)
+        case setVoiceProcessing(Bool)
     }
 
     private struct Storage {
         var calls: [Call] = []
         var listener: (any BufferListener)?
+        var meetingListener: (any BufferListener)?
         var recording: Recording
         var beginFailure: (any Error)?
         var gated = false
@@ -26,8 +31,10 @@ public final class FakeAudioCapture: AudioCapture, @unchecked Sendable {
     }
 
     public nonisolated let events: AsyncStream<AudioEvent>
+    public nonisolated let meetingEvents: AsyncStream<MeetingAudioEvent>
 
     private let continuation: AsyncStream<AudioEvent>.Continuation
+    private let meetingContinuation: AsyncStream<MeetingAudioEvent>.Continuation
     private let lock = NSLock()
     private var storage: Storage
 
@@ -36,14 +43,17 @@ public final class FakeAudioCapture: AudioCapture, @unchecked Sendable {
     ) {
         storage = Storage(recording: recording)
         (events, continuation) = AsyncStream.makeStream()
+        (meetingEvents, meetingContinuation) = AsyncStream.makeStream()
     }
 
     deinit {
         continuation.finish()
+        meetingContinuation.finish()
     }
 
     public var calls: [Call] { lock.withLock { storage.calls } }
     public var listener: (any BufferListener)? { lock.withLock { storage.listener } }
+    public var meetingListener: (any BufferListener)? { lock.withLock { storage.meetingListener } }
 
     public var recording: Recording {
         get { lock.withLock { storage.recording } }
@@ -60,9 +70,16 @@ public final class FakeAudioCapture: AudioCapture, @unchecked Sendable {
         continuation.yield(event)
     }
 
-    /// Hands a tap buffer to whatever listener is attached, synchronously.
+    /// Delivers a `MeetingAudioEvent` as the real engine would.
+    public func sendMeeting(_ event: MeetingAudioEvent) {
+        meetingContinuation.yield(event)
+    }
+
+    /// Hands a tap buffer to whichever listeners are attached, synchronously.
     public func feed(_ buffer: AVAudioPCMBuffer) {
-        listener?.feed(buffer)
+        let (meeting, dictation) = lock.withLock { (storage.meetingListener, storage.listener) }
+        meeting?.feed(buffer)
+        dictation?.feed(buffer)
     }
 
     /// Makes `cancelIdleStop()` — the press path's first `await` — suspend until released,
@@ -122,6 +139,21 @@ public final class FakeAudioCapture: AudioCapture, @unchecked Sendable {
 
     public func stop() async {
         record(.stop)
+    }
+
+    public func holdRunning(_ held: Bool) async {
+        record(.holdRunning(held))
+    }
+
+    public func attachMeetingListener(_ listener: (any BufferListener)?) async {
+        lock.withLock {
+            storage.meetingListener = listener
+            storage.calls.append(.attachMeetingListener(listener != nil))
+        }
+    }
+
+    public func setVoiceProcessing(_ on: Bool) async throws {
+        record(.setVoiceProcessing(on))
     }
 
     private func record(_ call: Call) {

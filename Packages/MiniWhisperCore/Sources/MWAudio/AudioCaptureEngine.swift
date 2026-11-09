@@ -20,6 +20,7 @@ private final class CaptureState: @unchecked Sendable {
         var capturing = false
         var live = false
         var listener: (any BufferListener)?
+        var meetingListener: (any BufferListener)?
         var snapshot = Snapshot()
     }
 
@@ -40,6 +41,10 @@ private final class CaptureState: @unchecked Sendable {
 
     func setListener(_ listener: (any BufferListener)?) {
         storage.withLock { $0.listener = listener }
+    }
+
+    func setMeetingListener(_ listener: (any BufferListener)?) {
+        storage.withLock { $0.meetingListener = listener }
     }
 
     /// Stops accumulation without discarding what was captured; `true` when a
@@ -64,9 +69,12 @@ private final class CaptureState: @unchecked Sendable {
         }
     }
 
-    /// Called on the tap thread for every buffer.
+    /// Called on the tap thread for every buffer. The meeting listener hears every one;
+    /// only a capture copies samples.
     func ingest(_ buffer: AVAudioPCMBuffer) {
-        guard let channel = buffer.floatChannelData?[0] else { return }
+        let (meetingListener, capturing) = storage.withLock { ($0.meetingListener, $0.capturing) }
+        meetingListener?.feed(buffer)
+        guard capturing, let channel = buffer.floatChannelData?[0] else { return }
         let count = Int(buffer.frameLength)
         guard count > 0 else { return }
 
@@ -104,17 +112,22 @@ private final class TaskBox: @unchecked Sendable {
 /// Owns the audio backend for the whole idle period rather than per press: the
 /// engine starts on the first press, capture is a flag flip while it runs, and it
 /// stops `idle_stop_seconds` after the last dictation, on sleep, or on quit
-/// (F18, F19, design §5.5).
+/// (F18, F19, design §5.5). A meeting holds it running through idle and sleep, and it
+/// restarts itself after a device change while held (design §5.3, §5.6).
 public actor AudioCaptureEngine: AudioCapture {
     private static let tapFrames: AVAudioFrameCount = 1024
 
     public nonisolated let events: AsyncStream<AudioEvent>
+    public nonisolated let meetingEvents: AsyncStream<MeetingAudioEvent>
 
     private nonisolated let eventContinuation: AsyncStream<AudioEvent>.Continuation
+    private nonisolated let meetingContinuation: AsyncStream<MeetingAudioEvent>.Continuation
     private nonisolated let capture: CaptureState
     private let backend: any AudioBackend
     private let clock: any Clock
     private var running = false
+    private var held = false
+    private var voiceProcessing = false
     private var idleStop: Task<Void, Never>?
     private nonisolated let backendEvents = TaskBox()
 
@@ -124,6 +137,7 @@ public actor AudioCaptureEngine: AudioCapture {
         let (stream, continuation) = AsyncStream<AudioEvent>.makeStream()
         events = stream
         eventContinuation = continuation
+        (meetingEvents, meetingContinuation) = AsyncStream.makeStream()
         capture = CaptureState(events: continuation)
         backendEvents.set(Task { [weak self, backend] in
             for await event in backend.events {
@@ -137,10 +151,19 @@ public actor AudioCaptureEngine: AudioCapture {
         backendEvents.cancel()
         idleStop?.cancel()
         eventContinuation.finish()
+        meetingContinuation.finish()
     }
 
     public func ensureRunning() throws {
         guard !running else { return }
+        if voiceProcessing {
+            // Before the tap: voice processing can change the input format.
+            do {
+                try backend.setVoiceProcessing(true)
+            } catch {
+                Log.audio.error("voice processing not reapplied: \(AnyError(error).description)")
+            }
+        }
         // Reinstalled on every start: after a configuration change the input
         // format is new, so the previous tap no longer matches the hardware.
         backend.installTap(bufferSize: Self.tapFrames) { [capture] buffer in
@@ -179,7 +202,7 @@ public actor AudioCaptureEngine: AudioCapture {
         idleStop?.cancel()
         idleStop = Task { [weak self, clock] in
             guard (try? await clock.sleep(for: duration)) != nil, !Task.isCancelled else { return }
-            await self?.idleStopFired()
+            await self?.idleStopFired(after: duration)
         }
     }
 
@@ -194,9 +217,27 @@ public actor AudioCaptureEngine: AudioCapture {
         eventContinuation.yield(.stopped)
     }
 
-    private func idleStopFired() {
+    public func holdRunning(_ held: Bool) {
+        self.held = held
+    }
+
+    public func attachMeetingListener(_ listener: (any BufferListener)?) {
+        capture.setMeetingListener(listener)
+    }
+
+    public func setVoiceProcessing(_ on: Bool) throws {
+        voiceProcessing = on
+        try backend.setVoiceProcessing(on)
+    }
+
+    private func idleStopFired(after duration: Duration) {
         idleStop = nil
         guard running else { return }
+        guard !held else {
+            // Checked again an idle period later, so the stop still applies once released.
+            scheduleIdleStop(after: duration)
+            return
+        }
         Log.audio.info("idle stop")
         stop()
     }
@@ -208,9 +249,19 @@ public actor AudioCaptureEngine: AudioCapture {
             // merely marked stopped so the next press restarts it at the new format.
             let wasCapturing = capture.suspend()
             teardown()
-            eventContinuation.yield(wasCapturing ? .deviceChanged : .stopped)
+            guard held else {
+                eventContinuation.yield(wasCapturing ? .deviceChanged : .stopped)
+                return
+            }
+            do {
+                try ensureRunning()
+            } catch {
+                Log.audio.error("restart after device change failed: \(AnyError(error).description)")
+            }
+            if wasCapturing { eventContinuation.yield(.deviceChanged) }
+            meetingContinuation.yield(.deviceChanged)
         case .systemWillSleep:
-            stop()
+            if held { meetingContinuation.yield(.systemWillSleep) } else { stop() }
         }
     }
 
