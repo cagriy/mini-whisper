@@ -103,6 +103,12 @@ public actor MeetingStore: MeetingReading {
         url(.audio, of: id)
     }
 
+    /// The folder exists without `index.json`, so `refreshIndex()` should write one (§5.7).
+    public nonisolated var isIndexMissing: Bool {
+        FileManager.default.fileExists(atPath: directory.path)
+            && !FileManager.default.fileExists(atPath: indexURL.path)
+    }
+
     /// Newest first.
     public nonisolated func index() throws -> [IndexEntry] {
         try readIndexOrScan()

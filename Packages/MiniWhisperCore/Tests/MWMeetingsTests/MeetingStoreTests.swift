@@ -171,6 +171,19 @@ import MWMeetings
         #expect(stored == entries)
     }
 
+    @Test func indexIsMissingOnlyBesideStoredMeetings() async throws {
+        let fixture = try Fixture()
+        #expect(fixture.store.isIndexMissing == false)
+
+        try await fixture.store.create(MeetingFixtures.make().meeting)
+        #expect(fixture.store.isIndexMissing == false)
+
+        try FileManager.default.removeItem(at: fixture.indexURL)
+        #expect(fixture.store.isIndexMissing)
+        try await fixture.store.refreshIndex()
+        #expect(fixture.store.isIndexMissing == false)
+    }
+
     @Test func readerRebuildsInMemoryWithoutWriting() async throws {
         let fixture = try Fixture()
         let meeting = MeetingFixtures.make().meeting

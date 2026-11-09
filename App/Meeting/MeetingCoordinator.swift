@@ -15,6 +15,7 @@ protocol MeetingControlling: AnyObject {
     func resume() async
     func rename(speaker: Int, to name: String) async
     func addNote(_ text: String, firstKeystrokeAt time: Double) async
+    func open(_ id: UUID) async throws
     func summarise() async
     func edit(segment: UUID, text: String) async
     func reassign(segment: UUID, to speaker: Int) async
@@ -69,7 +70,7 @@ final class MeetingCoordinator {
         var openSettings: @MainActor () -> Void
         /// Asks where to write the stored meeting's Markdown, then writes it (R17).
         var export: @MainActor (MeetingExporter.Kind, UUID) -> Void
-        /// A meeting changed state or got its summary: the menu and usage rows follow.
+        /// A meeting changed state, title or summary: the menu, usage rows and list follow.
         var changed: @MainActor () -> Void
     }
 
@@ -136,12 +137,49 @@ final class MeetingCoordinator {
             model: MeetingWindowModel(chooser: deps.chooser()),
             frontApp: frontApp
         )
-        let window = deps.makeWindow(session.model, actions(for: session))
-        window.setTitle("New Meeting")
-        session.window = window
         current = session
         forwardEvents(of: session)
+        present(session, title: "New Meeting")
+    }
+
+    private func present(_ session: Session, title: String) {
+        let window = deps.makeWindow(session.model, actions(for: session))
+        window.setTitle(title)
+        session.window = window
         window.show()
+    }
+
+    /// The list's *Open*: a stored meeting in its own window, stopped (§5.3). Its window
+    /// appears once the controller's events have filled it; an open one comes to the front.
+    func open(_ id: UUID) async throws {
+        if let session = session(showing: id) {
+            session.window?.show()
+            return
+        }
+        let session = Session(
+            controller: deps.makeController(nil), model: MeetingWindowModel(chooser: deps.chooser()), frontApp: nil
+        )
+        forwardEvents(of: session)
+        try await session.controller.open(id)
+        if let meeting = session.controller.meeting { session.model.show(meeting) }
+        ended.append(session)
+    }
+
+    /// The meeting has a window: the chooser's, a live one or an ended one still open.
+    func isOpen(_ id: UUID) -> Bool {
+        session(showing: id) != nil
+    }
+
+    /// The list's rename of a meeting with a window goes through its controller, whose next
+    /// save would otherwise put the old title back. False when no window shows it.
+    func retitle(_ id: UUID, to title: String) async -> Bool {
+        guard let session = session(showing: id) else { return false }
+        if let title = session.model.commitTitle(title) { await session.controller.retitle(title) }
+        return true
+    }
+
+    private func session(showing id: UUID) -> Session? {
+        ([current].compactMap { $0 } + ended).first { $0.controller.meeting?.id == id }
     }
 
     /// *Show Meeting…*
@@ -223,9 +261,12 @@ final class MeetingCoordinator {
                 guard let controller = session?.controller else { return }
                 Task { await controller.reassign(segment: segment, to: speaker) }
             },
-            retitle: { [weak session] draft in
+            retitle: { [weak self, weak session] draft in
                 guard let session, let title = session.model.commitTitle(draft) else { return }
-                Task { await session.controller.retitle(title) }
+                Task {
+                    await session.controller.retitle(title)
+                    self?.deps.changed()
+                }
             },
             export: { [weak self, weak session] kind in
                 guard let id = session?.controller.meeting?.id else { return }
@@ -250,7 +291,11 @@ final class MeetingCoordinator {
                 case .state(let state):
                     // The header's end time, duration and engine cost.
                     if state == .stopped, let meeting = session.controller.meeting { session.model.show(meeting) }
-                    session.window?.setTitle(state == .idle ? "New Meeting" : "Meeting")
+                    if session.window == nil {
+                        self?.present(session, title: "Meeting")
+                    } else {
+                        session.window?.setTitle(state == .idle ? "New Meeting" : "Meeting")
+                    }
                     self?.deps.changed()
                 case .summary:
                     self?.deps.changed()

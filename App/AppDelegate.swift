@@ -37,6 +37,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var correctionDependencies: CorrectionModel.Dependencies?
     private var appliedBindings: [BindingName: HotkeyCombo] = [:]
     private var meetings: MeetingCoordinator?
+    private var meetingsWindow: MeetingsWindowController?
+    private var meetingsListDependencies: MeetingsListModel.Dependencies?
     /// The config as last loaded or changed, for the meeting chooser.
     private var config = Config()
     private var overlay: OverlayPanelController?
@@ -58,6 +60,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             onStartMeeting: { [weak self] in self?.meetings?.openChooser() },
             onStopMeeting: { [weak self] in Task { await self?.meetings?.stop() } },
             onShowMeeting: { [weak self] in self?.meetings?.show() },
+            onMeetings: { [weak self] in self?.openMeetingsList() },
             onHistory: { [weak self] in self?.openHistory() },
             onSettings: { [weak self] in self?.openSettings() },
             onQuit: { [weak self] in self?.quit() }
@@ -132,9 +135,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         let controller = DictationController(deps: deps, config: configStore)
         self.controller = controller
+        let store = MeetingStore(directory: Self.configDirectory.appendingPathComponent("meetings", isDirectory: true))
+        let exporter = MeetingExporter(generator: AgentCommand.generator)
+        let export: @MainActor (MeetingExporter.Kind, UUID) -> Void = { kind, id in
+            ExportPanels.export(kind, of: id, from: store, exporter: exporter)
+        }
         meetings = makeMeetings(
-            audio: audio, secrets: secrets, configStore: configStore, usage: usage, prompts: prompts
+            audio: audio, secrets: secrets, configStore: configStore, usage: usage, prompts: prompts,
+            store: store, export: export
         )
+        meetingsListDependencies = makeMeetingsList(store: store, export: export)
 
         if let statusItem {
             // §5.5: the panels exist off-screen before the first press.
@@ -250,11 +260,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         secrets: KeychainStore,
         configStore: ConfigStore,
         usage: UsageStore,
-        prompts: PromptFiles
+        prompts: PromptFiles,
+        store: MeetingStore,
+        export: @escaping @MainActor (MeetingExporter.Kind, UUID) -> Void
     ) -> MeetingCoordinator {
-        let store = MeetingStore(directory: Self.configDirectory.appendingPathComponent("meetings", isDirectory: true))
         let summarizer = KeyedAnthropicClient(secrets: secrets)
-        let exporter = MeetingExporter(generator: AgentCommand.generator)
         return MeetingCoordinator(deps: MeetingCoordinator.Dependencies(
             makeController: { frontApp in
                 MeetingController(
@@ -291,14 +301,50 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             now: { Date() },
             endDictation: { [weak self] in await self?.controller?.abort() },
             openSettings: { [weak self] in self?.openSettings() },
-            export: { kind, id in ExportPanels.export(kind, of: id, from: store, exporter: exporter) },
+            export: export,
             changed: { [weak self] in self?.meetingChanged(usage: usage) }
         ))
     }
 
-    /// The menu follows the meeting; Stop and the summary add usage (R18).
+    /// R16: the Meetings window, over the same store as the meeting windows.
+    private func makeMeetingsList(
+        store: MeetingStore, export: @escaping @MainActor (MeetingExporter.Kind, UUID) -> Void
+    ) -> MeetingsListModel.Dependencies {
+        MeetingsListModel.Dependencies(
+            library: store,
+            clock: SystemClock(),
+            now: { Date() },
+            calendar: .current,
+            hotkey: { [weak self] in
+                self?.appliedBindings[.meeting]?.displayString ?? "the meeting hotkey"
+            },
+            isOpen: { [weak self] in self?.meetings?.isOpen($0) ?? false },
+            retitleOpen: { [weak self] id, title in await self?.meetings?.retitle(id, to: title) ?? false },
+            open: { [weak self] in try await self?.meetings?.open($0) },
+            export: export,
+            startMeeting: { [weak self] in self?.meetings?.openChooser() },
+            showInFinder: {
+                // Before the first meeting the folder does not exist yet.
+                let folder = FileManager.default.fileExists(atPath: store.directory.path)
+                    ? store.directory : store.directory.deletingLastPathComponent()
+                NSWorkspace.shared.activateFileViewerSelecting([folder])
+            }
+        )
+    }
+
+    private func openMeetingsList() {
+        guard let dependencies = meetingsListDependencies else { return }
+        if meetingsWindow == nil {
+            meetingsWindow = MeetingsWindowController(model: MeetingsListModel(deps: dependencies))
+        }
+        meetingsWindow?.show()
+    }
+
+    /// The menu follows the meeting; Stop and the summary add usage (R18). An open Meetings
+    /// window follows its titles, summaries and new rows.
     private func meetingChanged(usage: UsageStore) {
         statusItem?.setMeetingActive(meetings?.isActive ?? false)
+        if let list = meetingsWindow, list.isVisible { Task { await list.model.reload() } }
         Task { [weak self] in
             let totals = await usage.totals()
             self?.statusItem?.setUsage(today: totals.today, monthCost: totals.monthCost)

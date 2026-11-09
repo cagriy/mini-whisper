@@ -46,6 +46,14 @@ import Testing
         func resume() async { state = .recording }
         func rename(speaker: Int, to name: String) async {}
         func addNote(_ text: String, firstKeystrokeAt time: Double) async {}
+        func open(_ id: UUID) async throws {
+            meeting = Meeting(id: id, title: "Standup", startedAt: MeetingCoordinatorTests.now,
+                              endedAt: MeetingCoordinatorTests.now.addingTimeInterval(600), durationSeconds: 600,
+                              mode: .inRoom, engine: .speechmaticsStandard, userName: "Alex")
+            state = .stopped
+            continuation.yield(.state(.stopped))
+        }
+
         func summarise() async { request.yield("summarise") }
         func edit(segment: UUID, text: String) async { request.yield("edit \(text)") }
         func reassign(segment: UUID, to speaker: Int) async { request.yield("reassign \(speaker)") }
@@ -79,6 +87,7 @@ import Testing
         var models: [MeetingWindowModel] = []
         var actions: [MeetingActions] = []
         var exports: [(kind: MeetingExporter.Kind, id: UUID)] = []
+        var changeCount = 0
         let changes: AsyncStream<Void>
         private let change: AsyncStream<Void>.Continuation
         var frontApps: [String?] = []
@@ -117,7 +126,10 @@ import Testing
             },
             openSettings: {},
             export: { [unowned self] kind, id in exports.append((kind, id)) },
-            changed: { [unowned self] in change.yield() }
+            changed: { [unowned self] in
+                changeCount += 1
+                change.yield()
+            }
         ))
 
         init() {
@@ -282,6 +294,18 @@ import Testing
         #expect(harness.models[0].title == "Northwind rollout sync")
     }
 
+    @Test func headerRenameNotifiesTheList() async {
+        let harness = Harness()
+        let controller = await harness.stopped()
+        let before = harness.changeCount
+        var requests = controller.requests.makeAsyncIterator()
+
+        harness.actions[0].retitle("Northwind rollout sync")
+
+        #expect(await requests.next() == "retitle Northwind rollout sync")
+        #expect(harness.changeCount == before + 1)
+    }
+
     @Test func exportNamesTheMeeting() async throws {
         let harness = Harness()
         let controller = await harness.stopped()
@@ -291,5 +315,42 @@ import Testing
         let id = try #require(controller.meeting?.id)
         #expect(harness.exports.map(\.kind) == [.both])
         #expect(harness.exports.map(\.id) == [id])
+    }
+
+    @Test func openShowsAStoredMeetingInItsOwnWindow() async throws {
+        let harness = Harness()
+        let id = UUID()
+
+        try await harness.coordinator.open(id)
+        for await _ in harness.changes where !harness.windows.isEmpty { break }
+
+        #expect(harness.windows.map(\.shows) == [1])
+        #expect(harness.windows.first?.title == "Meeting")
+        #expect(harness.models.first?.state == .stopped)
+        #expect(harness.models.first?.title == "Standup")
+        #expect(harness.frontApps == [nil])
+        #expect(harness.coordinator.isOpen(id))
+        #expect(harness.coordinator.isActive == false)
+
+        try await harness.coordinator.open(id)
+        #expect(harness.controllers.count == 1)
+        #expect(harness.windows.map(\.shows) == [2])
+
+        harness.actions[0].closed()
+        #expect(harness.coordinator.isOpen(id) == false)
+    }
+
+    @Test func listRenameOfAnOpenMeetingGoesThroughItsController() async throws {
+        let harness = Harness()
+        let id = UUID()
+        try await harness.coordinator.open(id)
+        for await _ in harness.changes where !harness.windows.isEmpty { break }
+
+        #expect(await harness.coordinator.retitle(id, to: "Daily standup"))
+        #expect(await harness.coordinator.retitle(UUID(), to: "Other") == false)
+
+        var requests = harness.controllers[0].requests.makeAsyncIterator()
+        #expect(await requests.next() == "retitle Daily standup")
+        #expect(harness.models[0].title == "Daily standup")
     }
 }

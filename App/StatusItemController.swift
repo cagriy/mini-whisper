@@ -12,6 +12,7 @@ final class StatusItemController: NSObject {
     private let onStartMeeting: () -> Void
     private let onStopMeeting: () -> Void
     private let onShowMeeting: () -> Void
+    private let onMeetings: () -> Void
     private let onHistory: () -> Void
     private let onSettings: () -> Void
     private let onQuit: () -> Void
@@ -23,6 +24,7 @@ final class StatusItemController: NSObject {
         onStartMeeting: @escaping () -> Void,
         onStopMeeting: @escaping () -> Void,
         onShowMeeting: @escaping () -> Void,
+        onMeetings: @escaping () -> Void,
         onHistory: @escaping () -> Void,
         onSettings: @escaping () -> Void,
         onQuit: @escaping () -> Void
@@ -32,6 +34,7 @@ final class StatusItemController: NSObject {
         self.onStartMeeting = onStartMeeting
         self.onStopMeeting = onStopMeeting
         self.onShowMeeting = onShowMeeting
+        self.onMeetings = onMeetings
         self.onHistory = onHistory
         self.onSettings = onSettings
         self.onQuit = onQuit
@@ -96,6 +99,7 @@ final class StatusItemController: NSObject {
         case .startMeeting: onStartMeeting()
         case .stopMeeting: onStopMeeting()
         case .showMeeting: onShowMeeting()
+        case .meetings: onMeetings()
         case .history: onHistory()
         case .settings: onSettings()
         case .checkForUpdates: AppUpdater.checkForUpdates()

@@ -11,6 +11,7 @@ struct MenuItem: Equatable {
         case startMeeting
         case stopMeeting
         case showMeeting
+        case meetings
         case history
         case settings
         case checkForUpdates
@@ -44,6 +45,7 @@ struct MenuModel {
             MenuItem(title: rows.month, action: nil),
             .separator,
             MenuItem(title: "Start Meeting…", action: .startMeeting),
+            MenuItem(title: "Meetings…", action: .meetings),
             MenuItem(title: "History...", action: .history),
             MenuItem(title: "Settings...", action: .settings),
             .separator,
@@ -54,14 +56,14 @@ struct MenuModel {
     }
 
     /// R1: *Stop Meeting* and *Show Meeting…* replace *Start Meeting…* while a meeting
-    /// records or is paused.
+    /// records or is paused; *Meetings…* stays.
     mutating func setMeetingActive(_ active: Bool) {
         let meetingActions: [MenuItem.Action] = [.startMeeting, .stopMeeting, .showMeeting]
         items.removeAll { $0.action.map(meetingActions.contains) ?? false }
         let rows = active
             ? [MenuItem(title: "Stop Meeting", action: .stopMeeting), MenuItem(title: "Show Meeting…", action: .showMeeting)]
             : [MenuItem(title: "Start Meeting…", action: .startMeeting)]
-        items.insert(contentsOf: rows, at: items.firstIndex { $0.action == .history } ?? items.endIndex)
+        items.insert(contentsOf: rows, at: items.firstIndex { $0.action == .meetings } ?? items.endIndex)
     }
 
     mutating func setUsage(today: String, month: String) {

@@ -26,6 +26,7 @@ import Testing
             emptyMonth,
             "",
             "Start Meeting…",
+            "Meetings…",
             "History...",
             "Settings...",
             "",
@@ -33,16 +34,16 @@ import Testing
             "About Mini Whisper",
             "Quit",
         ])
-        #expect(model.items.map(\.isSeparator) == [false, false, true, false, false, false, true, false, false, false])
+        #expect(model.items.map(\.isSeparator) == [false, false, true, false, false, false, false, true, false, false, false])
         #expect(model.items.map(\.action) == [
-            nil, nil, nil, .startMeeting, .history, .settings, nil, .checkForUpdates, .about, .quit,
+            nil, nil, nil, .startMeeting, .meetings, .history, .settings, nil, .checkForUpdates, .about, .quit,
         ])
     }
 
     @Test func activeMeetingShowsStopAndShowMeeting() {
         var model = MenuModel()
         model.setMeetingActive(true)
-        #expect(model.items.map(\.title)[2...5] == ["", "Stop Meeting", "Show Meeting…", "History..."])
+        #expect(model.items.map(\.title)[2...6] == ["", "Stop Meeting", "Show Meeting…", "Meetings…", "History..."])
         #expect(model.items.map(\.action)[3...4] == [.stopMeeting, .showMeeting])
         #expect(!model.items.contains { $0.action == .startMeeting })
     }
@@ -56,6 +57,18 @@ import Testing
         #expect(model.items == MenuModel().items)
     }
 
+    @Test func meetingsRowIsAlwaysPresent() {
+        var model = MenuModel()
+        for active in [true, false, true] {
+            model.setMeetingActive(active)
+            let titles = model.items.map(\.title)
+            let meetings = titles.firstIndex(of: "Meetings…")
+            #expect(model.items.filter { $0.action == .meetings }.count == 1)
+            #expect(meetings.map { titles[$0 + 1] } == "History...")
+            #expect(meetings.map { titles[$0 - 1] } == (active ? "Show Meeting…" : "Start Meeting…"))
+        }
+    }
+
     @Test func lastAndCorrectRowsStillFollowMonth() {
         var model = MenuModel()
         model.setMeetingActive(true)
@@ -64,8 +77,8 @@ import Testing
             emptyMonth, "Last: \"hello\"", "Correct Last Dictation…", "", "Stop Meeting", "Show Meeting…",
         ])
         model.setMeetingActive(false)
-        #expect(model.items.map(\.title)[2...6] == [
-            "Last: \"hello\"", "Correct Last Dictation…", "", "Start Meeting…", "History...",
+        #expect(model.items.map(\.title)[2...7] == [
+            "Last: \"hello\"", "Correct Last Dictation…", "", "Start Meeting…", "Meetings…", "History...",
         ])
     }
 
@@ -80,6 +93,7 @@ import Testing
             "Correct Last Dictation…",
             "",
             "Start Meeting…",
+            "Meetings…",
             "History...",
             "Settings...",
             "",
