@@ -2560,6 +2560,20 @@ None — plan matches design v4 exactly.
   write error ends the audio file. `summarise()` checks for an empty transcript before the
   Anthropic key. The test harness (`MeetingHarness`) lives in `MeetingControllerTests.swift` for
   Stage 18; a second session comes from a Speechmatics warning rollover.
+- **Stage 18.** `resume()` does not throw: nothing in it can fail (a recorder error ends the
+  audio file, as in Stage 17). Pause writes `meeting.json` with the marker open (end = start) and
+  Resume or Stop closes it; Resume waits for the pause's session close so a quick Resume is not
+  closed with it. Resume and Stop first move the audio time up to the clock, so a sleep's silence
+  is in the file and the marker. A device change moves it up likewise and records the jump, so the
+  open session's later words land after the gap; the output-device rule measures time since the
+  last tap buffer. The silence hint needs mic speech and no tap sample above −60 dBFS by meeting
+  second 60. The write-error test makes `segments.jsonl` read-only (an open handle or a directory
+  mode does not stop writes to an existing file); every segment stays in memory for the summary,
+  so the 10 000 cap is not applied, and one loop serialises appends and rewrites. Revisions skip
+  segments whose speaker is not their label's (the gate gave them to the user);
+  `pinnedSegmentIsNeverRevised` calls the internal `MeetingController.revise` through
+  `@testable`, since nothing pins a segment while a session is open. Rename and titles are trimmed;
+  reassignment to an unknown speaker is ignored. Added `stopWhilePausedClosesThePauseMarker`.
 
 ## Execution schedule
 
