@@ -1,6 +1,7 @@
 import Foundation
 import MWConfig
 import MWHotkeys
+import MWMeetings
 import MWOverlaySim
 import MWStreaming
 import Testing
@@ -41,6 +42,16 @@ import Testing
         func checkForUpdates() { checks += 1 }
     }
 
+    /// The Meetings pane's reach into the store, the installer and the pasteboard.
+    private final class MeetingHooks: @unchecked Sendable {
+        var entries: [IndexEntry] = []
+        var installed = false
+        var installResult: Result<Void, CommandLineToolInstaller.Failure> = .success(())
+        var copied: [String] = []
+        var foldersShown = 0
+        var listsOpened = 0
+    }
+
     private struct Harness {
         let directory: URL
         let store: ConfigStore
@@ -48,6 +59,7 @@ import Testing
         let hotkeys = FakeHotkeys()
         let sounds = FakeSounds()
         let updates = FakeUpdater()
+        let meetings = MeetingHooks()
 
         init() {
             directory = FileManager.default.temporaryDirectory
@@ -76,13 +88,25 @@ import Testing
                     prompts: PromptFiles(
                         directory: directory,
                         bundledCleanup: directory.appendingPathComponent("default_prompt.txt"),
-                        bundledTranscribe: directory.appendingPathComponent("default_transcribe_prompt.txt")
+                        bundledTranscribe: directory.appendingPathComponent("default_transcribe_prompt.txt"),
+                        bundledSummary: directory.appendingPathComponent("default_summary_prompt.txt")
                     ),
                     apps: StubApps(),
                     pruneHistory: { _ in },
                     clearHistory: {},
                     openHistory: {},
-                    openCorrection: { _ in }
+                    openCorrection: { _ in },
+                    accountName: "Alex Morgan",
+                    meetingIndex: { [meetings] in meetings.entries },
+                    showMeetingsFolder: { [meetings] in meetings.foldersShown += 1 },
+                    openMeetings: { [meetings] in meetings.listsOpened += 1 },
+                    installTool: { [meetings] in
+                        if case .success = meetings.installResult { meetings.installed = true }
+                        return meetings.installResult
+                    },
+                    isToolInstalled: { [meetings] in meetings.installed },
+                    toolBinaryPath: "/Applications/Mini Whisper.app/Contents/MacOS/Mini Whisper",
+                    copy: { [meetings] in meetings.copied.append($0) }
                 )
             )
             await model.refreshSpeechModel()
@@ -542,7 +566,7 @@ import Testing
 
     @Test func overlaySectionSitsBetweenHistoryAndSound() {
         #expect(SettingsModel.Section.allCases == [
-            .general, .hotkeys, .keys, .cleanup, .vocabulary, .history, .overlay, .sound,
+            .general, .hotkeys, .keys, .cleanup, .vocabulary, .history, .meetings, .overlay, .sound,
         ])
         #expect(SettingsModel.Section.overlay.title == "Overlay")
         #expect(SettingsModel.Section.overlay.symbolName == "sparkles.rectangle.stack")
@@ -580,5 +604,219 @@ import Testing
 
         #expect(model.overlayStyleRows == OverlayStyleCatalog.rows)
         #expect(model.overlayStyleRows.count == OverlayStyle.allCases.count)
+    }
+
+    // MARK: - Meetings (design §3 R4, R20, R22)
+
+    @Test func meetingsSectionTitleAndSymbol() {
+        #expect(SettingsModel.Section.meetings.title == "Meetings")
+        #expect(SettingsModel.Section.meetings.symbolName == "person.2.wave.2")
+    }
+
+    @Test func engineRowsShowPricesAndKeyGating() async throws {
+        let harness = Harness()
+        defer { harness.cleanUp() }
+        harness.secrets.stored[.assemblyai] = "placeholder-not-a-real-key"
+        let model = await harness.model()
+
+        #expect(model.meetingEngineRows.map(\.engine) == MeetingEngine.allCases)
+        #expect(model.meetingEngineRows.map(\.title) == MeetingEngine.allCases.map(\.title))
+        #expect(model.meetingEngineRows.map(\.price) == ["$0.45/h", "$0.80/h", "$0.15 + $0.12/h", "$0.45 + $0.12/h"])
+
+        let standard = try #require(model.meetingEngineRows.first)
+        #expect(!standard.isEnabled)
+        #expect(standard.disabledReason == "Add a Speechmatics key under Keys to enable")
+        let streaming = try #require(model.meetingEngineRows.first { $0.engine == .assemblyaiStreaming })
+        #expect(streaming.isEnabled)
+        #expect(streaming.disabledReason == nil)
+
+        harness.secrets.stored[.speechmatics] = "placeholder-not-a-real-key"
+        model.refreshKeys()
+        #expect(model.meetingEngineRows.map(\.isEnabled) == [true, true, true, true])
+    }
+
+    @Test func enginePricesFollowPricingOverrides() async throws {
+        let harness = Harness()
+        defer { harness.cleanUp() }
+        try harness.writeConfig(#"{"pricing_overrides": {"speechmatics": 0.01, "assemblyai_diarization": 0.001}}"#)
+        let model = await harness.model()
+
+        #expect(model.meetingEngineRows.map(\.price) == ["$0.60/h", "$0.80/h", "$0.15 + $0.06/h", "$0.45 + $0.06/h"])
+    }
+
+    @Test func selectingAnEngineWritesMeetingEngine() async throws {
+        let harness = Harness()
+        defer { harness.cleanUp() }
+        harness.secrets.stored[.speechmatics] = "placeholder-not-a-real-key"
+        let model = await harness.model()
+        #expect(model.activeMeetingEngine == .speechmaticsStandard)
+
+        await model.selectMeetingEngine(.speechmaticsEnhanced)
+        #expect(model.activeMeetingEngine == .speechmaticsEnhanced)
+        #expect(await harness.store.load().meetingEngine == .speechmaticsEnhanced)
+
+        // A row without its key cannot be chosen.
+        await model.selectMeetingEngine(.assemblyaiPro)
+        #expect(await harness.store.load().meetingEngine == .speechmaticsEnhanced)
+    }
+
+    /// Design §5.7: a stored tier whose key was removed stays in config.json, shown disabled,
+    /// while meetings run on the first tier that has a key.
+    @Test func storedEngineWithoutAKeyShowsDisabledAndTheFirstKeyedTierIsActive() async throws {
+        let harness = Harness()
+        defer { harness.cleanUp() }
+        try harness.writeConfig(#"{"meeting_engine": "assemblyai_pro"}"#)
+        harness.secrets.stored[.speechmatics] = "placeholder-not-a-real-key"
+        let model = await harness.model()
+
+        let stored = try #require(model.meetingEngineRows.first { $0.engine == .assemblyaiPro })
+        #expect(!stored.isEnabled)
+        #expect(stored.disabledReason == "Add an AssemblyAI key under Keys to enable")
+        #expect(model.activeMeetingEngine == .speechmaticsStandard)
+        #expect(await harness.store.load().meetingEngine == .assemblyaiPro)
+
+        let keyless = await Harness().model()
+        #expect(keyless.activeMeetingEngine == nil)
+    }
+
+    @Test func userNameDefaultsToTheFullName() async throws {
+        let harness = Harness()
+        defer { harness.cleanUp() }
+        let model = await harness.model()
+        #expect(model.meetingUserName == "Alex Morgan")
+
+        await model.setMeetingUserName(" Alex ")
+        #expect(model.meetingUserName == "Alex")
+        #expect(await harness.store.load().meetingUserName == "Alex")
+
+        // Clearing the field brings the account name back rather than storing a blank name.
+        await model.setMeetingUserName("  ")
+        #expect(model.meetingUserName == "Alex Morgan")
+        #expect(await harness.store.load().meetingUserName == nil)
+    }
+
+    @Test func keepAudioToggleWritesConfig() async throws {
+        let harness = Harness()
+        defer { harness.cleanUp() }
+        let model = await harness.model()
+        #expect(model.config.meetingKeepAudio)
+
+        await model.setMeetingKeepAudio(false)
+        #expect(!model.config.meetingKeepAudio)
+        #expect(await harness.store.load().meetingKeepAudio == false)
+    }
+
+    @Test func privacySettingsURLIsTheAudioCaptureAnchor() {
+        #expect(SettingsModel.privacySettingsURL.absoluteString
+            == "x-apple.systempreferences:com.apple.preference.security?Privacy_AudioCapture")
+    }
+
+    @Test func summaryPromptSavesAndRestoresTheDefault() async throws {
+        let harness = Harness()
+        defer { harness.cleanUp() }
+        try FileManager.default.createDirectory(at: harness.directory, withIntermediateDirectories: true)
+        try Data("Summarise the meeting.\n".utf8)
+            .write(to: harness.directory.appendingPathComponent("default_summary_prompt.txt"))
+        let model = await harness.model()
+        let file = harness.directory.appendingPathComponent("summary_prompt.txt")
+
+        model.loadSummaryPrompt()
+        #expect(model.summaryPromptDraft == "Summarise the meeting.")
+        #expect(model.summaryPromptURL == file)
+
+        model.summaryPromptDraft = "Only list action items."
+        model.saveSummaryPrompt()
+        #expect(try String(contentsOf: file, encoding: .utf8) == "Only list action items.")
+
+        model.restoreDefaultSummaryPrompt()
+        #expect(model.summaryPromptDraft == "Summarise the meeting.")
+        #expect(try String(contentsOf: file, encoding: .utf8) == "Summarise the meeting.\n")
+        #expect(model.promptError == nil)
+    }
+
+    @Test func summaryNoteAsksForAnAnthropicKeyUntilOneIsStored() async {
+        let harness = Harness()
+        defer { harness.cleanUp() }
+        let model = await harness.model()
+        #expect(model.summaryKeyHint == "Add an Anthropic key under Keys to enable.")
+
+        harness.secrets.stored[.anthropic] = "sk-ant-placeholder"
+        model.refreshKeys()
+        #expect(model.summaryKeyHint == nil)
+    }
+
+    @Test func storageRowCountsMeetingsAndAudio() async {
+        let harness = Harness()
+        defer { harness.cleanUp() }
+        let model = await harness.model()
+
+        await model.refreshMeetings()
+        #expect(model.storageText == "0 meetings")
+
+        harness.meetings.entries = [Self.entry(audioBytes: 0)]
+        await model.refreshMeetings()
+        #expect(model.storageText == "1 meeting")
+
+        harness.meetings.entries = [
+            Self.entry(audioBytes: 300_000_000), Self.entry(audioBytes: 10_400_000), Self.entry(audioBytes: 0),
+        ]
+        await model.refreshMeetings()
+        #expect(model.storageText == "3 meetings · 310 MB audio")
+
+        model.showMeetingsFolder()
+        model.openMeetings()
+        #expect(harness.meetings.foldersShown == 1)
+        #expect(harness.meetings.listsOpened == 1)
+    }
+
+    @Test func installReportsSuccessOrTheErrorText() async {
+        let harness = Harness()
+        defer { harness.cleanUp() }
+        let model = await harness.model()
+        await model.refreshMeetings()
+        #expect(model.toolStatus == "Not installed")
+
+        harness.meetings.installResult = .failure(CommandLineToolInstaller.Failure(message: "User canceled."))
+        model.installTool()
+        #expect(model.toolStatus == "User canceled.")
+        // Coming back to the pane shows the state on disk, not the last attempt's reason.
+        await model.refreshMeetings()
+        #expect(model.toolStatus == "Not installed")
+
+        harness.meetings.installResult = .success(())
+        model.installTool()
+        #expect(model.toolStatus == "Installed")
+    }
+
+    @Test func claudeCodeCommandFollowsInstallState() async {
+        let harness = Harness()
+        defer { harness.cleanUp() }
+        let model = await harness.model()
+        await model.refreshMeetings()
+        #expect(model.claudeCodeCommand
+            == "claude mcp add --transport stdio mini-whisper -- '/Applications/Mini Whisper.app/Contents/MacOS/Mini Whisper' mcp")
+
+        harness.meetings.installed = true
+        await model.refreshMeetings()
+        #expect(model.claudeCodeCommand == "claude mcp add --transport stdio mini-whisper -- mini-whisper mcp")
+    }
+
+    @Test func copyPutsTheCommandOnThePasteboard() async {
+        let harness = Harness()
+        defer { harness.cleanUp() }
+        harness.meetings.installed = true
+        let model = await harness.model()
+        await model.refreshMeetings()
+
+        model.copyClaudeCodeCommand()
+        #expect(harness.meetings.copied == ["claude mcp add --transport stdio mini-whisper -- mini-whisper mcp"])
+    }
+
+    private static func entry(audioBytes: Int) -> IndexEntry {
+        IndexEntry(
+            id: UUID(), title: "Standup", startedAt: Date(timeIntervalSince1970: 1_794_236_400), endedAt: nil,
+            duration: 600, mode: .inRoom, app: nil, engine: .speechmaticsStandard, speakerCount: 2, costUSD: 0.08,
+            hasSummary: false, audioBytes: audioBytes, excerpt: ""
+        )
     }
 }

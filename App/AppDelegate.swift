@@ -212,7 +212,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             },
             clearHistory: { try? await history.clear() },
             openHistory: { [weak self] in self?.openHistory() },
-            openCorrection: { [weak self] source in self?.openCorrection(source) }
+            openCorrection: { [weak self] source in self?.openCorrection(source) },
+            meetingIndex: { (try? store.index()) ?? [] },
+            showMeetingsFolder: { Self.showInFinder(store) },
+            openMeetings: { [weak self] in self?.openMeetingsList() },
+            installTool: { CommandLineToolInstaller.install() },
+            isToolInstalled: { CommandLineToolInstaller.isInstalled() },
+            copy: { _ = NSPasteboardAccess().write($0) }
         )
 
         historyDependencies = HistoryListModel.Dependencies(
@@ -323,13 +329,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             open: { [weak self] in try await self?.meetings?.open($0) },
             export: export,
             startMeeting: { [weak self] in self?.meetings?.openChooser() },
-            showInFinder: {
-                // Before the first meeting the folder does not exist yet.
-                let folder = FileManager.default.fileExists(atPath: store.directory.path)
-                    ? store.directory : store.directory.deletingLastPathComponent()
-                NSWorkspace.shared.activateFileViewerSelecting([folder])
-            }
+            showInFinder: { Self.showInFinder(store) }
         )
+    }
+
+    private static func showInFinder(_ store: MeetingStore) {
+        // Before the first meeting the folder does not exist yet.
+        let folder = FileManager.default.fileExists(atPath: store.directory.path)
+            ? store.directory : store.directory.deletingLastPathComponent()
+        NSWorkspace.shared.activateFileViewerSelecting([folder])
     }
 
     private func openMeetingsList() {

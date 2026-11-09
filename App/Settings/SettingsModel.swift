@@ -1,9 +1,11 @@
 import Foundation
 import MWConfig
 import MWHotkeys
+import MWMeetings
 import MWOverlaySim
 import MWStreaming
 import MWSupport
+import MWUsage
 import Observation
 
 /// The live hotkey matcher's capture mode (F7), as Settings needs it. One
@@ -53,10 +55,21 @@ final class SettingsModel {
         /// R35: the tally's Remember… seeds the correction window rather than adding a
         /// second rule-entry form.
         var openCorrection: @MainActor (CorrectionSource) -> Void
+        /// R20: stands in for a blank `meeting_user_name`, as in `MeetingController`.
+        var accountName: String = NSFullUserName()
+        var meetingIndex: @Sendable () async -> [IndexEntry] = { [] }
+        var showMeetingsFolder: @MainActor () -> Void = {}
+        var openMeetings: @MainActor () -> Void = {}
+        var installTool: @MainActor () -> Result<Void, CommandLineToolInstaller.Failure> = {
+            .failure(CommandLineToolInstaller.Failure(message: "Install is unavailable."))
+        }
+        var isToolInstalled: @Sendable () -> Bool = { false }
+        var toolBinaryPath: String = Bundle.main.executablePath ?? ""
+        var copy: @MainActor (String) -> Void = { _ in }
     }
 
     enum Section: String, CaseIterable, Identifiable {
-        case general, hotkeys, keys, cleanup, vocabulary, history, overlay, sound
+        case general, hotkeys, keys, cleanup, vocabulary, history, meetings, overlay, sound
 
         var id: String { rawValue }
 
@@ -68,6 +81,7 @@ final class SettingsModel {
             case .cleanup: "Cleanup"
             case .vocabulary: "Vocabulary"
             case .history: "History"
+            case .meetings: "Meetings"
             case .overlay: "Overlay"
             case .sound: "Sound"
             }
@@ -81,6 +95,7 @@ final class SettingsModel {
             case .cleanup: "wand.and.sparkles"
             case .vocabulary: "textformat.abc"
             case .history: "clock.arrow.circlepath"
+            case .meetings: "person.2.wave.2"
             case .overlay: "sparkles.rectangle.stack"
             case .sound: "speaker.wave.2"
             }
@@ -111,6 +126,17 @@ final class SettingsModel {
         var accessory: EngineAccessory?
 
         var id: EngineName { name }
+    }
+
+    struct MeetingEngineRow: Identifiable, Equatable {
+        var engine: MeetingEngine
+        var title: String
+        var subtitle: String
+        var price: String
+        var isEnabled: Bool
+        var disabledReason: String?
+
+        var id: MeetingEngine { engine }
     }
 
     struct OverlayStyleRow: Identifiable, Equatable {
@@ -232,12 +258,12 @@ final class SettingsModel {
             isEnabled: true
         ))
         for (name, account, title, reason) in Self.cloudEngines {
-            let hasKey = !mask(for: account).isEmpty
+            let keyed = hasKey(account)
             rows.append(EngineRow(
                 name: name,
                 title: title,
-                isEnabled: hasKey,
-                disabledReason: hasKey ? nil : reason
+                isEnabled: keyed,
+                disabledReason: keyed ? nil : reason
             ))
         }
         return rows
@@ -260,6 +286,10 @@ final class SettingsModel {
         (.speechmatics, .speechmatics, "Speechmatics", "Add a Speechmatics key under Keys to enable"),
         (.assemblyai, .assemblyai, "AssemblyAI", "Add an AssemblyAI key under Keys to enable"),
     ]
+
+    private static func keyHint(for account: KeyAccount) -> String? {
+        cloudEngines.first { $0.1 == account }?.3
+    }
 
     var idleStopLabel: String { "\(config.idleStopSeconds) s" }
     var toggleCapLabel: String { "\(config.toggleMaxSeconds / 60) min" }
@@ -303,7 +333,7 @@ final class SettingsModel {
 
     /// Without an OpenAI key the toggle cannot be moved, so the stored value is
     /// never rewritten by the gating.
-    var cleanupToggleEnabled: Bool { !mask(for: .openai).isEmpty }
+    var cleanupToggleEnabled: Bool { hasKey(.openai) }
     var cleanupShownOn: Bool { config.cleanupEnabled && cleanupToggleEnabled }
 
     func setCleanupEnabled(_ enabled: Bool) async {
@@ -359,6 +389,140 @@ final class SettingsModel {
         deps.openHistory()
     }
 
+    // MARK: - Meetings (design v4 §3 R4, R20, R22)
+
+    static let privacySettingsURL = MeetingWindowModel.privacySettingsURL
+
+    var meetingEngineRows: [MeetingEngineRow] {
+        MeetingEngine.allCases.map { engine in
+            let keyed = hasKey(engine.keyAccount)
+            return MeetingEngineRow(
+                engine: engine,
+                title: engine.title,
+                subtitle: Self.subtitle(of: engine),
+                price: Self.price(of: engine, overrides: config.pricingOverrides),
+                isEnabled: keyed,
+                disabledReason: keyed ? nil : Self.keyHint(for: engine.keyAccount)
+            )
+        }
+    }
+
+    /// The tier a meeting would use. A stored tier without its key stays in the config,
+    /// shown disabled, while the first keyed tier is used (design §5.7).
+    var activeMeetingEngine: MeetingEngine? {
+        MeetingEngine.resolve(stored: config.meetingEngine, hasKey: hasKey)
+    }
+
+    func selectMeetingEngine(_ engine: MeetingEngine) async {
+        guard hasKey(engine.keyAccount) else { return }
+        await write { $0.meetingEngine = engine }
+    }
+
+    var meetingUserName: String {
+        config.meetingUserName.flatMap { $0.trimmingCharacters(in: .whitespaces).isEmpty ? nil : $0 }
+            ?? deps.accountName
+    }
+
+    /// A blank name is stored as absent, so the account name applies again.
+    func setMeetingUserName(_ name: String) async {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        await write { $0.meetingUserName = trimmed.isEmpty ? nil : trimmed }
+    }
+
+    func setMeetingKeepAudio(_ keep: Bool) async {
+        await write { $0.meetingKeepAudio = keep }
+    }
+
+    var summaryPromptDraft = ""
+    var summaryPromptURL: URL { deps.prompts.summaryPromptURL }
+
+    var summaryKeyHint: String? {
+        hasKey(.anthropic) ? nil : "Add an Anthropic key under Keys to enable."
+    }
+
+    func loadSummaryPrompt() {
+        summaryPromptDraft = (try? deps.prompts.summaryPrompt()) ?? ""
+    }
+
+    func saveSummaryPrompt() {
+        save { try deps.prompts.write(summaryPrompt: summaryPromptDraft) }
+    }
+
+    func restoreDefaultSummaryPrompt() {
+        save { try deps.prompts.restoreDefaultSummaryPrompt() }
+        loadSummaryPrompt()
+    }
+
+    /// "12 meetings · 310 MB audio", as the Meetings window's footer reads.
+    private(set) var storageText = ""
+    private var toolInstalled = false
+    private var toolError: String?
+
+    /// Re-reads what the pane shows from outside the config: the index and the installed tool.
+    func refreshMeetings() async {
+        let entries = await deps.meetingIndex()
+        let audio = entries.reduce(0) { $0 + $1.audioBytes }
+        let count = "\(entries.count) meeting\(entries.count == 1 ? "" : "s")"
+        storageText = audio > 0 ? "\(count) · \(Self.size(audio)) audio" : count
+        toolInstalled = deps.isToolInstalled()
+        toolError = nil
+    }
+
+    func showMeetingsFolder() {
+        deps.showMeetingsFolder()
+    }
+
+    func openMeetings() {
+        deps.openMeetings()
+    }
+
+    /// R22: the row reports success, or the installer's reason such as "User canceled.".
+    var toolStatus: String {
+        toolError ?? (toolInstalled ? "Installed" : "Not installed")
+    }
+
+    func installTool() {
+        switch deps.installTool() {
+        case .success:
+            toolInstalled = true
+            toolError = nil
+        case .failure(let failure):
+            toolError = failure.message
+        }
+    }
+
+    var claudeCodeCommand: String {
+        CommandLineToolInstaller.mcpCommand(installed: toolInstalled, binaryPath: deps.toolBinaryPath)
+    }
+
+    func copyClaudeCodeCommand() {
+        deps.copy(claudeCodeCommand)
+    }
+
+    private static func subtitle(of engine: MeetingEngine) -> String {
+        switch engine {
+        case .speechmaticsStandard: "Speaker labels included · English"
+        case .speechmaticsEnhanced: "Higher accuracy · speaker labels included"
+        case .assemblyaiStreaming: "Speaker labels add-on · English"
+        case .assemblyaiPro: "Higher accuracy · speaker labels add-on"
+        }
+    }
+
+    /// "$0.45/h"; AssemblyAI's speaker-labels add-on is shown as a second figure, as in the mockup.
+    private static func price(of engine: MeetingEngine, overrides: [String: Double]) -> String {
+        let hour = Pricing.perHour(engine, overrides: overrides)
+        guard let key = engine.diarizationPricingKey else { return "\(Pricing.dollars(hour))/h" }
+        let addOn = Pricing.rate(Pricing.perMinute, key: key, overrides: overrides) * 60
+        return "\(Pricing.dollars(hour - addOn)) + \(Pricing.dollars(addOn))/h"
+    }
+
+    /// Decimal megabytes, as Finder and the Meetings window show them.
+    private static func size(_ bytes: Int) -> String {
+        bytes >= 1_000_000_000
+            ? String(format: "%.1f GB", Double(bytes) / 1e9)
+            : "\(max(1, Int((Double(bytes) / 1e6).rounded()))) MB"
+    }
+
     // MARK: - Overlay (design v3 §5.4)
 
     var overlayStyleRows: [OverlayStyleRow] { OverlayStyleCatalog.rows }
@@ -376,6 +540,10 @@ final class SettingsModel {
 
     func error(for account: KeyAccount) -> String? {
         keyErrors[account]
+    }
+
+    private func hasKey(_ account: KeyAccount) -> Bool {
+        !mask(for: account).isEmpty
     }
 
     /// Re-reads which accounts hold a key and rebuilds their masks. The key itself
