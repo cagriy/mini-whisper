@@ -2437,6 +2437,21 @@ None — plan matches design v4 exactly.
   UID `com.ips.mini-whisper.system-audio.<tapUID>`. New `SystemAudioTapError` names the failing
   Core Audio call and its `OSStatus`. With no Core Audio process object for our PID, nothing is
   excluded.
+- **Stage 5.** Speechmatics punctuation results carry a `speaker`, so punctuation joins the
+  preceding word whatever its label. `.segment` is emitted only when diarizing;
+  `.sessionLimit(.warning)` always, which dictation sinks ignore. The diarized fixture ends with a
+  `UU` result, giving a third, `nil`-speaker segment.
+- **Stage 12.** `MeetingMarkdown.transcript`/`summary` take a defaulted `timeZone` (goldens use
+  UTC; `summary_at` is always UTC). `northwind()` gains Alex's opening segment so speaker order
+  matches the mockup's `[Alex, Marta, Priya]`; the transcript golden therefore adds that paragraph
+  and the 00:12:40 / 00:27:15 notes, and drops the mockup's trailing "…". `transcriptBody`
+  excludes notes (Stage 16 sends them in `<notes>`), so `Summariser` must test
+  `segments.isEmpty`, not the body. `TitleSanitizer` also provides
+  `transcriptFileName`/`summaryFileName`. Search: one hit per meeting in input order, at most two
+  snippets ordered transcript → notes → summary, ~40 characters each side.
+- **Between batches (not a stage).** `FakeWebSocketConnection` lost a wakeup when a `send` landed
+  between `receive()` choosing to wait and parking, hanging `replay` tests ≈ 1 run in 15. Fixed
+  in `fix: …` with a 20 000-iteration regression test.
 - **Stage 4.** `WebSocketConnectionError` is now `LocalizedError` and `Equatable`, so `AnyError`, and
   with it the engine's failure log, names the close code. An empty close reason is `nil`.
   `RecordingSink.revisions` keeps one array per callback. `WebSocketEngine` sends everything
