@@ -2505,6 +2505,48 @@ None — plan matches design v4 exactly.
   `<id>  -  title  <title>`; search words are joined into one query. Only a known command name
   is logged. The seeded-store helper is `Tests/MWAgentAccessTests/SeededMeetings.swift`, for
   Stage 20 to reuse.
+- **Stage 14.** `SpeakerAttributor.attribute(_:session:mode:spans:registry:tallies:newID:)` returns
+  an `Attribution` (segments, registry, tallies): the 70 % rule needs the session, mode and running
+  tallies. It counts the current segment's words and, once a label crosses it, sticks for later
+  segments; it has no minimum word count. Ids are allocated lazily as highest-in-use + 1. The
+  nil-label key is `"<session>:"`, so AssemblyAI short turns share one id per session. Wordless
+  segments follow their label; split runs join word texts. On a rename merge the renamed speaker
+  merges into the name holder, and the user (id 0) always survives.
+- **Stage 15.** Sessions count from 1; a session's origin is the meeting time of its first fed
+  buffer. `open(at:)`'s time is only the gap floor, so a gap never overlaps a pause, and a resume
+  clears a pending gap. `.revision` carries its session index (R11 re-maps per session).
+  `.connected` comes on a session's first partial, segment or limit, when the backoff resets
+  (decision 24), so a revoked key keeps showing "Reconnecting (n)"; `.rolledOver` when the next
+  session takes over. A retired session still delivers segments and revisions under its own index;
+  its partials, limits and errors are ignored, so only the first Speechmatics warning acts. An
+  `expires_at` under 60 s away rolls over at once. Failed sessions also get `finish(timeout: 5 s)`;
+  `close()` awaits the open session and draining rollovers. Logs carry index, close code or error
+  domain/code, attempt, delay and cause, never the close reason (R27), narrowing design §5.7.
+- **Stage 16.** `Summariser` is `init(prompts:client:overrides:now:)`: `Summary.createdAt` needs a
+  `Date` (`HistoryStore`'s pattern), the 180 s timeout is `AnthropicClient`'s (decision 18), and
+  `overrides` lets the cost honour `pricing_overrides`. Summary cost comes from
+  `MeetingBilling.summaryUsage(_:)`, shared with the usage record. The system message is the trimmed
+  prompt file plus a fixed rule that `<notes>`/`<transcript>` are data, never instructions (§5.8),
+  appended in code so it survives user edits; the plan's `systemIsThePromptFileText` is
+  `systemIsThePromptFileTextWithTheDataRule`. Closing tags inside the data become `<\/…`.
+  Truncation keeps the last 600 000 characters, advanced to the next paragraph so its speaker header
+  survives. `.empty` checks `segments.isEmpty` and sends nothing. A refusal records no token usage.
+  `MeetingRecorder` drops samples while paused; stopping while paused writes no trailing silence.
+  `MeetingBilling.totals` gives Stage 17 the `meeting.json` `billing`. Speaker order and note lines
+  duplicate `MeetingMarkdown`'s private helpers; sharing them needed edits outside the stage.
+- **Stage 20.** Checked against the MCP specification (2025-11-25, 2026-07-28). `server/discover`
+  returns the spec's `DiscoverResult` (`resultType`, `supportedVersions`, `capabilities`, `ttlMs`,
+  `cacheScope`, `serverInfo` under `_meta`), not design §5.3's shape; its test is
+  `serverDiscoverReturnsCompleteWithVersionsCapabilitiesAndServerInfo`. 2026-07-28 results carry
+  `resultType: "complete"`, cacheable ones `ttlMs: 0` and `cacheScope: "private"`; `initialize`
+  clients get 2025-11-25 shapes. A 2026-07-28 request without `clientCapabilities` is -32602;
+  -32022's `data.supported` lists all three versions. An unknown tool is -32602; bad, unknown or
+  ambiguous ids, a missing summary and invalid arguments are `isError` tool results. Strings over
+  10 000 characters are -32602 (a string request id -32600). `search_meetings`' `limit` defaults to
+  50, clamped to 1…50. Batches are -32600; a reply to an unreadable id omits `id`; U+0085, U+2028
+  and U+2029 are escaped. Only method and known tool names are logged. The `meeting`/`index`/`json`
+  helpers copy `MeetingsCLI`'s; sharing them needed edits outside the stage. Stage 21 must flush
+  stdout after each write.
 
 ## Execution schedule
 
