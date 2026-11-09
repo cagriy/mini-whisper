@@ -2475,6 +2475,11 @@ None — plan matches design v4 exactly.
   emitted for dictation too (design §5.3); dictation sinks ignore it. Exhaustive `EngineName`
   sites outside Touches also changed: `ConfigCodingTests`, `HintMeasurementTests`,
   `PricingTests` (an `assemblyai` rate row) and `CorrectionsEditorModelTests`' label list.
+- **Stage 7.** `makeMeeting` is an `EngineFactory` extension in `EngineFactory.swift`, so the
+  private `webSocketEngine` helper stays private. AssemblyAI rejects audio faster than real time,
+  so `ClipPlayback.play` gains `realTime: Bool = false` for the live tests. The fixture is
+  Samantha and Daniel alternating four sentences with 0.6 s gaps (21.3 s). Stage 6's two
+  never-mutated `var`s in `CloudAdapterTests` are fixed here.
 
 ## Execution schedule
 
