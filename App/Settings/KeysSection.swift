@@ -8,7 +8,7 @@ struct KeysSection: View {
 
     @State private var drafts: [KeyAccount: String] = [:]
 
-    private static let rows: [(KeyAccount, String)] = [
+    static let rows: [(KeyAccount, String)] = [
         (.openai, "OpenAI"),
         (.elevenlabs, "ElevenLabs"),
         (.speechmatics, "Speechmatics"),

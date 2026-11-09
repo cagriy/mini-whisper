@@ -149,6 +149,8 @@ import Testing
         var opened: [UUID] = []
         var exports: [(kind: MeetingExporter.Kind, id: UUID)] = []
         var openRetitles: [String] = []
+        var startedMeetings = 0
+        var finderShows = 0
         lazy var model = MeetingsListModel(deps: MeetingsListModel.Dependencies(
             library: library,
             clock: clock,
@@ -163,8 +165,8 @@ import Testing
             },
             open: { [unowned self] in opened.append($0) },
             export: { [unowned self] kind, id in exports.append((kind, id)) },
-            startMeeting: {},
-            showInFinder: {}
+            startMeeting: { [unowned self] in startedMeetings += 1 },
+            showInFinder: { [unowned self] in finderShows += 1 }
         ))
 
         init(_ library: StubLibrary) {
@@ -307,6 +309,17 @@ import Testing
 
         let some = await Harness(StubLibrary([Self.entry("Standup", hoursAgo: 1)])).loaded()
         #expect(some.emptyState == nil)
+    }
+
+    @Test func footerActionsStartAMeetingAndShowTheFolder() async {
+        let harness = Harness(StubLibrary())
+        let model = await harness.loaded()
+
+        model.startMeeting()
+        model.showInFinder()
+
+        #expect(harness.startedMeetings == 1)
+        #expect(harness.finderShows == 1)
     }
 
     @Test func exportMenuOffersDeleteAudioWithItsSize() async throws {

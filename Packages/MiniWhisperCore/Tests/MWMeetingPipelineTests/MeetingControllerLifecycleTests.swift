@@ -72,6 +72,27 @@ import MWTestSupport
         #expect(harness.writers.last?.events.last == .silence(seconds: 29))
     }
 
+    /// R10: a dropped provider never stops the recording; audio is kept but only what a
+    /// session took is billed.
+    @Test func audioKeepsRecordingWhileTheSessionReconnects() async throws {
+        let harness = try await MeetingHarness()
+        try await harness.start(.inRoom)
+        let before = MeetingHarness.loud(0.1)
+        harness.feed(before)
+
+        try harness.sink(1).onEngineError(WebSocketConnectionError.closed(code: 4005, reason: nil))
+        await harness.waitFor(.connection(.reconnecting(attempt: 1)))
+        let during = MeetingHarness.loud(0.2)
+        harness.feed(during)
+
+        var converter = PCMConverter(from: 16_000, to: 16_000)
+        let chunks = [before, Array(during[..<1600]), Array(during[1600...])]
+        #expect(harness.writers.last?.events == chunks.map { .write(converter.convert($0)) })
+        #expect(harness.engines.engines.first?.fedBuffers == 1)
+        await harness.controller.stop()
+        #expect(try harness.stored().meeting.billing.engineSeconds == 0.1)
+    }
+
     @Test func stopWhilePausedClosesThePauseMarker() async throws {
         let harness = try await MeetingHarness()
         try await harness.start(.inRoom)

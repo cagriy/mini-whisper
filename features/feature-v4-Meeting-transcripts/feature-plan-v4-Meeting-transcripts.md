@@ -2193,6 +2193,33 @@ CLI/MCP usage are in the README, and the CHANGELOG lists every item in design §
 
 **Risks specific to this stage:** None.
 
+### Stage 30 — Coverage gaps
+
+**Goal:** Close the requirement gaps the final coverage sweep found (added by `/feature-implement`).
+
+**Touches:**
+- edit `Packages/MiniWhisperCore/Tests/MWMeetingPipelineTests/MeetingControllerLifecycleTests.swift`
+- edit `AppTests/MeetingsListModelTests.swift`
+- create `AppTests/KeysSectionTests.swift`
+- edit `App/Settings/KeysSection.swift` (`rows` internal, for the test)
+
+**Steps (TDD):**
+1. `audioKeepsRecordingWhileTheSessionReconnects` (R10): after an engine error, audio fed while
+   reconnecting is written to the recorder but neither fed to a session nor billed. Passes on the
+   existing code; checked by mutation (recording only what a session took makes it fail).
+2. `footerActionsStartAMeetingAndShowTheFolder` (R16): *Start Meeting…* and *Show in Finder* reach
+   their closures.
+3. `everyKeyAccountHasARow` (R6): Settings → Keys lists every `KeyAccount`, AssemblyAI and
+   Anthropic included. First red: `'rows' is inaccessible due to 'private' protection level`.
+
+**Definition of done:** every design §3 requirement has a verifying test, except behaviour that is
+view-only or holds by construction, which the Verification section's manual checks cover: R7's
+partial styling and rename popover, R8's Enter / Shift+Enter, R14's "never auto-deleted, not in
+dictation history" (no code path deletes a meeting or writes history), R16's hover actions and
+window size, and R20's *Open in Editor*.
+
+**Risks specific to this stage:** None.
+
 ## Cross-cutting concerns
 
 **Security.**
@@ -2716,6 +2743,7 @@ Batches run in order; a batch starts only when the previous one has fully landed
 | 19 | Stage 26 | serial | Consumes Stage 25's exporter; edits `MenuModel`, `AppDelegate`, `MeetingCoordinator` |
 | 20 | Stage 27, Stage 28 | parallel | Disjoint files: Settings sources, `AppDelegate` and `SettingsModelTests`, vs `README.md` and `CHANGELOG.md` (docs only). No symbol or string-keyed dependency (prose only). No shared registration point. Same base state. No excluded category. No security ordering involved. No shared test resource (Stage 28 runs no tests) |
 | 21 | Stage 29 | serial | Added by `/feature-implement`'s dead-code sweep; edits a file of Stage 25 |
+| 22 | Stage 30 | serial | Added by `/feature-implement`'s coverage sweep; tests only |
 
 **Critical path:** Stage 1 → Stage 2 → Stage 4 → Stage 11 → Stage 5 → Stage 6 → Stage 7 → Stage 8 →
 Stage 13 → Stage 19 → Stage 15 → Stage 17 → Stage 18 → Stage 21 → Stage 22 → Stage 23 → Stage 24 →
