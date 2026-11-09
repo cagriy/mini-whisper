@@ -316,6 +316,34 @@ import Testing
         #expect(harness.secrets.stored[.elevenlabs] == "xi-key")
     }
 
+    @Test func anthropicKeyMustStartWithSkAnt() async {
+        let harness = Harness()
+        defer { harness.cleanUp() }
+        let model = await harness.model()
+
+        model.saveKey(.anthropic, value: "sk-abc")
+        #expect(model.error(for: .anthropic) == "Invalid key — must start with 'sk-ant-'.")
+        #expect(harness.secrets.stored[.anthropic] == nil)
+
+        model.saveKey(.anthropic, value: "sk-ant-abc")
+        #expect(model.error(for: .anthropic) == nil)
+        #expect(harness.secrets.stored[.anthropic] == "sk-ant-abc")
+        #expect(model.mask(for: .anthropic) == "••••••••••••")
+    }
+
+    @Test func assemblyAIKeyAcceptsAnyNonEmptyValue() async {
+        let harness = Harness()
+        defer { harness.cleanUp() }
+        let model = await harness.model()
+
+        model.saveKey(.assemblyai, value: "")
+        #expect(model.error(for: .assemblyai) == "Enter a new API key to save.")
+
+        model.saveKey(.assemblyai, value: "placeholder-not-a-real-key")
+        #expect(model.error(for: .assemblyai) == nil)
+        #expect(harness.secrets.stored[.assemblyai] == "placeholder-not-a-real-key")
+    }
+
     @Test func hotkeyCaptureAppliesAndSavesOnMainActor() async throws {
         let harness = Harness()
         defer { harness.cleanUp() }

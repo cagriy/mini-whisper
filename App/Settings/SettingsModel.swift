@@ -391,8 +391,8 @@ final class SettingsModel {
             keyErrors[account] = "Enter a new API key to save."
             return
         }
-        if account == .openai, !key.hasPrefix("sk-") {
-            keyErrors[account] = "Invalid key — must start with 'sk-'."
+        if let prefix = Self.keyPrefixes[account], !key.hasPrefix(prefix) {
+            keyErrors[account] = "Invalid key — must start with '\(prefix)'."
             return
         }
         do {
@@ -404,6 +404,8 @@ final class SettingsModel {
         keyErrors[account] = nil
         masks[account] = Self.mask(of: key, account: account)
     }
+
+    private static let keyPrefixes: [KeyAccount: String] = [.openai: "sk-", .anthropic: "sk-ant-"]
 
     private static func mask(of secret: String, account: KeyAccount) -> String {
         guard account == .openai else { return dotMask }

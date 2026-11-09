@@ -40,6 +40,15 @@ private let fakeKey = "sk-test-not-a-real-key"
         #expect(KeyAccount.speechmatics.rawValue == "speechmatics-api-key")
     }
 
+    @Test func keyAccountRawValuesMatchTheKeychainItems() {
+        #expect(
+            KeyAccount.allCases.map(\.rawValue) == [
+                "openai-api-key", "elevenlabs-api-key", "speechmatics-api-key",
+                "assemblyai-api-key", "anthropic-api-key",
+            ]
+        )
+    }
+
     @Test func setUpdatesWhenPresentAddsWhenAbsent() throws {
         let api = FakeSecItemAPI()
         let store = KeychainStore(api: api)

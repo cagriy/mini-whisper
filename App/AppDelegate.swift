@@ -89,7 +89,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let prompts = PromptFiles(
             directory: Self.configDirectory,
             bundledCleanup: Self.bundledPrompt("default_prompt"),
-            bundledTranscribe: Self.bundledPrompt("default_transcribe_prompt")
+            bundledTranscribe: Self.bundledPrompt("default_transcribe_prompt"),
+            bundledSummary: Self.bundledPrompt("default_summary_prompt")
         )
         let history = HistoryStore(
             url: Self.configDirectory.appendingPathComponent("history.jsonl"),

@@ -12,7 +12,8 @@ import MWTestSupport
 
     private func makeFixture(
         cleanup: String = "  Clean this up.  \n",
-        transcribe: String = "Transcribe verbatim.\n"
+        transcribe: String = "Transcribe verbatim.\n",
+        summary: String = "Summarise the meeting.\n"
     ) throws -> Fixture {
         let directory = try TempDirectory()
         let bundle = try TempDirectory()
@@ -20,13 +21,15 @@ import MWTestSupport
         try transcribe.write(
             to: bundle.file("default_transcribe_prompt.txt"), atomically: true, encoding: .utf8
         )
+        try summary.write(to: bundle.file("default_summary_prompt.txt"), atomically: true, encoding: .utf8)
         return Fixture(
             directory: directory,
             bundle: bundle,
             files: PromptFiles(
                 directory: directory.url,
                 bundledCleanup: bundle.file("default_prompt.txt"),
-                bundledTranscribe: bundle.file("default_transcribe_prompt.txt")
+                bundledTranscribe: bundle.file("default_transcribe_prompt.txt"),
+                bundledSummary: bundle.file("default_summary_prompt.txt")
             )
         )
     }
@@ -63,5 +66,44 @@ import MWTestSupport
 
         #expect(try fixture.files.cleanupPrompt() == "Keep shell commands verbatim.")
         #expect(try fixture.files.transcribeInstructions() == "British English.")
+    }
+
+    @Test func seedsSummaryPromptFromTheBundledDefault() throws {
+        let fixture = try makeFixture()
+
+        #expect(try fixture.files.summaryPrompt() == "Summarise the meeting.")
+        #expect(
+            try String(contentsOf: fixture.directory.file("summary_prompt.txt"), encoding: .utf8)
+                == "Summarise the meeting.\n"
+        )
+    }
+
+    @Test func writeSummaryPromptReplacesContent() throws {
+        let fixture = try makeFixture()
+        _ = try fixture.files.summaryPrompt()
+
+        try fixture.files.write(summaryPrompt: "List decisions only.")
+
+        #expect(try fixture.files.summaryPrompt() == "List decisions only.")
+    }
+
+    @Test func restoreDefaultSummaryPromptOverwritesAnEdit() throws {
+        let fixture = try makeFixture()
+        try fixture.files.write(summaryPrompt: "List decisions only.")
+
+        try fixture.files.restoreDefaultSummaryPrompt()
+
+        #expect(try fixture.files.summaryPrompt() == "Summarise the meeting.")
+        #expect(
+            try String(contentsOf: fixture.directory.file("summary_prompt.txt"), encoding: .utf8)
+                == "Summarise the meeting.\n"
+        )
+    }
+
+    @Test func promptFilesIsASummaryPromptProvider() throws {
+        let fixture = try makeFixture()
+        let provider: any SummaryPromptProviding = fixture.files
+
+        #expect(try provider.summaryPrompt() == "Summarise the meeting.")
     }
 }

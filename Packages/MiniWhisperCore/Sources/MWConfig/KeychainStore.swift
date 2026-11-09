@@ -2,7 +2,7 @@ import Foundation
 import MWSupport
 import Security
 
-/// Generic-password get/set/delete for the app's three accounts in the login keychain
+/// Generic-password get/set/delete for the app's `KeyAccount`s in the login keychain
 /// (F3, §5.3), with a per-account cache so the press path never pays a keychain lookup
 /// (§5.9). The cache is dropped on save and remove, so Settings edits take effect at once.
 public final class KeychainStore: SecretStore, @unchecked Sendable {

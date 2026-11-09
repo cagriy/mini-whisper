@@ -105,6 +105,70 @@ import Testing
         #expect(saved?["streaming_engine"] as? String == "openai")
     }
 
+    @Test func meetingKeysAbsentTakeDefaults() throws {
+        let config = try decode("{}")
+
+        #expect(config.meetingHotkey == "ctrl+alt+cmd+m")
+        #expect(config.meetingKeepAudio == true)
+        #expect(config.meetingSystemAudioExplained == false)
+        #expect(config.meetingEngine == nil)
+        #expect(config.meetingUserName == nil)
+    }
+
+    @Test func meetingKeysRoundTrip() throws {
+        let json = """
+            {"meeting_hotkey": "ctrl+alt+m", "meeting_engine": "assemblyai_pro",
+             "meeting_keep_audio": false, "meeting_user_name": "Ada",
+             "meeting_system_audio_explained": true}
+            """
+        let config = try decode(json)
+        #expect(config.meetingHotkey == "ctrl+alt+m")
+        #expect(config.meetingEngine == .assemblyaiPro)
+        #expect(config.meetingKeepAudio == false)
+        #expect(config.meetingUserName == "Ada")
+        #expect(config.meetingSystemAudioExplained == true)
+
+        let saved = try #require(
+            JSONSerialization.jsonObject(with: config.encoded()) as? [String: Any]
+        )
+        #expect(saved["meeting_hotkey"] as? String == "ctrl+alt+m")
+        #expect(saved["meeting_engine"] as? String == "assemblyai_pro")
+        #expect(saved["meeting_keep_audio"] as? Bool == false)
+        #expect(saved["meeting_user_name"] as? String == "Ada")
+        #expect(saved["meeting_system_audio_explained"] as? Bool == true)
+        #expect(try decode(String(decoding: config.encoded(), as: UTF8.self)) == config)
+    }
+
+    @Test func unrecognisedMeetingEngineIsIgnoredButPreserved() throws {
+        let config = try decode(#"{"meeting_engine": "future_engine"}"#)
+        #expect(config.meetingEngine == nil)
+
+        let saved = try JSONSerialization.jsonObject(with: config.encoded()) as? [String: Any]
+        #expect(saved?["meeting_engine"] as? String == "future_engine")
+    }
+
+    @Test func meetingKeysNeverLandInExtra() throws {
+        let config = try decode(
+            #"{"meeting_hotkey": "ctrl+alt+m", "meeting_engine": "future_engine", "meeting_keep_audio": true,"#
+                + #" "meeting_user_name": "Ada", "meeting_system_audio_explained": false}"#
+        )
+
+        #expect(config.extra.isEmpty)
+    }
+
+    @Test func optionalMeetingKeysAreOmittedWhenUnset() throws {
+        let object = try #require(
+            JSONSerialization.jsonObject(with: Config().encoded()) as? [String: Any]
+        )
+
+        #expect(!object.keys.contains("meeting_engine"))
+        #expect(!object.keys.contains("meeting_user_name"))
+        #expect(object["meeting_hotkey"] as? String == "ctrl+alt+cmd+m")
+        #expect(CFGetTypeID(try #require(object["meeting_keep_audio"] as CFTypeRef?)) == CFBooleanGetTypeID())
+        #expect(object["meeting_keep_audio"] as? Bool == true)
+        #expect(object["meeting_system_audio_explained"] as? Bool == false)
+    }
+
     @Test func overlayStyleAbsentIsSoftMeter() throws {
         #expect(try decode("{}").overlayStyle == .softMeter)
     }

@@ -109,6 +109,16 @@ public struct Config: Equatable, Sendable {
     /// Raw `overlay_style` value that this build does not recognise, kept only so that
     /// saving round-trips it (F2). Never honoured at runtime.
     var unrecognisedOverlayStyle: String?
+    public var meetingHotkey = "ctrl+alt+cmd+m"
+    /// Absent means "first tier with a key" (`MeetingEngine.resolve`).
+    public var meetingEngine: MeetingEngine?
+    /// Raw `meeting_engine` value this build does not recognise, kept only so that
+    /// saving round-trips it (F2). Never honoured at runtime.
+    var unrecognisedMeetingEngine: String?
+    public var meetingKeepAudio = true
+    /// Absent means the macOS account's full name, resolved at use.
+    public var meetingUserName: String?
+    public var meetingSystemAudioExplained = false
     public var pricingOverrides: [String: Double] = [:]
     public var usage: [String: DayUsage] = [:]
     public var historyRetentionDays = 7
@@ -182,12 +192,18 @@ extension Config: Codable {
         static let profiles = "profiles"
         static let corrections = "corrections"
         static let correctionTally = "correction_tally"
+        static let meetingHotkey = "meeting_hotkey"
+        static let meetingEngine = "meeting_engine"
+        static let meetingKeepAudio = "meeting_keep_audio"
+        static let meetingUserName = "meeting_user_name"
+        static let meetingSystemAudioExplained = "meeting_system_audio_explained"
 
         static let all: Set<String> = [
             hotkey, submitHotkey, cleanupEnabled, soundVolume, streamingEnabled, streamingEngine,
             pricingOverrides, usage, historyRetentionDays, idleStopSeconds, toggleMaxSeconds,
             speechModelPrompted, vocabulary, profiles, corrections, correctionTally,
-            overlayStyle,
+            overlayStyle, meetingHotkey, meetingEngine, meetingKeepAudio, meetingUserName,
+            meetingSystemAudioExplained,
         ]
     }
 
@@ -212,6 +228,10 @@ extension Config: Codable {
         if let value: [Profile] = try value(Key.profiles) { profiles = value }
         if let value: [CorrectionRule] = try value(Key.corrections) { corrections = value }
         if let value: [CorrectionTallyEntry] = try value(Key.correctionTally) { correctionTally = value }
+        if let value: String = try value(Key.meetingHotkey) { meetingHotkey = value }
+        if let value: Bool = try value(Key.meetingKeepAudio) { meetingKeepAudio = value }
+        meetingUserName = try value(Key.meetingUserName)
+        if let value: Bool = try value(Key.meetingSystemAudioExplained) { meetingSystemAudioExplained = value }
 
         let engine: String? = try value(Key.streamingEngine)
         streamingEngine = engine.flatMap(EngineName.init(rawValue:))
@@ -219,6 +239,10 @@ extension Config: Codable {
         // ignored at runtime (F32 picks the platform default) but kept so saving here
         // does not destroy it (F2).
         unrecognisedStreamingEngine = streamingEngine == nil ? engine : nil
+
+        let meeting: String? = try value(Key.meetingEngine)
+        meetingEngine = meeting.flatMap(MeetingEngine.init(rawValue:))
+        unrecognisedMeetingEngine = meetingEngine == nil ? meeting : nil
 
         let style: String? = try value(Key.overlayStyle)
         let known = style.flatMap(OverlayStyle.init(rawValue:))
@@ -255,6 +279,17 @@ extension Config: Codable {
         try container.encode(
             unrecognisedOverlayStyle ?? overlayStyle.rawValue,
             forKey: AnyCodingKey(Key.overlayStyle)
+        )
+        try container.encode(meetingHotkey, forKey: AnyCodingKey(Key.meetingHotkey))
+        if let meetingEngine {
+            try container.encode(meetingEngine, forKey: AnyCodingKey(Key.meetingEngine))
+        } else if let unrecognisedMeetingEngine {
+            try container.encode(unrecognisedMeetingEngine, forKey: AnyCodingKey(Key.meetingEngine))
+        }
+        try container.encode(meetingKeepAudio, forKey: AnyCodingKey(Key.meetingKeepAudio))
+        try container.encodeIfPresent(meetingUserName, forKey: AnyCodingKey(Key.meetingUserName))
+        try container.encode(
+            meetingSystemAudioExplained, forKey: AnyCodingKey(Key.meetingSystemAudioExplained)
         )
 
         for (key, value) in extra where !Key.all.contains(key) {

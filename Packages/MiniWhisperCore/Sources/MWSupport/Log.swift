@@ -88,6 +88,7 @@ public enum Log {
     public static let paste = LogCategory(name: "paste")
     public static let ui = LogCategory(name: "ui")
     public static let config = LogCategory(name: "config")
+    public static let meeting = LogCategory(name: "meeting")
 
     public static func stream(_ engine: String) -> LogCategory {
         LogCategory(name: "stream.\(engine)")

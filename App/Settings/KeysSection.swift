@@ -1,7 +1,7 @@
 import MWConfig
 import SwiftUI
 
-/// The three Keychain accounts (F3). Fields show a mask, never the stored key,
+/// The five Keychain accounts (F3). Fields show a mask, never the stored key,
 /// and a key is only ever handed to `SecretStore`.
 struct KeysSection: View {
     let model: SettingsModel
@@ -12,6 +12,8 @@ struct KeysSection: View {
         (.openai, "OpenAI"),
         (.elevenlabs, "ElevenLabs"),
         (.speechmatics, "Speechmatics"),
+        (.assemblyai, "AssemblyAI"),
+        (.anthropic, "Anthropic"),
     ]
 
     var body: some View {
