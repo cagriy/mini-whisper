@@ -2574,6 +2574,15 @@ None — plan matches design v4 exactly.
   `pinnedSegmentIsNeverRevised` calls the internal `MeetingController.revise` through
   `@testable`, since nothing pins a segment while a session is open. Rename and titles are trimmed;
   reassignment to an unknown speaker is ignored. Added `stopWhilePausedClosesThePauseMarker`.
+- **Stage 21.** `AgentCommand.run()` is `@MainActor` (it reads `AppDelegate.configDirectory`).
+  Replies go through `FileHandle`, whose writes are unbuffered, so no explicit flush; checked with
+  two `initialize` replies read while stdin stayed open. The install command runs `rm -f` before
+  writing, so a symlink already at `/usr/local/bin/mini-whisper` is replaced, not written through
+  as root; it writes the script with `printf '%s'`. `appleScript(command:)` (escapes `\` and `"`)
+  has its own test, `appleScriptEscapesQuotesAndBackslashes`. `install(appPath:)` returns
+  `Result<Void, Failure>` with AppleScript's message. `isInstalled(at:)` checks for the wrapper's
+  shebang and bundle-id lookup. The Claude Code line single-quotes the full binary path, which
+  contains spaces.
 
 ## Execution schedule
 
