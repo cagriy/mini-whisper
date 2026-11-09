@@ -2637,6 +2637,20 @@ None — plan matches design v4 exactly.
   `stoppedHeaderShowsDurationTotalAndEndTime`, `exportedTextEqualsTheCLIs`,
   `stoppedMeetingShowsItsEndInTheHeader`, `windowRequestsReachTheController` and
   `exportNamesTheMeeting`.
+- **Stage 26.** The search field sits in the window's header row, as in History, not
+  `.searchable`. Delete and *Delete audio* confirm in a SwiftUI `confirmationDialog`, not an
+  `NSAlert`. The list works over an App-side `MeetingLibrary` protocol that `MeetingStore`
+  conforms to, with a `retitle(_:to:)` extension; core gains `MeetingStore.isIndexMissing` for
+  §5.7's rebuild. Entries are sorted newest first in the model. `MeetingCoordinator` gains
+  `open(_:)`, `isOpen(_:)` and `retitle(_:to:)`: an opened meeting's window appears on its
+  stopped event; a meeting with a window open is renamed through its controller, so its next save
+  keeps the title, and cannot be deleted. A header rename notifies `changed`, so an open list
+  follows. "Audio deleted" also shows for meetings recorded without audio (the index cannot tell
+  them apart); the footer omits audio when there is none. Rename is in the row's context menu.
+  Opening a search hit does not scroll to the matching segment. `MenuModelTests` row lists gained
+  *Meetings…*. Added `openOpensTheMeeting`, `indexIsMissingOnlyBesideStoredMeetings`,
+  `openShowsAStoredMeetingInItsOwnWindow`, `listRenameOfAnOpenMeetingGoesThroughItsController` and
+  `headerRenameNotifiesTheList`.
 
 ## Execution schedule
 
