@@ -171,6 +171,7 @@ validates the two new keys.
 - edit `Packages/MiniWhisperCore/Sources/MWConfig/Config.swift`
 - edit `Packages/MiniWhisperCore/Sources/MWConfig/SecretStore.swift`
 - edit `Packages/MiniWhisperCore/Sources/MWConfig/PromptFiles.swift`
+- edit `Packages/MiniWhisperCore/Sources/MWConfig/KeychainStore.swift` (doc comment's account count)
 - edit `Packages/MiniWhisperCore/Sources/MWSupport/Log.swift`
 - create `Packages/MiniWhisperCore/Tests/MWConfigTests/MeetingEngineTests.swift`
 - edit `Packages/MiniWhisperCore/Tests/MWConfigTests/ConfigCodingTests.swift`
@@ -232,7 +233,8 @@ validates the two new keys.
 9. Implement `SummaryPromptProviding.swift`: `public protocol SummaryPromptProviding: Sendable { func summaryPrompt() throws -> String }`.
    Then edit `PromptFiles.swift`:
    - add `init(…, bundledSummary: URL? = nil)`;
-   - add `summaryPrompt()`, `writeSummaryPrompt(_:)` and `restoreDefaultSummaryPrompt()`, seeding
+   - add `summaryPromptURL`, `summaryPrompt()`, `write(summaryPrompt:)` and
+     `restoreDefaultSummaryPrompt()`, seeding
      `summary_prompt.txt` exactly as `prompt.txt` is seeded;
    - conform `PromptFiles` to `SummaryPromptProviding`.
 10. Run `swift test`. Confirm pass and no regressions.
@@ -250,7 +252,7 @@ validates the two new keys.
 13. Non-TDD (config-only):
     - Create `App/Resources/default_summary_prompt.txt` with design §5.5's text verbatim.
     - `AppDelegate`'s `PromptFiles(…)` passes `bundledSummary: Self.bundledPrompt("default_summary_prompt")`.
-    - `Log.swift` gains `public static let meeting = Logger(subsystem: …, category: "meeting")`
+    - `Log.swift` gains `public static let meeting = LogCategory(name: "meeting")`
       beside the six existing categories.
 14. Run `xcodegen generate && xcodebuild … test`. Confirm pass. Run `swift test`. Confirm no
     regressions.
@@ -2411,6 +2413,14 @@ After Stage 28, on macOS 26 with Speechmatics, AssemblyAI and Anthropic keys in 
 ## Deviations from the design
 
 None — plan matches design v4 exactly.
+
+## Deviations from plan
+
+- **Stage 1.** `PromptFiles` writes the summary prompt with `write(summaryPrompt:)`, matching
+  `write(cleanupPrompt:)` and `write(transcribeInstructions:)`, not `writeSummaryPrompt(_:)`. It
+  also exposes `summaryPromptURL` beside `cleanupPromptURL` for Stage 27's *Open in Editor*.
+  `Log.meeting` is a `LogCategory(name:)` like the six existing categories; `LogCategory` wraps
+  `Logger`. `KeychainStore`'s doc comment no longer counts accounts.
 
 ## Execution schedule
 
