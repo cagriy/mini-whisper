@@ -243,6 +243,20 @@ private func segment(_ text: String, _ start: Double, _ end: Double) -> Transcri
         #expect(rig.engines.map(\.fedBuffers) == [1, 1])
     }
 
+    @Test func feedReportsWhetherASessionTookTheBuffer() async throws {
+        let rig = Rig()
+        #expect(!rig.supervisor.feed(buffer(), at: 0))
+
+        rig.supervisor.open(at: 0.02)
+        #expect(rig.supervisor.feed(buffer(), at: 0.02))
+        try rig.sink(1).onEngineError(lost)
+        #expect(!rig.supervisor.feed(buffer(), at: 0.04))
+        await rig.reopen(after: 1, session: 2)
+        #expect(rig.supervisor.feed(buffer(), at: 1.04))
+        await rig.supervisor.close()
+        #expect(!rig.supervisor.feed(buffer(), at: 1.06))
+    }
+
     @Test func sessionAudioOriginIsTheMeetingTimeOfTheFirstFedBuffer() async throws {
         var rig = Rig()
         rig.supervisor.open(at: 0)

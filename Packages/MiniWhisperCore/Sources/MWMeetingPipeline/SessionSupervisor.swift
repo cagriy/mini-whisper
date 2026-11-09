@@ -115,13 +115,16 @@ public final class SessionSupervisor: Sendable {
     }
 
     /// Called on the capture thread with the meeting time of the buffer's first sample.
-    public func feed(_ buffer: AVAudioPCMBuffer, at time: Double) {
+    /// Returns false when no session took the buffer, so it is not billed.
+    @discardableResult
+    public func feed(_ buffer: AVAudioPCMBuffer, at time: Double) -> Bool {
         let engine = state.withLock { state -> (any StreamingEngine)? in
             guard let current = state.current else { return nil }
             if state.origins[current.index] == nil { state.origins[current.index] = time }
             return current.engine
         }
         engine?.feed(buffer)
+        return engine != nil
     }
 
     /// Stops reconnecting and finishes the open session, and any still draining after a
