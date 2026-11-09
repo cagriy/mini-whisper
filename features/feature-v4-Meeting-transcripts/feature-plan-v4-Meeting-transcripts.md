@@ -2622,6 +2622,21 @@ None — plan matches design v4 exactly.
   dependency (`DictationController.abort()`): a toggle dictation running at Start would otherwise
   keep the microphone, its stopping press would get the R19 notice, and its cap would paste
   mid-meeting.
+- **Stage 25.** Touches also `MeetingCoordinator` and its tests: `MeetingControlling` gains
+  `summarise`, `edit`, `reassign` and `retitle`; `MeetingActions` gains those plus `export`;
+  `Dependencies.export(kind, id)`; and on `.state(.stopped)` the model is shown the stopped
+  meeting, so the header reads its duration, total and "Ended hh:mm". `AppDelegate` wires
+  `ExportPanels` over the store; `AgentCommand.version`/`generator` are shared so exports print
+  the CLI's text. `MeetingMarkdown.modelName` and `MeetingController.nothingTranscribed` are
+  public. A paragraph is edited one field per segment, since edits are per segment. A merged
+  paragraph's menu lists its segments ("Move hh:mm:ss · …"); the mockup's "Speaker N (new)" is
+  left out, since `reassign` ignores unknown speakers (Stage 18). With no summary event (quit stop,
+  opened meeting) the panel reads "No summary yet." with *Summarise*, or "Nothing was
+  transcribed." without segments. The total adds the summary's cost. *Export both* writes nothing
+  without a summary and asks before replacing files. Summary links render as text. Added
+  `stoppedHeaderShowsDurationTotalAndEndTime`, `exportedTextEqualsTheCLIs`,
+  `stoppedMeetingShowsItsEndInTheHeader`, `windowRequestsReachTheController` and
+  `exportNamesTheMeeting`.
 
 ## Execution schedule
 
