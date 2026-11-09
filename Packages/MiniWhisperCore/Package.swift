@@ -22,6 +22,7 @@ let package = Package(
         .library(name: "MWPipeline", targets: ["MWPipeline"]),
         .library(name: "MWMeetings", targets: ["MWMeetings"]),
         .library(name: "MWMeetingPipeline", targets: ["MWMeetingPipeline"]),
+        .library(name: "MWAgentAccess", targets: ["MWAgentAccess"]),
     ],
     targets: [
         .target(name: "MWSupport"),
@@ -55,6 +56,8 @@ let package = Package(
                 "MWTranscription", "MWSupport",
             ]
         ),
+        // Read-only meeting access for the CLI and MCP server: no audio, streaming or pipeline.
+        .target(name: "MWAgentAccess", dependencies: ["MWMeetings", "MWSupport"]),
         .target(
             name: "MWTestSupport",
             dependencies: [
@@ -90,6 +93,7 @@ let package = Package(
             resources: [.copy("Fixtures")]
         ),
         .testTarget(name: "MWMeetingPipelineTests", dependencies: ["MWMeetingPipeline", "MWTestSupport"]),
+        .testTarget(name: "MWAgentAccessTests", dependencies: ["MWAgentAccess", "MWTestSupport"]),
     ],
     swiftLanguageModes: [.v6]
 )
