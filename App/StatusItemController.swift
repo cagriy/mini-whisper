@@ -9,6 +9,9 @@ final class StatusItemController: NSObject {
     private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
     private let sounds: any SoundPlaying
     private let onCorrectLast: () -> Void
+    private let onStartMeeting: () -> Void
+    private let onStopMeeting: () -> Void
+    private let onShowMeeting: () -> Void
     private let onHistory: () -> Void
     private let onSettings: () -> Void
     private let onQuit: () -> Void
@@ -17,12 +20,18 @@ final class StatusItemController: NSObject {
     init(
         sounds: any SoundPlaying,
         onCorrectLast: @escaping () -> Void,
+        onStartMeeting: @escaping () -> Void,
+        onStopMeeting: @escaping () -> Void,
+        onShowMeeting: @escaping () -> Void,
         onHistory: @escaping () -> Void,
         onSettings: @escaping () -> Void,
         onQuit: @escaping () -> Void
     ) {
         self.sounds = sounds
         self.onCorrectLast = onCorrectLast
+        self.onStartMeeting = onStartMeeting
+        self.onStopMeeting = onStopMeeting
+        self.onShowMeeting = onShowMeeting
         self.onHistory = onHistory
         self.onSettings = onSettings
         self.onQuit = onQuit
@@ -55,6 +64,11 @@ final class StatusItemController: NSObject {
 
     var lastDictation: DeliveredDictation? { model.lastDictation }
 
+    func setMeetingActive(_ active: Bool) {
+        model.setMeetingActive(active)
+        rebuild()
+    }
+
     private func rebuild() {
         guard let menu = statusItem.menu else { return }
         menu.removeAllItems()
@@ -79,6 +93,9 @@ final class StatusItemController: NSObject {
         switch action {
         case .copyLast: copyLast()
         case .correctLast: onCorrectLast()
+        case .startMeeting: onStartMeeting()
+        case .stopMeeting: onStopMeeting()
+        case .showMeeting: onShowMeeting()
         case .history: onHistory()
         case .settings: onSettings()
         case .checkForUpdates: AppUpdater.checkForUpdates()

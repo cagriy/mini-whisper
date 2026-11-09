@@ -287,6 +287,11 @@ final class MeetingWindowModel {
         engine = meeting.engine
     }
 
+    /// A failure outside the event stream, such as Start throwing.
+    func showError(_ message: String) {
+        errorMessage = message
+    }
+
     /// Enter in the composer: the trimmed draft and the time of its first keystroke.
     func commitNote() -> DraftNote? {
         let text = noteDraft.trimmingCharacters(in: .whitespacesAndNewlines)

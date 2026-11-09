@@ -4,6 +4,8 @@ import MWConfig
 import MWCorrections
 import MWHistory
 import MWHotkeys
+import MWMeetingPipeline
+import MWMeetings
 import MWOverlaySim
 import MWPaste
 import MWPipeline
@@ -34,6 +36,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var correctionWindow: CorrectionWindowController?
     private var correctionDependencies: CorrectionModel.Dependencies?
     private var appliedBindings: [BindingName: HotkeyCombo] = [:]
+    private var meetings: MeetingCoordinator?
+    /// The config as last loaded or changed, for the meeting chooser.
+    private var config = Config()
     private var overlay: OverlayPanelController?
     private var appliedOverlayStyle: OverlayStyle?
 
@@ -50,6 +55,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem = StatusItemController(
             sounds: sounds,
             onCorrectLast: { [weak self] in self?.correctLast() },
+            onStartMeeting: { [weak self] in self?.meetings?.openChooser() },
+            onStopMeeting: { [weak self] in Task { await self?.meetings?.stop() } },
+            onShowMeeting: { [weak self] in self?.meetings?.show() },
             onHistory: { [weak self] in self?.openHistory() },
             onSettings: { [weak self] in self?.openSettings() },
             onQuit: { [weak self] in self?.quit() }
@@ -124,6 +132,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         let controller = DictationController(deps: deps, config: configStore)
         self.controller = controller
+        meetings = makeMeetings(
+            audio: audio, secrets: secrets, configStore: configStore, usage: usage, prompts: prompts
+        )
 
         if let statusItem {
             // §5.5: the panels exist off-screen before the first press.
@@ -154,15 +165,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let listener = GlobalKeyListener(
             bindings: Self.bindings(from: config),
             onAction: { [weak self, weak controller] action in
-                switch action {
-                case .pressed(.meeting), .released(.meeting):
-                    break // wired in Stage 24
-                case .pressed(let name): controller?.hotkeyPressed(name)
-                case .released(let name): controller?.hotkeyReleased(name)
-                case .captured, .captureRejected:
+                switch HotkeyRouting.route(action, meetingActive: self?.meetings?.isActive ?? false) {
+                case .dictation(.pressed(let name)): controller?.hotkeyPressed(name)
+                case .dictation(.released(let name)): controller?.hotkeyReleased(name)
+                case .meeting: Task { await self?.meetings?.toggle() }
+                case .notice(let message): self?.router?.show(error: message)
+                case .settings(let action):
                     // Capture belongs to the Settings hotkey fields (F7).
                     guard let model = self?.settings?.model else { return }
                     Task { await model.handle(action) }
+                case .dictation, .ignore:
+                    break
                 }
             },
             onError: { [weak self] message in self?.showHotkeyError(message) }
@@ -228,6 +241,65 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             firstRunSettings()
         }
         await promptForSpeechModelIfNeeded(configStore: configStore)
+    }
+
+    /// Design §5.3: one `MeetingController` per meeting window, sharing the dictation capture
+    /// engine, which is free while a meeting holds it because dictation is locked out (R19).
+    private func makeMeetings(
+        audio: AudioCaptureEngine,
+        secrets: KeychainStore,
+        configStore: ConfigStore,
+        usage: UsageStore,
+        prompts: PromptFiles
+    ) -> MeetingCoordinator {
+        let store = MeetingStore(directory: Self.configDirectory.appendingPathComponent("meetings", isDirectory: true))
+        let summarizer = KeyedAnthropicClient(secrets: secrets)
+        return MeetingCoordinator(deps: MeetingCoordinator.Dependencies(
+            makeController: { frontApp in
+                MeetingController(
+                    deps: MeetingDependencies(
+                        audio: audio,
+                        tapFactory: CoreAudioTapFactory(),
+                        engines: EngineFactory(),
+                        secrets: secrets,
+                        store: store,
+                        summarizer: summarizer,
+                        usage: usage,
+                        prompts: prompts,
+                        frontAppName: { frontApp },
+                        userName: { NSFullUserName() }
+                    ),
+                    config: configStore
+                )
+            },
+            frontApp: {
+                guard let app = NSWorkspace.shared.frontmostApplication,
+                      app.processIdentifier != ProcessInfo.processInfo.processIdentifier
+                else { return nil }
+                return app.localizedName
+            },
+            chooser: { [weak self] in
+                MeetingWindowModel.Chooser(
+                    config: self?.config ?? Config(),
+                    platform: PlatformInfo(),
+                    accountName: NSFullUserName(),
+                    hasKey: { (try? secrets.secret(for: $0))?.isEmpty == false }
+                )
+            },
+            makeWindow: { model, actions in MeetingWindowController(model: model, actions: actions) },
+            now: { Date() },
+            openSettings: { [weak self] in self?.openSettings() },
+            changed: { [weak self] in self?.meetingChanged(usage: usage) }
+        ))
+    }
+
+    /// The menu follows the meeting; Stop and the summary add usage (R18).
+    private func meetingChanged(usage: UsageStore) {
+        statusItem?.setMeetingActive(meetings?.isActive ?? false)
+        Task { [weak self] in
+            let totals = await usage.totals()
+            self?.statusItem?.setUsage(today: totals.today, monthCost: totals.monthCost)
+        }
     }
 
     /// §5.5 Launch: with no OpenAI key stored, the source opens Settings a second
@@ -305,6 +377,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Every config value the app itself holds a copy of (F19). The stores read the
     /// rest through `ConfigStore` directly.
     private func apply(_ config: Config) {
+        self.config = config
         // R36: the one config-change consumer there is, so an open Settings window sees
         // a rule the correction window just saved (N4).
         settings?.model.refresh(from: config)
@@ -368,8 +441,34 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         Log.ui.info("Mini Whisper launched (debug: \(arguments.debug))")
     }
 
+    /// ⌘Q and logout (§5.7 Quit while recording); the menu's Quit asks in `quit()`.
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        guard let meetings, meetings.needsQuitConfirmation else { return .terminateNow }
+        guard Self.confirmQuitDuringMeeting() else { return .terminateCancel }
+        Task {
+            await meetings.stop(summarise: false)
+            sender.reply(toApplicationShouldTerminate: true)
+        }
+        return .terminateLater
+    }
+
+    /// Stop runs without the summary, which can be asked for later.
+    private static func confirmQuitDuringMeeting() -> Bool {
+        NSApp.activate(ignoringOtherApps: true)
+        let alert = NSAlert()
+        alert.messageText = "A meeting is recording. Stop and quit?"
+        alert.informativeText = "The meeting is saved without a summary; you can summarise it later."
+        alert.addButton(withTitle: "Stop and Quit")
+        alert.addButton(withTitle: "Cancel")
+        return alert.runModal() == .alertFirstButtonReturn
+    }
+
     private func quit() {
         Task { @MainActor in
+            if let meetings, meetings.needsQuitConfirmation {
+                guard Self.confirmQuitDuringMeeting() else { return }
+                await meetings.stop(summarise: false)
+            }
             configTask?.cancel()
             settings?.close()
             historyWindow?.hide()

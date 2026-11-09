@@ -25,6 +25,7 @@ import Testing
             emptyToday,
             emptyMonth,
             "",
+            "Start Meeting…",
             "History...",
             "Settings...",
             "",
@@ -32,9 +33,39 @@ import Testing
             "About Mini Whisper",
             "Quit",
         ])
-        #expect(model.items.map(\.isSeparator) == [false, false, true, false, false, true, false, false, false])
+        #expect(model.items.map(\.isSeparator) == [false, false, true, false, false, false, true, false, false, false])
         #expect(model.items.map(\.action) == [
-            nil, nil, nil, .history, .settings, nil, .checkForUpdates, .about, .quit,
+            nil, nil, nil, .startMeeting, .history, .settings, nil, .checkForUpdates, .about, .quit,
+        ])
+    }
+
+    @Test func activeMeetingShowsStopAndShowMeeting() {
+        var model = MenuModel()
+        model.setMeetingActive(true)
+        #expect(model.items.map(\.title)[2...5] == ["", "Stop Meeting", "Show Meeting…", "History..."])
+        #expect(model.items.map(\.action)[3...4] == [.stopMeeting, .showMeeting])
+        #expect(!model.items.contains { $0.action == .startMeeting })
+    }
+
+    @Test func endingTheMeetingRestoresStartMeeting() {
+        var model = MenuModel()
+        model.setMeetingActive(true)
+        model.setMeetingActive(false)
+        #expect(model.items == MenuModel().items)
+        model.setMeetingActive(false)
+        #expect(model.items == MenuModel().items)
+    }
+
+    @Test func lastAndCorrectRowsStillFollowMonth() {
+        var model = MenuModel()
+        model.setMeetingActive(true)
+        model.setLast(Self.dictation("hello"))
+        #expect(model.items.map(\.title)[1...6] == [
+            emptyMonth, "Last: \"hello\"", "Correct Last Dictation…", "", "Stop Meeting", "Show Meeting…",
+        ])
+        model.setMeetingActive(false)
+        #expect(model.items.map(\.title)[2...6] == [
+            "Last: \"hello\"", "Correct Last Dictation…", "", "Start Meeting…", "History...",
         ])
     }
 
@@ -48,6 +79,7 @@ import Testing
             "Last: \"hello\"",
             "Correct Last Dictation…",
             "",
+            "Start Meeting…",
             "History...",
             "Settings...",
             "",
