@@ -22,7 +22,8 @@ public final class FakeWebSocketConnection: WebSocketConnection, @unchecked Send
         case fail(String)
         case close(code: Int, reason: String?)
         case pause(Duration)
-        case wait
+        /// Carries `sent.count` at the decision, so a send landing before the waiter parks is not lost.
+        case wait(seen: Int)
     }
 
     private let lock = NSLock()
@@ -69,7 +70,7 @@ public final class FakeWebSocketConnection: WebSocketConnection, @unchecked Send
             case .fail(let message): throw ScriptedError.server(message)
             case .close(let code, let reason): throw WebSocketConnectionError.closed(code: code, reason: reason)
             case .pause(let duration): try await clock.sleep(for: duration)
-            case .wait: await waitForSend()
+            case .wait(let seen): await waitForSend(after: seen)
             }
         }
     }
@@ -86,22 +87,22 @@ public final class FakeWebSocketConnection: WebSocketConnection, @unchecked Send
     private func nextActionLocked() -> Action {
         while case .awaitClient(let want)? = steps.first {
             guard let index = (cursor..<sent.count).first(where: { Self.matches(sent[$0], want) }) else {
-                return .wait
+                return .wait(seen: sent.count)
             }
             cursor = index + 1
             steps.removeFirst()
         }
-        guard !steps.isEmpty else { return .wait }
+        guard !steps.isEmpty else { return .wait(seen: sent.count) }
         switch steps.removeFirst() {
         case .server(let json): return .deliver(.text(json))
         case .serverError(let message): return .fail(message)
         case .serverClose(let code, let reason): return .close(code: code, reason: reason)
         case .pause(let duration): return .pause(duration)
-        case .awaitClient: return .wait
+        case .awaitClient: return .wait(seen: sent.count)
         }
     }
 
-    private func waitForSend() async {
+    private func waitForSend(after seen: Int) async {
         let id = lock.withLock { () -> UInt64 in
             nextWaiterID += 1
             return nextWaiterID
@@ -109,7 +110,7 @@ public final class FakeWebSocketConnection: WebSocketConnection, @unchecked Send
         await withTaskCancellationHandler {
             await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
                 let resumeNow = lock.withLock { () -> Bool in
-                    if closed || cancelledWaiters.remove(id) != nil { return true }
+                    if closed || sent.count > seen || cancelledWaiters.remove(id) != nil { return true }
                     waiters[id] = continuation
                     return false
                 }
