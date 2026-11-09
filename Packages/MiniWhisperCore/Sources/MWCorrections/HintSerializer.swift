@@ -5,6 +5,7 @@ public enum SkipReason: Equatable, Sendable {
     case emptyAfterFilter
     case tooManyWords
     case wordTooLong
+    case termTooLong
 }
 
 public struct SkippedHint: Equatable, Sendable {
@@ -42,6 +43,8 @@ public enum HintSerializer {
 
     static let contextualStringsCap = 100
     static let speechmaticsEntryCap = 1_000
+    static let assemblyAIKeytermCap = 100
+    private static let assemblyAIMaxKeytermLength = 50
     private static let speechmaticsMaxWords = 6
     private static let speechmaticsMaxWordLength = 4_000
     private static let openAIForbidden: Set<Unicode.Scalar> = ["<", ">", "\r", "\n"]
@@ -67,6 +70,23 @@ public enum HintSerializer {
                 skipped.append(SkippedHint(term: term, reason: .emptyAfterFilter))
             } else {
                 sent.append(filtered)
+            }
+        }
+        return Capped(sent: sent, skipped: skipped)
+    }
+
+    /// The provider ignores a keyterm over 50 characters, so it is skipped before the
+    /// cap counts and never costs a later term its place.
+    public static func assemblyAIKeyterms(_ hints: RecognitionHints) -> Capped {
+        var sent: [String] = []
+        var skipped: [SkippedHint] = []
+        for term in hints.terms {
+            if term.count > assemblyAIMaxKeytermLength {
+                skipped.append(SkippedHint(term: term, reason: .termTooLong))
+            } else if sent.count == assemblyAIKeytermCap {
+                skipped.append(SkippedHint(term: term, reason: .overCap))
+            } else {
+                sent.append(term)
             }
         }
         return Capped(sent: sent, skipped: skipped)

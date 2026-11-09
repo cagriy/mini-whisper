@@ -18,6 +18,7 @@ private func close(_ lhs: Double, _ rhs: Double, tolerance: Double = 1e-9) -> Bo
         (EngineName.openai, "openai_realtime", 0.017),
         (EngineName.elevenlabs, "elevenlabs", 0.0065),
         (EngineName.speechmatics, "speechmatics", 0.0075),
+        (EngineName.assemblyai, "assemblyai", 0.0025),
         (EngineName.onDevice, "on_device", 0.0),
         (EngineName.speechAnalyzer, "speech_analyzer", 0.0),
     ])

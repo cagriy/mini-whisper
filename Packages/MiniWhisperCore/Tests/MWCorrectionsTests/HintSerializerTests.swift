@@ -121,4 +121,31 @@ import MWCorrections
         #expect(capped.skipped.allSatisfy { $0.reason == .overCap })
         #expect(capped.skipped.first?.term == "term1000")
     }
+
+    @Test func assemblyAIKeytermsCapAt100() {
+        let hints = RecognitionHints(terms: (0..<120).map { "term\($0)" }, rules: [], vocabulary: [])
+
+        let capped = HintSerializer.assemblyAIKeyterms(hints)
+
+        #expect(capped.sent == Array(hints.terms.prefix(100)))
+        #expect(capped.skipped == hints.terms.suffix(20).map { SkippedHint(term: $0, reason: .overCap) })
+    }
+
+    /// The provider ignores a keyterm over 50 characters; it is skipped before the cap
+    /// counts, so it never costs a later term its place.
+    @Test func assemblyAIKeytermsSkipTermsOver50Characters() {
+        let fifty = String(repeating: "x", count: 50)
+        let long = String(repeating: "y", count: 51)
+        let hints = RecognitionHints(
+            terms: [long] + (0..<100).map { "term\($0)" } + [fifty], rules: [], vocabulary: []
+        )
+
+        let capped = HintSerializer.assemblyAIKeyterms(hints)
+
+        #expect(capped.sent == (0..<100).map { "term\($0)" })
+        #expect(capped.skipped == [
+            SkippedHint(term: long, reason: .termTooLong),
+            SkippedHint(term: fifty, reason: .overCap),
+        ])
+    }
 }

@@ -213,6 +213,10 @@ import Testing
         #expect(rows.last?.meta == "17:37 · Terminal · On-device · $0.000")
     }
 
+    @Test func assemblyAIEngineLabel() {
+        #expect(HistoryListModel.engineLabel("assemblyai") == "AssemblyAI")
+    }
+
     /// Cleanup costs about $0.00004 a dictation; `$0.000` reads as free.
     @Test func metaMarksACostTooSmallToShow() async throws {
         let harness = Harness()

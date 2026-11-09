@@ -125,6 +125,27 @@ import Testing
         #expect(elevenlabs.disabledReason == nil)
     }
 
+    @Test func assemblyAIEngineIsGatedOnItsKey() async throws {
+        let harness = Harness()
+        defer { harness.cleanUp() }
+        let model = await harness.model()
+
+        let locked = try #require(model.engineRows.first { $0.name == .assemblyai })
+        #expect(locked.title == "AssemblyAI")
+        #expect(!locked.isEnabled)
+        #expect(locked.disabledReason == "Add an AssemblyAI key under Keys to enable")
+        await model.selectEngine(.assemblyai)
+        #expect(model.config.streamingEngine != .assemblyai)
+
+        harness.secrets.stored[.assemblyai] = "aai-key"
+        model.refreshKeys()
+        let unlocked = try #require(model.engineRows.first { $0.name == .assemblyai })
+        #expect(unlocked.isEnabled)
+        #expect(unlocked.disabledReason == nil)
+        await model.selectEngine(.assemblyai)
+        #expect(model.config.streamingEngine == .assemblyai)
+    }
+
     @Test func engineListMarksThePlatformDefaultWhenConfigNamesNoEngine() async throws {
         let harness = Harness()
         defer { harness.cleanUp() }

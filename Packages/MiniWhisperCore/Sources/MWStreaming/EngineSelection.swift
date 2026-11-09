@@ -20,6 +20,7 @@ public enum EngineNotice: Sendable, Hashable {
         case .openai: "OpenAI"
         case .elevenlabs: "ElevenLabs"
         case .speechmatics: "Speechmatics"
+        case .assemblyai: "AssemblyAI"
         case .onDevice, .speechAnalyzer: engine.rawValue
         }
     }

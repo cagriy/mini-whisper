@@ -30,7 +30,7 @@ import MWCorrections
         #expect(report().map(\.engine) == EngineName.allCases + [nil])
         #expect(report().map(\.label) == [
             "SpeechAnalyzer", "On-device", "OpenAI Realtime", "ElevenLabs", "Speechmatics",
-            "Batch transcription",
+            "AssemblyAI", "Batch transcription",
         ])
     }
 
@@ -43,6 +43,8 @@ import MWCorrections
         // Two rule entries plus one vocabulary entry.
         #expect(try row(.speechmatics).sent == 3)
         #expect(try row(.speechmatics).cap == 1_000)
+        #expect(try row(.assemblyai).sent == 6)
+        #expect(try row(.assemblyai).cap == 100)
         #expect(try row(nil).sent == 6)
     }
 

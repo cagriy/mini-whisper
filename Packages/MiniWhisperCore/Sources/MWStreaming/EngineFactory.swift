@@ -46,7 +46,7 @@ public struct EngineFactory: EngineProvider {
         switch name {
         case .speechAnalyzer: return await onDeviceSelection(hints)
         case .onDevice: return onDevice(hints)
-        case .openai, .elevenlabs, .speechmatics:
+        case .openai, .elevenlabs, .speechmatics, .assemblyai:
             return await cloud(name, secrets: secrets, hints: hints)
         }
     }
@@ -111,6 +111,11 @@ public struct EngineFactory: EngineProvider {
         // R22: ElevenLabs documents no hint field, so it is handed none.
         case .elevenlabs: webSocketEngine(ElevenLabsAdapter(apiKey: key))
         case .speechmatics: webSocketEngine(SpeechmaticsAdapter(apiKey: key, hints: hints))
+        case .assemblyai:
+            webSocketEngine(AssemblyAIAdapter(
+                apiKey: key, hints: hints,
+                model: "universal-streaming-english", speakerLabels: false, formatTurns: true
+            ))
         case .onDevice, .speechAnalyzer: nil
         }
     }
@@ -152,6 +157,7 @@ extension KeyAccount {
         case .openai: self = .openai
         case .elevenlabs: self = .elevenlabs
         case .speechmatics: self = .speechmatics
+        case .assemblyai: self = .assemblyai
         case .onDevice, .speechAnalyzer: return nil
         }
     }

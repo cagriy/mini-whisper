@@ -36,6 +36,7 @@ public enum HintReport {
         let contextual = HintSerializer.contextualStrings(hints)
         let keywords = HintSerializer.openAIKeywords(hints)
         let vocab = HintSerializer.speechmaticsVocab(hints)
+        let keyterms = HintSerializer.assemblyAIKeyterms(hints)
 
         return [
             speechAnalyzerRow(contextual, support: support),
@@ -55,6 +56,10 @@ public enum HintReport {
             Row(
                 engine: .speechmatics, label: "Speechmatics", sent: vocab.sent.count,
                 cap: HintSerializer.speechmaticsEntryCap, skipped: vocab.skipped, state: .supported
+            ),
+            Row(
+                engine: .assemblyai, label: "AssemblyAI", sent: keyterms.sent.count,
+                cap: HintSerializer.assemblyAIKeytermCap, skipped: keyterms.skipped, state: .supported
             ),
             Row(
                 engine: nil, label: "Batch transcription", sent: hints.terms.count, cap: nil,

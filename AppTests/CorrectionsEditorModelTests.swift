@@ -201,7 +201,7 @@ private let storedRules: [CorrectionRule] = [
 
         #expect(model.hintRows.map(\.label) == [
             "SpeechAnalyzer", "On-device", "OpenAI Realtime", "ElevenLabs", "Speechmatics",
-            "Batch transcription",
+            "AssemblyAI", "Batch transcription",
         ])
         // Aoife, eefa, eva, GitHub, get hub, Tahoe — the disabled rule contributes nothing.
         let onDevice = try #require(model.hintRows.first { $0.label == "On-device" })
@@ -211,6 +211,7 @@ private let storedRules: [CorrectionRule] = [
         #expect(model.hintRows.first { $0.label == "ElevenLabs" }?.detail
             == "not sent in this version · rules still apply")
         #expect(model.hintRows.first { $0.label == "ElevenLabs" }?.status == .off)
+        #expect(model.hintRows.first { $0.label == "AssemblyAI" }?.detail == "6 terms sent · cap 100")
         #expect(model.hintRows.last?.detail == "terms and corrections added to the prompt")
 
         let analyzer = try #require(model.hintRows.first)
@@ -237,6 +238,19 @@ private let storedRules: [CorrectionRule] = [
             == "0 entries sent · cap 1000 · 1 skipped:"
                 + " “mini whisper release notes bundle for the week” is over 6 words")
         #expect(speechmatics.status == .warning)
+    }
+
+    @Test func assemblyAIKeytermsOver50CharactersAreReported() async throws {
+        let harness = Harness()
+        defer { harness.cleanUp() }
+        let long = String(repeating: "x", count: 51)
+        try await harness.seed { $0.vocabulary = [long] }
+        let model = await harness.model()
+
+        let assemblyAI = try #require(model.hintRows.first { $0.label == "AssemblyAI" })
+        #expect(assemblyAI.detail
+            == "0 terms sent · cap 100 · 1 skipped: “\(long)” is over 50 characters")
+        #expect(assemblyAI.status == .warning)
     }
 
     // MARK: - Refresh (R36)

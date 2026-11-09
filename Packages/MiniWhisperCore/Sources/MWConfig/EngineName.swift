@@ -4,4 +4,5 @@ public enum EngineName: String, Codable, CaseIterable, Sendable {
     case openai
     case elevenlabs
     case speechmatics
+    case assemblyai
 }

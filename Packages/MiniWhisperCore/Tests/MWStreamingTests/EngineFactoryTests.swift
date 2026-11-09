@@ -33,9 +33,10 @@ private final class ConnectRecorder: @unchecked Sendable {
         .openai: "sk-test-not-a-real-key",
         .elevenlabs: "el-test-not-a-real-key",
         .speechmatics: "sm-test-not-a-real-key",
+        .assemblyai: "aai-test-not-a-real-key",
     ]
 
-    private static let cloudEngines: [EngineName] = [.openai, .elevenlabs, .speechmatics]
+    private static let cloudEngines: [EngineName] = [.openai, .elevenlabs, .speechmatics, .assemblyai]
 
     private func config(enabled: Bool = true, engine: EngineName? = .onDevice) -> Config {
         var config = Config()
@@ -163,7 +164,7 @@ private final class ConnectRecorder: @unchecked Sendable {
 
     @Test(arguments: zip(
         EngineFactoryTests.cloudEngines,
-        ["OpenAI", "ElevenLabs", "Speechmatics"]
+        ["OpenAI", "ElevenLabs", "Speechmatics", "AssemblyAI"]
     ))
     func cloudEngineWithoutKeyDowngradesToOnDeviceDefaultWithNoticeOncePerRun(
         _ name: EngineName,
@@ -209,6 +210,41 @@ private final class ConnectRecorder: @unchecked Sendable {
 
         #expect(recorder.urls == [URL(string: "wss://api.openai.com/v1/realtime")!])
         #expect(recorder.headers == [["Authorization": "Bearer sk-test-not-a-real-key"]])
+    }
+
+    @Test func assemblyAIUsesTheAssemblyAIKeyAccount() async throws {
+        let recorder = ConnectRecorder()
+        let selection = await factory(connect: recorder.connect).make(
+            config: config(engine: .assemblyai),
+            secrets: FakeSecretStore([.assemblyai: "aai-test-not-a-real-key"]),
+            hints: .none
+        )
+        let engine = try #require(selection.engine)
+        engine.start(sink: RecordingSink())
+        _ = await engine.finish(timeout: .seconds(5))
+
+        #expect(engine.name == .assemblyai)
+        #expect(recorder.headers == [["Authorization": "aai-test-not-a-real-key"]])
+    }
+
+    @Test func assemblyAIDictationHasNoSpeakerLabels() async throws {
+        let recorder = ConnectRecorder()
+        let selection = await factory(connect: recorder.connect).make(
+            config: config(engine: .assemblyai), secrets: FakeSecretStore(Self.keys), hints: Self.hints
+        )
+        let engine = try #require(selection.engine)
+        engine.start(sink: RecordingSink())
+        _ = await engine.finish(timeout: .seconds(5))
+
+        let url = try #require(recorder.urls.first)
+        let items = try #require(URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems)
+        let query = Dictionary(uniqueKeysWithValues: items.map { ($0.name, $0.value ?? "") })
+        #expect(url.host == "streaming.assemblyai.com")
+        #expect(query["speech_model"] == "universal-streaming-english")
+        #expect(query["format_turns"] == "true")
+        #expect(query["speaker_labels"] == nil)
+        #expect(query["max_speakers"] == nil)
+        #expect(query["keyterms_prompt"] == #"["Aoife","eefa","xcodegen"]"#)
     }
 
     // MARK: - Hints reach every engine (R18-R22)

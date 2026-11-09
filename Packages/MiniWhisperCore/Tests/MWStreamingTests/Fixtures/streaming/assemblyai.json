@@ -1,0 +1,32 @@
+{
+  "steps": [
+    {"server": {"type": "Begin", "id": "3207b601-2054-48df-ba77-8784dfcf9fb8", "expires_at": 1772570132}},
+    {"await_client": "__binary__"},
+    {"server": {"type": "Turn", "turn_order": 0, "turn_is_formatted": false, "end_of_turn": false,
+                "transcript": "hello", "end_of_turn_confidence": 0.05,
+                "words": [{"text": "hello", "start": 120, "end": 400, "confidence": 0.91, "word_is_final": false}]}},
+    {"server": {"type": "Turn", "turn_order": 0, "turn_is_formatted": false, "end_of_turn": false,
+                "transcript": "hello world", "end_of_turn_confidence": 0.21,
+                "words": [{"text": "hello", "start": 120, "end": 400, "confidence": 0.93, "word_is_final": true},
+                          {"text": "world", "start": 440, "end": 780, "confidence": 0.9, "word_is_final": false}]}},
+    {"server": {"type": "Turn", "turn_order": 0, "turn_is_formatted": false, "end_of_turn": true,
+                "transcript": "hello world", "end_of_turn_confidence": 0.82,
+                "words": [{"text": "hello", "start": 120, "end": 400, "confidence": 0.93, "word_is_final": true},
+                          {"text": "world", "start": 440, "end": 780, "confidence": 0.95, "word_is_final": true}]}},
+    {"server": {"type": "Turn", "turn_order": 0, "turn_is_formatted": true, "end_of_turn": true,
+                "transcript": "Hello world.", "end_of_turn_confidence": 0.82,
+                "words": [{"text": "Hello", "start": 120, "end": 400, "confidence": 0.93, "word_is_final": true},
+                          {"text": "world.", "start": 440, "end": 780, "confidence": 0.95, "word_is_final": true}]}},
+    {"await_client": {"type": "Terminate"}},
+    {"server": {"type": "Turn", "turn_order": 1, "turn_is_formatted": false, "end_of_turn": false,
+                "transcript": "again", "end_of_turn_confidence": 0.1,
+                "words": [{"text": "again", "start": 1200, "end": 1500, "confidence": 0.88, "word_is_final": false}]}},
+    {"server": {"type": "Turn", "turn_order": 1, "turn_is_formatted": false, "end_of_turn": true,
+                "transcript": "again", "end_of_turn_confidence": 0.9,
+                "words": [{"text": "again", "start": 1200, "end": 1500, "confidence": 0.9, "word_is_final": true}]}},
+    {"server": {"type": "Turn", "turn_order": 1, "turn_is_formatted": true, "end_of_turn": true,
+                "transcript": "Again.", "end_of_turn_confidence": 0.9,
+                "words": [{"text": "Again.", "start": 1200, "end": 1500, "confidence": 0.9, "word_is_final": true}]}},
+    {"server": {"type": "Termination", "audio_duration_seconds": 2, "session_duration_seconds": 3}}
+  ]
+}

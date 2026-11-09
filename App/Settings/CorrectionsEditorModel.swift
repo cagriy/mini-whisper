@@ -197,6 +197,7 @@ final class CorrectionsEditorModel {
         switch engine {
         case .openai: "keywords"
         case .speechmatics: "entries"
+        case .assemblyai: "terms"
         default: "hints"
         }
     }
@@ -213,6 +214,7 @@ final class CorrectionsEditorModel {
         case .emptyAfterFilter: "is empty once the forbidden characters are removed"
         case .tooManyWords: "is over 6 words"
         case .wordTooLong: "has a word over 4000 characters"
+        case .termTooLong: "is over 50 characters"
         }
     }
 }

@@ -194,6 +194,7 @@ extension EngineName {
         case .openai: (.openai, "OPENAI_API_KEY")
         case .elevenlabs: (.elevenlabs, "ELEVENLABS_API_KEY")
         case .speechmatics: (.speechmatics, "SPEECHMATICS_API_KEY")
+        case .assemblyai: (.assemblyai, "ASSEMBLYAI_API_KEY")
         case .onDevice, .speechAnalyzer: nil
         }
     }

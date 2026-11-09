@@ -204,6 +204,7 @@ final class HistoryListModel {
         case .openai: "OpenAI Realtime"
         case .elevenlabs: "ElevenLabs"
         case .speechmatics: "Speechmatics"
+        case .assemblyai: "AssemblyAI"
         case nil: stored
         }
     }

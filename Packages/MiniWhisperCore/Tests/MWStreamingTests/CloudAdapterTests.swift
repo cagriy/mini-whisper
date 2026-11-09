@@ -8,7 +8,7 @@ import Testing
 
 import MWStreaming
 
-/// The three cloud adapters against the wire protocols pinned in design §5.4,
+/// The cloud adapters against the wire protocols pinned in design §5.4,
 /// replayed through the fixture transcripts ported from
 /// `../mini-whisper-py/tests/fixtures/streaming/` (Python `test_websocket_engines.py`
 /// cases 260–380).
@@ -374,6 +374,265 @@ import MWStreaming
         #expect(emitter == AdapterEmitter())
     }
 
+    // MARK: - AssemblyAI Universal-Streaming v3
+
+    @Test func assemblyAIDictationURLAndHeader() throws {
+        let adapter = AssemblyAIAdapter(
+            apiKey: Self.key, model: "universal-streaming-english", speakerLabels: false, formatTurns: true
+        )
+
+        #expect(adapter.name == .assemblyai)
+        #expect(try endpoint(adapter.url) == "wss://streaming.assemblyai.com/v3/ws")
+        // AssemblyAI ignores a misspelt parameter, so the whole set is pinned.
+        #expect(try query(adapter.url) == [
+            "speech_model": "universal-streaming-english",
+            "encoding": "pcm_s16le",
+            "sample_rate": "16000",
+            "format_turns": "true",
+        ])
+        // The raw key, no `Bearer`, and nowhere else.
+        #expect(adapter.headers == ["Authorization": Self.key])
+        #expect(!adapter.url.absoluteString.contains(Self.key))
+        #expect(adapter.openMessages().isEmpty)
+    }
+
+    @Test func assemblyAIDiarizedURLCarriesSpeakerParams() throws {
+        let adapter = AssemblyAIAdapter(
+            apiKey: Self.key, model: "universal-3-6-pro", speakerLabels: true, formatTurns: false
+        )
+
+        #expect(try query(adapter.url) == [
+            "speech_model": "universal-3-6-pro",
+            "encoding": "pcm_s16le",
+            "sample_rate": "16000",
+            "speaker_labels": "true",
+            "max_speakers": "10",
+            "speaker_labels_revision_interval_ms": "300000",
+        ])
+    }
+
+    @Test func assemblyAIKeytermsPromptIsAJSONArray() throws {
+        let adapter = AssemblyAIAdapter(apiKey: Self.key, hints: Self.hints)
+        let keyterms = try #require(try query(adapter.url)["keyterms_prompt"])
+
+        #expect(try parse(keyterms) == .array(
+            ["Aoife", "eefa", "eva", "GitHub", "get hub", "xcodegen"].map(JSONValue.string)
+        ))
+        #expect(try query(AssemblyAIAdapter(apiKey: Self.key).url)["keyterms_prompt"] == nil)
+    }
+
+    /// `&` would split the parameter and a bare `+` reads as a space.
+    @Test func assemblyAIKeytermsAreStrictlyPercentEncoded() throws {
+        let adapter = AssemblyAIAdapter(
+            apiKey: Self.key, hints: RecognitionHints(terms: ["R&D", "C++"], rules: [], vocabulary: [])
+        )
+
+        #expect(adapter.url.query?.hasSuffix("&keyterms_prompt=%5B%22R%26D%22%2C%22C%2B%2B%22%5D") == true)
+        #expect(try parse(try #require(try query(adapter.url)["keyterms_prompt"]))
+            == .array([.string("R&D"), .string("C++")]))
+    }
+
+    @Test func assemblyAIHappyPathFixture() async throws {
+        let replay = try await replay(
+            adapter: AssemblyAIAdapter(apiKey: Self.key),
+            fixture: "assemblyai",
+            chunks: [[Float](repeating: 0, count: 4800)]
+        )
+
+        #expect(replay.result.ok)
+        #expect(replay.result.text == "Hello world. Again.")
+        #expect(replay.sink.partials == ["hello", "hello world", "hello world", "again", "again"])
+        #expect(replay.sink.finals == ["Hello world.", "Again."])
+        #expect(abs(replay.result.usage.seconds - 0.1) < 1e-9)
+        // 100 ms of audio is exactly one minimum chunk: 1600 int16 samples.
+        #expect(replay.connection.binaryPayloads.map(\.count) == [3200])
+        #expect(replay.connection.sentTypes == ["__binary__", "Terminate"])
+    }
+
+    @Test func assemblyAIUnformattedEndOfTurnIsPartialWhenFormatting() throws {
+        let emissions = try emissions(AssemblyAIAdapter(apiKey: Self.key, formatTurns: true), """
+        {"type": "Turn", "turn_order": 0, "turn_is_formatted": false, "end_of_turn": true,
+         "transcript": "my name is sonny", "words": []}
+        """)
+
+        #expect(emissions == [.partial("my name is sonny")])
+    }
+
+    @Test func assemblyAIProFinalisesOnEndOfTurnWithoutFormatting() throws {
+        let emissions = try emissions(
+            AssemblyAIAdapter(apiKey: Self.key, model: "universal-3-6-pro", formatTurns: false),
+            """
+            {"type": "Turn", "turn_order": 4, "turn_is_formatted": false, "end_of_turn": true,
+             "transcript": "My name is Sonny.",
+             "words": [{"text": "My", "start": 0, "end": 100}, {"text": "Sonny.", "start": 600, "end": 900}]}
+            """
+        )
+
+        #expect(emissions == [
+            .final("My name is Sonny."),
+            .segment(TranscriptSegment(
+                text: "My name is Sonny.",
+                words: [
+                    TranscriptWord(text: "My", start: 0, end: 0.1),
+                    TranscriptWord(text: "Sonny.", start: 0.6, end: 0.9),
+                ],
+                turnOrder: 4, start: 0, end: 0.9
+            )),
+        ])
+    }
+
+    @Test func assemblyAIBeginEmitsExpiresAt() throws {
+        let emissions = try emissions(AssemblyAIAdapter(apiKey: Self.key), """
+        {"type": "Begin", "id": "3207b601-2054-48df-ba77-8784dfcf9fb8", "expires_at": 1772570132}
+        """)
+
+        #expect(emissions == [.sessionLimit(.expiresAt(Date(timeIntervalSince1970: 1_772_570_132)))])
+    }
+
+    @Test func assemblyAIWordTimesAreConvertedFromMilliseconds() throws {
+        let emissions = try emissions(AssemblyAIAdapter(apiKey: Self.key, speakerLabels: true), """
+        {"type": "Turn", "turn_order": 0, "turn_is_formatted": true, "end_of_turn": true,
+         "transcript": "Good morning.", "speaker_label": "A",
+         "words": [{"text": "Good", "start": 120, "end": 280, "speaker": "A"},
+                   {"text": "morning.", "start": 280, "end": 3530, "speaker": "A"}]}
+        """)
+        guard case .segment(let segment)? = emissions.last else {
+            Issue.record("no segment in \(emissions)")
+            return
+        }
+
+        #expect(segment.words == [
+            TranscriptWord(text: "Good", start: 0.12, end: 0.28),
+            TranscriptWord(text: "morning.", start: 0.28, end: 3.53),
+        ])
+        #expect(segment.start == 0.12)
+        #expect(segment.end == 3.53)
+    }
+
+    @Test func assemblyAITurnEmitsASegmentWithTurnOrderAndSpeaker() async throws {
+        let replay = try await replay(
+            adapter: AssemblyAIAdapter(
+                apiKey: Self.key, model: "universal-3-6-pro", speakerLabels: true, formatTurns: false
+            ),
+            fixture: "assemblyai_diarized",
+            chunks: [chunk()]
+        )
+
+        #expect(replay.result.ok)
+        #expect(replay.result.text == "Hello there. Hi Marta. Right.")
+        #expect(replay.sink.partials == ["Hello there"])
+        #expect(replay.sink.limits == [.expiresAt(Date(timeIntervalSince1970: 1_772_580_000))])
+        #expect(replay.sink.segments == [
+            TranscriptSegment(
+                text: "Hello there.",
+                words: [
+                    TranscriptWord(text: "Hello", start: 0.5, end: 0.82),
+                    TranscriptWord(text: "there.", start: 0.82, end: 1.1),
+                ],
+                speaker: "A", turnOrder: 0, start: 0.5, end: 1.1
+            ),
+            TranscriptSegment(
+                text: "Hi Marta.",
+                words: [
+                    TranscriptWord(text: "Hi", start: 1.6, end: 1.84),
+                    TranscriptWord(text: "Marta.", start: 1.84, end: 2.4),
+                ],
+                speaker: "B", turnOrder: 1, start: 1.6, end: 2.4
+            ),
+            // Under about a second of audio the turn's label is `PENDING`: no speaker yet.
+            TranscriptSegment(
+                text: "Right.",
+                words: [TranscriptWord(text: "Right.", start: 2.9, end: 3.2)],
+                speaker: nil, turnOrder: 2, start: 2.9, end: 3.2
+            ),
+        ])
+    }
+
+    @Test func assemblyAIUnknownOrMissingSpeakerIsNil() throws {
+        for label in [#""speaker_label": "UNKNOWN","#, #""speaker_label": "PENDING","#, ""] {
+            let emissions = try emissions(AssemblyAIAdapter(apiKey: Self.key, speakerLabels: true), """
+            {"type": "Turn", "turn_order": 0, "turn_is_formatted": true, "end_of_turn": true, \(label)
+             "transcript": "Right.", "words": [{"text": "Right.", "start": 0, "end": 300}]}
+            """)
+            guard case .segment(let segment)? = emissions.last else {
+                Issue.record("no segment for \(label)")
+                continue
+            }
+            #expect(segment.speaker == nil, "\(label)")
+        }
+    }
+
+    @Test func assemblyAISpeakerRevisionIsForwarded() async throws {
+        let replay = try await replay(
+            adapter: AssemblyAIAdapter(
+                apiKey: Self.key, model: "universal-3-6-pro", speakerLabels: true, formatTurns: false
+            ),
+            fixture: "assemblyai_diarized",
+            chunks: [chunk()]
+        )
+
+        #expect(replay.sink.revisions == [[
+            SpeakerRevision(
+                turnOrder: 0,
+                speaker: "B",
+                words: [
+                    TranscriptWord(text: "Hello", start: 0.5, end: 0.82),
+                    TranscriptWord(text: "there.", start: 0.82, end: 1.1),
+                ]
+            ),
+        ]])
+    }
+
+    @Test func assemblyAIEndMessageIsTerminate() throws {
+        var adapter = AssemblyAIAdapter(apiKey: Self.key)
+
+        #expect(try adapter.endMessages().map { try json($0) } == [.object(["type": .string("Terminate")])])
+    }
+
+    @Test func assemblyAITerminationCompletes() throws {
+        var adapter = AssemblyAIAdapter(apiKey: Self.key)
+        var emitter = AdapterEmitter()
+
+        let complete = try adapter.handle(
+            .text(#"{"type": "Termination", "audio_duration_seconds": 13, "session_duration_seconds": 14}"#),
+            emit: &emitter
+        )
+
+        #expect(complete)
+        #expect(emitter.emissions.isEmpty)
+    }
+
+    @Test func assemblyAIErrorMessageFails() async {
+        let replay = await replayFailure(
+            adapter: AssemblyAIAdapter(apiKey: Self.key),
+            script: FixtureScript(steps: [
+                .server(#"{"type": "Error", "error_code": 3005, "error": "Session Cancelled: An error occurred"}"#),
+            ])
+        )
+
+        #expect(replay.result.ok == false)
+        #expect(replay.sink.errors.count == 1)
+        #expect(throws: CloudAdapterError.self) {
+            try self.emissions(AssemblyAIAdapter(apiKey: Self.key), #"{"error": "Invalid Message Type: Foo"}"#)
+        }
+    }
+
+    @Test func assemblyAIRequiresHundredMillisecondChunks() {
+        #expect(AssemblyAIAdapter(apiKey: Self.key).minimumChunkSeconds == 0.1)
+        #expect(AssemblyAIAdapter(apiKey: Self.key).targetRate == 16000)
+    }
+
+    /// The provider closes a session on a chunk under 20 ms (close 3007), which the
+    /// remainder flushed before `Terminate` can be.
+    @Test func assemblyAIPadsAChunkUnderTwentyMillisecondsWithSilence() {
+        let adapter = AssemblyAIAdapter(apiKey: Self.key)
+        let short = Data(repeating: 0x7F, count: 100)
+        let full = Data(repeating: 0x7F, count: 3200)
+
+        #expect(adapter.encodeChunk(short) == .binary(short + Data(count: 540)))
+        #expect(adapter.encodeChunk(full) == .binary(full))
+    }
+
     // MARK: - Shared configuration
 
     @Test func drainConfig() {
@@ -381,6 +640,7 @@ import MWStreaming
         #expect(ElevenLabsAdapter(apiKey: Self.key).drainAfterComplete == .milliseconds(200))
         // `EndOfTranscript` is a hard terminal: nothing follows it.
         #expect(SpeechmaticsAdapter(apiKey: Self.key).drainAfterComplete == .zero)
+        #expect(AssemblyAIAdapter(apiKey: Self.key).drainAfterComplete == .milliseconds(200))
 
         #expect(OpenAIRealtimeAdapter(apiKey: Self.key).targetRate == 24000)
         #expect(ElevenLabsAdapter(apiKey: Self.key).targetRate == 16000)
@@ -476,6 +736,21 @@ import MWStreaming
         try JSONDecoder().decode(JSONValue.self, from: Data(text.utf8))
     }
 
+    /// Scheme, host and path, without the query.
+    private func endpoint(_ url: URL) throws -> String {
+        var components = try #require(URLComponents(url: url, resolvingAgainstBaseURL: false))
+        components.query = nil
+        return try #require(components.string)
+    }
+
+    /// Every query parameter, decoded; a repeated name fails.
+    private func query(_ url: URL) throws -> [String: String] {
+        let items = try #require(URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems)
+        return try Dictionary(items.map { ($0.name, try #require($0.value)) }) { _, _ in
+            throw HarnessError.repeatedQueryParameter
+        }
+    }
+
     /// `StartRecognition`'s `transcription_config`.
     private func transcriptionConfig(_ adapter: SpeechmaticsAdapter) throws -> [String: JSONValue] {
         guard case .object(let start) = try json(adapter.openMessages().first),
@@ -485,7 +760,10 @@ import MWStreaming
     }
 
     /// What one server message makes the adapter emit, outside any engine.
-    private func emissions(_ adapter: SpeechmaticsAdapter, _ message: String) throws -> [AdapterEmitter.Emission] {
+    private func emissions<Adapter: EngineAdapter>(
+        _ adapter: Adapter,
+        _ message: String
+    ) throws -> [AdapterEmitter.Emission] {
         var adapter = adapter
         var emitter = AdapterEmitter()
         _ = try adapter.handle(.text(message), emit: &emitter)
@@ -505,5 +783,5 @@ import MWStreaming
         "alternatives": [{"content": ".", "confidence": 1.0, "language": "en", "speaker": "S1"}]}]}
     """
 
-    private enum HarnessError: Error { case notATextMessage, missingTranscriptionConfig }
+    private enum HarnessError: Error { case notATextMessage, missingTranscriptionConfig, repeatedQueryParameter }
 }

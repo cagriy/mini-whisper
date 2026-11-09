@@ -257,6 +257,7 @@ final class SettingsModel {
         (.openai, .openai, "OpenAI Realtime", "Add an OpenAI key under Keys to enable"),
         (.elevenlabs, .elevenlabs, "ElevenLabs", "Add an ElevenLabs key under Keys to enable"),
         (.speechmatics, .speechmatics, "Speechmatics", "Add a Speechmatics key under Keys to enable"),
+        (.assemblyai, .assemblyai, "AssemblyAI", "Add an AssemblyAI key under Keys to enable"),
     ]
 
     var idleStopLabel: String { "\(config.idleStopSeconds) s" }

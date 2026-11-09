@@ -228,8 +228,12 @@ import Testing
         #expect(try decode(#"{"streaming_engine": "speech_analyzer"}"#).streamingEngine == .speechAnalyzer)
         #expect(
             EngineName.allCases.map(\.rawValue)
-                == ["speech_analyzer", "on_device", "openai", "elevenlabs", "speechmatics"]
+                == ["speech_analyzer", "on_device", "openai", "elevenlabs", "speechmatics", "assemblyai"]
         )
+    }
+
+    @Test func assemblyAIIsAValidEngine() throws {
+        #expect(try decode(#"{"streaming_engine": "assemblyai"}"#).streamingEngine == .assemblyai)
     }
 
     @Test func writesTwoSpaceIndentWithTrailingNewline() throws {
