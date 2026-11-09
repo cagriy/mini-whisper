@@ -248,6 +248,142 @@ private enum TestConnectError: Error { case refused }
         }
     }
 
+    @Test func segmentReachesTheSinkButNotTheAssembler() async {
+        let clock = VirtualClock()
+        let connection = FakeWebSocketConnection(
+            script: completingScript(serving: [
+                #"{"type":"final","text":"a b"}"#,
+                #"{"type":"segment","text":"a b","speaker":"S1"}"#,
+            ]),
+            clock: clock
+        )
+        let engine = engine(clock: clock) { connection }
+        let sink = RecordingSink()
+        engine.start(sink: sink)
+
+        let result = await engine.finish(timeout: .seconds(5))
+
+        #expect(result.text == "a b")
+        #expect(sink.finals == ["a b"])
+        #expect(sink.segments == [TranscriptSegment(text: "a b", speaker: "S1", start: 0, end: 0)])
+    }
+
+    @Test func speakerRevisionReachesTheSink() async {
+        let clock = VirtualClock()
+        let connection = FakeWebSocketConnection(
+            script: completingScript(serving: [#"{"type":"revision","turn_order":2,"speaker":"B"}"#]),
+            clock: clock
+        )
+        let engine = engine(clock: clock) { connection }
+        let sink = RecordingSink()
+        engine.start(sink: sink)
+
+        let result = await engine.finish(timeout: .seconds(5))
+
+        #expect(result.text == "")
+        #expect(sink.revisions == [[SpeakerRevision(turnOrder: 2, speaker: "B")]])
+    }
+
+    @Test func sessionLimitReachesTheSink() async {
+        let clock = VirtualClock()
+        let connection = FakeWebSocketConnection(
+            script: completingScript(serving: [
+                #"{"type":"limit","expires_at":1700000000}"#,
+                #"{"type":"limit"}"#,
+            ]),
+            clock: clock
+        )
+        let engine = engine(clock: clock) { connection }
+        let sink = RecordingSink()
+        engine.start(sink: sink)
+
+        let result = await engine.finish(timeout: .seconds(5))
+
+        #expect(result.text == "")
+        #expect(sink.limits == [.expiresAt(Date(timeIntervalSince1970: 1_700_000_000)), .warning])
+    }
+
+    @Test func serverCloseSurfacesItsCode() async {
+        let clock = VirtualClock()
+        let connection = FakeWebSocketConnection(
+            script: FixtureScript(steps: [
+                .awaitClient(.type("open")),
+                .serverClose(code: 4005, reason: "quota"),
+            ]),
+            clock: clock
+        )
+        let engine = engine(clock: clock) { connection }
+        let sink = RecordingSink()
+        engine.start(sink: sink)
+
+        let result = await engine.finish(timeout: .seconds(5))
+
+        #expect(result.ok == false)
+        #expect(sink.errors.count == 1)
+        #expect(sink.errors.first.map { AnyError($0).description.contains("4005") } == true)
+    }
+
+    @Test func serverCloseLoadsFromJSON() throws {
+        let json = #"{"steps":[{"server_close":{"code":4005,"reason":"quota"}}]}"#
+        let script = try FixtureScript.load(Data(json.utf8))
+        guard case .serverClose(let code, let reason)? = script.steps.first else {
+            Issue.record("expected a server_close step")
+            return
+        }
+        #expect(code == 4005)
+        #expect(reason == "quota")
+    }
+
+    @Test func accumulatesToTheAdaptersMinimumChunk() async {
+        let clock = VirtualClock()
+        let connection = FakeWebSocketConnection(script: completingScript(), clock: clock)
+        let engine = engine(adapter: TestAdapter(minimumChunkSeconds: 0.1), clock: clock) { connection }
+        engine.start(sink: RecordingSink())
+
+        let chunks = (0..<5).map { _ in SignalFixtures.sine(count: 960, sampleRate: 48000) }
+        for chunk in chunks { engine.feed(buffer(chunk)) }
+        _ = await engine.finish(timeout: .seconds(5))
+
+        var converter = PCMConverter(from: 48000, to: 16000)
+        #expect(connection.sentTypes == ["open", "__binary__", "end"])
+        #expect(connection.binaryPayloads == [converter.convert(chunks.flatMap { $0 })])
+        #expect(connection.binaryPayloads.map(\.count) == [3200])
+    }
+
+    @Test func flushesTheRemainderBeforeEnd() async {
+        let clock = VirtualClock()
+        let connection = FakeWebSocketConnection(script: completingScript(), clock: clock)
+        let engine = engine(adapter: TestAdapter(minimumChunkSeconds: 0.1), clock: clock) { connection }
+        engine.start(sink: RecordingSink())
+
+        for _ in 0..<7 { engine.feed(buffer(SignalFixtures.sine(count: 960, sampleRate: 48000))) }
+        _ = await engine.finish(timeout: .seconds(5))
+
+        #expect(connection.sentTypes == ["open", "__binary__", "__binary__", "end"])
+        #expect(connection.binaryPayloads.map(\.count) == [3200, 1280])
+    }
+
+    @Test func noMinimumChunkKeepsOneMessagePerBuffer() async {
+        let clock = VirtualClock()
+        let connection = FakeWebSocketConnection(script: completingScript(), clock: clock)
+        let engine = engine(clock: clock) { connection }
+        engine.start(sink: RecordingSink())
+
+        for _ in 0..<3 { engine.feed(buffer(SignalFixtures.sine(count: 960, sampleRate: 48000))) }
+        _ = await engine.finish(timeout: .seconds(5))
+
+        #expect(connection.binaryPayloads.map(\.count) == [640, 640, 640])
+    }
+
+    /// Open, end of audio, the given server events, then the terminal event.
+    private func completingScript(serving events: [String] = []) -> FixtureScript {
+        FixtureScript(
+            steps: [.awaitClient(.type("open")), .awaitClient(.type("end"))]
+                + events.map(FixtureScript.Step.server)
+                + [.server(#"{"type":"complete"}"#)]
+        )
+    }
+
     private func trailingEventScript() -> FixtureScript {
         FixtureScript(steps: [
             .awaitClient(.type("open")),

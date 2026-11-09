@@ -13,12 +13,20 @@ public protocol WebSocketConnection: Sendable {
     func close()
 }
 
-public enum WebSocketConnectionError: Error, CustomStringConvertible {
+/// `LocalizedError` so `AnyError`, and with it the engine's failure log, names the close
+/// code.
+public enum WebSocketConnectionError: LocalizedError, Equatable, CustomStringConvertible {
     case unsupportedMessage
+    /// The server closed the socket.
+    case closed(code: Int, reason: String?)
 
     public var description: String {
         switch self {
         case .unsupportedMessage: "unsupported websocket message kind"
+        case .closed(let code, let reason?): "websocket closed by server (\(code): \(reason))"
+        case .closed(let code, nil): "websocket closed by server (\(code))"
         }
     }
+
+    public var errorDescription: String? { description }
 }

@@ -187,11 +187,17 @@ public final class WebSocketEngine<Adapter: EngineAdapter>: StreamingEngine, @un
     private func sendLoop(_ connection: any WebSocketConnection) async {
         var converter: PCMConverter?
         var converterRate: Double?
+        let minimumBytes = state.withLock { state -> Int in
+            guard let seconds = state.adapter.minimumChunkSeconds else { return 0 }
+            return Int((seconds * state.adapter.targetRate).rounded()) * MemoryLayout<Int16>.size
+        }
+        var pending = Data()
 
         for await item in queue {
             guard !state.withLock({ $0.failed }) else { return }
             switch item {
             case .end:
+                if !pending.isEmpty, await !send(pending, on: connection) { return }
                 // Flagged before the send, not after: the receive loop runs
                 // concurrently, and a server cannot answer a message it has not
                 // received yet — so this cannot let an early terminal through.
@@ -210,15 +216,22 @@ public final class WebSocketEngine<Adapter: EngineAdapter>: StreamingEngine, @un
                     converter = PCMConverter(from: rate, to: state.withLock { $0.adapter.targetRate })
                     converterRate = rate
                 }
-                let pcm = converter?.convert(samples) ?? Data()
-                guard !pcm.isEmpty else { continue }
-                do {
-                    try await connection.send(state.withLock { $0.adapter.encodeChunk(pcm) })
-                } catch {
-                    fail(error)
-                    return
-                }
+                pending.append(converter?.convert(samples) ?? Data())
+                guard !pending.isEmpty, pending.count >= minimumBytes else { continue }
+                guard await send(pending, on: connection) else { return }
+                pending = Data()
             }
+        }
+    }
+
+    /// Sends one audio chunk; on failure reports it and returns `false`.
+    private func send(_ pcm: Data, on connection: any WebSocketConnection) async -> Bool {
+        do {
+            try await connection.send(state.withLock { $0.adapter.encodeChunk(pcm) })
+            return true
+        } catch {
+            fail(error)
+            return false
         }
     }
 
@@ -286,6 +299,7 @@ public final class WebSocketEngine<Adapter: EngineAdapter>: StreamingEngine, @un
                 switch emission {
                 case .partial(let text): state.assembler.addPartial(text)
                 case .final(let text): state.assembler.addFinal(text)
+                case .segment, .speakerRevision, .sessionLimit: break
                 }
             }
             return (complete, state.sink, emitter.emissions)
@@ -294,6 +308,9 @@ public final class WebSocketEngine<Adapter: EngineAdapter>: StreamingEngine, @un
             switch emission {
             case .partial(let text): applied.sink?.onPartial(text)
             case .final(let text): applied.sink?.onFinal(text)
+            case .segment(let segment): applied.sink?.onSegment(segment)
+            case .speakerRevision(let revisions): applied.sink?.onSpeakerRevision(revisions)
+            case .sessionLimit(let limit): applied.sink?.onSessionLimit(limit)
             }
         }
         return applied.complete

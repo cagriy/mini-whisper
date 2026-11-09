@@ -20,6 +20,7 @@ public final class FakeWebSocketConnection: WebSocketConnection, @unchecked Send
     private enum Action {
         case deliver(WebSocketMessage)
         case fail(String)
+        case close(code: Int, reason: String?)
         case pause(Duration)
         case wait
     }
@@ -66,6 +67,7 @@ public final class FakeWebSocketConnection: WebSocketConnection, @unchecked Send
             switch lock.withLock({ nextActionLocked() }) {
             case .deliver(let message): return message
             case .fail(let message): throw ScriptedError.server(message)
+            case .close(let code, let reason): throw WebSocketConnectionError.closed(code: code, reason: reason)
             case .pause(let duration): try await clock.sleep(for: duration)
             case .wait: await waitForSend()
             }
@@ -93,6 +95,7 @@ public final class FakeWebSocketConnection: WebSocketConnection, @unchecked Send
         switch steps.removeFirst() {
         case .server(let json): return .deliver(.text(json))
         case .serverError(let message): return .fail(message)
+        case .serverClose(let code, let reason): return .close(code: code, reason: reason)
         case .pause(let duration): return .pause(duration)
         case .awaitClient: return .wait
         }

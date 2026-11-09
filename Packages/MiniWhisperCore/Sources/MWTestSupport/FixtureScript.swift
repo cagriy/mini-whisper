@@ -8,6 +8,8 @@ import MWConfig
 ///   type (`__binary__` for binary frames); a dict matches as a key/value subset
 /// - `{"server": {...}}` — deliver this JSON event to the engine
 /// - `{"server_error": "msg"}` — `receive()` throws
+/// - `{"server_close": {"code": 4005, "reason": "quota"}}` — the server closes the
+///   socket; `receive()` throws `WebSocketConnectionError.closed`
 /// - `{"pause": 0.1}` — wait this long on the injected clock before the next step
 public struct FixtureScript: Sendable {
     public enum ClientExpectation: Sendable, Equatable {
@@ -19,6 +21,7 @@ public struct FixtureScript: Sendable {
         case awaitClient(ClientExpectation)
         case server(String)
         case serverError(String)
+        case serverClose(code: Int, reason: String?)
         case pause(Duration)
     }
 
@@ -27,7 +30,7 @@ public struct FixtureScript: Sendable {
 
         public var description: String {
             switch self {
-            case .malformedStep: "fixture step is not one of await_client/server/server_error/pause"
+            case .malformedStep: "fixture step is not one of await_client/server/server_error/server_close/pause"
             }
         }
     }
@@ -58,6 +61,10 @@ public struct FixtureScript: Sendable {
         }
         if case .string(let message)? = fields["server_error"] {
             return .serverError(message)
+        }
+        if case .object(let close)? = fields["server_close"], case .number(let code)? = close["code"] {
+            let reason: String? = if case .string(let text)? = close["reason"] { text } else { nil }
+            return .serverClose(code: Int(code), reason: reason)
         }
         if case .number(let seconds)? = fields["pause"] {
             return .pause(.seconds(seconds))

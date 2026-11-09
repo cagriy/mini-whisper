@@ -22,11 +22,25 @@ public final class URLSessionWebSocketConnection: WebSocketConnection, @unchecke
     }
 
     public func receive() async throws -> WebSocketMessage {
-        switch try await task.receive() {
+        let message: URLSessionWebSocketTask.Message
+        do {
+            message = try await task.receive()
+        } catch {
+            throw Self.closeError(code: task.closeCode.rawValue, reason: task.closeReason) ?? error
+        }
+        switch message {
         case .string(let text): return .text(text)
         case .data(let data): return .binary(data)
         @unknown default: throw WebSocketConnectionError.unsupportedMessage
         }
+    }
+
+    /// The server's close frame as an error, or `nil` when the socket was not closed by
+    /// a close frame (`.invalid`).
+    public static func closeError(code: Int, reason: Data?) -> WebSocketConnectionError? {
+        guard code != URLSessionWebSocketTask.CloseCode.invalid.rawValue else { return nil }
+        let text = reason.flatMap { String(data: $0, encoding: .utf8) }
+        return .closed(code: code, reason: text?.isEmpty == false ? text : nil)
     }
 
     public func close() {

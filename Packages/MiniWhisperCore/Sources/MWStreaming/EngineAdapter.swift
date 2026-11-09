@@ -7,6 +7,9 @@ public struct AdapterEmitter: Sendable, Equatable {
     public enum Emission: Sendable, Equatable {
         case partial(String)
         case final(String)
+        case segment(TranscriptSegment)
+        case speakerRevision([SpeakerRevision])
+        case sessionLimit(SessionLimit)
     }
 
     public private(set) var emissions: [Emission] = []
@@ -17,6 +20,11 @@ public struct AdapterEmitter: Sendable, Equatable {
 
     public mutating func partial(_ text: String) { emissions.append(.partial(text)) }
     public mutating func final(_ text: String) { emissions.append(.final(text)) }
+    public mutating func segment(_ segment: TranscriptSegment) { emissions.append(.segment(segment)) }
+    public mutating func speakerRevision(_ revisions: [SpeakerRevision]) {
+        emissions.append(.speakerRevision(revisions))
+    }
+    public mutating func sessionLimit(_ limit: SessionLimit) { emissions.append(.sessionLimit(limit)) }
 
     public mutating func addTokens(input: Int?, output: Int?) {
         inputTokens += input ?? 0
@@ -35,10 +43,18 @@ public protocol EngineAdapter: Sendable {
     /// Quiet window after the terminal event, for providers whose terminal event can
     /// race trailing transcript events.
     var drainAfterComplete: Duration { get }
+    /// Shortest audio chunk the provider accepts; `WebSocketEngine` accumulates
+    /// converted audio until it is reached. A requirement, so the generic engine sees
+    /// an adapter's own value.
+    var minimumChunkSeconds: Double? { get }
 
     func openMessages() -> [WebSocketMessage]
     mutating func encodeChunk(_ pcm: Data) -> WebSocketMessage
     mutating func endMessages() -> [WebSocketMessage]
     /// Parses one server message; returns `true` when the stream is complete.
     mutating func handle(_ message: WebSocketMessage, emit: inout AdapterEmitter) throws -> Bool
+}
+
+extension EngineAdapter {
+    public var minimumChunkSeconds: Double? { nil }
 }
