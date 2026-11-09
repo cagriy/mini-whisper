@@ -11,6 +11,7 @@ import Testing
     private static let current = PlatformInfo(osMajor: 26, osMinor: 0)
     private static let created = Date(timeIntervalSince1970: 1_794_000_000)
     private static let alex = SpeakerLabel(id: 0, name: "Alex", isUser: true)
+    private static let utc = TimeZone(identifier: "UTC")!
 
     private func chooser(
         keys: Set<KeyAccount> = [.speechmatics],
@@ -29,7 +30,7 @@ import Testing
     }
 
     private func model(_ chooser: MeetingWindowModel.Chooser? = nil) -> MeetingWindowModel {
-        MeetingWindowModel(chooser: chooser ?? self.chooser())
+        MeetingWindowModel(chooser: chooser ?? self.chooser(), timeZone: Self.utc)
     }
 
     private func segment(_ speaker: Int, _ start: Double, _ text: String) -> Segment {
@@ -294,5 +295,188 @@ import Testing
         #expect(model.mergePrompt(renaming: 3, to: " Marta ") == "Merge Speaker 3 into Marta?")
         #expect(model.mergePrompt(renaming: 3, to: "Priya") == nil)
         #expect(model.mergePrompt(renaming: 1, to: "Marta") == nil)
+    }
+
+    // MARK: - Stopped
+
+    private static let startedAt = Date(timeIntervalSince1970: 1_794_234_600)
+    private static let summary = Summary(
+        text: """
+        ## Summary
+        The Northwind rollout stays on schedule.
+
+        ## Decisions
+        - Sign-off moves to Wednesday (**Priya**).
+
+        ## Action items
+        - **Priya**: refresh staging data tonight.
+        - **Marta**: migration script by Wednesday.
+
+        ## Open questions
+        - Whether the cap applies to trial accounts.
+        """,
+        model: "claude-sonnet-5-5",
+        createdAt: Date(timeIntervalSince1970: 1_794_237_580),
+        inputTokens: 12_480,
+        outputTokens: 610,
+        costUSD: 0.03106
+    )
+
+    private static func meeting(title: String = "Zoom · 9 Nov 2026 14:30", ended: Bool = false) -> Meeting {
+        Meeting(
+            title: title, startedAt: startedAt,
+            endedAt: ended ? Date(timeIntervalSince1970: 1_794_237_560) : nil,
+            durationSeconds: ended ? 2932 : 0, mode: .remote, engine: .speechmaticsStandard, userName: "Alex",
+            billing: Billing(engineSeconds: 2932, costUSD: ended ? 0.3665 : 0)
+        )
+    }
+
+    /// A stopped meeting with one segment unless `transcribed` is false.
+    private func stopped(_ summary: SummaryState?, transcribed: Bool = true) -> MeetingWindowModel {
+        let model = model()
+        model.show(Self.meeting())
+        if transcribed { model.apply(.segmentAdded(segment(1, 10, "Agreed."))) }
+        model.apply(.state(.stopped))
+        if let summary { model.apply(.summary(summary)) }
+        return model
+    }
+
+    @Test func noKeyPanelReadsAddAnAnthropicKey() {
+        let model = stopped(.none("No summary: add an Anthropic key under Keys."))
+        #expect(model.summaryPanel == .message("No summary: add an Anthropic key under Keys.", canSummarise: true))
+    }
+
+    @Test func failedPanelShowsTheReasonAndSummarise() {
+        let model = stopped(.failed("HTTP 529"))
+        #expect(model.summaryPanel == .message("HTTP 529", canSummarise: true))
+        #expect(model.canSummarise)
+    }
+
+    @Test func declinedPanelReadsSummaryDeclinedCategory() {
+        let model = stopped(.failed("Summary declined (cyber)"))
+        #expect(model.summaryPanel == .message("Summary declined (cyber)", canSummarise: true))
+    }
+
+    @Test func emptyPanelReadsNothingWasTranscribed() {
+        let declined = stopped(.none("Nothing was transcribed."), transcribed: false)
+        #expect(declined.summaryPanel == .message("Nothing was transcribed.", canSummarise: false))
+        // An empty meeting opened from the list has no summary event at all.
+        #expect(stopped(nil, transcribed: false).summaryPanel == .message("Nothing was transcribed.", canSummarise: false))
+    }
+
+    @Test func readyPanelSplitsTheFourSections() throws {
+        let model = stopped(.ready(Self.summary))
+        guard case .ready(let sections, _)? = model.summaryPanel else {
+            Issue.record("no ready panel: \(String(describing: model.summaryPanel))")
+            return
+        }
+        #expect(sections.map(\.title) == ["Summary", "Decisions", "Action items", "Open questions"])
+        #expect(sections[0].body == "The Northwind rollout stays on schedule.")
+        #expect(sections[2].body == "- **Priya**: refresh staging data tonight.\n- **Marta**: migration script by Wednesday.")
+        #expect(MeetingWindowModel.sections(of: "No headings here.") == [.init(title: "", body: "No headings here.")])
+    }
+
+    @Test func metaLineShowsModelTimeTokensCostAndPartial() {
+        let model = stopped(.ready(Self.summary))
+        guard case .ready(_, let meta)? = model.summaryPanel else {
+            Issue.record("no ready panel")
+            return
+        }
+        #expect(meta == "Claude Sonnet 5.5 · 15:19 · 12.5k in / 610 out tokens · $0.03")
+
+        let long = self.model()
+        long.show(Self.meeting())
+        long.apply(.segmentAdded(segment(1, 0, String(repeating: "a", count: 600_000))))
+        long.apply(.state(.stopped))
+        long.apply(.summary(.ready(Self.summary)))
+        guard case .ready(_, let partialMeta)? = long.summaryPanel else {
+            Issue.record("no ready panel")
+            return
+        }
+        #expect(partialMeta == "Claude Sonnet 5.5 · 15:19 · 12.5k in / 610 out tokens · $0.03 · partial")
+    }
+
+    @Test func summariseButtonExistsOnlyWithoutASummary() {
+        let model = model()
+        model.show(Self.meeting())
+        model.apply(.segmentAdded(segment(1, 10, "Agreed.")))
+        model.apply(.state(.recording))
+        #expect(model.summaryPanel == nil)
+        #expect(model.canSummarise == false)
+
+        model.apply(.state(.stopped))
+        #expect(model.summaryPanel == .message("No summary yet.", canSummarise: true))
+        model.apply(.summary(.writing))
+        #expect(model.summaryPanel == .writing)
+        #expect(model.canSummarise == false)
+        model.apply(.summary(.ready(Self.summary)))
+        #expect(model.canSummarise == false)
+    }
+
+    @Test func editAndReassignAreOfferedOnlyWhenStopped() throws {
+        let model = model()
+        let first = segment(1, 10, "So the rollout")
+        let second = segment(1, 13, "slips a week.")
+        model.apply(.speakers([Self.alex, SpeakerLabel(id: 1, name: "Marta")]))
+        model.apply(.segmentAdded(first))
+        model.apply(.segmentAdded(second))
+        model.apply(.state(.recording))
+        let drafts = [
+            MeetingWindowModel.SegmentEdit(segment: first.id, text: " So the Northwind rollout "),
+            MeetingWindowModel.SegmentEdit(segment: second.id, text: "slips a week."),
+        ]
+        #expect(model.canEdit == false)
+        #expect(model.edits(drafts).isEmpty)
+        #expect(model.reassignChoices(for: first.id).isEmpty)
+
+        model.apply(.state(.stopped))
+        let paragraph = try #require(model.rows.first?.paragraph)
+        #expect(model.canEdit)
+        #expect(model.segments(in: paragraph).map(\.text) == ["So the rollout", "slips a week."])
+        #expect(model.edits(drafts) == [.init(segment: first.id, text: "So the Northwind rollout")])
+        #expect(model.edits([.init(segment: second.id, text: "  ")]).isEmpty)
+        #expect(model.reassignChoices(for: first.id).count == 2)
+    }
+
+    @Test func reassignMenuListsEverySpeaker() {
+        let model = model()
+        let marta = segment(1, 10, "Agreed.")
+        model.apply(.speakers([Self.alex, SpeakerLabel(id: 1, name: "Marta"), SpeakerLabel(id: 2, name: "Priya")]))
+        model.apply(.segmentAdded(marta))
+        model.apply(.state(.stopped))
+
+        #expect(model.reassignChoices(for: marta.id) == [
+            .init(id: 0, name: "Alex", isCurrent: false),
+            .init(id: 1, name: "Marta", isCurrent: true),
+            .init(id: 2, name: "Priya", isCurrent: false),
+        ])
+        #expect(model.reassignChoices(for: UUID()).isEmpty)
+    }
+
+    @Test func titleEditCallsRetitle() {
+        let model = model()
+        model.show(Self.meeting())
+
+        #expect(model.commitTitle("  Northwind rollout sync ") == "Northwind rollout sync")
+        #expect(model.title == "Northwind rollout sync")
+        #expect(model.commitTitle("Northwind rollout sync") == nil)
+        #expect(model.commitTitle("   ") == nil)
+        #expect(model.title == "Northwind rollout sync")
+    }
+
+    @Test func stoppedHeaderShowsDurationTotalAndEndTime() {
+        let model = model()
+        model.show(Self.meeting())
+        model.apply(.elapsed(2930))
+        model.apply(.cost(0.36))
+        #expect(model.endedChip == nil)
+
+        model.apply(.state(.stopped))
+        model.show(Self.meeting(ended: true))
+        #expect(model.elapsedText == "00:48:52")
+        #expect(model.endedChip == "Ended 15:19")
+        #expect(model.costText == "$0.37")
+        model.apply(.summary(.ready(Self.summary)))
+        #expect(model.costText == "$0.40")
     }
 }

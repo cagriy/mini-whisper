@@ -14,6 +14,13 @@ struct AgentCommand {
 
     let kind: Kind
 
+    static var version: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "?"
+    }
+
+    /// The Markdown's `generator`, shared with the window's exports so both print the same text.
+    static var generator: String { "Mini Whisper \(version)" }
+
     /// nil unless the first argument names a command, so `--debug` and Finder's `-psn_…`
     /// start the GUI.
     init?(arguments: [String]) {
@@ -29,13 +36,12 @@ struct AgentCommand {
     @MainActor
     func run() -> Int32 {
         let store = MeetingStore(directory: AppDelegate.configDirectory.appendingPathComponent("meetings", isDirectory: true))
-        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "?"
         switch kind {
         case .meetings(let arguments):
-            return MeetingsCLI(reader: store, generator: "Mini Whisper \(version)")
+            return MeetingsCLI(reader: store, generator: Self.generator)
                 .run(arguments, out: Self.write(to: .standardOutput), err: Self.write(to: .standardError))
         case .mcp:
-            return MCPServer(reader: store, version: version)
+            return MCPServer(reader: store, version: Self.version)
                 .run(readLine: { readLine() }, write: Self.write(to: .standardOutput))
         }
     }

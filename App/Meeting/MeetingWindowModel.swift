@@ -6,9 +6,10 @@ import MWStreaming
 import MWUsage
 import Observation
 
-/// The meeting window's state (design §5.3, mockup States 1–2): the chooser before Start, then
-/// the live transcript reduced from `MeetingEvent`s. A segment that arrives in time order only
-/// extends or follows the last row, so a long meeting never re-merges its paragraphs (R26).
+/// The meeting window's state (design §5.3, mockup States 1–3): the chooser before Start, the
+/// live transcript reduced from `MeetingEvent`s, then the stopped meeting with its summary. A
+/// segment that arrives in time order only extends or follows the last row, so a long meeting
+/// never re-merges its paragraphs (R26).
 @MainActor
 @Observable
 final class MeetingWindowModel {
@@ -147,11 +148,39 @@ final class MeetingWindowModel {
         var time: Double
     }
 
+    /// R12: the panel above a stopped meeting's transcript.
+    enum SummaryPanel: Equatable {
+        case writing
+        /// No summary: why, and whether *Summarise* is offered.
+        case message(String, canSummarise: Bool)
+        case ready(sections: [SummarySection], meta: String)
+    }
+
+    /// One `## ` section of the summary; `title` is empty for text before the first heading.
+    struct SummarySection: Equatable {
+        var title: String
+        var body: String
+    }
+
+    /// R13: a segment's text as edited, or as it stands.
+    struct SegmentEdit: Equatable {
+        var segment: UUID
+        var text: String
+    }
+
+    /// R13: one entry of *Move this segment to*.
+    struct ReassignChoice: Equatable, Identifiable {
+        let id: Int
+        let name: String
+        let isCurrent: Bool
+    }
+
     static let privacySettingsURL = URL(
         string: "x-apple.systempreferences:com.apple.preference.security?Privacy_AudioCapture"
     )!
     static let silenceHintText = "No audio from other apps yet. Check System Settings → Privacy & Security"
         + " → Screen & System Audio Recording."
+    static let noSummaryYet = "No summary yet."
 
     static func title(of mode: MeetingMode) -> String {
         switch mode {
@@ -176,7 +205,31 @@ final class MeetingWindowModel {
         }
     }
 
+    /// The summary's `## ` sections in order (design §5.5).
+    nonisolated static func sections(of text: String) -> [SummarySection] {
+        var sections: [SummarySection] = []
+        var title: String?
+        var lines: [Substring] = []
+        func close() {
+            let body = lines.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
+            if title != nil || !body.isEmpty { sections.append(SummarySection(title: title ?? "", body: body)) }
+        }
+        for line in text.split(omittingEmptySubsequences: false, whereSeparator: \.isNewline) {
+            if line.hasPrefix("## ") {
+                close()
+                title = line.dropFirst(3).trimmingCharacters(in: .whitespaces)
+                lines = []
+            } else {
+                lines.append(line)
+            }
+        }
+        close()
+        return sections
+    }
+
     let chooser: Chooser
+    /// For the end and summary times.
+    let timeZone: TimeZone
     var mode: MeetingMode
     private(set) var state: MeetingState = .idle
     private(set) var title = ""
@@ -190,6 +243,7 @@ final class MeetingWindowModel {
     private(set) var systemAudio: SystemAudioState?
     private(set) var summary: SummaryState?
     private(set) var errorMessage: String?
+    private(set) var endedAt: Date?
 
     var noteDraft = "" {
         didSet {
@@ -202,6 +256,10 @@ final class MeetingWindowModel {
     }
 
     @ObservationIgnored private var noteStartedAt: Double?
+    /// As last shown; the summary's "partial" note needs it.
+    @ObservationIgnored private var meeting: Meeting?
+    /// Whether the ready summary read a truncated transcript (*Planning decisions taken* #26).
+    private var summaryTruncated = false
     private var partialText: String?
     private var partialSpeaker: Int?
 
@@ -215,8 +273,9 @@ final class MeetingWindowModel {
     @ObservationIgnored private(set) var rebuilds = 0
     private var version = 0
 
-    init(chooser: Chooser) {
+    init(chooser: Chooser, timeZone: TimeZone = .current) {
         self.chooser = chooser
+        self.timeZone = timeZone
         mode = chooser.defaultMode
     }
 
@@ -257,7 +316,37 @@ final class MeetingWindowModel {
 
     var elapsedText: String { MeetingTime.format(elapsed) }
 
-    var costText: String { Pricing.dollars(cost) }
+    /// Live: the engine so far. Stopped: the engine plus the summary (R18).
+    var costText: String {
+        guard case .ready(let summary)? = summary else { return Pricing.dollars(cost) }
+        return Pricing.dollars(cost + summary.costUSD)
+    }
+
+    var endedChip: String? {
+        guard state == .stopped, let endedAt else { return nil }
+        return "Ended \(clock(endedAt))"
+    }
+
+    var summaryPanel: SummaryPanel? {
+        guard state == .stopped else { return nil }
+        _ = version
+        let transcribed = !segments.isEmpty
+        guard let summary else {
+            return .message(transcribed ? Self.noSummaryYet : MeetingController.nothingTranscribed, canSummarise: transcribed)
+        }
+        return switch summary {
+        case .ready(let summary): .ready(sections: Self.sections(of: summary.text), meta: meta(of: summary))
+        case .writing: .writing
+        case .none(let reason), .failed(let reason): .message(reason, canSummarise: transcribed)
+        }
+    }
+
+    var canSummarise: Bool {
+        if case .message(_, true)? = summaryPanel { true } else { false }
+    }
+
+    /// R13: edit and reassign after Stop only.
+    var canEdit: Bool { state == .stopped }
 
     var pauseTitle: String {
         if case .paused = state { "Resume" } else { "Pause" }
@@ -278,13 +367,49 @@ final class MeetingWindowModel {
         return "Merge \(self.name(of: speaker)) into \(name)?"
     }
 
+    func segments(in paragraph: Paragraph) -> [Segment] {
+        paragraph.segmentIDs.compactMap { positions[$0].map { segments[$0] } }
+    }
+
+    /// The drafts that change a segment, trimmed; a blank draft changes nothing.
+    func edits(_ drafts: [SegmentEdit]) -> [SegmentEdit] {
+        guard canEdit else { return [] }
+        return drafts.compactMap { draft in
+            let text = draft.text.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !text.isEmpty, let position = positions[draft.segment], segments[position].text != text
+            else { return nil }
+            return SegmentEdit(segment: draft.segment, text: text)
+        }
+    }
+
+    func reassignChoices(for segment: UUID) -> [ReassignChoice] {
+        guard canEdit, let position = positions[segment] else { return [] }
+        let current = segments[position].speaker
+        return speakers.map { ReassignChoice(id: $0.id, name: $0.name, isCurrent: $0.id == current) }
+    }
+
     // MARK: - Inputs
 
-    /// The header's title, mode and engine once the controller has the meeting.
+    /// The header once the controller has the meeting; an ended one also sets its duration
+    /// and engine cost.
     func show(_ meeting: Meeting) {
+        self.meeting = meeting
         title = meeting.title
         mode = meeting.mode
         engine = meeting.engine
+        if let endedAt = meeting.endedAt {
+            self.endedAt = endedAt
+            elapsed = meeting.durationSeconds
+            cost = meeting.billing.costUSD
+        }
+    }
+
+    /// The header rename (R15): the trimmed title to store, or nil when blank or unchanged.
+    func commitTitle(_ draft: String) -> String? {
+        let draft = draft.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !draft.isEmpty, draft != title else { return nil }
+        title = draft
+        return draft
     }
 
     /// A failure outside the event stream, such as Start throwing.
@@ -334,11 +459,46 @@ final class MeetingWindowModel {
             cost = dollars
         case .summary(let summary):
             self.summary = summary
+            if case .ready = summary { summaryTruncated = isTruncated }
         case .systemAudio(let state):
             systemAudio = state
         case .error(let message):
             errorMessage = message
         }
+    }
+
+    // MARK: - Summary
+
+    /// "Claude Sonnet 5.5 · 15:19 · 12.5k in / 610 out tokens · $0.03", plus "partial" (§5.5).
+    private func meta(of summary: Summary) -> String {
+        var parts = [
+            MeetingMarkdown.modelName(summary.model),
+            clock(summary.createdAt),
+            "\(Self.tokens(summary.inputTokens)) in / \(Self.tokens(summary.outputTokens)) out tokens",
+            Pricing.dollars(summary.costUSD),
+        ]
+        if summaryTruncated { parts.append("partial") }
+        return parts.joined(separator: " · ")
+    }
+
+    private static func tokens(_ count: Int) -> String {
+        count < 1000 ? "\(count)" : String(format: "%.1fk", Double(count) / 1000)
+    }
+
+    /// The transcript the summary was written from, as `Summariser` measures it.
+    private var isTruncated: Bool {
+        guard var meeting else { return false }
+        meeting.speakers = speakers
+        meeting.markers = markers
+        return Summariser.isTruncated(LoadedMeeting(meeting: meeting, segments: segments, notes: notes))
+    }
+
+    private func clock(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = timeZone
+        formatter.dateFormat = "HH:mm"
+        return formatter.string(from: date)
     }
 
     // MARK: - Transcript reduction

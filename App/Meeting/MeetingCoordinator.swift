@@ -15,6 +15,10 @@ protocol MeetingControlling: AnyObject {
     func resume() async
     func rename(speaker: Int, to name: String) async
     func addNote(_ text: String, firstKeystrokeAt time: Double) async
+    func summarise() async
+    func edit(segment: UUID, text: String) async
+    func reassign(segment: UUID, to speaker: Int) async
+    func retitle(_ title: String) async
 }
 
 extension MeetingController: MeetingControlling {}
@@ -36,6 +40,12 @@ struct MeetingActions {
     var stop: @MainActor () -> Void
     var rename: @MainActor (_ speaker: Int, _ name: String) -> Void
     var addNote: @MainActor (MeetingWindowModel.DraftNote) -> Void
+    var summarise: @MainActor () -> Void
+    var edit: @MainActor (_ segment: UUID, _ text: String) -> Void
+    var reassign: @MainActor (_ segment: UUID, _ speaker: Int) -> Void
+    /// The header's title field, as typed.
+    var retitle: @MainActor (_ draft: String) -> Void
+    var export: @MainActor (MeetingExporter.Kind) -> Void
     var openSettings: @MainActor () -> Void
     /// The window was closed: a chooser or an ended meeting goes away, a live one only hides.
     var closed: @MainActor () -> Void
@@ -57,6 +67,8 @@ final class MeetingCoordinator {
         /// now routes to the notice), so it neither shares the microphone nor pastes mid-meeting.
         var endDictation: @MainActor () async -> Void
         var openSettings: @MainActor () -> Void
+        /// Asks where to write the stored meeting's Markdown, then writes it (R17).
+        var export: @MainActor (MeetingExporter.Kind, UUID) -> Void
         /// A meeting changed state or got its summary: the menu and usage rows follow.
         var changed: @MainActor () -> Void
     }
@@ -199,6 +211,26 @@ final class MeetingCoordinator {
                 guard let controller = session?.controller else { return }
                 Task { await controller.addNote(note.text, firstKeystrokeAt: note.time) }
             },
+            summarise: { [weak session] in
+                guard let controller = session?.controller else { return }
+                Task { await controller.summarise() }
+            },
+            edit: { [weak session] segment, text in
+                guard let controller = session?.controller else { return }
+                Task { await controller.edit(segment: segment, text: text) }
+            },
+            reassign: { [weak session] segment, speaker in
+                guard let controller = session?.controller else { return }
+                Task { await controller.reassign(segment: segment, to: speaker) }
+            },
+            retitle: { [weak session] draft in
+                guard let session, let title = session.model.commitTitle(draft) else { return }
+                Task { await session.controller.retitle(title) }
+            },
+            export: { [weak self, weak session] kind in
+                guard let id = session?.controller.meeting?.id else { return }
+                self?.deps.export(kind, id)
+            },
             openSettings: deps.openSettings,
             closed: { [weak self, weak session] in
                 guard let session else { return }
@@ -216,6 +248,8 @@ final class MeetingCoordinator {
                 session.model.apply(event)
                 switch event {
                 case .state(let state):
+                    // The header's end time, duration and engine cost.
+                    if state == .stopped, let meeting = session.controller.meeting { session.model.show(meeting) }
                     session.window?.setTitle(state == .idle ? "New Meeting" : "Meeting")
                     self?.deps.changed()
                 case .summary:

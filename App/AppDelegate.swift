@@ -254,6 +254,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     ) -> MeetingCoordinator {
         let store = MeetingStore(directory: Self.configDirectory.appendingPathComponent("meetings", isDirectory: true))
         let summarizer = KeyedAnthropicClient(secrets: secrets)
+        let exporter = MeetingExporter(generator: AgentCommand.generator)
         return MeetingCoordinator(deps: MeetingCoordinator.Dependencies(
             makeController: { frontApp in
                 MeetingController(
@@ -290,6 +291,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             now: { Date() },
             endDictation: { [weak self] in await self?.controller?.abort() },
             openSettings: { [weak self] in self?.openSettings() },
+            export: { kind, id in ExportPanels.export(kind, of: id, from: store, exporter: exporter) },
             changed: { [weak self] in self?.meetingChanged(usage: usage) }
         ))
     }

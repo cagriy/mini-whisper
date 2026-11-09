@@ -3,8 +3,8 @@ import MWMeetingPipeline
 import MWMeetings
 import SwiftUI
 
-/// The meeting window: the chooser until Start, then the live transcript with the notes pane
-/// (accepted mockup `mockup-v4-meeting-window.html`, States 1–2).
+/// The meeting window: the chooser until Start, the live transcript with the notes pane, then
+/// the stopped meeting with its summary (accepted mockup `mockup-v4-meeting-window.html`).
 struct MeetingView: View {
     let model: MeetingWindowModel
     let actions: MeetingActions
@@ -144,22 +144,148 @@ private struct MeetingRecordingView: View {
 
     private var header: some View {
         HStack(spacing: 10) {
-            Text(model.title.isEmpty ? "Starting…" : model.title).font(.headline).lineLimit(1)
+            TitleField(model: model, retitle: actions.retitle)
             Chip(text: MeetingWindowModel.title(of: model.mode))
-            Chip(text: model.captureChip, dot: model.state == .recording ? .green : .secondary)
+            if let ended = model.endedChip {
+                Chip(text: ended, dot: .secondary)
+            } else {
+                Chip(text: model.captureChip, dot: model.state == .recording ? .green : .secondary)
+            }
             if let connection = model.connectionChip {
                 Chip(text: connection, dot: .orange)
             }
             Spacer()
             Text(model.elapsedText).bold().monospacedDigit()
             (Text(model.costText).bold() + Text(model.state == .stopped ? " total" : " so far")).monospacedDigit()
-            if model.state != .stopped {
+            if model.state == .stopped {
+                Menu("Export") {
+                    Button("Export transcript…") { actions.export(.transcript) }
+                    Button("Export summary…") { actions.export(.summary) }
+                    Button("Export both…") { actions.export(.both) }
+                }
+                .fixedSize()
+            } else {
                 Button(model.pauseTitle, action: actions.pauseOrResume).disabled(!canPauseOrStop)
                 Button("Stop", action: actions.stop).disabled(!canPauseOrStop)
             }
         }
         .padding(.horizontal, 18)
         .padding(.vertical, 12)
+    }
+}
+
+/// R15: the header's title, renamed in place.
+private struct TitleField: View {
+    let model: MeetingWindowModel
+    let retitle: @MainActor (String) -> Void
+
+    /// Non-nil while editing.
+    @State private var draft: String?
+    @FocusState private var focused: Bool
+
+    var body: some View {
+        if let text = Binding($draft) {
+            TextField("Title", text: text)
+                .font(.headline)
+                .frame(maxWidth: 360)
+                .focused($focused)
+                .onAppear { focused = true }
+                .onSubmit(commit)
+                .onExitCommand { draft = nil }
+                .onChange(of: focused) { if !focused { commit() } }
+        } else {
+            HStack(spacing: 6) {
+                Text(model.title.isEmpty ? "Starting…" : model.title).font(.headline).lineLimit(1)
+                if !model.title.isEmpty {
+                    Button {
+                        draft = model.title
+                    } label: {
+                        Image(systemName: "pencil")
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.secondary)
+                    .help("Rename the meeting")
+                }
+            }
+        }
+    }
+
+    private func commit() {
+        if let draft { retitle(draft) }
+        draft = nil
+    }
+}
+
+/// R12: above the stopped transcript: the summary, its progress, or why there is none.
+private struct SummaryPanelView: View {
+    let panel: MeetingWindowModel.SummaryPanel
+    let summarise: @MainActor () -> Void
+
+    var body: some View {
+        Group {
+            switch panel {
+            case .writing:
+                HStack(spacing: 8) {
+                    ProgressView().controlSize(.small)
+                    Text("Writing the summary…").foregroundStyle(.secondary)
+                }
+            case .message(let text, let canSummarise):
+                HStack {
+                    Text(text).foregroundStyle(.orange)
+                    Spacer()
+                    if canSummarise {
+                        Button("Summarise", action: summarise)
+                    }
+                }
+            case .ready(let sections, let meta):
+                VStack(alignment: .leading, spacing: 10) {
+                    LazyVGrid(
+                        columns: [GridItem(.flexible(), spacing: 28, alignment: .topLeading),
+                                  GridItem(.flexible(), alignment: .topLeading)],
+                        alignment: .leading,
+                        spacing: 10
+                    ) {
+                        ForEach(Array(sections.enumerated()), id: \.offset) { _, section in
+                            VStack(alignment: .leading, spacing: 4) {
+                                if !section.title.isEmpty {
+                                    Text(section.title.uppercased())
+                                        .font(.system(size: 11, weight: .semibold))
+                                        .foregroundStyle(.secondary)
+                                }
+                                Text(Self.rendered(section.body))
+                                    .font(.system(size: 12.5))
+                                    .textSelection(.enabled)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                        }
+                    }
+                    Text(meta).font(.caption).foregroundStyle(.secondary)
+                }
+            }
+        }
+        .font(.callout)
+        .padding(.horizontal, 18)
+        .padding(.vertical, 12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(nsColor: .textBackgroundColor))
+    }
+
+    /// Inline Markdown, bullets as "•". Links stay text: the summary is model output (§5.8).
+    private static func rendered(_ body: String) -> AttributedString {
+        var result = AttributedString()
+        for (index, line) in body.split(omittingEmptySubsequences: false, whereSeparator: \.isNewline).enumerated() {
+            if index > 0 { result += AttributedString("\n") }
+            var text = String(line)
+            if let bullet = text.range(of: #"^\s*[-*] "#, options: .regularExpression) {
+                text.replaceSubrange(bullet, with: "• ")
+            }
+            var markdown = (try? AttributedString(
+                markdown: text, options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace)
+            )) ?? AttributedString(text)
+            for run in markdown.runs where run.link != nil { markdown[run.range].link = nil }
+            result += markdown
+        }
+        return result
     }
 }
 
@@ -188,27 +314,32 @@ private struct TranscriptView: View {
     @State private var renaming: Renaming?
     @State private var renameDraft = ""
     @State private var pendingMerge: PendingMerge?
+    /// The paragraph being edited, and its segments' texts (R13).
+    @State private var editing: UUID?
+    @State private var drafts: [MeetingWindowModel.SegmentEdit] = []
+
+    private static let top = "top"
 
     var body: some View {
         ScrollViewReader { proxy in
             ScrollView {
-                LazyVStack(alignment: .leading, spacing: 14) {
-                    if let source = model.sourceLine {
-                        Text(source).font(.caption).foregroundStyle(.secondary)
+                VStack(spacing: 0) {
+                    if let panel = model.summaryPanel {
+                        SummaryPanelView(panel: panel, summarise: actions.summarise)
+                        Divider()
                     }
-                    ForEach(model.rows) { row in
-                        rowView(row)
-                    }
-                    if let partial = model.partial {
-                        partialView(partial)
-                    }
-                    Color.clear.frame(height: 1).id(Self.bottom)
+                    transcript
                 }
-                .padding(18)
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .id(Self.top)
             }
-            .onChange(of: model.rows.count) { proxy.scrollTo(Self.bottom, anchor: .bottom) }
+            // A live meeting follows its last words; a stopped one opens on its summary.
+            .onChange(of: model.rows.count) {
+                if model.state != .stopped { proxy.scrollTo(Self.bottom, anchor: .bottom) }
+            }
             .onChange(of: model.partial) { proxy.scrollTo(Self.bottom, anchor: .bottom) }
+            .onChange(of: model.state) {
+                if model.state == .stopped { proxy.scrollTo(Self.top, anchor: .top) }
+            }
         }
         .alert(
             pendingMerge?.prompt ?? "",
@@ -219,6 +350,23 @@ private struct TranscriptView: View {
             }
             Button("Cancel", role: .cancel) {}
         }
+    }
+
+    private var transcript: some View {
+        LazyVStack(alignment: .leading, spacing: 14) {
+            if let source = model.sourceLine {
+                Text(source).font(.caption).foregroundStyle(.secondary)
+            }
+            ForEach(model.rows) { row in
+                rowView(row)
+            }
+            if let partial = model.partial {
+                partialView(partial)
+            }
+            Color.clear.frame(height: 1).id(Self.bottom)
+        }
+        .padding(18)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     @ViewBuilder private func rowView(_ row: MeetingWindowModel.TranscriptRow) -> some View {
@@ -254,7 +402,71 @@ private struct TranscriptView: View {
                 }
                 Text(paragraph.time).font(.caption).monospacedDigit().foregroundStyle(.secondary)
             }
-            Text(paragraph.text).textSelection(.enabled)
+            if editing == paragraph.id {
+                editor
+            } else {
+                Text(paragraph.text).textSelection(.enabled)
+            }
+        }
+        .contentShape(Rectangle())
+        .simultaneousGesture(TapGesture(count: 2).onEnded {
+            if model.canEdit, editing != paragraph.id { beginEditing(paragraph) }
+        })
+        .contextMenu {
+            if model.canEdit { segmentMenu(paragraph) }
+        }
+    }
+
+    /// R13: one field per segment, so each keeps its own times.
+    private var editor: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            ForEach($drafts, id: \.segment) { $draft in
+                TextField("", text: $draft.text, axis: .vertical)
+                    .textFieldStyle(.roundedBorder)
+            }
+            HStack {
+                Spacer()
+                Button("Cancel") { editing = nil }.keyboardShortcut(.cancelAction)
+                Button("Save") {
+                    for edit in model.edits(drafts) { actions.edit(edit.segment, edit.text) }
+                    editing = nil
+                }
+                .keyboardShortcut(.defaultAction)
+            }
+        }
+    }
+
+    private func beginEditing(_ paragraph: MeetingWindowModel.Paragraph) {
+        drafts = model.segments(in: paragraph).map { .init(segment: $0.id, text: $0.text) }
+        editing = paragraph.id
+    }
+
+    /// R13: *Move this segment to*; a merged paragraph lists its segments by time.
+    @ViewBuilder private func segmentMenu(_ paragraph: MeetingWindowModel.Paragraph) -> some View {
+        let segments = model.segments(in: paragraph)
+        if segments.count == 1, let segment = segments.first {
+            Section("Move this segment to") { choices(for: segment.id) }
+        } else {
+            ForEach(segments) { segment in
+                let excerpt = segment.text.count > 40 ? segment.text.prefix(40) + "…" : segment.text
+                Menu("Move \(MeetingTime.format(segment.start)) · \(excerpt)") {
+                    choices(for: segment.id)
+                }
+            }
+        }
+        Divider()
+        Button("Rename “\(model.name(of: paragraph.speaker))”…") {
+            renameDraft = model.name(of: paragraph.speaker)
+            renaming = Renaming(paragraph: paragraph.id, speaker: paragraph.speaker)
+        }
+    }
+
+    private func choices(for segment: UUID) -> some View {
+        ForEach(model.reassignChoices(for: segment)) { choice in
+            Toggle(choice.name, isOn: Binding(
+                get: { choice.isCurrent },
+                set: { _ in if !choice.isCurrent { actions.reassign(segment, choice.id) } }
+            ))
         }
     }
 

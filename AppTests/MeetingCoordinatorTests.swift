@@ -18,9 +18,13 @@ import Testing
         var meeting: Meeting?
         var starts: [(mode: MeetingMode, title: String)] = []
         var stops: [Bool] = []
+        /// The window's stopped-state requests, in arrival order.
+        let requests: AsyncStream<String>
+        private let request: AsyncStream<String>.Continuation
 
         init() {
             (events, continuation) = AsyncStream.makeStream()
+            (requests, request) = AsyncStream.makeStream()
         }
 
         func start(mode: MeetingMode, title: String) async throws {
@@ -33,12 +37,19 @@ import Testing
         func stop(summarise: Bool) async {
             stops.append(summarise)
             state = .stopped
+            meeting?.endedAt = MeetingCoordinatorTests.now.addingTimeInterval(2932)
+            meeting?.durationSeconds = 2932
+            continuation.yield(.state(.stopped))
         }
 
         func pause() async { state = .paused(.user) }
         func resume() async { state = .recording }
         func rename(speaker: Int, to name: String) async {}
         func addNote(_ text: String, firstKeystrokeAt time: Double) async {}
+        func summarise() async { request.yield("summarise") }
+        func edit(segment: UUID, text: String) async { request.yield("edit \(text)") }
+        func reassign(segment: UUID, to speaker: Int) async { request.yield("reassign \(speaker)") }
+        func retitle(_ title: String) async { request.yield("retitle \(title)") }
     }
 
     @MainActor
@@ -65,6 +76,11 @@ import Testing
     private final class Harness {
         var controllers: [StubController] = []
         var windows: [StubWindow] = []
+        var models: [MeetingWindowModel] = []
+        var actions: [MeetingActions] = []
+        var exports: [(kind: MeetingExporter.Kind, id: UUID)] = []
+        let changes: AsyncStream<Void>
+        private let change: AsyncStream<Void>.Continuation
         var frontApps: [String?] = []
         var log: [String] = []
         var frontApp: String? = "Zoom"
@@ -87,8 +103,10 @@ import Testing
                     hasKey: { $0 == .speechmatics }
                 )
             },
-            makeWindow: { [unowned self] _, _ in
+            makeWindow: { [unowned self] model, actions in
                 log.append("window")
+                models.append(model)
+                self.actions.append(actions)
                 let window = StubWindow()
                 windows.append(window)
                 return window
@@ -98,8 +116,21 @@ import Testing
                 startsWhenDictationEnded.append(controllers.last?.starts.count ?? -1)
             },
             openSettings: {},
-            changed: {}
+            export: { [unowned self] kind, id in exports.append((kind, id)) },
+            changed: { [unowned self] in change.yield() }
         ))
+
+        init() {
+            (changes, change) = AsyncStream.makeStream()
+        }
+
+        /// A recorded meeting, stopped, once the window has taken the stop.
+        func stopped() async -> StubController {
+            let controller = await recording()
+            await coordinator.stop()
+            for await _ in changes where controller.state == .stopped && models[0].state == .stopped { break }
+            return controller
+        }
 
         /// A meeting opened from the chooser and started.
         func recording() async -> StubController {
@@ -218,5 +249,47 @@ import Testing
 
         #expect(controller.stops == [false])
         #expect(harness.coordinator.needsQuitConfirmation == false)
+    }
+
+    @Test func stoppedMeetingShowsItsEndInTheHeader() async {
+        let harness = Harness()
+        _ = await harness.stopped()
+
+        let model = harness.models[0]
+        #expect(model.elapsedText == "00:48:52")
+        #expect(model.endedChip != nil)
+        #expect(harness.windows[0].title == "Meeting")
+    }
+
+    @Test func windowRequestsReachTheController() async {
+        let harness = Harness()
+        let controller = await harness.stopped()
+        let actions = harness.actions[0]
+        let segment = UUID()
+
+        actions.summarise()
+        actions.edit(segment, "Agreed!")
+        actions.reassign(segment, 2)
+        actions.retitle(" Northwind rollout sync ")
+        actions.retitle("Northwind rollout sync")
+
+        var requests: [String] = []
+        for await request in controller.requests {
+            requests.append(request)
+            if requests.count == 4 { break }
+        }
+        #expect(Set(requests) == ["summarise", "edit Agreed!", "reassign 2", "retitle Northwind rollout sync"])
+        #expect(harness.models[0].title == "Northwind rollout sync")
+    }
+
+    @Test func exportNamesTheMeeting() async throws {
+        let harness = Harness()
+        let controller = await harness.stopped()
+
+        harness.actions[0].export(.both)
+
+        let id = try #require(controller.meeting?.id)
+        #expect(harness.exports.map(\.kind) == [.both])
+        #expect(harness.exports.map(\.id) == [id])
     }
 }

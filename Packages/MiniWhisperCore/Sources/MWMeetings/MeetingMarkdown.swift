@@ -181,7 +181,7 @@ public enum MeetingMarkdown {
     }
 
     /// "claude-sonnet-5-5" → "Claude Sonnet 5.5"; any other id is shown as is.
-    private static func modelName(_ id: String) -> String {
+    public static func modelName(_ id: String) -> String {
         let parts = id.split(separator: "-").map(String.init)
         guard parts.count >= 3, parts.count <= 4, parts[0] == "claude",
               parts[2...].allSatisfy({ $0.count <= 2 && $0.allSatisfy { $0.isASCII && $0.isNumber } })

@@ -13,7 +13,7 @@ import MWUsage
 @MainActor
 public final class MeetingController {
     static let noSummaryKey = "No summary: add an Anthropic key under Keys."
-    static let nothingTranscribed = "Nothing was transcribed."
+    public static let nothingTranscribed = "Nothing was transcribed."
     private static let tick = Duration.seconds(1)
     /// Lost audio longer than this is marked as a transcript gap (design §5.6 Device change).
     private static let gapThreshold = 2.0
