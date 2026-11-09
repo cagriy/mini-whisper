@@ -20,6 +20,7 @@ let package = Package(
         .library(name: "MWPaste", targets: ["MWPaste"]),
         .library(name: "MWOverlaySim", targets: ["MWOverlaySim"]),
         .library(name: "MWPipeline", targets: ["MWPipeline"]),
+        .library(name: "MWMeetings", targets: ["MWMeetings"]),
     ],
     targets: [
         .target(name: "MWSupport"),
@@ -45,12 +46,13 @@ let package = Package(
                 "MWPaste", "MWOverlaySim",
             ]
         ),
+        .target(name: "MWMeetings", dependencies: ["MWConfig", "MWSupport"]),
         .target(
             name: "MWTestSupport",
             dependencies: [
                 "MWSupport", "MWConfig", "MWCorrections", "MWHotkeys", "MWAudio",
                 "MWStreaming", "MWTranscription", "MWUsage", "MWHistory", "MWProfiles",
-                "MWPaste", "MWOverlaySim", "MWPipeline",
+                "MWPaste", "MWOverlaySim", "MWPipeline", "MWMeetings",
             ],
             // The WAV fixtures several test targets share, reached through
             // `TestFixtures.wav(_:)`.
@@ -74,6 +76,11 @@ let package = Package(
         .testTarget(name: "MWPasteTests", dependencies: ["MWPaste", "MWTestSupport"]),
         .testTarget(name: "MWOverlaySimTests", dependencies: ["MWOverlaySim", "MWTestSupport"]),
         .testTarget(name: "MWPipelineTests", dependencies: ["MWPipeline", "MWTestSupport"]),
+        .testTarget(
+            name: "MWMeetingsTests",
+            dependencies: ["MWMeetings", "MWTestSupport"],
+            resources: [.copy("Fixtures")]
+        ),
     ],
     swiftLanguageModes: [.v6]
 )

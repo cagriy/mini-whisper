@@ -61,7 +61,8 @@ empty XCTest bundle, not the result. Read the `✔/✘ Test run with N tests in 
 | `MWPaste` | `Paster` | MWSupport |
 | `MWOverlaySim` | `ConstellationSimulation`, `CaptionModel`, `OverlayStyle` | — |
 | `MWPipeline` | `StreamSink`, `ProcessingJob`, `DictationController` | all of the above |
-| `MWTestSupport` | Fakes and helpers shared across test targets | all except MWPipeline |
+| `MWMeetings` | Meeting model, `MeetingStore`, `MeetingMarkdown`, `MeetingSearch`, `TitleSanitizer` | MWConfig, MWSupport |
+| `MWTestSupport` | Fakes and helpers shared across test targets | all except MWPipeline, MWMeetings included |
 
 Dependencies flow downwards only; nothing depends on `MWPipeline`.
 
