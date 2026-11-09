@@ -2592,6 +2592,19 @@ None — plan matches design v4 exactly.
   `.captured`. Only the meeting binding yields to a duplicate in `bindings(from:)`, so dictation is
   unchanged; it is left unbound if its default clashes too. Field titles live in
   `SettingsModel.title(of:)`, which the refusal and `HotkeysSection` share.
+- **Stage 23.** `MeetingWindowModel` is `@Observable`, like every other app model, not an
+  `ObservableObject`. `Chooser(config:platform:accountName:hasKey:)` also takes the account name,
+  since the Remote card names the user; without a key it has no price or engine line. The capture
+  chip reads `.systemAudio` (no capture-hint event, Stage 17): "Mic" in the room or before the tap
+  reports, "Mic · System audio", or "System audio off". The mockup's open gap line ("reconnecting
+  (audio is still being recorded)") has no event; the chip shows the reconnect and the gap line
+  appears once words return, with the marker's reason. A pause not yet resumed reads "Paused from
+  hh:mm:ss". A partial continues the last paragraph unless its speaker is known and different,
+  when it carries that name. Paragraph time is the first segment's start, as in the export. Rows
+  are cached: an item that sorts last extends them; anything else (a late segment, a note typed
+  earlier, a revision) invalidates them for one rebuild on the next read, counted by `rebuilds`.
+  Added `remoteDescriptionNamesTheUser`, `lateOrRevisedSegmentsRegroupParagraphs` and
+  `headerShowsTheMeetingTitleModeAndEngine`.
 
 ## Execution schedule
 
