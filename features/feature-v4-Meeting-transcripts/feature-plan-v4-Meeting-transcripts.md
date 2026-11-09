@@ -2465,6 +2465,16 @@ None — plan matches design v4 exactly.
   Marta 1, Priya 2, segments without words, `endedAt` 15:19:20Z. Its notes at 00:12:40 and 00:27:15
   precede the mockup transcript's first paragraph (00:39:02), so Stage 12's transcript golden shows
   them first.
+- **Stage 6.** Checked against AssemblyAI's v3 docs. A short turn's documented label is `PENDING`;
+  it maps to `nil` with `UNKNOWN` and a missing label. The provider closes a session on a chunk
+  under 20 ms (3007), which the flushed remainder can be, so `encodeChunk` pads it with silence.
+  `Error` frames are `{"type":"Error","error_code","error"}`; any `error` field throws. Query values
+  are percent-encoded to unreserved characters only, so `&` and `+` in a keyterm survive. A keyterm
+  over 50 characters is skipped before the cap counts, as the new `SkipReason.termTooLong`
+  ("is over 50 characters"), since `.wordTooLong`'s Settings text names 4000. `.segment` is
+  emitted for dictation too (design §5.3); dictation sinks ignore it. Exhaustive `EngineName`
+  sites outside Touches also changed: `ConfigCodingTests`, `HintMeasurementTests`,
+  `PricingTests` (an `assemblyai` rate row) and `CorrectionsEditorModelTests`' label list.
 
 ## Execution schedule
 
