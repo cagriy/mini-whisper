@@ -68,6 +68,8 @@ import Testing
         var frontApps: [String?] = []
         var log: [String] = []
         var frontApp: String? = "Zoom"
+        /// Starts the controller had seen each time a dictation was ended.
+        var startsWhenDictationEnded: [Int] = []
         lazy var coordinator = MeetingCoordinator(deps: MeetingCoordinator.Dependencies(
             makeController: { [unowned self] frontApp in
                 frontApps.append(frontApp)
@@ -92,6 +94,9 @@ import Testing
                 return window
             },
             now: { MeetingCoordinatorTests.now },
+            endDictation: { [unowned self] in
+                startsWhenDictationEnded.append(controllers.last?.starts.count ?? -1)
+            },
             openSettings: {},
             changed: {}
         ))
@@ -178,6 +183,17 @@ import Testing
         #expect(harness.frontApps == ["Zoom"])
         #expect(harness.controllers[0].starts.map(\.title) == [MeetingTitle.default(app: "Zoom", date: Self.now)])
         #expect(harness.controllers[0].starts.map(\.mode) == [.remote])
+    }
+
+    @Test func startEndsAnInFlightDictationFirst() async {
+        let harness = Harness()
+        await harness.coordinator.toggle()
+        #expect(harness.startsWhenDictationEnded.isEmpty)
+
+        let controller = await harness.recording()
+
+        #expect(harness.startsWhenDictationEnded == [0])
+        #expect(controller.starts.count == 1)
     }
 
     @Test func quitWhileActiveNeedsConfirmation() async {

@@ -53,6 +53,9 @@ final class MeetingCoordinator {
         var chooser: @MainActor () -> MeetingWindowModel.Chooser
         var makeWindow: @MainActor (MeetingWindowModel, MeetingActions) -> any MeetingWindowPresenting
         var now: () -> Date
+        /// Discards a dictation still running (a toggle waits for its second press, which R19
+        /// now routes to the notice), so it neither shares the microphone nor pastes mid-meeting.
+        var endDictation: @MainActor () async -> Void
         var openSettings: @MainActor () -> Void
         /// A meeting changed state or got its summary: the menu and usage rows follow.
         var changed: @MainActor () -> Void
@@ -141,6 +144,7 @@ final class MeetingCoordinator {
         session.isStarting = true
         defer { session.isStarting = false }
         let title = MeetingTitle.default(app: session.frontApp, date: deps.now())
+        await deps.endDictation()
         do {
             try await session.controller.start(mode: session.model.mode, title: title)
             if let meeting = session.controller.meeting { session.model.show(meeting) }

@@ -288,6 +288,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             },
             makeWindow: { model, actions in MeetingWindowController(model: model, actions: actions) },
             now: { Date() },
+            endDictation: { [weak self] in await self?.controller?.abort() },
             openSettings: { [weak self] in self?.openSettings() },
             changed: { [weak self] in self?.meetingChanged(usage: usage) }
         ))
