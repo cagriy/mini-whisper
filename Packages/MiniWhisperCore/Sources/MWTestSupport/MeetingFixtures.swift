@@ -10,7 +10,11 @@ public enum MeetingFixtures {
     public static func northwind() -> LoadedMeeting {
         let startedAt = Date(timeIntervalSince1970: 1_794_234_600)  // 2026-11-09T14:30:00Z
         let alex = 0, marta = 1, priya = 2
+        // Segment 0 stands for the part of the meeting the mockup elides, where Alex speaks first.
         let segments = [
+            segment(0, alex, 4, 8, session: 1, label: "S3", """
+                Thanks for joining. Let's start with the Northwind rollout.
+                """),
             segment(1, marta, 2342, 2358, session: 1, label: "S1", """
                 So the Northwind rollout slips a week if the migration script is not signed off by \
                 Thursday. Priya, can your team take the review?
