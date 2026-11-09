@@ -2489,6 +2489,12 @@ None — plan matches design v4 exactly.
   fails. While held, a device change yields no `.stopped` on `events`. `FakeAudioCapture.feed`
   reaches the meeting listener too, as the real tap does; `FakeAudioBackend` gains
   `tapInstallCount`.
+- **Stage 13.** The noise-floor window starts as 10 s of zeros (the silence before the meeting):
+  over a part-filled window a steady voice becomes its own floor within a frame, so for the first
+  ~9.5 s only −45 dBFS applies. A span closes at the end of its last loud frame, not after the
+  300 ms release; the open span is in `View.spans`. `resample` is unclipped. The silence-hint peak
+  is `SystemAudioRing.peakSinceLastCall()`, reset on read. The module-map row also lists
+  `SystemAudioRing`, and `Package.swift`'s header names both pipelines.
 
 ## Execution schedule
 
