@@ -2583,6 +2583,10 @@ None — plan matches design v4 exactly.
   `Result<Void, Failure>` with AppleScript's message. `isInstalled(at:)` checks for the wrapper's
   shebang and bundle-id lookup. The Claude Code line single-quotes the full binary path, which
   contains spaces.
+- **After Stage 21 (not a stage).** `install()` uses administrator privileges only when
+  `/usr/local/bin` is not writable by the user (design §5.8 always used them); otherwise it writes
+  the wrapper as the user, exclusively, so a symlink planted between `rm` and a root write cannot
+  redirect it.
 
 ## Execution schedule
 
