@@ -1506,7 +1506,7 @@ Rejected: <a href="./mockups/mockup-v4-settings-two-panes.html">Settings — Mee
     <section class="panel" role="tabpanel"
              id="panel-implementation" aria-labelledby="tab-implementation" hidden>
       <p class="section-timestamp">Updated 2026-11-09 23:38 UTC</p>
-      <!-- usage:IMPLEMENTATION_USAGE_CHIP --><!-- /usage:IMPLEMENTATION_USAGE_CHIP -->
+      <!-- usage:IMPLEMENTATION_USAGE_CHIP --><span class="chip usage">13h 50m 58s · 2,135,109 out · 139.4 tok/s</span><!-- /usage:IMPLEMENTATION_USAGE_CHIP -->
       <article class="panel-section">
         <h2 class="section-label">Highlights</h2>
         <div class="bullets"><ul>
@@ -1521,7 +1521,35 @@ Rejected: <a href="./mockups/mockup-v4-settings-two-panes.html">Settings — Mee
 <li>Final stage commit: c4a52e2; main is ahead of origin, nothing pushed</li>
 <li>Manual and <code>MW_INTEGRATION=1</code> checks still pending</li>
 </ul></div>
-        <!-- usage:IMPLEMENTATION_USAGE --><!-- /usage:IMPLEMENTATION_USAGE -->
+        <!-- usage:IMPLEMENTATION_USAGE --><div class="usage-pair">
+<table class="usage">
+<thead><tr><th>Metric</th><th>Main</th><th>Subagents</th><th>Total</th></tr></thead>
+<tbody>
+<tr class="grp"><td colspan="4">Time</td></tr>
+<tr><td>elapsed</td><td>—</td><td>—</td><td>13h 50m 58s</td></tr>
+<tr><td>run time</td><td>—</td><td>—</td><td>5h 25m 42s</td></tr>
+<tr class="grp"><td colspan="4">Requests</td></tr>
+<tr><td>model</td><td>174</td><td>1,815</td><td>1,989</td></tr>
+<tr><td>web_search</td><td>0</td><td>0</td><td>0</td></tr>
+<tr><td>web_fetch</td><td>0</td><td>0</td><td>0</td></tr>
+<tr class="grp"><td colspan="4">Throughput</td></tr>
+<tr class="tp"><td>output tok/s</td><td>—</td><td>—</td><td>139.4</td></tr>
+</tbody>
+</table>
+<table class="usage">
+<thead><tr><th>Metric</th><th>Main</th><th>Subagents</th><th>Total</th></tr></thead>
+<tbody>
+<tr class="grp"><td colspan="4">Tokens</td></tr>
+<tr><td>input_tokens</td><td>400</td><td>3,728</td><td>4,128</td></tr>
+<tr><td>output_tokens</td><td>145,151</td><td>1,989,958</td><td>2,135,109</td></tr>
+<tr class="sub"><td>thinking_tokens</td><td>40,677</td><td>1,051,730</td><td>1,092,407</td></tr>
+<tr><td>cache_write</td><td>706,896</td><td>7,204,975</td><td>7,911,871</td></tr>
+<tr class="sub"><td>ephemeral_1h</td><td>706,896</td><td>0</td><td>706,896</td></tr>
+<tr class="sub"><td>ephemeral_5m</td><td>0</td><td>7,204,975</td><td>7,204,975</td></tr>
+<tr><td>cache_read</td><td>37,299,641</td><td>248,868,591</td><td>286,168,232</td></tr>
+</tbody>
+</table>
+</div><!-- /usage:IMPLEMENTATION_USAGE -->
       </article>
       <article class="panel-section">
         <h2 class="section-label">Detail</h2>
