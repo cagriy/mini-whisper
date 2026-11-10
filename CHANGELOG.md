@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-11-10
+
 ### Added
 
 - Meeting mode. **⌃⌥⌘M** or *Start Meeting…* records a remote call (microphone plus the audio
