@@ -5,6 +5,18 @@
     <link>https://raw.githubusercontent.com/cagriy/mini-whisper/main/appcast.xml</link>
     <language>en</language>
     <item>
+      <title>Mini Whisper 0.5.1</title>
+      <sparkle:version>0.5.1</sparkle:version>
+      <sparkle:shortVersionString>0.5.1</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <description>&lt;h3&gt;Added&lt;/h3&gt;
+&lt;ul&gt;&lt;li&gt;Meeting mode. &lt;strong&gt;⌃⌥⌘M&lt;/strong&gt; or *Start Meeting…* records a remote call (microphone plus the audio other apps play) or an in-room meeting (microphone only) with a live, speaker-labelled transcript and timestamped notes; Stop writes a Claude Sonnet 5.5 summary. Four engines: Speechmatics Standard ($0.45/h) and Enhanced ($0.80/h), AssemblyAI Universal-Streaming ($0.27/h) and Universal 3.6 Pro ($0.57/h), the AssemblyAI prices including $0.12/h for speaker labels. Meetings are stored locally in &lt;code&gt;~/.config/mini-whisper/meetings/&lt;/code&gt;, listed and searched in *Meetings…*, exported as Markdown, and billed into the Today/Month rows. Settings → Meetings holds the engine, your name, Keep meeting audio and the summary prompt; &lt;code&gt;config.json&lt;/code&gt; gains &lt;code&gt;meeting_hotkey&lt;/code&gt;, &lt;code&gt;meeting_engine&lt;/code&gt;, &lt;code&gt;meeting_keep_audio&lt;/code&gt;, &lt;code&gt;meeting_user_name&lt;/code&gt; and &lt;code&gt;meeting_system_audio_explained&lt;/code&gt;.&lt;/li&gt;&lt;li&gt;The System Audio Recording permission (macOS 14.2+), asked at the first remote call.&lt;/li&gt;&lt;li&gt;AssemblyAI and Anthropic keys under Settings → Keys.&lt;/li&gt;&lt;li&gt;AssemblyAI Universal-Streaming as a dictation engine ($0.15/h), with vocabulary sent as key terms.&lt;/li&gt;&lt;li&gt;The &lt;code&gt;mini-whisper&lt;/code&gt; command-line tool, installed from Settings → Meetings: &lt;code&gt;meetings transcript|summary &amp;lt;id&amp;gt;&lt;/code&gt; print the exported Markdown, &lt;code&gt;meetings list|search&lt;/code&gt; one line per meeting or hit, or JSON with &lt;code&gt;--json&lt;/code&gt;. &lt;code&gt;mini-whisper mcp&lt;/code&gt; is a stdio MCP server with four read-only tools for Claude Code and other agents. Neither records nor changes a meeting.&lt;/li&gt;&lt;/ul&gt;
+&lt;h3&gt;Changed&lt;/h3&gt;
+&lt;ul&gt;&lt;li&gt;The Speechmatics rate is now $0.0075 per minute (was $0.0067): new usage costs more; past Today/Month totals are unchanged.&lt;/li&gt;&lt;li&gt;Dictation hotkeys are off while a meeting records or is paused, and starting a meeting cancels a dictation in progress.&lt;/li&gt;&lt;/ul&gt;</description>
+      <pubDate>Tue, 10 Nov 2026 17:48:12 +0000</pubDate>
+      <enclosure url="https://github.com/cagriy/mini-whisper/releases/download/v0.5.1/MiniWhisper-0.5.1-arm64.dmg" sparkle:edSignature="CVuDUfFgrKx96qBvtXlFQIvWGOs3gsMpxALOMbKgirn358Kqo+v7fCU0STiB2TkvU8duBx9LYseJ139rjkoNDA==" length="6670603" type="application/octet-stream" />
+    </item>
+    <item>
       <title>Mini Whisper 0.5.0</title>
       <sparkle:version>0.5.0</sparkle:version>
       <sparkle:shortVersionString>0.5.0</sparkle:shortVersionString>
