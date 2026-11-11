@@ -93,7 +93,7 @@ private struct ScriptLineRow: View {
         .padding(.vertical, 6)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background {
-            if case .current = place { ring }
+            if case .current = place { LineRing(color: color, tinted: line.role == .you) }
         }
     }
 
@@ -119,12 +119,18 @@ private struct ScriptLineRow: View {
             Text(line.speaker).font(.system(size: 11, weight: .semibold)).foregroundStyle(color)
         }
     }
+}
 
-    /// The speaker's colour around a white card, on a blue tint for the user's line.
-    private var ring: some View {
+/// A line's card in the speaker's colour: the current script line, or an open score line.
+struct LineRing: View {
+    let color: Color
+    /// The user's line sits on a blue tint.
+    var tinted = false
+
+    var body: some View {
         RoundedRectangle(cornerRadius: 7)
             .fill(Color(nsColor: .textBackgroundColor))
-            .overlay(RoundedRectangle(cornerRadius: 7).fill(line.role == .you ? Color.accentColor.opacity(0.06) : .clear))
+            .overlay(RoundedRectangle(cornerRadius: 7).fill(tinted ? Color.accentColor.opacity(0.06) : .clear))
             .overlay(RoundedRectangle(cornerRadius: 7).stroke(color))
             .background(RoundedRectangle(cornerRadius: 9).strokeBorder(color.opacity(0.18), lineWidth: 2).padding(-2))
     }
@@ -174,6 +180,7 @@ struct LineBadge: View {
             .padding(.horizontal, 7)
             .padding(.vertical, 1)
             .background(Capsule().fill(color.opacity(0.08)))
+            .background(Capsule().fill(Color(nsColor: .textBackgroundColor)))
             .overlay(Capsule().stroke(color.opacity(0.3)))
             .fixedSize()
     }

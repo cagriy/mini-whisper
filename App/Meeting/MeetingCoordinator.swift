@@ -143,14 +143,22 @@ final class MeetingCoordinator {
         }
         // Read before the window takes focus; the default title names this app.
         let frontApp = deps.frontApp()
-        let session = Session(
-            controller: deps.makeController(frontApp),
-            model: MeetingWindowModel(chooser: deps.chooser()),
-            frontApp: frontApp
-        )
+        let session = Session(controller: deps.makeController(frontApp), model: makeModel(), frontApp: frontApp)
         current = session
         forwardEvents(of: session)
         present(session, title: "New Meeting")
+    }
+
+    /// A window's model, whose test-call score reads earlier runs off the main actor (design §5.8).
+    private func makeModel() -> MeetingWindowModel {
+        let index = deps.testCalls.index
+        let read = deps.testCalls.readRecord
+        return MeetingWindowModel(chooser: deps.chooser(), now: deps.now) { tag in
+            await Task.detached {
+                guard let entries = try? index() else { return [] }
+                return TestRunHistory.runs(of: tag, in: entries, load: read)
+            }.value
+        }
     }
 
     private func present(_ session: Session, title: String) {
@@ -167,9 +175,7 @@ final class MeetingCoordinator {
             session.window?.show()
             return
         }
-        let session = Session(
-            controller: deps.makeController(nil), model: MeetingWindowModel(chooser: deps.chooser()), frontApp: nil
-        )
+        let session = Session(controller: deps.makeController(nil), model: makeModel(), frontApp: nil)
         forwardEvents(of: session)
         try await session.controller.open(id)
         if let meeting = session.controller.meeting { session.model.show(meeting) }

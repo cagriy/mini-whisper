@@ -261,6 +261,8 @@ final class MeetingWindowModel {
     }
 
     @ObservationIgnored private var noteStartedAt: Double?
+    @ObservationIgnored private let now: () -> Date
+    @ObservationIgnored private let loadRuns: @MainActor (TestCallTag) async -> [TestRunHistory.Run]
     /// As last shown; the summary's "partial" note needs it.
     @ObservationIgnored private var meeting: Meeting?
     /// Whether the ready summary read a truncated transcript (*Planning decisions taken* #26).
@@ -278,9 +280,17 @@ final class MeetingWindowModel {
     @ObservationIgnored private(set) var rebuilds = 0
     private var version = 0
 
-    init(chooser: Chooser, timeZone: TimeZone = .current) {
+    init(
+        chooser: Chooser,
+        timeZone: TimeZone = .current,
+        now: @escaping () -> Date = Date.init,
+        /// Earlier runs of a test call's scenario revision, newest first.
+        loadRuns: @escaping @MainActor (TestCallTag) async -> [TestRunHistory.Run] = { _ in [] }
+    ) {
         self.chooser = chooser
         self.timeZone = timeZone
+        self.now = now
+        self.loadRuns = loadRuns
         mode = chooser.defaultMode
     }
 
@@ -423,13 +433,36 @@ final class MeetingWindowModel {
         mode = meeting.mode
         engine = meeting.engine
         if let tag = meeting.test, testCall == nil {
-            testCall = TestCallPaneModel(scenario: Self.scenario(of: tag), casting: [:])
+            let testCall = TestCallPaneModel(scenario: Self.scenario(of: tag), casting: [:])
+            testCall.score = testScore
+            self.testCall = testCall
         }
         if let endedAt = meeting.endedAt {
             self.endedAt = endedAt
             elapsed = meeting.durationSeconds
             cost = meeting.billing.costUSD
         }
+    }
+
+    /// Segments intersecting the expanded score line's scoring window (*Planning decisions taken* #28).
+    var highlightedSegments: Set<UUID> {
+        _ = version
+        guard let window = testCall?.highlight else { return [] }
+        return Set(segments.filter { $0.start <= window.upperBound && $0.end >= window.lowerBound }.map(\.id))
+    }
+
+    /// The paragraphs holding a highlighted segment.
+    var highlightedParagraphs: Set<UUID> {
+        let segments = highlightedSegments
+        guard !segments.isEmpty else { return [] }
+        return Set(rows.compactMap(\.paragraph).filter { !segments.isDisjoint(with: $0.segmentIDs) }.map(\.id))
+    }
+
+    /// Earlier runs of a test meeting's scenario revision, for its score pane.
+    func loadEarlierRuns() async {
+        guard let meeting, let tag = meeting.test, let testCall else { return }
+        let runs = await loadRuns(tag)
+        testCall.showRuns(runs, this: meeting.id, now: now(), timeZone: timeZone)
     }
 
     /// A running test call's pane, which follows its conductor.
@@ -503,6 +536,7 @@ final class MeetingWindowModel {
             systemAudio = state
         case .testScore(let score):
             testScore = score
+            testCall?.score = score
         case .error(let message):
             errorMessage = message
         }

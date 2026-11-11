@@ -93,6 +93,34 @@ import Testing
         func setTitle(_ title: String) { self.title = title }
     }
 
+    /// The stored meetings the test-call readers see, and whether they were read on the main thread.
+    private final class Store: @unchecked Sendable {
+        private let lock = NSLock()
+        private var entries: [IndexEntry] = []
+        private var records: [UUID: TestCallRecord] = [:]
+        private var readsOnMain: [Bool] = []
+
+        var reads: [Bool] { lock.withLock { readsOnMain } }
+
+        func add(_ entry: IndexEntry, _ record: TestCallRecord) {
+            lock.withLock {
+                entries.append(entry)
+                records[entry.id] = record
+            }
+        }
+
+        func index() -> [IndexEntry] {
+            lock.withLock { entries }
+        }
+
+        func read(_ id: UUID) -> TestCallRecord? {
+            lock.withLock {
+                readsOnMain.append(Thread.isMainThread)
+                return records[id]
+            }
+        }
+    }
+
     @MainActor
     private final class Harness {
         var controllers: [StubController] = []
@@ -103,6 +131,7 @@ import Testing
         var conductors: [FakeConductor] = []
         /// The conductors' calls.
         let conductorLog = CallLog()
+        let store = Store()
         /// What each test call's conductor was built for.
         var made: [(scenario: TestScenario, casting: [TestCallRole: CastVoice], overlap: Bool)] = []
         var changeCount = 0
@@ -157,8 +186,8 @@ import Testing
                 },
                 makePlayer: { _ in FakePlayer() },
                 loadVoices: { "" },
-                index: { [] },
-                readRecord: { _ in nil }
+                index: { [store] in store.index() },
+                readRecord: { [store] in store.read($0) }
             )
         ))
 
@@ -475,6 +504,28 @@ import Testing
         harness.actions[0].skipLine()
 
         #expect(harness.conductorLog.calls.contains("skip"))
+    }
+
+    @Test func earlierRunsReadTheIndexAndRecordsOffTheMainActor() async throws {
+        let harness = Harness()
+        let meeting = try #require(await harness.testCall().meeting)
+        let tag = try #require(meeting.test)
+        let record = TestCallRecord(
+            scenario: .init(id: tag.scenarioID, revision: tag.revision, title: tag.scenarioTitle),
+            engine: .assemblyaiStreaming, overlap: true, scoredAt: Self.now, voices: [], lines: [], roles: [],
+            overall: .init(words: 0, substitutions: 0, deletions: 0, insertions: 0),
+            crossCredited: .init(voiceWordsAsYou: 0, yourWordsAsVoices: 0), latency: nil
+        )
+        harness.store.add(IndexEntry(
+            id: meeting.id, title: meeting.title, startedAt: meeting.startedAt, endedAt: nil, duration: 0, mode: .remote,
+            app: nil, engine: .assemblyaiStreaming, speakerCount: 0, costUSD: 0, hasSummary: false, audioBytes: 0,
+            excerpt: "", test: tag
+        ), record)
+
+        await harness.models[0].loadEarlierRuns()
+
+        #expect(harness.models[0].testCall?.runRows.map(\.isThis) == [true])
+        #expect(harness.store.reads == [false])
     }
 
     @Test func ordinaryMeetingsStopAsBefore() async {

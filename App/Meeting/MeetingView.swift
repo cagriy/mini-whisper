@@ -133,7 +133,14 @@ private struct MeetingRecordingView: View {
                 TranscriptView(model: model, actions: actions)
                 Divider()
                 if let testCall = model.testCall {
-                    ScriptPane(model: testCall, skip: actions.skipLine).frame(width: 310)
+                    Group {
+                        if testCall.score == nil {
+                            ScriptPane(model: testCall, skip: actions.skipLine)
+                        } else {
+                            ScorePane(model: testCall) { await model.loadEarlierRuns() }
+                        }
+                    }
+                    .frame(width: 310)
                 } else {
                     NotesPane(model: model, actions: actions).frame(width: 280)
                 }
@@ -336,6 +343,13 @@ private struct TranscriptView: View {
             .onChange(of: model.state) {
                 if model.state == .stopped { proxy.scrollTo(Self.top, anchor: .top) }
             }
+            // An opened score line brings its words into view.
+            .onChange(of: model.testCall?.expanded) {
+                let highlighted = model.highlightedParagraphs
+                guard let row = model.rows.first(where: { $0.paragraph.map { highlighted.contains($0.id) } ?? false })
+                else { return }
+                withAnimation { proxy.scrollTo(row.id, anchor: .center) }
+            }
         }
         .alert(
             pendingMerge?.prompt ?? "",
@@ -353,8 +367,9 @@ private struct TranscriptView: View {
             if let source = model.sourceLine {
                 Text(source).font(.caption).foregroundStyle(.secondary)
             }
+            let highlighted = model.highlightedParagraphs
             ForEach(model.rows) { row in
-                rowView(row)
+                rowView(row, highlighted: highlighted)
             }
             if let partial = model.partial {
                 partialView(partial)
@@ -365,10 +380,20 @@ private struct TranscriptView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    @ViewBuilder private func rowView(_ row: MeetingWindowModel.TranscriptRow) -> some View {
+    @ViewBuilder private func rowView(_ row: MeetingWindowModel.TranscriptRow, highlighted: Set<UUID>) -> some View {
         switch row {
         case .paragraph(let paragraph):
             paragraphView(paragraph)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background {
+                    if highlighted.contains(paragraph.id) {
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(Color.accentColor.opacity(0.06))
+                            .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.accentColor.opacity(0.2)))
+                            .padding(.horizontal, -8)
+                            .padding(.vertical, -6)
+                    }
+                }
         case .note:
             MarkerLine(text: row.text, symbol: "note.text", color: .accentColor)
         case .marker(let marker):
