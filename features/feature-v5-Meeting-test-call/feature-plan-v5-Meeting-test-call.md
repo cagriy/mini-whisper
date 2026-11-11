@@ -1392,6 +1392,19 @@ None — plan matches design v5 exactly.
     - One remaining line reads "+ 1 more line" (the mockup's "+ 1 more lines" is a placeholder).
     - A stopped test meeting's source line reads "… · speaker names stay as the engine labelled
       them", as in the score mockup.
+12. **Stage 15.**
+    - Earlier runs load when the score pane appears, not when the sheet opens, so the footer's
+      "N runs of this scenario" counts the rows the sheet shows. They still load off the main
+      actor and read at most 50 records.
+    - The loader is a `MeetingWindowModel` init parameter (with `now`), built by the coordinator's
+      `makeModel()`. `MeetingCoordinatorTests.earlierRunsReadTheIndexAndRecordsOffTheMainActor`
+      tests it.
+    - The pane shows the script until the score arrives, then the score.
+    - The pane header reads "Score" with the scenario title at the right, as in the mockup.
+    - A user line's breakdown ends "final text X s after you stopped speaking"; the design words
+      only the voice case.
+    - The Run column reads "Today 11:14" or "9 Nov 16:40", with the year for another year's run.
+    - An opened line scrolls its highlighted paragraph into view.
 
 ## Execution schedule
 
