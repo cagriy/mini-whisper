@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-11
+
 ### Added
 
 - Test calls. **Test Call…** in the New Meeting window runs a scripted two-minute remote call:
