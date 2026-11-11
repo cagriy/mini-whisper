@@ -26,10 +26,13 @@ final class MeetingWindowModel {
         let systemAudioExplained: Bool
         let pricingOverrides: [String: Double]
         let userName: String
+        /// The engines with a key, for the test-call setup page.
+        let keyedEngines: Set<MeetingEngine>
 
         /// `accountName` stands in for a blank `meeting_user_name`, as in `MeetingController`.
         init(config: Config, platform: PlatformInfo, accountName: String, hasKey: (KeyAccount) -> Bool) {
             engine = MeetingEngine.resolve(stored: config.meetingEngine, hasKey: hasKey)
+            keyedEngines = Set(MeetingEngine.allCases.filter { hasKey($0.keyAccount) })
             supportsSystemAudio = platform.supportsSystemAudio
             systemAudioExplained = config.meetingSystemAudioExplained
             pricingOverrides = config.pricingOverrides
@@ -229,6 +232,10 @@ final class MeetingWindowModel {
     }
 
     let chooser: Chooser
+    /// The chooser's test-call setup page.
+    let setup: TestCallSetupModel
+    /// The chooser shows the setup page in place of its cards (R1).
+    private(set) var showsTestCallSetup = false
     /// For the end and summary times.
     let timeZone: TimeZone
     var mode: MeetingMode
@@ -288,6 +295,7 @@ final class MeetingWindowModel {
         loadRuns: @escaping @MainActor (TestCallTag) async -> [TestRunHistory.Run] = { _ in [] }
     ) {
         self.chooser = chooser
+        setup = TestCallSetupModel(keyedEngines: chooser.keyedEngines, defaultEngine: chooser.engine)
         self.timeZone = timeZone
         self.now = now
         self.loadRuns = loadRuns
@@ -297,6 +305,16 @@ final class MeetingWindowModel {
     // MARK: - Outputs
 
     var canStart: Bool { chooser.canStart(mode) }
+
+    /// The chooser's Test Call… link, once this Mac's voices allow a test call.
+    func openTestCallSetup() {
+        if setup.canOpen { showsTestCallSetup = true }
+    }
+
+    /// The setup page's ‹ Back.
+    func closeTestCallSetup() {
+        showsTestCallSetup = false
+    }
 
     var rows: [TranscriptRow] {
         _ = version

@@ -42,6 +42,8 @@ protocol MeetingWindowPresenting: AnyObject {
 /// What the meeting window's buttons do.
 struct MeetingActions {
     var start: @MainActor () -> Void
+    /// The setup page's Start Test Call.
+    var startTestCall: @MainActor (TestCallSetup) -> Void
     var cancel: @MainActor () -> Void
     var pauseOrResume: @MainActor () -> Void
     var stop: @MainActor () -> Void
@@ -147,6 +149,23 @@ final class MeetingCoordinator {
         current = session
         forwardEvents(of: session)
         present(session, title: "New Meeting")
+        fillTestCallSetup(session.model.setup)
+    }
+
+    /// Design §5.5 step 1: this Mac's voices and each scenario's latest WER, read off the main
+    /// actor once per chooser.
+    private func fillTestCallSetup(_ setup: TestCallSetupModel) {
+        let loadVoices = deps.testCalls.loadVoices
+        let index = deps.testCalls.index
+        let revisions = Dictionary(uniqueKeysWithValues: ScenarioLibrary.all.map { ($0.id, $0.revision) })
+        Task { [weak setup] in
+            let listing = await loadVoices()
+            let wer = await Task.detached {
+                TestRunHistory.latestWER(in: (try? index()) ?? [], revisions: revisions)
+            }.value
+            setup?.showVoices(VoiceCatalog.parse(listing))
+            setup?.showLatestWER(wer)
+        }
     }
 
     /// A window's model, whose test-call score reads earlier runs off the main actor (design §5.8).
@@ -285,6 +304,7 @@ final class MeetingCoordinator {
     private func actions(for session: Session) -> MeetingActions {
         MeetingActions(
             start: { [weak self] in Task { await self?.start() } },
+            startTestCall: { [weak self] setup in Task { await self?.startTestCall(setup) } },
             cancel: { [weak session] in session?.window?.close() },
             pauseOrResume: { [weak session] in
                 guard let controller = session?.controller else { return }

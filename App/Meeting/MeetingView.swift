@@ -30,6 +30,14 @@ private struct MeetingChooserView: View {
     private var chooser: MeetingWindowModel.Chooser { model.chooser }
 
     var body: some View {
+        if model.showsTestCallSetup {
+            TestCallSetupView(model: model, actions: actions)
+        } else {
+            cards
+        }
+    }
+
+    private var cards: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Start a meeting").font(.title2.weight(.semibold))
             Text(
@@ -52,17 +60,21 @@ private struct MeetingChooserView: View {
             if let error = model.errorMessage {
                 Text(error).foregroundStyle(.red)
             }
-            HStack {
-                if let reason = chooser.startBlockedReason {
-                    Text(reason).foregroundStyle(.secondary)
-                } else if let engine = chooser.engineLine {
-                    HStack(spacing: 0) {
-                        Text("\(engine) · change under ")
-                        Button("Settings → Meetings", action: actions.openSettings).buttonStyle(.link)
-                    }
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
+            if let reason = chooser.startBlockedReason {
+                Text(reason).foregroundStyle(.secondary)
+            } else if let engine = chooser.engineLine {
+                HStack(spacing: 0) {
+                    Text("\(engine) · change under ")
+                    Button("Settings → Meetings", action: actions.openSettings).buttonStyle(.link)
                 }
+                .font(.callout)
+                .foregroundStyle(.secondary)
+            }
+            HStack {
+                Button("Test Call…", action: model.openTestCallSetup)
+                    .buttonStyle(.link)
+                    .disabled(!model.setup.canOpen)
+                    .help(model.setup.linkHelp ?? "")
                 Spacer()
                 Button("Cancel", action: actions.cancel).keyboardShortcut(.cancelAction)
                 Button("Start", action: actions.start)

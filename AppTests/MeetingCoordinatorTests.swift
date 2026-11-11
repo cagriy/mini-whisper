@@ -93,14 +93,28 @@ import Testing
         func setTitle(_ title: String) { self.title = title }
     }
 
-    /// The stored meetings the test-call readers see, and whether they were read on the main thread.
+    /// The stored meetings and `say -v ?` listing the test-call readers see, and how they were read.
     private final class Store: @unchecked Sendable {
         private let lock = NSLock()
         private var entries: [IndexEntry] = []
         private var records: [UUID: TestCallRecord] = [:]
         private var readsOnMain: [Bool] = []
+        private var listing = ""
+        private var listings = 0
 
         var reads: [Bool] { lock.withLock { readsOnMain } }
+        var voiceLoads: Int { lock.withLock { listings } }
+
+        func setListing(_ listing: String) {
+            lock.withLock { self.listing = listing }
+        }
+
+        func loadVoices() -> String {
+            lock.withLock {
+                listings += 1
+                return listing
+            }
+        }
 
         func add(_ entry: IndexEntry, _ record: TestCallRecord) {
             lock.withLock {
@@ -185,7 +199,7 @@ import Testing
                     return conductor
                 },
                 makePlayer: { _ in FakePlayer() },
-                loadVoices: { "" },
+                loadVoices: { [store] in store.loadVoices() },
                 index: { [store] in store.index() },
                 readRecord: { [store] in store.read($0) }
             )
@@ -526,6 +540,57 @@ import Testing
 
         #expect(harness.models[0].testCall?.runRows.map(\.isThis) == [true])
         #expect(harness.store.reads == [false])
+    }
+
+    /// The coordinator fills the chooser on its own tasks; this yields until they have.
+    private func until(_ condition: @MainActor () -> Bool) async {
+        for _ in 0..<1_000 where !condition() { await Task.yield() }
+    }
+
+    private static func entry(_ scenario: String, wer: Double?, at seconds: Double) -> IndexEntry {
+        IndexEntry(
+            id: UUID(), title: "Test call", startedAt: now.addingTimeInterval(seconds), endedAt: nil, duration: 0,
+            mode: .remote, app: nil, engine: .assemblyaiStreaming, speakerCount: 0, costUSD: 0, hasSummary: false,
+            audioBytes: 0, excerpt: "", test: TestCallTag(scenarioID: scenario, revision: 1, scenarioTitle: "", wer: wer)
+        )
+    }
+
+    @Test func openChooserLoadsVoicesOnceAndScenarioWERs() async throws {
+        let harness = Harness()
+        harness.store.setListing("Daniel              en_GB    # Hello! My name is Daniel.\n"
+            + "Karen               en_AU    # Hello! My name is Karen.\n")
+        let record = TestCallRecord(
+            scenario: .init(id: "sprint-planning", revision: 1, title: "Sprint planning"), engine: .assemblyaiStreaming,
+            overlap: false, scoredAt: Self.now, voices: [], lines: [], roles: [],
+            overall: .init(words: 0, substitutions: 0, deletions: 0, insertions: 0),
+            crossCredited: .init(voiceWordsAsYou: 0, yourWordsAsVoices: 0), latency: nil
+        )
+        harness.store.add(Self.entry("sprint-planning", wer: 0.064, at: 0), record)
+        harness.store.add(Self.entry("sprint-planning", wer: 0.2, at: -60), record)
+
+        await harness.coordinator.toggle()
+        let setup = harness.models[0].setup
+        await until { setup.canOpen && !setup.scenarioOptions[0].title.hasSuffix("not run") }
+
+        #expect(setup.canOpen)
+        #expect(setup.scenarioOptions.first?.title == "Sprint planning — WER 6.4%")
+        #expect(setup.scenarioOptions.last?.title == "Quarterly sales — not run · uses Karen for Laura")
+        #expect(harness.store.voiceLoads == 1)
+        harness.coordinator.openChooser()
+        await harness.coordinator.toggle()
+        #expect(harness.store.voiceLoads == 1)
+        #expect(harness.store.reads.isEmpty)
+    }
+
+    @Test func setupPageStartsTheTestCall() async throws {
+        let harness = Harness()
+        await harness.coordinator.toggle()
+
+        harness.actions[0].startTestCall(Self.setup())
+        await until { !harness.controllers[0].starts.isEmpty }
+
+        #expect(harness.controllers[0].starts.map(\.title) == ["Test call · Sprint planning"])
+        await try #require(harness.conductors.first).started()
     }
 
     @Test func ordinaryMeetingsStopAsBefore() async {
