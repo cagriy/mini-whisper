@@ -949,7 +949,7 @@
         </span>
         <span class="step-label">Plan</span>
       </li>
-      <li class="step" data-stage="implement" data-state="pending">
+      <li class="step" data-stage="implement" data-state="complete">
         <span class="step-indicator" aria-hidden="true">
           <span class="step-check">&#10003;</span>
           <span class="step-number">4</span>
@@ -1285,16 +1285,91 @@
 
     <section class="panel" role="tabpanel"
              id="panel-implementation" aria-labelledby="tab-implementation" hidden>
-      <p class="section-timestamp">Awaiting /feature-implement</p>
+      <p class="section-timestamp">Updated 2026-11-11 16:09 UTC</p>
       <!-- usage:IMPLEMENTATION_USAGE_CHIP --><!-- /usage:IMPLEMENTATION_USAGE_CHIP -->
       <article class="panel-section">
         <h2 class="section-label">Highlights</h2>
-        <div class="bullets"><p class="empty">Not yet filled — pending /feature-implement.</p></div>
+        <div class="bullets"><ul>
+<li>Stages completed: 17/17</li>
+<li>Tests: core 934/934 (was 827), app 303/303 (was 243)</li>
+<li>Design coverage: 27/27 requirements verified by tests or checks</li>
+<li>Pre-existing failures excluded: none</li>
+<li>Dead-code orphans removed: none found (periphery, baseline-scoped)</li>
+<li>Deviations from plan: 13, recorded in the plan</li>
+<li>Parallelism: 7 stages built concurrently in 2 batches, no conflicts</li>
+<li>Pending human verification: live test calls per engine, listening pass, tap permission, on-screen checks</li>
+<li>Final commit: 625bdb6</li>
+</ul></div>
         <!-- usage:IMPLEMENTATION_USAGE --><!-- /usage:IMPLEMENTATION_USAGE -->
       </article>
       <article class="panel-section">
         <h2 class="section-label">Detail</h2>
-        <div class="prose"><p class="empty">Not yet filled — pending /feature-implement.</p></div>
+        <div class="prose">
+<h3>Stages completed</h3>
+<ul>
+<li>Stage 1 — Land the in-tree ducking and leveller fix — 684505a</li>
+<li>Stage 2 — Test-call tag, score record and store support — 9f50f8f</li>
+<li>Stage 3 — <code>MWTestCall</code> module, value model, transcript normaliser and word aligner — 9e7353e</li>
+<li>Stage 4 — Hide test meetings from agents — 8bcd92d (parallel, batch 4)</li>
+<li>Stage 5 — Voice casting and run history — 6d7e5c8 (parallel, batch 4)</li>
+<li>Stage 6 — Scenario catalogue — 44bd42f (parallel, batch 4)</li>
+<li>Stage 7 — Test-call conductor — 2193e7b (parallel, batch 4)</li>
+<li>Stage 8 — Meetings list: TEST chip and test meta line — 79178eb (parallel, batch 4)</li>
+<li>Stage 9 — Test-call scorer — 525a7a7 (parallel, batch 5)</li>
+<li>Stage 10 — <code>say</code> player and system voices — 6ec053b (parallel, batch 5)</li>
+<li>Stage 11 — Controller: test-meeting plumbing — d09b3f6</li>
+<li>Stage 12 — Score at Stop: <code>finishTest</code> — a0a2262</li>
+<li>Stage 13 — Test-call session and coordinator wiring — 2191b00</li>
+<li>Stage 14 — Script pane during the call — cb99969</li>
+<li>Stage 15 — Score pane and Earlier runs — 2f24047</li>
+<li>Stage 16 — Setup page and the Test Call… entry point — 6480201</li>
+<li>Stage 17 — Documentation and acceptance — 625bdb6 (docs only; live acceptance pending)</li>
+</ul>
+<h3>Tests &amp; lint</h3>
+<ul>
+<li>Core <code>swift test</code>: 934 tests in 17 targets, all passing (baseline 827 in 16).</li>
+<li>App <code>xcodebuild test</code>: 303 tests in 34 suites, all passing (baseline 243 in 29).</li>
+<li>No lint, format or type-check tooling is configured. No new compiler warnings in the feature's files.</li>
+<li>Pre-existing failures excluded from regression gating: none.</li>
+<li>Opt-in integration: the mic suite passes 3/3 after <code>.serialized</code>; <code>SayProcessPlayerIntegrationTests</code> passes with real speech; <code>SystemAudioTapIntegrationTests</code> fails without System Audio Recording permission for the terminal, the existing <code>afplay</code> test included.</li>
+</ul>
+<h3>Design coverage</h3>
+<table>
+<thead><tr><th>Req</th><th>Verified by</th></tr></thead>
+<tbody>
+<tr><td>R1, R2, R5</td><td><code>TestCallSetupModelTests</code> (menus, default, no key, link disabled, back), <code>VoiceCatalogTests</code></td></tr>
+<tr><td>R3</td><td><code>ScenarioLibraryTests.pickRandomIsUniformAndReproducible</code></td></tr>
+<tr><td>R4</td><td><code>MeetingCoordinatorTests.startTestCallStartsARemoteMeeting…</code>, <code>MeetingControllerTestCallTests</code></td></tr>
+<tr><td>R6–R10, R12</td><td><code>TestCallConductorTests</code>, <code>SayProcessPlayerTests</code>, <code>TestCallSessionTests</code>, <code>TestCallPaneModelTests</code></td></tr>
+<tr><td>R11</td><td><code>pauseAndResumeDoNothingForATestMeeting</code>, <code>testMeetingCannotPauseAndSaysWhy</code></td></tr>
+<tr><td>R13, R24</td><td><code>stopRunsEndStopScoreThenSummarise</code>, <code>quitPathSkipsTheSummary</code>, <code>finishTestWritesTheScore…</code>, <code>stopStillBillsAndSummariseStillRuns</code></td></tr>
+<tr><td>R14, R15</td><td><code>TranscriptNormalizerTests</code>, <code>WordAlignerTests</code>, <code>countsDeriveWER</code>, <code>TestCallScorerTests</code></td></tr>
+<tr><td>R16, R17</td><td><code>TestCallScorerTests</code>, <code>arrivalsAreRecordedAtAppend…</code></td></tr>
+<tr><td>R18–R20</td><td><code>TestCallPaneModelTests</code> (score half), <code>TestRunHistoryTests</code>, <code>openEmits…</code></td></tr>
+<tr><td>R21</td><td><code>TestCallModelTests</code>, <code>MeetingStoreTests</code> (0600, round trip, rescan)</td></tr>
+<tr><td>R22</td><td><code>AgentMeetingsTests</code> (CLI and MCP)</td></tr>
+<tr><td>R23</td><td><code>MeetingsListModelTests</code></td></tr>
+<tr><td>R25</td><td>Every duration on <code>VirtualClock</code> (<code>pollsEvery100ms</code> and the conductor and controller suites)</td></tr>
+<tr><td>R26</td><td><code>Package.swift</code> / <code>project.yml</code> diff: internal targets only</td></tr>
+<tr><td>R27</td><td><code>logsIdsAndReasonsNeverScriptText</code>, <code>scoredLogLineCarriesNoText</code>, <code>startLogLineCarriesIdsOnly</code></td></tr>
+</tbody>
+</table>
+<h3>Deviations from plan</h3>
+<p>13 entries in the plan's <em>Deviations from plan</em>. The main ones:</p>
+<ul>
+<li>Stage 1: the microphone integration suite is <code>.serialized</code>; in parallel its tests fought over one input.</li>
+<li>Stage 3: aligner tie-breaking walks forward; <code>WordAligner.Alignment</code> is nested; "$1" reads "one dollar".</li>
+<li>Stage 7: 1-based line numbers; overlap flags record only overlaps that happened.</li>
+<li>Stage 9: labels and purity count only aligned tokens, matching the accepted 87%.</li>
+<li>Stage 11: after a sleep a test meeting stays paused until Stop.</li>
+<li>Stages 14–16: extra coordinator wiring; small wording and layout adjustments against the mockups.</li>
+</ul>
+<h3>Notes</h3>
+<ul>
+<li>Pending human verification: a live test call per engine covering all 8 scenarios, the listening pass, <code>mini-whisper meetings list|search|transcript</code> against a real test meeting, the tap integration tests with System Audio Recording granted, and on-screen checks of tooltips, menus, Reduce Motion and the chip in dark mode.</li>
+<li><code>main</code> is ahead of <code>origin/main</code>; nothing pushed.</li>
+</ul>
+</div>
       </article>
     </section>
 
