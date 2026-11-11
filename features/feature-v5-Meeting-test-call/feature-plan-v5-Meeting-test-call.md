@@ -1325,6 +1325,13 @@ Once Stage 17 is done, the user confirms the §3 acceptance criteria:
 
 None — plan matches design v5 exactly.
 
+## Deviations from plan
+
+1. **Stage 1.** `AVAudioEngineBackendIntegrationTests` gained `.serialized`. Run in parallel, its
+   three tests open the same microphone at once, and voice processing changes the input format
+   under the other engines: one run crashed in `installTap`, another lost
+   `deliversABufferWithinOneSecond`. Serial runs passed 3 of 3 before and after the change.
+
 ## Execution schedule
 
 Batches run in order; a batch starts only when the previous one has fully landed. Stages inside a *parallel* batch are independent and may be built concurrently; a *serial* batch holds one stage. `/feature-implement` follows this table and demotes any batch it cannot verify to serial.
