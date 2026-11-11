@@ -19,6 +19,8 @@ import Testing
         var meeting: Meeting?
         var starts: [(mode: MeetingMode, title: String, engine: MeetingEngine?, test: TestCallTag?)] = []
         var stops: [Bool] = []
+        var finishTests = 0
+        var summarises = 0
         /// The window's stopped-state requests, in arrival order.
         let requests: AsyncStream<String>
         private let request: AsyncStream<String>.Continuation
@@ -47,7 +49,7 @@ import Testing
             continuation.yield(.state(.stopped))
         }
 
-        func finishTest(_ run: TestCallRun, scenario: TestScenario) async {}
+        func finishTest(_ run: TestCallRun, scenario: TestScenario) async { finishTests += 1 }
         func pause() async { state = .paused(.user) }
         func resume() async { state = .recording }
         func rename(speaker: Int, to name: String) async {}
@@ -60,7 +62,12 @@ import Testing
             continuation.yield(.state(.stopped))
         }
 
-        func summarise() async { request.yield("summarise") }
+        func summarise() async {
+            summarises += 1
+            request.yield("summarise")
+        }
+
+        func send(_ event: MeetingEvent) { continuation.yield(event) }
         func edit(segment: UUID, text: String) async { request.yield("edit \(text)") }
         func reassign(segment: UUID, to speaker: Int) async { request.yield("reassign \(speaker)") }
         func retitle(_ title: String) async { request.yield("retitle \(title)") }
@@ -93,6 +100,9 @@ import Testing
         var models: [MeetingWindowModel] = []
         var actions: [MeetingActions] = []
         var exports: [(kind: MeetingExporter.Kind, id: UUID)] = []
+        var conductors: [FakeConductor] = []
+        /// What each test call's conductor was built for.
+        var made: [(scenario: TestScenario, casting: [TestCallRole: CastVoice], overlap: Bool)] = []
         var changeCount = 0
         let changes: AsyncStream<Void>
         private let change: AsyncStream<Void>.Continuation
@@ -135,7 +145,19 @@ import Testing
             changed: { [unowned self] in
                 changeCount += 1
                 change.yield()
-            }
+            },
+            testCalls: TestCallDependencies(
+                makeConductor: { [unowned self] scenario, casting, overlap, _, _ in
+                    made.append((scenario, casting, overlap))
+                    let conductor = FakeConductor()
+                    conductors.append(conductor)
+                    return conductor
+                },
+                makePlayer: { _ in FakePlayer() },
+                loadVoices: { "" },
+                index: { [] },
+                readRecord: { _ in nil }
+            )
         ))
 
         init() {
@@ -156,6 +178,19 @@ import Testing
             await coordinator.start()
             return controllers[0]
         }
+
+        /// A test call started from the chooser.
+        func testCall(_ setup: TestCallSetup = MeetingCoordinatorTests.setup()) async -> StubController {
+            await coordinator.toggle()
+            await coordinator.startTestCall(setup)
+            return controllers[0]
+        }
+    }
+
+    private static let voices = [SystemVoice(name: "Daniel", locale: "en_GB"), SystemVoice(name: "Karen", locale: "en_AU")]
+
+    private static func setup(voices: [SystemVoice] = voices) -> TestCallSetup {
+        TestCallSetup(choice: .named("sprint-planning"), engine: .assemblyaiStreaming, overlap: true, voices: voices)
     }
 
     @Test func firstPressOpensTheChooser() async {
@@ -360,5 +395,82 @@ import Testing
         var requests = harness.controllers[0].requests.makeAsyncIterator()
         #expect(await requests.next() == "retitle Daily standup")
         #expect(harness.models[0].title == "Daily standup")
+    }
+
+    // MARK: - Test calls
+
+    @Test func startTestCallStartsARemoteMeetingWithTitleEngineAndTag() async throws {
+        let harness = Harness()
+
+        let controller = await harness.testCall()
+
+        #expect(controller.starts.map(\.mode) == [.remote])
+        #expect(controller.starts.map(\.title) == ["Test call · Sprint planning"])
+        #expect(controller.starts.map(\.engine) == [.assemblyaiStreaming])
+        #expect(controller.starts.map(\.test) == [
+            TestCallTag(scenarioID: "sprint-planning", revision: 1, scenarioTitle: "Sprint planning", wer: nil),
+        ])
+        #expect(harness.startsWhenDictationEnded == [0])
+        #expect(harness.models[0].title == "Test call · Sprint planning")
+        let made = try #require(harness.made.first)
+        #expect(made.scenario.id == "sprint-planning")
+        #expect(made.casting[.a]?.voice == "Daniel")
+        #expect(made.casting[.b]?.voice == "Karen")
+        #expect(made.overlap)
+        await try #require(harness.conductors.first).started()
+    }
+
+    @Test func startTestCallWithUnavailableVoicesShowsTheVoiceMessage() async {
+        let harness = Harness()
+
+        let controller = await harness.testCall(Self.setup(voices: [SystemVoice(name: "Daniel", locale: "en_GB")]))
+
+        #expect(controller.starts.isEmpty)
+        #expect(harness.conductors.isEmpty)
+        #expect(harness.models[0].errorMessage
+            == "Test calls need two English voices. Add one in System Settings → Accessibility → Spoken Content.")
+    }
+
+    @Test func stopAndQuitGoThroughTheSession() async throws {
+        let stopping = Harness()
+        let stopped = await stopping.testCall()
+        await stopping.coordinator.stop()
+
+        #expect(try #require(stopping.conductors.first).ends == [.stop])
+        #expect(stopped.stops == [false])
+        #expect(stopped.finishTests == 1)
+        #expect(stopped.summarises == 1)
+
+        let quitting = Harness()
+        let quit = await quitting.testCall()
+        await quitting.coordinator.stop(summarise: false)
+
+        #expect(try #require(quitting.conductors.first).ends == [.stop])
+        #expect(quit.stops == [false])
+        #expect(quit.finishTests == 1)
+        #expect(quit.summarises == 0)
+    }
+
+    @Test func sleepEventReachesTheSession() async throws {
+        let harness = Harness()
+        let controller = await harness.testCall()
+        let conductor = try #require(harness.conductors.first)
+
+        controller.state = .paused(.sleep)
+        controller.send(.state(.paused(.sleep)))
+
+        for await _ in harness.changes where !conductor.ends.isEmpty { break }
+        #expect(conductor.ends == [.sleep])
+    }
+
+    @Test func ordinaryMeetingsStopAsBefore() async {
+        let harness = Harness()
+        let controller = await harness.recording()
+
+        await harness.coordinator.stop()
+
+        #expect(controller.stops == [true])
+        #expect(controller.finishTests == 0)
+        #expect(harness.conductors.isEmpty)
     }
 }

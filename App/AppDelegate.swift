@@ -11,6 +11,7 @@ import MWPaste
 import MWPipeline
 import MWStreaming
 import MWSupport
+import MWTestCall
 import MWUsage
 import os
 
@@ -308,7 +309,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             endDictation: { [weak self] in await self?.controller?.abort() },
             openSettings: { [weak self] in self?.openSettings() },
             export: export,
-            changed: { [weak self] in self?.meetingChanged(usage: usage) }
+            changed: { [weak self] in self?.meetingChanged(usage: usage) },
+            testCalls: TestCallDependencies(
+                makeConductor: { scenario, casting, overlap, player, sensor in
+                    var random = SystemRandomNumberGenerator()
+                    return TestCallConductor(
+                        scenario: scenario, casting: casting, overlap: overlap, player: player, sensor: sensor,
+                        clock: SystemClock(), rng: &random
+                    )
+                },
+                makePlayer: { SayProcessPlayer(meetingTime: $0) },
+                loadVoices: { await SystemVoices().load() },
+                index: { try store.index() },
+                readRecord: { try store.readTestCall($0) }
+            )
         ))
     }
 

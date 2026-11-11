@@ -78,6 +78,7 @@ final class MeetingCoordinator {
         var export: @MainActor (MeetingExporter.Kind, UUID) -> Void
         /// A meeting changed state, title or summary: the menu, usage rows and list follow.
         var changed: @MainActor () -> Void
+        var testCalls: TestCallDependencies
     }
 
     @MainActor
@@ -87,6 +88,8 @@ final class MeetingCoordinator {
         let frontApp: String?
         var window: (any MeetingWindowPresenting)?
         var isStarting = false
+        /// Set once a test call's meeting has started.
+        var test: TestCallSession?
 
         init(controller: any MeetingControlling, model: MeetingWindowModel, frontApp: String?) {
             self.controller = controller
@@ -195,24 +198,62 @@ final class MeetingCoordinator {
 
     /// The window's Start button.
     func start() async {
-        guard let session = current, session.state == .idle, !session.isStarting, session.model.canStart
-        else { return }
-        session.isStarting = true
-        defer { session.isStarting = false }
+        guard let session = current, session.model.canStart else { return }
         let title = MeetingTitle.default(app: session.frontApp, date: deps.now())
-        await deps.endDictation()
-        do {
-            try await session.controller.start(mode: session.model.mode, title: title, engine: nil, test: nil)
-            if let meeting = session.controller.meeting { session.model.show(meeting) }
-        } catch {
-            session.model.showError(AnyError(error).description)
-        }
+        await begin(session) { try await $0.start(mode: session.model.mode, title: title, engine: nil, test: nil) }
     }
 
-    /// `summarise: false` is the quit path; the summary can be asked for later.
+    /// The setup page's Start Test Call (design §5.5 steps 2–3): a remote meeting on the chosen
+    /// engine, tagged with the scenario, whose script plays once it records.
+    func startTestCall(_ setup: TestCallSetup) async {
+        guard let session = current, session.state == .idle, !session.isStarting else { return }
+        var random = SystemRandomNumberGenerator()
+        let scenario = ScenarioLibrary.pick(setup.choice, using: &random)
+        guard case .ready(let casting) = VoiceCatalog(voices: setup.voices).cast(scenario) else {
+            return session.model.showError(TestCallSetup.voicesUnavailable)
+        }
+        let tag = TestCallTag(scenarioID: scenario.id, revision: scenario.revision, scenarioTitle: scenario.title)
+        let started = await begin(session) {
+            try await $0.start(mode: .remote, title: "Test call · \(scenario.title)", engine: setup.engine, test: tag)
+        }
+        guard started else { return }
+        let test = TestCallSession(
+            controller: session.controller, scenario: scenario, casting: casting, engine: setup.engine,
+            overlap: setup.overlap, deps: deps.testCalls
+        )
+        session.test = test
+        test.start()
+    }
+
+    /// Starts `session`'s meeting once, after any dictation has ended. False when it did not
+    /// start; the window shows why.
+    @discardableResult
+    private func begin(
+        _ session: Session, _ start: @MainActor (any MeetingControlling) async throws -> Void
+    ) async -> Bool {
+        guard session.state == .idle, !session.isStarting else { return false }
+        session.isStarting = true
+        defer { session.isStarting = false }
+        await deps.endDictation()
+        do {
+            try await start(session.controller)
+        } catch {
+            session.model.showError(AnyError(error).description)
+            return false
+        }
+        if let meeting = session.controller.meeting { session.model.show(meeting) }
+        return true
+    }
+
+    /// `summarise: false` is the quit path; the summary can be asked for later. A test call
+    /// stops through its session, which scores it (design §5.5 Stop, Quit).
     func stop(summarise: Bool = true) async {
-        guard let controller = current?.controller, Self.isStoppable(controller.state) else { return }
-        await controller.stop(summarise: summarise)
+        guard let session = current, Self.isStoppable(session.state) else { return }
+        if let test = session.test {
+            await test.finish(summarise: summarise)
+        } else {
+            await session.controller.stop(summarise: summarise)
+        }
     }
 
     private static func isStoppable(_ state: MeetingState) -> Bool {
@@ -295,6 +336,7 @@ final class MeetingCoordinator {
                 session.model.apply(event)
                 switch event {
                 case .state(let state):
+                    if state == .paused(.sleep) { session.test?.macSlept() }
                     // The header's end time, duration and engine cost.
                     if state == .stopped, let meeting = session.controller.meeting { session.model.show(meeting) }
                     if session.window == nil {
