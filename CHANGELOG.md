@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- A remote meeting turned other apps' audio down by about 30 dB, the call included, and the
+  call reached the transcription engine too quiet to transcribe well. Other apps now drop about
+  7 dB, and the call is raised to speech level before it is mixed with the microphone.
+
 ## [0.5.1] - 2026-11-10
 
 ### Added

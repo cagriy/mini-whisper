@@ -5,8 +5,8 @@ import MWSupport
 import os
 
 /// The meeting's audio tick (design §5.6), run on the capture thread for every microphone
-/// buffer: resample to 16 kHz, then in a remote meeting gate the microphone and mix in the
-/// system audio, then record, stream and bill. The tap threads call in, so the state is
+/// buffer: resample to 16 kHz, then in a remote meeting gate the microphone, level the system
+/// audio and mix it in, then record, stream and bill. The tap threads call in, so the state is
 /// lock-guarded; only segments, partials and one-second ticks reach the main actor.
 final class MeetingAudioPath: BufferListener, Sendable {
     static let sampleRate = 16_000.0
@@ -15,6 +15,7 @@ final class MeetingAudioPath: BufferListener, Sendable {
         var inputRate = 0.0
         var converter = PCMConverter(from: 16_000, to: 16_000)
         var gate = SpeechGate()
+        var leveller = SystemAudioLeveller()
         var recorder: MeetingRecorder?
         var billing: MeetingBilling
         /// False while paused: buffers only move the time on.
@@ -67,7 +68,7 @@ final class MeetingAudioPath: BufferListener, Sendable {
             var mixed = mic
             if mode == .remote {
                 state.gate.push(mic, at: time)
-                mixed = AudioMixer.mix(mic: mic, system: system)
+                mixed = AudioMixer.mix(mic: mic, system: state.leveller.process(system))
             }
             Self.withRecorder(&state) { try $0.write(mixed) }
             if supervisor?.feed(Self.buffer(mixed), at: time) == true {

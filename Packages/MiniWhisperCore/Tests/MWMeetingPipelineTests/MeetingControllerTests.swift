@@ -143,6 +143,27 @@ import MWUsage
         #expect(try harness.stored().meeting.billing.engineSeconds == 1600.0 / 16_000)
     }
 
+    /// Voice processing ducks other apps' audio, and the tap hears the call ducked.
+    @Test func remoteTickRaisesAQuietCallBeforeMixing() async throws {
+        let harness = try await MeetingHarness()
+        try await harness.start(.remote)
+        let amplitude = Float(pow(10, -46.0 / 20) * 2.0.squareRoot())
+        let call = SignalFixtures.sine(count: 6 * 16_000, sampleRate: 16_000, amplitude: amplitude, noise: 0)
+
+        for start in stride(from: 0, to: call.count, by: 1600) {
+            harness.pushSystem(Array(call[start..<start + 1600]))
+            harness.feed(MeetingHarness.quiet(0.1))
+        }
+
+        let written = (harness.writers.last?.events ?? []).flatMap { event -> [Float] in
+            guard case .write(let pcm) = event else { return [] }
+            return pcm.withUnsafeBytes { Array($0.bindMemory(to: Int16.self)) }.map { Float(Int16(littleEndian: $0)) / 32767 }
+        }
+        let lastSecond = written.suffix(16_000)
+        let level = 10 * log10(lastSecond.reduce(0) { $0 + Double($1) * Double($1) } / Double(lastSecond.count))
+        #expect(abs(Float(level) - SystemAudioLeveller.targetDBFS) < 1.5)
+    }
+
     @Test func inRoomTickBypassesTheGateAndTheMixer() async throws {
         let harness = try await MeetingHarness()
         try await harness.start(.inRoom)

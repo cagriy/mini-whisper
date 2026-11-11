@@ -2,7 +2,7 @@ import AVFAudio
 import Foundation
 import Testing
 
-import MWAudio
+@testable import MWAudio
 
 /// Hands each phase of a test the first buffer delivered after it starts waiting.
 private final class BufferProbe: @unchecked Sendable {
@@ -36,7 +36,9 @@ private final class BufferProbe: @unchecked Sendable {
 /// Opens the real microphone, so it is opt-in only: a plain `swift test` skips it.
 /// Command: `MW_INTEGRATION=1 swift test --filter AVAudioEngineBackendIntegrationTests`
 /// (prompts once for the Microphone permission).
-@Suite(.enabled(if: ProcessInfo.processInfo.environment["MW_INTEGRATION"] == "1"))
+/// Serialized: the tests share one microphone, and voice processing changes its input format
+/// under any engine running at the same time.
+@Suite(.serialized, .enabled(if: ProcessInfo.processInfo.environment["MW_INTEGRATION"] == "1"))
 struct AVAudioEngineBackendIntegrationTests {
     @Test func deliversABufferWithinOneSecond() async throws {
         let backend = AVAudioEngineBackend()
@@ -84,5 +86,15 @@ struct AVAudioEngineBackendIntegrationTests {
 
         try backend.setVoiceProcessing(false)
         #expect(await probe.nextBuffer(within: .seconds(5)) ?? 0 > 0)
+    }
+
+    /// Default ducking turned other apps' audio, the tap's copy of the call included, down ~30 dB.
+    @Test func voiceProcessingDucksOtherAudioOnlyMinimally() throws {
+        let backend = AVAudioEngineBackend()
+        defer { try? backend.setVoiceProcessing(false) }
+        try backend.setVoiceProcessing(true)
+        let ducking = backend.otherAudioDucking
+        #expect(ducking.enableAdvancedDucking.boolValue)
+        #expect(ducking.duckingLevel == .min)
     }
 }

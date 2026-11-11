@@ -8,6 +8,11 @@ import os
 /// (F18, F19).
 public final class AVAudioEngineBackend: AudioBackend, @unchecked Sendable {
     private let engine = AVAudioEngine()
+    /// The default level turns other apps' audio, the meeting tap's copy of the call included,
+    /// down about 30 dB; this one about 7 dB.
+    private static let otherAudioDucking = AVAudioVoiceProcessingOtherAudioDuckingConfiguration(
+        enableAdvancedDucking: true, duckingLevel: .min
+    )
     /// Kept so a voice-processing change can reinstall the tap at the new input format.
     private let tap = OSAllocatedUnfairLock<(size: AVAudioFrameCount, handler: @Sendable (AVAudioPCMBuffer) -> Void)?>(
         initialState: nil
@@ -42,6 +47,10 @@ public final class AVAudioEngineBackend: AudioBackend, @unchecked Sendable {
 
     public var inputFormat: AVAudioFormat { engine.inputNode.inputFormat(forBus: 0) }
 
+    var otherAudioDucking: AVAudioVoiceProcessingOtherAudioDuckingConfiguration {
+        engine.inputNode.voiceProcessingOtherAudioDuckingConfiguration
+    }
+
     public func start() throws {
         engine.prepare()
         try engine.start()
@@ -70,6 +79,9 @@ public final class AVAudioEngineBackend: AudioBackend, @unchecked Sendable {
         if wasRunning { engine.stop() }
         // On failure the engine still restarts, without voice processing.
         let applied = Result { try input.setVoiceProcessingEnabled(on) }
+        if on, case .success = applied {
+            input.voiceProcessingOtherAudioDuckingConfiguration = Self.otherAudioDucking
+        }
         if wasRunning {
             if let tap = tap.withLock({ $0 }) { installTap(bufferSize: tap.size, handler: tap.handler) }
             try start()
