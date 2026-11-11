@@ -1367,6 +1367,17 @@ None — plan matches design v5 exactly.
      `afplay` test, which now uses it.
    - Both tap integration tests fail on this Mac without System Audio Recording permission for
      the terminal, the existing `afplay` test included. Pending a run with the permission granted.
+9. **Stage 11.** After a sleep, `resume()` of a test meeting does nothing, as design §5.3's guard
+   reads: the meeting stays `.paused(.sleep)` until Stop. `sleepStillPausesATestMeeting` pins it.
+10. **Stage 13.**
+    - `FakeConductor`, `FakePlayer` and `CallLog` are internal in `TestCallSessionTests.swift`, not
+      private: `MeetingCoordinatorTests`' harness builds its test calls with them, as `StubApps`
+      is shared.
+    - The R5 sentence lives in `TestCallSetup.voicesUnavailable`, for Stage 16's link help text.
+    - `start()` and `startTestCall(_:)` share one private `begin(_:_:)`: the idle guard, ending
+      dictation, the start error and `show(meeting)`.
+    - `TestCallSession` also has `skip()` (design §5.1) and ignores a second `finish`, so a second
+      Stop during the run's last poll cannot score twice.
 
 ## Execution schedule
 
