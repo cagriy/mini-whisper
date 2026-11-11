@@ -101,7 +101,10 @@ struct MeetingsListView: View {
                         .onSubmit { commitRename(row) }
                         .onExitCommand { renaming = nil }
                 } else {
-                    Text(row.title).font(.system(size: 13, weight: .semibold)).lineLimit(1)
+                    HStack(spacing: 8) {
+                        Text(row.title).font(.system(size: 13, weight: .semibold)).lineLimit(1)
+                        if row.isTest { TestTag() }
+                    }
                 }
                 if row.snippets.isEmpty {
                     Text(row.excerpt)

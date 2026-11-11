@@ -63,6 +63,8 @@ final class MeetingsListModel {
         let snippets: [Snippet]
         let meta: String
         let audioBytes: Int
+        /// A test call: the TEST chip follows the title (R23).
+        let isTest: Bool
     }
 
     struct DayGroup: Identifiable, Equatable {
@@ -304,19 +306,26 @@ final class MeetingsListModel {
             excerptIsTranscript: !entry.hasSummary,
             snippets: hits?[entry.id] ?? [],
             meta: meta(of: entry),
-            audioBytes: entry.audioBytes
+            audioBytes: entry.audioBytes,
+            isTest: entry.test != nil
         )
     }
 
-    /// "14:30 · 48 min · Remote call · 3 speakers · $0.40 · Audio 23 MB" (mockup State 1).
+    /// "14:30 · 48 min · Remote call · 3 speakers · $0.40 · Audio 23 MB" (mockup State 1); a test
+    /// call reads "11:14 · 2 min · Remote call · WER 6.4% · AssemblyAI Universal-Streaming · $0.02",
+    /// without the WER until it is scored (R23).
     private func meta(of entry: IndexEntry) -> String {
         var parts = [
             timeFormat.string(from: entry.startedAt),
             Self.duration(entry.duration),
             MeetingWindowModel.title(of: entry.mode),
-            Self.plural(entry.speakerCount, "speaker"),
-            Pricing.dollars(entry.costUSD),
         ]
+        if let test = entry.test {
+            if let wer = test.wer { parts.append(String(format: "WER %.1f%%", wer * 100)) }
+            parts += [entry.engine.title, Pricing.dollars(entry.costUSD)]
+            return parts.joined(separator: " · ")
+        }
+        parts += [Self.plural(entry.speakerCount, "speaker"), Pricing.dollars(entry.costUSD)]
         if !entry.hasSummary { parts.append("No summary") }
         // §5.7: the index cannot tell deleted audio from audio never kept.
         parts.append(entry.audioBytes > 0 ? "Audio \(Self.size(entry.audioBytes))" : "Audio deleted")

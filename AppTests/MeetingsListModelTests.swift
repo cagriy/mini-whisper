@@ -24,14 +24,20 @@ import Testing
         cost: Double = 0.3976,
         summary: Bool = true,
         audio: Int = 23_000_000,
-        excerpt: String = "The rollout stays on schedule."
+        excerpt: String = "The rollout stays on schedule.",
+        engine: MeetingEngine = .speechmaticsStandard,
+        test: TestCallTag? = nil
     ) -> IndexEntry {
         let start = now.addingTimeInterval(-hoursAgo * 3600)
         return IndexEntry(
             id: UUID(), title: title, startedAt: start, endedAt: start.addingTimeInterval(duration), duration: duration,
-            mode: mode, app: "Zoom", engine: .speechmaticsStandard, speakerCount: speakers, costUSD: cost,
-            hasSummary: summary, audioBytes: audio, excerpt: excerpt
+            mode: mode, app: "Zoom", engine: engine, speakerCount: speakers, costUSD: cost,
+            hasSummary: summary, audioBytes: audio, excerpt: excerpt, test: test
         )
+    }
+
+    private static func sprintPlanning(wer: Double? = nil) -> TestCallTag {
+        TestCallTag(scenarioID: "sprint-planning", revision: 1, scenarioTitle: "Sprint planning", wer: wer)
     }
 
     /// The store as the list sees it: index entries plus whatever loads.
@@ -234,6 +240,36 @@ import Testing
         #expect(rows.first?.meta == "14:00 · 48 min · Remote call · 3 speakers · $0.29 · Audio deleted")
     }
 
+    @Test func testRowShowsTheChipAndTheWERMeta() async {
+        let harness = Harness(StubLibrary([
+            Self.entry(
+                "Test call · Sprint planning", hoursAgo: 226 / 60, duration: 125, cost: 0.0215, summary: false,
+                audio: 2_000_000, engine: .assemblyaiStreaming, test: Self.sprintPlanning(wer: 0.064)
+            ),
+            Self.entry("Sprint 14 planning", hoursAgo: 5),
+        ]))
+        let rows = rows(await harness.loaded())
+
+        #expect(rows.map(\.meta) == [
+            "11:14 · 2 min · Remote call · WER 6.4% · AssemblyAI Universal-Streaming · $0.02",
+            "10:00 · 48 min · Remote call · 3 speakers · $0.40 · Audio 23 MB",
+        ])
+        #expect(rows.map(\.isTest) == [true, false])
+    }
+
+    @Test func unscoredTestRowOmitsWER() async {
+        let harness = Harness(StubLibrary([
+            Self.entry(
+                "Test call · Sprint planning", hoursAgo: 226 / 60, duration: 125, cost: 0.0215,
+                engine: .assemblyaiStreaming, test: Self.sprintPlanning()
+            ),
+        ]))
+        let rows = rows(await harness.loaded())
+
+        #expect(rows.first?.meta == "11:14 · 2 min · Remote call · AssemblyAI Universal-Streaming · $0.02")
+        #expect(rows.first?.isTest == true)
+    }
+
     @Test func footerCountsMeetingsAndAudio() async {
         let harness = Harness(StubLibrary([
             Self.entry("Northwind rollout sync", hoursAgo: 1),
@@ -297,6 +333,25 @@ import Testing
         model.query = ""
         #expect(rows(model).count == 3)
         #expect(model.footer.hasPrefix("3 meetings"))
+    }
+
+    @Test func searchStillFindsTestMeetings() async {
+        let testCall = Self.loaded(
+            "Test call · Sprint planning", note: "Sprint scope agreed", test: Self.sprintPlanning(wer: 0.064)
+        )
+        let standup = Self.loaded("Standup", startedHoursAgo: 2, note: "Nothing to see")
+        let harness = Harness(StubLibrary([testCall, standup].map(Self.entry(from:)), meetings: [testCall, standup]))
+        let model = await harness.loaded()
+        var sleeps = harness.clock.sleeps.makeAsyncIterator()
+
+        model.query = "sprint"
+        _ = await sleeps.next()
+        harness.clock.wake()
+        await model.search?.value
+
+        #expect(rows(model).map(\.title) == ["Test call · Sprint planning"])
+        #expect(rows(model).map(\.isTest) == [true])
+        #expect(rows(model).first?.snippets.map(\.label) == ["Note · 00:40:05"])
     }
 
     @Test func emptyStateNamesTheHotkey() async {
@@ -427,7 +482,8 @@ import Testing
         startedHoursAgo: Double = 0.5,
         segment: (speaker: Int, start: Double, text: String)? = nil,
         note: String? = nil,
-        summary: String? = nil
+        summary: String? = nil,
+        test: TestCallTag? = nil
     ) -> LoadedMeeting {
         let start = now.addingTimeInterval(-startedHoursAgo * 3600)
         let meeting = Meeting(
@@ -436,7 +492,8 @@ import Testing
             speakers: [SpeakerLabel(id: 0, name: "Alex", isUser: true), SpeakerLabel(id: 3, name: "Speaker 3")],
             summary: summary.map {
                 Summary(text: $0, model: "claude-sonnet-5-5", createdAt: start, inputTokens: 1, outputTokens: 1, costUSD: 0)
-            }
+            },
+            test: test
         )
         return LoadedMeeting(
             meeting: meeting,
@@ -450,7 +507,7 @@ import Testing
         return IndexEntry(
             id: m.id, title: m.title, startedAt: m.startedAt, endedAt: m.endedAt, duration: m.durationSeconds,
             mode: m.mode, app: nil, engine: m.engine, speakerCount: m.speakers.count, costUSD: 0.1,
-            hasSummary: m.summary != nil, audioBytes: 0, excerpt: "Excerpt."
+            hasSummary: m.summary != nil, audioBytes: 0, excerpt: "Excerpt.", test: m.test
         )
     }
 }
