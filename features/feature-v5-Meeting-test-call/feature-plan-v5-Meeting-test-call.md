@@ -1340,6 +1340,19 @@ None — plan matches design v5 exactly.
 4. **Stage 3.** Currency reads `$1` as "one dollar", and a fraction other than two digits as a
    decimal (`$1.5` → "one point five dollars"). The literal `<n> dollars [<cents>]` form would make
    `$1` "one dollars", which no script matches.
+5. **Stage 5.** A listed English voice that fails the name allow-list does not count towards R5's
+   two English voices, because it can never be cast.
+6. **Stage 7.**
+   - `RunLine.index` and every `ConductorEvent` line number are 1-based script line numbers, as in
+     the record (§5.2), the pane's "6 of 12" and the log.
+   - The conductor takes `casting: [TestCallRole: CastVoice]`, the `.ready` payload, so it never
+     holds `.unavailable`.
+   - Overlap flags record only overlaps that happened: when the user's line ends before its voice
+     launches, both flags are cleared and the voice plays alone.
+   - Skip and `end` during an overlap end both lines under way and stop `say`.
+   - "Two consecutive `say` failures" counts `say` runs; only a normal exit resets the count.
+   - Skip reasons log as `skip`, `no speech` and `voice failed`.
+   - Deadlines compare with a 1 µs tolerance, because meeting times are sums of floating seconds.
 
 ## Execution schedule
 
