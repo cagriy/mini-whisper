@@ -23,6 +23,7 @@ let package = Package(
         .library(name: "MWMeetings", targets: ["MWMeetings"]),
         .library(name: "MWMeetingPipeline", targets: ["MWMeetingPipeline"]),
         .library(name: "MWAgentAccess", targets: ["MWAgentAccess"]),
+        .library(name: "MWTestCall", targets: ["MWTestCall"]),
     ],
     targets: [
         .target(name: "MWSupport"),
@@ -58,6 +59,7 @@ let package = Package(
         ),
         // Read-only meeting access for the CLI and MCP server: no audio, streaming or pipeline.
         .target(name: "MWAgentAccess", dependencies: ["MWMeetings", "MWSupport"]),
+        .target(name: "MWTestCall", dependencies: ["MWMeetings", "MWConfig", "MWSupport"]),
         .target(
             name: "MWTestSupport",
             dependencies: [
@@ -94,6 +96,12 @@ let package = Package(
         ),
         .testTarget(name: "MWMeetingPipelineTests", dependencies: ["MWMeetingPipeline", "MWTestSupport"]),
         .testTarget(name: "MWAgentAccessTests", dependencies: ["MWAgentAccess", "MWTestSupport"]),
+        // MWOverlaySim for `SeededRandom`, the repo's seeded RNG.
+        .testTarget(
+            name: "MWTestCallTests",
+            dependencies: ["MWTestCall", "MWTestSupport", "MWOverlaySim"],
+            resources: [.copy("Fixtures")]
+        ),
     ],
     swiftLanguageModes: [.v6]
 )

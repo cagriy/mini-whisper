@@ -1,0 +1,11 @@
+Alice               it_IT    # Ciao! Mi chiamo Alice.
+Alva                sv_SE    # Hej! Jag heter Alva.
+Bad News            en_US    # Hello! My name is Bad News.
+Daniel              en_GB    # Hello! My name is Daniel.
+Eddy (English (UK)) en_GB    # Hello! My name is Eddy.
+Grandma (German (Germany)) de_DE    # Hallo! Ich heiße Grandma.
+Karen               en_AU    # Hello! My name is Karen.
+Moira               en_IE    # Hello! My name is Moira.
+Rishi               en_IN    # Hello! My name is Rishi.
+Samantha            en_US    # Hello! My name is Samantha.
+Tessa               en_ZA    # Hello! My name is Tessa.
