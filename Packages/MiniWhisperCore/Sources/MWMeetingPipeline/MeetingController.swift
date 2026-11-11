@@ -26,6 +26,10 @@ public final class MeetingController {
     /// The meeting as last written to `meeting.json`, plus markers since.
     public private(set) var meeting: Meeting?
     public var isActive: Bool { state.isActive }
+    /// The time each segment of a test meeting was appended, in meeting seconds (design R17).
+    public private(set) var segmentArrivals: [UUID: Double] = [:]
+    /// The meeting time of the latest one-second tick whose system audio was audible.
+    public private(set) var lastAudibleSystemAudio: Double?
 
     private nonisolated let continuation: AsyncStream<MeetingEvent>.Continuation
     private let deps: MeetingDependencies
@@ -76,10 +80,13 @@ public final class MeetingController {
 
     /// Design §5.6 Start. Throws `MeetingError.noEngineKey` without a Speechmatics or
     /// AssemblyAI key, or the capture or storage error that kept the meeting from starting.
-    public func start(mode: MeetingMode, title: String) async throws {
+    /// A test call gives its `engine`, used in place of the configured one, and its `test` tag.
+    public func start(
+        mode: MeetingMode, title: String, engine given: MeetingEngine? = nil, test: TestCallTag? = nil
+    ) async throws {
         guard state == .idle else { return }
         let config = await configStore.load()
-        guard let engine = MeetingEngine.resolve(stored: config.meetingEngine, hasKey: { self.secret($0) != nil }),
+        guard let engine = given ?? MeetingEngine.resolve(stored: config.meetingEngine, hasKey: { self.secret($0) != nil }),
               let key = secret(engine.keyAccount)
         else { throw MeetingError.noEngineKey }
         setState(.starting)
@@ -89,7 +96,7 @@ public final class MeetingController {
         registry = SpeakerRegistry(userName: userName)
         let meeting = Meeting(
             title: title, startedAt: deps.now(), mode: mode, app: deps.frontAppName(), engine: engine,
-            userName: userName, speakers: registry.labels
+            userName: userName, speakers: registry.labels, test: test
         )
         let supervisor = SessionSupervisor(
             provider: deps.engines,
@@ -212,6 +219,9 @@ public final class MeetingController {
         tallies = attribution.tallies
         if speakersChanged { emit(.speakers(registry.labels)) }
         segments += attribution.segments
+        if meeting.test != nil {
+            for segment in attribution.segments { segmentArrivals[segment.id] = meetingTime }
+        }
         await persistSegments()
         for segment in attribution.segments { emit(.segmentAdded(segment)) }
     }
@@ -316,7 +326,10 @@ public final class MeetingController {
     // MARK: - Ticker
 
     /// Meeting seconds now, paused spans included.
-    private var meetingTime: Double { deps.clock.now - clockOrigin }
+    public var meetingTime: Double { deps.clock.now - clockOrigin }
+
+    /// The user's microphone speech, as the gate holds it.
+    public var userSpeech: SpeechGate.View { audioPath?.gateView ?? SpeechGate.View() }
 
     private func startTicker() {
         ticker = Task { [weak self, clock = deps.clock] in
@@ -331,10 +344,14 @@ public final class MeetingController {
     }
 
     /// Design §5.6 Silence hint: a tap that stays silent through a minute in which the user
-    /// spoke most likely lacks the System Audio Recording permission.
+    /// spoke most likely lacks the System Audio Recording permission. The peak's one reader, it
+    /// reads it every tick, so `lastAudibleSystemAudio` keeps moving after the hint has settled.
     private func checkSystemAudio() {
-        guard !systemAudioSettled, tap != nil, let audioPath else { return }
-        if audioPath.systemPeakSinceLastCall() > Self.audibleSystemPeak {
+        guard tap != nil, let audioPath else { return }
+        let audible = audioPath.systemPeakSinceLastCall() > Self.audibleSystemPeak
+        if audible { lastAudibleSystemAudio = meetingTime }
+        guard !systemAudioSettled else { return }
+        if audible {
             systemAudioSettled = true
         } else if meetingTime >= Self.silenceHintAfter, !audioPath.gateView.spans.isEmpty {
             systemAudioSettled = true
@@ -344,7 +361,9 @@ public final class MeetingController {
 
     // MARK: - Pause
 
+    /// A test meeting cannot pause (R11); a sleep still pauses it.
     public func pause() async {
+        guard meeting?.test == nil else { return }
         await pause(.user)
     }
 
@@ -364,6 +383,7 @@ public final class MeetingController {
 
     /// Design §5.6 Resume: silence fills the paused span of the audio file and a new session opens.
     public func resume() async {
+        guard meeting?.test == nil else { return }
         await closing?.value
         guard state.isPaused, let audioPath, let supervisor else { return }
         audioPath.catchUp(to: meetingTime)
@@ -537,7 +557,20 @@ public final class MeetingController {
         segments.forEach { emit(.segmentAdded($0)) }
         notes.forEach { emit(.note($0)) }
         if let summary = loaded.meeting.summary { emit(.summary(.ready(summary))) }
+        if let tag = loaded.meeting.test { emit(.testScore(storedScore(id, tag: tag))) }
         setState(.stopped)
+    }
+
+    /// Design §3 R20: a tag without a score file is an unfinished test call, unless it carries
+    /// the WER the file was scored with.
+    private func storedScore(_ id: UUID, tag: TestCallTag) -> TestScoreState {
+        do {
+            if let record = try deps.store.readTestCall(id) { return .scored(record) }
+            return tag.wer == nil ? .missing : .unreadable
+        } catch {
+            log.warning("test call score unreadable: \(AnyError(error).description)")
+            return .unreadable
+        }
     }
 
     // MARK: - Summary

@@ -35,6 +35,15 @@ public enum SystemAudioState: Sendable, Equatable {
     case silentHint
 }
 
+/// A test meeting's score (design §3 R20, §5.3).
+public enum TestScoreState: Sendable, Equatable {
+    case scored(TestCallRecord)
+    /// No score file and no WER on the tag: the test call did not finish.
+    case missing
+    /// The score file fails to decode, or is gone although the tag has a WER.
+    case unreadable
+}
+
 /// Everything the meeting window renders, in order (design §5.3).
 public enum MeetingEvent: Sendable, Equatable {
     case state(MeetingState)
@@ -52,6 +61,8 @@ public enum MeetingEvent: Sendable, Equatable {
     case cost(Double)
     case summary(SummaryState)
     case systemAudio(SystemAudioState)
+    /// A test meeting's score: on open, and once scored at Stop.
+    case testScore(TestScoreState)
     /// A failure the meeting survives, such as a transcript write error.
     case error(String)
 }

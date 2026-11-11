@@ -479,4 +479,16 @@ import Testing
         model.apply(.summary(.ready(Self.summary)))
         #expect(model.costText == "$0.40")
     }
+
+    // MARK: - Test calls
+
+    @Test func testScoreEventIsKept() {
+        let model = model()
+        #expect(model.testScore == nil)
+
+        model.apply(.testScore(.missing))
+        #expect(model.testScore == .missing)
+        model.apply(.testScore(.unreadable))
+        #expect(model.testScore == .unreadable)
+    }
 }

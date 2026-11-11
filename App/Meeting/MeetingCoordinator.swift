@@ -1,4 +1,5 @@
 import Foundation
+import MWConfig
 import MWMeetingPipeline
 import MWMeetings
 import MWSupport
@@ -9,7 +10,10 @@ protocol MeetingControlling: AnyObject {
     var events: AsyncStream<MeetingEvent> { get }
     var state: MeetingState { get }
     var meeting: Meeting? { get }
-    func start(mode: MeetingMode, title: String) async throws
+    var meetingTime: Double { get }
+    var userSpeech: SpeechGate.View { get }
+    var lastAudibleSystemAudio: Double? { get }
+    func start(mode: MeetingMode, title: String, engine: MeetingEngine?, test: TestCallTag?) async throws
     func stop(summarise: Bool) async
     func pause() async
     func resume() async
@@ -196,7 +200,7 @@ final class MeetingCoordinator {
         let title = MeetingTitle.default(app: session.frontApp, date: deps.now())
         await deps.endDictation()
         do {
-            try await session.controller.start(mode: session.model.mode, title: title)
+            try await session.controller.start(mode: session.model.mode, title: title, engine: nil, test: nil)
             if let meeting = session.controller.meeting { session.model.show(meeting) }
         } catch {
             session.model.showError(AnyError(error).description)

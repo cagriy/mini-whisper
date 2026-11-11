@@ -244,6 +244,8 @@ final class MeetingWindowModel {
     private(set) var summary: SummaryState?
     private(set) var errorMessage: String?
     private(set) var endedAt: Date?
+    /// A test meeting's score, once the controller has read or computed it.
+    private(set) var testScore: TestScoreState?
 
     var noteDraft = "" {
         didSet {
@@ -462,6 +464,8 @@ final class MeetingWindowModel {
             if case .ready = summary { summaryTruncated = isTruncated }
         case .systemAudio(let state):
             systemAudio = state
+        case .testScore(let score):
+            testScore = score
         case .error(let message):
             errorMessage = message
         }

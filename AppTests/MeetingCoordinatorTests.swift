@@ -16,7 +16,7 @@ import Testing
         private let continuation: AsyncStream<MeetingEvent>.Continuation
         var state: MeetingState = .idle
         var meeting: Meeting?
-        var starts: [(mode: MeetingMode, title: String)] = []
+        var starts: [(mode: MeetingMode, title: String, engine: MeetingEngine?, test: TestCallTag?)] = []
         var stops: [Bool] = []
         /// The window's stopped-state requests, in arrival order.
         let requests: AsyncStream<String>
@@ -27,11 +27,15 @@ import Testing
             (requests, request) = AsyncStream.makeStream()
         }
 
-        func start(mode: MeetingMode, title: String) async throws {
-            starts.append((mode, title))
+        var meetingTime = 0.0
+        var userSpeech = SpeechGate.View()
+        var lastAudibleSystemAudio: Double?
+
+        func start(mode: MeetingMode, title: String, engine: MeetingEngine?, test: TestCallTag?) async throws {
+            starts.append((mode, title, engine, test))
             state = .recording
             meeting = Meeting(title: title, startedAt: MeetingCoordinatorTests.now, mode: mode,
-                              engine: .speechmaticsStandard, userName: "Alex")
+                              engine: engine ?? .speechmaticsStandard, userName: "Alex", test: test)
         }
 
         func stop(summarise: Bool) async {
@@ -226,6 +230,8 @@ import Testing
         #expect(harness.frontApps == ["Zoom"])
         #expect(harness.controllers[0].starts.map(\.title) == [MeetingTitle.default(app: "Zoom", date: Self.now)])
         #expect(harness.controllers[0].starts.map(\.mode) == [.remote])
+        #expect(harness.controllers[0].starts.map(\.engine) == [nil])
+        #expect(harness.controllers[0].starts.map(\.test) == [nil])
     }
 
     @Test func startEndsAnInFlightDictationFirst() async {
