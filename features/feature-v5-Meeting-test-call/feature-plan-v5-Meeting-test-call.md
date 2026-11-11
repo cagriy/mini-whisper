@@ -1331,6 +1331,15 @@ None — plan matches design v5 exactly.
    three tests open the same microphone at once, and voice processing changes the input format
    under the other engines: one run crashed in `installTap`, another lost
    `deliversABufferWithinOneSecond`. Serial runs passed 3 of 3 before and after the change.
+2. **Stage 3.** The aligner breaks ties walking forward from the start over a suffix-cost table,
+   preferring match or substitute, then insert, then delete. A backtrace from the end with that
+   preference gives `insert(web)`, `substitute(webhook→hook)`, not the pinned
+   `substitute(webhook→web)`, `insert(hook)`; the forward walk gives the pinned order.
+3. **Stage 3.** `Alignment` is nested as `WordAligner.Alignment`. A top-level `Alignment` would
+   clash with SwiftUI's in every App file that imports `MWTestCall`.
+4. **Stage 3.** Currency reads `$1` as "one dollar", and a fraction other than two digits as a
+   decimal (`$1.5` → "one point five dollars"). The literal `<n> dollars [<cents>]` form would make
+   `$1` "one dollars", which no script matches.
 
 ## Execution schedule
 
