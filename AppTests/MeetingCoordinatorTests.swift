@@ -3,6 +3,7 @@ import MWConfig
 import MWMeetingPipeline
 import MWMeetings
 import MWStreaming
+import MWTestCall
 import Testing
 @testable import MiniWhisper
 
@@ -46,6 +47,7 @@ import Testing
             continuation.yield(.state(.stopped))
         }
 
+        func finishTest(_ run: TestCallRun, scenario: TestScenario) async {}
         func pause() async { state = .paused(.user) }
         func resume() async { state = .recording }
         func rename(speaker: Int, to name: String) async {}

@@ -5,6 +5,7 @@ import MWCorrections
 import MWMeetings
 import MWStreaming
 import MWSupport
+import MWTestCall
 import MWUsage
 
 /// One meeting from Start to its summary (design §5.3, §5.6): capture held open with voice
@@ -538,6 +539,34 @@ public final class MeetingController {
         guard !title.isEmpty, meeting != nil, meeting?.title != title else { return }
         meeting?.title = title
         await saveMeeting()
+    }
+
+    // MARK: - Test call
+
+    /// Design §5.3: after `stop(summarise: false)`, scores a test meeting from its segments as
+    /// they stand after the drain, stores the score and caches its WER on the tag. A failed
+    /// write still shows the score for this session (§5.6).
+    public func finishTest(_ run: TestCallRun, scenario: TestScenario) async {
+        guard state == .stopped, let meeting, meeting.test != nil else { return }
+        let record = TestCallScorer().score(
+            run: run, scenario: scenario, segments: segments, arrivals: segmentArrivals,
+            speakers: registry.labels, userSpeaker: SpeakerRegistry.userID, engine: meeting.engine,
+            scoredAt: deps.now()
+        )
+        do {
+            try await deps.store.writeTestCall(record, of: meeting.id)
+        } catch {
+            let reason = AnyError(error).description
+            log.error("testcall.json not written: \(reason)")
+            emit(.error("Could not write the test score (\(reason))"))
+        }
+        self.meeting?.test?.wer = record.overall.wer
+        await saveMeeting()
+        emit(.testScore(.scored(record)))
+        let wer = record.overall.wer.map { String(format: "%.3f", $0) } ?? "none"
+        let scored = record.lines.filter { $0.counts != nil }.count
+        let latency = record.latency.map { String(format: "%.1f", $0.median) } ?? "none"
+        log.info("test call: scored wer=\(wer) lines=\(scored)/\(record.lines.count) latency_med=\(latency)")
     }
 
     // MARK: - Stored meetings

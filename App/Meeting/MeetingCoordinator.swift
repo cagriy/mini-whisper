@@ -3,6 +3,7 @@ import MWConfig
 import MWMeetingPipeline
 import MWMeetings
 import MWSupport
+import MWTestCall
 
 /// What the coordinator and window need of a meeting. One conformer: `MeetingController`.
 @MainActor
@@ -15,6 +16,7 @@ protocol MeetingControlling: AnyObject {
     var lastAudibleSystemAudio: Double? { get }
     func start(mode: MeetingMode, title: String, engine: MeetingEngine?, test: TestCallTag?) async throws
     func stop(summarise: Bool) async
+    func finishTest(_ run: TestCallRun, scenario: TestScenario) async
     func pause() async
     func resume() async
     func rename(speaker: Int, to name: String) async

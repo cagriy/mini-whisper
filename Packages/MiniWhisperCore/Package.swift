@@ -54,7 +54,7 @@ let package = Package(
             name: "MWMeetingPipeline",
             dependencies: [
                 "MWMeetings", "MWStreaming", "MWAudio", "MWConfig", "MWCorrections", "MWUsage",
-                "MWTranscription", "MWSupport",
+                "MWTranscription", "MWSupport", "MWTestCall",
             ]
         ),
         // Read-only meeting access for the CLI and MCP server: no audio, streaming or pipeline.

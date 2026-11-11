@@ -5,12 +5,14 @@ import MWConfig
 import MWMeetingPipeline
 import MWMeetings
 import MWStreaming
+import MWSupport
+import MWTestCall
 import MWTestSupport
 
 private let sprintPlanning = TestCallTag(scenarioID: "sprint-planning", revision: 1, scenarioTitle: "Sprint planning")
 
 /// A test meeting in the controller (design §5.3): the given engine and tag, the timing and
-/// speech the conductor reads, segment arrivals, the Pause guard and the score on open.
+/// speech the conductor reads, segment arrivals, the Pause guard, the score at Stop and on open.
 @MainActor
 @Suite struct MeetingControllerTestCallTests {
     private static let record = TestCallRecord(
@@ -26,6 +28,34 @@ private let sprintPlanning = TestCallTag(scenarioID: "sprint-planning", revision
         crossCredited: .init(voiceWordsAsYou: 0, yourWordsAsVoices: 0),
         latency: nil
     )
+    private static let scenario = TestScenario(
+        id: "sprint-planning", revision: 1, title: "Sprint planning",
+        voices: [
+            VoiceRole(role: .a, character: "Tom", requested: "Daniel"),
+            VoiceRole(role: .b, character: "Priya", requested: "Karen"),
+        ],
+        lines: [
+            ScenarioLine(role: .a, text: "Northwind ships the Kubernetes upgrade on Friday."),
+            ScenarioLine(role: .you, text: "Agreed, Friday works for the rollout."),
+        ]
+    )
+    /// What the engine heard: line 1 exactly, line 2 with one word substituted.
+    private static let heard = ["Northwind ships the Kubernetes upgrade on Friday.", "Agreed, Friday works for a rollout."]
+
+    /// Line 1 the voice from 0 s to 3 s, line 2 the user from 6 s to 9 s.
+    private static func run(_ statuses: [TestCallLineStatus] = [.done, .done]) -> TestCallRun {
+        TestCallRun(
+            lines: [
+                RunLine(index: 1, role: .a, status: statuses[0], start: 0, end: 3),
+                RunLine(index: 2, role: .you, status: statuses[1], start: 6, end: 9),
+            ],
+            casting: [
+                .a: CastVoice(role: .a, character: "Tom", requested: "Daniel", voice: "Daniel"),
+                .b: CastVoice(role: .b, character: "Priya", requested: "Karen", voice: "Karen"),
+            ],
+            overlap: false
+        )
+    }
 
     // MARK: - Start
 
@@ -163,6 +193,143 @@ private let sprintPlanning = TestCallTag(scenarioID: "sprint-planning", revision
         #expect(!events.contains(.systemAudio(.silentHint)))
     }
 
+    // MARK: - Score at Stop
+
+    @Test func finishTestWritesTheScoreSetsWERAndRefreshesTheIndex() async throws {
+        let harness = try await MeetingHarness()
+        try await recordTestCall(harness)
+
+        await harness.controller.finishTest(Self.run(), scenario: Self.scenario)
+
+        let record = try #require(Self.scored(await harness.waitFor(Self.isTestScore)))
+        let id = try #require(harness.controller.meeting?.id)
+        #expect(try harness.store.readTestCall(id) == record)
+        #expect(record.overall == .init(words: 13, substitutions: 1, deletions: 0, insertions: 0))
+        #expect(record.engine == .speechmaticsStandard)
+        #expect(record.scoredAt == MeetingHarness.wallStart.addingTimeInterval(10))
+        // Segments arrived at seconds 4 and 10, a second after each line ended.
+        #expect(record.latency?.median == 1)
+        let wer = try #require(record.overall.wer)
+        #expect(harness.controller.meeting?.test?.wer == wer)
+        #expect(try harness.stored().meeting.test?.wer == wer)
+        #expect(try harness.store.index().map(\.test?.wer) == [wer])
+    }
+
+    /// R24: a test call bills at Stop and summarises like any meeting.
+    @Test func stopStillBillsAndSummariseStillRuns() async throws {
+        let harness = try await MeetingHarness(secrets: [.speechmatics: MeetingHarness.key, .anthropic: MeetingHarness.key])
+        try await recordTestCall(harness)
+        #expect(harness.usage.added.count == 1)
+
+        await harness.controller.finishTest(Self.run(), scenario: Self.scenario)
+        await harness.controller.summarise()
+
+        #expect(harness.summarizer.calls.count == 1)
+        let stored = try harness.stored().meeting
+        #expect(stored.summary?.text == "## Summary\n\nShipped.")
+        #expect(stored.test?.wer != nil)
+        #expect(harness.usage.added.count == 2)
+    }
+
+    /// Design §5.6: the score still shows for this session; a later open cannot read it.
+    @Test func writeFailureEmitsAnErrorAndStillTheScore() async throws {
+        let harness = try await MeetingHarness()
+        try await recordTestCall(harness)
+        let id = try #require(harness.controller.meeting?.id)
+        // The rename into place fails onto a directory.
+        try FileManager.default.createDirectory(at: harness.testCallURL(id), withIntermediateDirectories: false)
+
+        await harness.controller.finishTest(Self.run(), scenario: Self.scenario)
+
+        let events = await harness.waitFor(Self.isTestScore)
+        let errors = events.compactMap { if case .error(let message) = $0 { message } else { nil } }
+        #expect(errors.count == 1)
+        #expect(errors.first?.hasPrefix("Could not write the test score (") == true)
+        let record = try #require(Self.scored(events))
+        let wer = try #require(record.overall.wer)
+        #expect(harness.controller.meeting?.test?.wer == wer)
+        #expect(try harness.stored().meeting.test?.wer == wer)
+        let reopened = try await scoresOnOpen(harness.stored()) { other, id in
+            try FileManager.default.createDirectory(at: other.testCallURL(id), withIntermediateDirectories: false)
+        }
+        #expect(reopened == [.unreadable])
+    }
+
+    @Test func everyLineSkippedWritesAZeroLineRecordAndLeavesWERNil() async throws {
+        let harness = try await MeetingHarness()
+        try await recordTestCall(harness)
+
+        await harness.controller.finishTest(Self.run([.skipped, .skipped]), scenario: Self.scenario)
+
+        let record = try #require(Self.scored(await harness.waitFor(Self.isTestScore)))
+        #expect(record.overall.words == 0)
+        #expect(record.latency == nil)
+        let id = try #require(harness.controller.meeting?.id)
+        #expect(try harness.store.readTestCall(id) == record)
+        #expect(try harness.stored().meeting.test == sprintPlanning)
+    }
+
+    @Test func finishTestOnAnOrdinaryMeetingDoesNothing() async throws {
+        let harness = try await MeetingHarness()
+        try await harness.start(.remote)
+        try await harness.deliverSegment()
+        await harness.controller.stop(summarise: false)
+        await harness.waitFor(.state(.stopped))
+
+        await harness.controller.finishTest(Self.run(), scenario: Self.scenario)
+        // Any later event shows whether a score came first.
+        await harness.controller.rename(speaker: 0, to: "Sam")
+
+        let events = await harness.waitFor { if case .speakers = $0 { true } else { false } }
+        #expect(!events.contains(where: Self.isTestScore))
+        let id = try #require(harness.controller.meeting?.id)
+        #expect(try harness.store.readTestCall(id) == nil)
+        #expect(try harness.stored().meeting.test == nil)
+    }
+
+    /// R27: ids, counts and times only.
+    @Test func scoredLogLineCarriesNoText() async throws {
+        let sink = CapturingLogSink()
+        let harness = try await MeetingHarness()
+
+        try await logging(to: sink) {
+            try await recordTestCall(harness)
+            await harness.controller.finishTest(Self.run(), scenario: Self.scenario)
+        }
+
+        #expect(sink.lines.filter { $0.contains("test call: scored") } == [
+            "INFO meeting test call: scored wer=0.077 lines=2/2 latency_med=1.0",
+        ])
+        let words = Set((Self.scenario.lines.map(\.text) + Self.heard).flatMap {
+            $0.lowercased().split { !$0.isLetter }.map(String.init)
+        }.filter { $0.count >= 4 })
+        for line in sink.lines.map({ $0.lowercased() }) {
+            #expect(!words.contains { line.contains($0) }, "\(line)")
+        }
+    }
+
+    /// Starts a test meeting on one second of audio, delivers each line's transcript a second
+    /// after the line ends (meeting seconds 4 and 10), and stops without a summary.
+    private func recordTestCall(_ harness: MeetingHarness) async throws {
+        try await harness.startTest()
+        harness.feed(MeetingHarness.quiet(1))
+        for (text, start, arrival) in [(Self.heard[0], 0.5, 4.0), (Self.heard[1], 6.5, 10.0)] {
+            await harness.clock.waitUntilSleeping()
+            harness.clock.advance(by: arrival - harness.clock.now)
+            try harness.sink(1).onSegment(TranscriptSegment(text: text, speaker: "S1", start: start, end: start + 2))
+            await harness.waitFor { if case .segmentAdded = $0 { true } else { false } }
+        }
+        await harness.controller.stop(summarise: false)
+    }
+
+    private static func isTestScore(_ event: MeetingEvent) -> Bool {
+        if case .testScore = event { true } else { false }
+    }
+
+    private static func scored(_ events: [MeetingEvent]) -> TestCallRecord? {
+        events.lazy.compactMap { if case .testScore(.scored(let record)) = $0 { record } else { nil } }.last
+    }
+
     // MARK: - Open
 
     @Test func openEmitsScored() async throws {
@@ -210,6 +377,11 @@ private let sprintPlanning = TestCallTag(scenarioID: "sprint-planning", revision
             if case .testScore(let score) = $0 { score } else { nil }
         }
     }
+}
+
+/// `Log.withSinks` around a main-actor body.
+private func logging(to sink: CapturingLogSink, _ body: @MainActor @Sendable () async throws -> Void) async throws {
+    try await Log.withSinks(debug: true, sinks: [sink]) { try await body() }
 }
 
 private extension MeetingHarness {
