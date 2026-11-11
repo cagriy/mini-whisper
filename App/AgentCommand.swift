@@ -38,10 +38,10 @@ struct AgentCommand {
         let store = MeetingStore(directory: AppDelegate.configDirectory.appendingPathComponent("meetings", isDirectory: true))
         switch kind {
         case .meetings(let arguments):
-            return MeetingsCLI(reader: store, generator: Self.generator)
+            return MeetingsCLI(reader: AgentMeetings(store), generator: Self.generator)
                 .run(arguments, out: Self.write(to: .standardOutput), err: Self.write(to: .standardError))
         case .mcp:
-            return MCPServer(reader: store, version: Self.version)
+            return MCPServer(reader: AgentMeetings(store), version: Self.version)
                 .run(readLine: { readLine() }, write: Self.write(to: .standardOutput))
         }
     }
