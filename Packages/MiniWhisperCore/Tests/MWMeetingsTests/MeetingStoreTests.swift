@@ -252,6 +252,90 @@ import MWMeetings
         #expect(try fixture.store.index().first?.audioBytes == 0)
     }
 
+    private let tag = TestCallTag(scenarioID: "sprint-planning", revision: 1, scenarioTitle: "Sprint planning")
+
+    private func record() -> TestCallRecord {
+        TestCallRecord(
+            scenario: .init(id: "sprint-planning", revision: 1, title: "Sprint planning"),
+            engine: .assemblyaiStreaming,
+            overlap: true,
+            scoredAt: Date(timeIntervalSince1970: 1_794_395_762),
+            voices: [.init(role: .a, character: "Tom", requested: "Daniel", voice: "Daniel")],
+            lines: [
+                .init(index: 0, role: .a, status: .done, start: 1, end: 3, overlapped: false, reference: "Morning all.",
+                      counts: .init(words: 2, substitutions: 0, deletions: 0, insertions: 0),
+                      heard: [.init(text: "Morning", op: .match), .init(text: "all", op: .match)],
+                      labels: ["1": 2], segmentStart: 1.1, latency: 0.8),
+                .init(index: 1, role: .you, status: .notReached, reference: "Thanks."),
+            ],
+            roles: [.init(role: .a, words: 2, substitutions: 0, deletions: 0, insertions: 0,
+                          majorityLabel: 1, majorityLabelName: "Speaker 1", purity: 1)],
+            overall: .init(words: 2, substitutions: 0, deletions: 0, insertions: 0),
+            crossCredited: .init(voiceWordsAsYou: 0, yourWordsAsVoices: 0),
+            latency: .init(median: 0.8, max: 0.8, maxLine: 0)
+        )
+    }
+
+    @Test func testCallRoundTripsAs0600() async throws {
+        let fixture = try Fixture()
+        let meeting = MeetingFixtures.make(test: tag).meeting
+        try await fixture.store.create(meeting)
+
+        try await fixture.store.writeTestCall(record(), of: meeting.id)
+
+        #expect(try fixture.store.readTestCall(meeting.id) == record())
+        #expect(try permissions(fixture.folder(meeting.id).appendingPathComponent("testcall.json")) == 0o600)
+        #expect(try contents(fixture.folder(meeting.id)) == [
+            "meeting.json", "notes.jsonl", "segments.jsonl", "testcall.json",
+        ])
+    }
+
+    @Test func absentTestCallReadsNil() async throws {
+        let fixture = try Fixture()
+        let meeting = MeetingFixtures.make(test: tag).meeting
+        try await fixture.store.create(meeting)
+
+        #expect(try fixture.store.readTestCall(meeting.id) == nil)
+        #expect(try fixture.store.readTestCall(UUID()) == nil)
+    }
+
+    @Test func undecodableTestCallThrows() async throws {
+        let fixture = try Fixture()
+        let meeting = MeetingFixtures.make(test: tag).meeting
+        try await fixture.store.create(meeting)
+        try Data("not json".utf8).write(to: fixture.folder(meeting.id).appendingPathComponent("testcall.json"))
+
+        #expect(throws: (any Error).self) { try fixture.store.readTestCall(meeting.id) }
+    }
+
+    @Test func indexRowCarriesTheTag() async throws {
+        let fixture = try Fixture()
+        var meeting = MeetingFixtures.make(test: tag).meeting
+        try await fixture.store.create(meeting)
+        #expect(try fixture.store.index().first?.test == tag)
+
+        meeting.test?.wer = 0.064
+        try await fixture.store.update(meeting)
+
+        let entry = try #require(try fixture.store.index().first)
+        #expect(entry.test?.wer == 0.064)
+        #expect(entry.test?.scenarioID == "sprint-planning")
+    }
+
+    @Test func rescanRebuildsTheTag() async throws {
+        let fixture = try Fixture()
+        var meeting = MeetingFixtures.make(test: tag).meeting
+        meeting.test?.wer = 0.064
+        try await fixture.store.create(meeting)
+        try await fixture.store.create(MeetingFixtures.northwind().meeting)
+        try FileManager.default.removeItem(at: fixture.indexURL)
+
+        let entries = try fixture.store.index()
+
+        #expect(entries.first { $0.id == meeting.id }?.test == meeting.test)
+        #expect(entries.first { $0.id == MeetingFixtures.northwindID }?.test == nil)
+    }
+
     @Test func audioURLIsInsideTheMeetingFolder() throws {
         let fixture = try Fixture()
         let id = UUID()

@@ -173,6 +173,8 @@ public struct Meeting: Codable, Sendable, Equatable, Identifiable {
     public var summary: Summary?
     public var billing: Billing
     public var schema: Int
+    /// Set only on a test call.
+    public var test: TestCallTag?
 
     public init(
         id: UUID = UUID(),
@@ -187,7 +189,8 @@ public struct Meeting: Codable, Sendable, Equatable, Identifiable {
         speakers: [SpeakerLabel] = [],
         markers: [Marker] = [],
         summary: Summary? = nil,
-        billing: Billing = Billing()
+        billing: Billing = Billing(),
+        test: TestCallTag? = nil
     ) {
         self.id = id
         self.title = title
@@ -203,6 +206,7 @@ public struct Meeting: Codable, Sendable, Equatable, Identifiable {
         self.summary = summary
         self.billing = billing
         schema = Self.currentSchema
+        self.test = test
     }
 }
 
@@ -236,6 +240,7 @@ public struct IndexEntry: Codable, Sendable, Equatable, Identifiable {
     public var audioBytes: Int
     /// The summary's first sentence, or else the first segment's text.
     public var excerpt: String
+    public var test: TestCallTag?
 
     public init(
         id: UUID,
@@ -250,7 +255,8 @@ public struct IndexEntry: Codable, Sendable, Equatable, Identifiable {
         costUSD: Double,
         hasSummary: Bool,
         audioBytes: Int,
-        excerpt: String
+        excerpt: String,
+        test: TestCallTag? = nil
     ) {
         self.id = id
         self.title = title
@@ -265,6 +271,7 @@ public struct IndexEntry: Codable, Sendable, Equatable, Identifiable {
         self.hasSummary = hasSummary
         self.audioBytes = audioBytes
         self.excerpt = excerpt
+        self.test = test
     }
 }
 

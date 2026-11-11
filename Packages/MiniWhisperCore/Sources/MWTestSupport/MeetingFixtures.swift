@@ -109,7 +109,8 @@ public enum MeetingFixtures {
         engine: MeetingEngine = .speechmaticsStandard,
         segments: [Segment] = [],
         notes: [Note] = [],
-        summary: Summary? = nil
+        summary: Summary? = nil,
+        test: TestCallTag? = nil
     ) -> LoadedMeeting {
         let meeting = Meeting(
             id: id,
@@ -120,7 +121,8 @@ public enum MeetingFixtures {
             engine: engine,
             userName: "Alex",
             speakers: [SpeakerLabel(id: 0, name: "Alex", isUser: true)],
-            summary: summary
+            summary: summary,
+            test: test
         )
         return LoadedMeeting(meeting: meeting, segments: segments, notes: notes)
     }

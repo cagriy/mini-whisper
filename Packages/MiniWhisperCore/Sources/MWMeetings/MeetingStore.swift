@@ -18,6 +18,7 @@ public actor MeetingStore: MeetingReading {
         case segments = "segments.jsonl"
         case notes = "notes.jsonl"
         case audio = "audio.m4a"
+        case testCall = "testcall.json"
     }
 
     public nonisolated let directory: URL
@@ -89,6 +90,10 @@ public actor MeetingStore: MeetingReading {
         try updateIndexEntry(for: readMeeting(id))
     }
 
+    public func writeTestCall(_ record: TestCallRecord, of id: UUID) throws {
+        try Self.write(MeetingCoding.encoder().encode(record), to: url(.testCall, of: id))
+    }
+
     /// Rebuilds `index.json` from the meeting folders and writes it.
     @discardableResult
     public func refreshIndex() throws -> [IndexEntry] {
@@ -121,6 +126,12 @@ public actor MeetingStore: MeetingReading {
             segments: readLines(of: .segments, in: id),
             notes: readLines(of: .notes, in: id)
         )
+    }
+
+    /// Nil when the meeting has no `testcall.json`.
+    public nonisolated func readTestCall(_ id: UUID) throws -> TestCallRecord? {
+        guard let data = FileManager.default.contents(atPath: url(.testCall, of: id).path) else { return nil }
+        return try MeetingCoding.decoder().decode(TestCallRecord.self, from: data)
     }
 
     // MARK: - Paths
@@ -222,7 +233,8 @@ public actor MeetingStore: MeetingReading {
             costUSD: meeting.billing.costUSD + (meeting.summary?.costUSD ?? 0),
             hasSummary: meeting.summary != nil,
             audioBytes: (attributes?[.size] as? Int) ?? 0,
-            excerpt: meeting.summary.map { Self.firstSentence(of: $0.text) } ?? firstSegment(of: meeting.id)?.text ?? ""
+            excerpt: meeting.summary.map { Self.firstSentence(of: $0.text) } ?? firstSegment(of: meeting.id)?.text ?? "",
+            test: meeting.test
         )
     }
 
