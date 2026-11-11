@@ -1405,6 +1405,14 @@ None — plan matches design v5 exactly.
       only the voice case.
     - The Run column reads "Today 11:14" or "9 Nov 16:40", with the year for another year's run.
     - An opened line scrolls its highlighted paragraph into view.
+13. **Stage 16.**
+    - The chooser's Engine line moves to its own row above the buttons, so the Test Call… link sits
+      bottom-left, as in the accepted mockup.
+    - The link stays disabled until the voice listing is read.
+    - A scenario with both voices substituted lists both: "· uses Fred for Tom, Moira for Priya".
+    - `MeetingWindowModel.openTestCallSetup()` and `closeTestCallSetup()` switch the page;
+      `MeetingCoordinatorTests.setupPageStartsTheTestCall` covers `MeetingActions.startTestCall`.
+    - Step 5's manual run needs the user's voice and the live app; it is pending.
 
 ## Execution schedule
 
