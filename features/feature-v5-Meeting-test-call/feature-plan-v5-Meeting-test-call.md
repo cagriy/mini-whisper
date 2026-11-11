@@ -1353,6 +1353,20 @@ None — plan matches design v5 exactly.
    - "Two consecutive `say` failures" counts `say` runs; only a normal exit resets the count.
    - Skip reasons log as `skip`, `no speech` and `voice failed`.
    - Deadlines compare with a 1 µs tolerance, because meeting times are sums of floating seconds.
+7. **Stage 9.**
+   - Labels, purity and cross-credited counts count only transcript tokens aligned to a script
+     word (match or substitution); an inserted token carries no label. That is R16's "the role's
+     words" and the §5.2 example (line 6: 17 words, 1 S, 1 I → `labels {"2": 17}`). Counting every
+     token would give Priya 88%, not the accepted 87%.
+   - Clean is not stored on the record. `TestCallScorer.isClean(_:among:)` derives it, and
+     `TestCallScorer.window(start:end:)` gives the scoring window, for Stage 15.
+8. **Stage 10.**
+   - `SayProcessPlayer` gives each process an idle stdin `Pipe`. The stop test plays the text `-`,
+     so the `/bin/cat` stand-in blocks on stdin until `stop()`.
+   - `tapHearsASayProcess` shares a `firstAudibleLevel(playing:_:)` helper with the existing
+     `afplay` test, which now uses it.
+   - Both tap integration tests fail on this Mac without System Audio Recording permission for
+     the terminal, the existing `afplay` test included. Pending a run with the permission granted.
 
 ## Execution schedule
 
