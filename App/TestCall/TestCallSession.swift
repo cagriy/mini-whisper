@@ -64,6 +64,8 @@ struct ControllerSpeechSensor: UserSpeechSensing {
 @MainActor
 final class TestCallSession {
     let scenario: TestScenario
+    /// The window's script pane, fed by the conductor.
+    let pane: TestCallPaneModel
     private let controller: any MeetingControlling
     private let conductor: any TestCallConducting
     private let engine: MeetingEngine
@@ -85,6 +87,7 @@ final class TestCallSession {
         self.scenario = scenario
         self.engine = engine
         self.overlap = overlap
+        pane = TestCallPaneModel(scenario: scenario, casting: casting)
         conductor = deps.makeConductor(
             scenario, casting, overlap, deps.makePlayer { controller.meetingTime },
             ControllerSpeechSensor(controller: controller)
@@ -98,6 +101,10 @@ final class TestCallSession {
             "test call: start scenario=\(scenario.id) rev=\(scenario.revision) engine=\(engine.rawValue) overlap=\(overlap)"
         )
         run = Task { await self.conductor.run() }
+        let events = conductor.events
+        Task { [pane] in
+            for await event in events { pane.apply(event) }
+        }
     }
 
     func skip() {
@@ -107,6 +114,7 @@ final class TestCallSession {
     /// The meeting paused for sleep: the script ends, and Stop then scores it (R12).
     func macSlept() {
         conductor.end(.sleep)
+        pane.macSlept()
     }
 
     /// Design §5.5 Stop: the script ends first and its run returns, so no voice speaks into the

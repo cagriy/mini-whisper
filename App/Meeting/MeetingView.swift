@@ -115,11 +115,6 @@ private struct MeetingRecordingView: View {
     let model: MeetingWindowModel
     let actions: MeetingActions
 
-    private var canPauseOrStop: Bool {
-        if case .paused = model.state { return true }
-        return model.state == .recording
-    }
-
     var body: some View {
         VStack(spacing: 0) {
             header
@@ -137,7 +132,11 @@ private struct MeetingRecordingView: View {
             HStack(spacing: 0) {
                 TranscriptView(model: model, actions: actions)
                 Divider()
-                NotesPane(model: model, actions: actions).frame(width: 280)
+                if let testCall = model.testCall {
+                    ScriptPane(model: testCall, skip: actions.skipLine).frame(width: 310)
+                } else {
+                    NotesPane(model: model, actions: actions).frame(width: 280)
+                }
             }
         }
     }
@@ -145,7 +144,11 @@ private struct MeetingRecordingView: View {
     private var header: some View {
         HStack(spacing: 10) {
             TitleField(model: model, retitle: actions.retitle)
-            Chip(text: MeetingWindowModel.title(of: model.mode))
+            if model.isTest {
+                TestTag()
+            } else {
+                Chip(text: MeetingWindowModel.title(of: model.mode))
+            }
             if let ended = model.endedChip {
                 Chip(text: ended, dot: .secondary)
             } else {
@@ -165,8 +168,10 @@ private struct MeetingRecordingView: View {
                 }
                 .fixedSize()
             } else {
-                Button(model.pauseTitle, action: actions.pauseOrResume).disabled(!canPauseOrStop)
-                Button("Stop", action: actions.stop).disabled(!canPauseOrStop)
+                Button(model.pauseTitle, action: actions.pauseOrResume)
+                    .disabled(!model.canPause)
+                    .help(model.pauseHelp ?? "")
+                Button("Stop", action: actions.stop).disabled(!model.canStop)
             }
         }
         .padding(.horizontal, 18)
@@ -300,11 +305,6 @@ private struct TranscriptView: View {
     }
 
     private static let bottom = "bottom"
-    private static let palette = [
-        Color(red: 0.42, green: 0.25, blue: 0.71),
-        Color(red: 0.10, green: 0.50, blue: 0.56),
-        Color(red: 0.70, green: 0.40, blue: 0.11),
-    ]
 
     /// The paragraph whose speaker popover is open.
     @State private var renaming: UUID?
@@ -389,7 +389,7 @@ private struct TranscriptView: View {
                 }
                 .buttonStyle(.plain)
                 .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(color(of: paragraph.speaker))
+                .foregroundStyle(SpeakerColor.of(paragraph.speaker))
                 .popover(isPresented: Binding(
                     get: { renaming == paragraph.id },
                     set: { if !$0 { renaming = nil } }
@@ -501,10 +501,6 @@ private struct TranscriptView: View {
             actions.rename(speaker, name)
         }
     }
-
-    private func color(of speaker: Int) -> Color {
-        speaker == SpeakerRegistry.userID ? .accentColor : Self.palette[abs(speaker - 1) % Self.palette.count]
-    }
 }
 
 // MARK: - Notes
@@ -515,11 +511,7 @@ private struct NotesPane: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text("NOTES")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 10)
+            PaneHeader(title: "Notes")
             Divider()
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 10) {
@@ -619,6 +611,38 @@ private struct NoteEditor: NSViewRepresentable {
 }
 
 // MARK: - Pieces
+
+/// Speaker colours: the user in the accent colour, others by their label.
+enum SpeakerColor {
+    static let palette = [
+        Color(red: 0.42, green: 0.25, blue: 0.71),
+        Color(red: 0.10, green: 0.50, blue: 0.56),
+        Color(red: 0.70, green: 0.40, blue: 0.11),
+    ]
+
+    static func of(_ speaker: Int) -> Color {
+        speaker == SpeakerRegistry.userID ? .accentColor : palette[abs(speaker - 1) % palette.count]
+    }
+}
+
+/// A side pane's small-caps title, with an optional figure at the right.
+struct PaneHeader: View {
+    let title: String
+    var trailing: String?
+
+    var body: some View {
+        HStack {
+            Text(title.uppercased())
+            Spacer(minLength: 8)
+            if let trailing { Text(trailing.uppercased()).monospacedDigit() }
+        }
+        .lineLimit(1)
+        .font(.caption.weight(.semibold))
+        .foregroundStyle(.secondary)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+    }
+}
 
 private struct Chip: View {
     let text: String

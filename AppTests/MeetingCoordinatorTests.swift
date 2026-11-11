@@ -101,6 +101,8 @@ import Testing
         var actions: [MeetingActions] = []
         var exports: [(kind: MeetingExporter.Kind, id: UUID)] = []
         var conductors: [FakeConductor] = []
+        /// The conductors' calls.
+        let conductorLog = CallLog()
         /// What each test call's conductor was built for.
         var made: [(scenario: TestScenario, casting: [TestCallRole: CastVoice], overlap: Bool)] = []
         var changeCount = 0
@@ -149,7 +151,7 @@ import Testing
             testCalls: TestCallDependencies(
                 makeConductor: { [unowned self] scenario, casting, overlap, _, _ in
                     made.append((scenario, casting, overlap))
-                    let conductor = FakeConductor()
+                    let conductor = FakeConductor(log: conductorLog)
                     conductors.append(conductor)
                     return conductor
                 },
@@ -461,6 +463,18 @@ import Testing
 
         for await _ in harness.changes where !conductor.ends.isEmpty { break }
         #expect(conductor.ends == [.sleep])
+    }
+
+    @Test func testCallWindowShowsTheSessionsScriptAndSkipsLines() async throws {
+        let harness = Harness()
+        _ = await harness.testCall()
+
+        let pane = try #require(harness.models[0].testCall)
+        #expect(pane.scenario.id == "sprint-planning")
+        #expect(pane.casting[.b]?.voice == "Karen")
+        harness.actions[0].skipLine()
+
+        #expect(harness.conductorLog.calls.contains("skip"))
     }
 
     @Test func ordinaryMeetingsStopAsBefore() async {

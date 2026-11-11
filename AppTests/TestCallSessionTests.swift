@@ -45,6 +45,8 @@ final class FakeConductor: TestCallConducting {
 
     func skip() { log.append("skip") }
 
+    func send(_ event: ConductorEvent) { continuation.yield(event) }
+
     func end(_ reason: EndReason) {
         log.append("end(\(reason))")
         ends.append(reason)
@@ -224,6 +226,32 @@ private func logging(to sink: MessageSink, _ body: @MainActor @Sendable () async
 
         #expect(conductor.ends == [.sleep])
         await session.finish(summarise: false)
+    }
+
+    @Test func conductorEventsAndSleepReachThePane() async {
+        let conductor = FakeConductor()
+        let session = session(StubController(log: CallLog()), conductor)
+        #expect(session.pane.scenario == Self.scenario)
+        #expect(session.pane.title == "Script · Harbour survey")
+        session.start()
+
+        conductor.send(.line(1, .voiceSpeaking(.a)))
+        await until { session.pane.current != nil }
+        #expect(session.pane.turnTag?.text == "Ines · Moira voice · speaking")
+
+        conductor.send(.captureMissing(1))
+        conductor.send(.line(2, .yourTurn))
+        await until { session.pane.current?.number == 2 }
+        #expect(session.pane.notices.count == 1)
+
+        session.macSlept()
+        #expect(session.pane.hint == "The test call ended when the Mac slept. Press Stop for the score.")
+        await session.finish(summarise: false)
+    }
+
+    /// The session forwards events on its own task; this yields until they have arrived.
+    private func until(_ condition: @MainActor () -> Bool) async {
+        for _ in 0..<1_000 where !condition() { await Task.yield() }
     }
 
     @Test func skipReachesTheConductor() async {

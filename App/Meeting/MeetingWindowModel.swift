@@ -3,6 +3,7 @@ import MWConfig
 import MWMeetingPipeline
 import MWMeetings
 import MWStreaming
+import MWTestCall
 import MWUsage
 import Observation
 
@@ -246,6 +247,8 @@ final class MeetingWindowModel {
     private(set) var endedAt: Date?
     /// A test meeting's score, once the controller has read or computed it.
     private(set) var testScore: TestScoreState?
+    /// A test meeting's script and score pane.
+    private(set) var testCall: TestCallPaneModel?
 
     var noteDraft = "" {
         didSet {
@@ -303,7 +306,14 @@ final class MeetingWindowModel {
         return Partial(text: partialText, header: name(of: speaker))
     }
 
-    var sourceLine: String? { engine.map { "\($0.title) · English" } }
+    var sourceLine: String? {
+        guard let engine else { return nil }
+        let source = "\(engine.title) · English"
+        guard isTest else { return source }
+        return source + (state == .stopped
+            ? " · speaker names stay as the engine labelled them"
+            : " · speaker names stay as the engine labels them; the score checks them")
+    }
 
     var captureChip: String {
         guard mode == .remote else { return "Mic" }
@@ -349,6 +359,19 @@ final class MeetingWindowModel {
 
     /// R13: edit and reassign after Stop only.
     var canEdit: Bool { state == .stopped }
+
+    var isTest: Bool { testCall != nil }
+
+    /// Recording or paused.
+    var canStop: Bool {
+        if case .paused = state { return true }
+        return state == .recording
+    }
+
+    /// R11: a test call never pauses.
+    var canPause: Bool { canStop && !isTest }
+
+    var pauseHelp: String? { isTest ? "Not available in a test call" : nil }
 
     var pauseTitle: String {
         if case .paused = state { "Resume" } else { "Pause" }
@@ -399,11 +422,25 @@ final class MeetingWindowModel {
         title = meeting.title
         mode = meeting.mode
         engine = meeting.engine
+        if let tag = meeting.test, testCall == nil {
+            testCall = TestCallPaneModel(scenario: Self.scenario(of: tag), casting: [:])
+        }
         if let endedAt = meeting.endedAt {
             self.endedAt = endedAt
             elapsed = meeting.durationSeconds
             cost = meeting.billing.costUSD
         }
+    }
+
+    /// A running test call's pane, which follows its conductor.
+    func attach(_ testCall: TestCallPaneModel) {
+        self.testCall = testCall
+    }
+
+    /// The bundled script the tag names; an id this version does not know has no lines.
+    private static func scenario(of tag: TestCallTag) -> TestScenario {
+        ScenarioLibrary.scenario(id: tag.scenarioID)
+            ?? TestScenario(id: tag.scenarioID, revision: tag.revision, title: tag.scenarioTitle, voices: [], lines: [])
     }
 
     /// The header rename (R15): the trimmed title to store, or nil when blank or unchanged.

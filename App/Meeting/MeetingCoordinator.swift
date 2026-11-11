@@ -45,6 +45,8 @@ struct MeetingActions {
     var cancel: @MainActor () -> Void
     var pauseOrResume: @MainActor () -> Void
     var stop: @MainActor () -> Void
+    /// A test call's Skip line.
+    var skipLine: @MainActor () -> Void
     var rename: @MainActor (_ speaker: Int, _ name: String) -> Void
     var addNote: @MainActor (MeetingWindowModel.DraftNote) -> Void
     var summarise: @MainActor () -> Void
@@ -222,6 +224,7 @@ final class MeetingCoordinator {
             overlap: setup.overlap, deps: deps.testCalls
         )
         session.test = test
+        session.model.attach(test.pane)
         test.start()
     }
 
@@ -288,6 +291,7 @@ final class MeetingCoordinator {
                 }
             },
             stop: { [weak self] in Task { await self?.stop() } },
+            skipLine: { [weak session] in session?.test?.skip() },
             rename: { [weak session] speaker, name in
                 guard let controller = session?.controller else { return }
                 Task { await controller.rename(speaker: speaker, to: name) }

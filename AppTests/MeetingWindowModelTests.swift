@@ -3,6 +3,7 @@ import MWConfig
 import MWMeetingPipeline
 import MWMeetings
 import MWStreaming
+import MWTestCall
 import Testing
 @testable import MiniWhisper
 
@@ -481,6 +482,77 @@ import Testing
     }
 
     // MARK: - Test calls
+
+    private static let tag = TestCallTag(scenarioID: "sprint-planning", revision: 1, scenarioTitle: "Sprint planning")
+
+    private static func testMeeting() -> Meeting {
+        Meeting(
+            title: "Test call · Sprint planning", startedAt: startedAt, mode: .remote, engine: .assemblyaiStreaming,
+            userName: "Alex", test: tag
+        )
+    }
+
+    @Test func testMeetingCannotPauseAndSaysWhy() {
+        let model = model()
+        model.show(Self.testMeeting())
+        model.apply(.state(.recording))
+
+        #expect(model.isTest)
+        #expect(model.canPause == false)
+        #expect(model.canStop)
+        #expect(model.pauseHelp == "Not available in a test call")
+
+        model.apply(.state(.paused(.sleep)))
+        #expect(model.canPause == false)
+        #expect(model.canStop)
+    }
+
+    @Test func testSourceLineCarriesTheLabellingNote() {
+        let model = model()
+        model.show(Self.testMeeting())
+        model.apply(.state(.recording))
+        #expect(model.sourceLine == "AssemblyAI Universal-Streaming · English · speaker names stay as the engine"
+            + " labels them; the score checks them")
+
+        model.apply(.state(.stopped))
+        #expect(model.sourceLine == "AssemblyAI Universal-Streaming · English · speaker names stay as the engine"
+            + " labelled them")
+    }
+
+    @Test func ordinaryMeetingsUnchanged() {
+        let model = model()
+        #expect(model.canPause == false)
+        #expect(model.canStop == false)
+
+        model.show(Self.meeting())
+        model.apply(.state(.recording))
+
+        #expect(model.isTest == false)
+        #expect(model.testCall == nil)
+        #expect(model.canPause)
+        #expect(model.canStop)
+        #expect(model.pauseHelp == nil)
+        #expect(model.sourceLine == "Speechmatics Standard · English")
+        model.apply(.state(.paused(.user)))
+        #expect(model.canPause)
+        model.apply(.state(.stopped))
+        #expect(model.canPause == false)
+        #expect(model.canStop == false)
+        #expect(model.sourceLine == "Speechmatics Standard · English")
+    }
+
+    @Test func testMeetingShowsItsScenariosScriptUntilTheSessionsPaneArrives() throws {
+        let model = model()
+        model.show(Self.testMeeting())
+        let shown = try #require(model.testCall)
+        #expect(shown.title == "Script · Sprint planning")
+
+        let session = TestCallPaneModel(scenario: shown.scenario, casting: [:])
+        model.attach(session)
+        model.show(Self.testMeeting())
+
+        #expect(model.testCall === session)
+    }
 
     @Test func testScoreEventIsKept() {
         let model = model()
