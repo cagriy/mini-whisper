@@ -5,6 +5,18 @@
     <link>https://raw.githubusercontent.com/cagriy/mini-whisper/main/appcast.xml</link>
     <language>en</language>
     <item>
+      <title>Mini Whisper 0.6.0</title>
+      <sparkle:version>0.6.0</sparkle:version>
+      <sparkle:shortVersionString>0.6.0</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <description>&lt;h3&gt;Added&lt;/h3&gt;
+&lt;ul&gt;&lt;li&gt;Test calls. &lt;strong&gt;Test Call…&lt;/strong&gt; in the New Meeting window runs a scripted two-minute remote call: two macOS voices speak through the speakers and you read your lines. Stop scores the transcript against the script — word error rate per speaker and overall, speaker-label consistency and latency — and keeps the score with the meeting for comparison with earlier runs. Eight scenarios, about $0.02 a run. Test calls are marked TEST in *Meetings…* and hidden from the &lt;code&gt;mini-whisper&lt;/code&gt; tool and MCP server.&lt;/li&gt;&lt;/ul&gt;
+&lt;h3&gt;Fixed&lt;/h3&gt;
+&lt;ul&gt;&lt;li&gt;A remote meeting turned other apps' audio down by about 30 dB, the call included, and the call reached the transcription engine too quiet to transcribe well. Other apps now drop about 7 dB, and the call is raised to speech level before it is mixed with the microphone.&lt;/li&gt;&lt;/ul&gt;</description>
+      <pubDate>Wed, 11 Nov 2026 16:22:13 +0000</pubDate>
+      <enclosure url="https://github.com/cagriy/mini-whisper/releases/download/v0.6.0/MiniWhisper-0.6.0-arm64.dmg" sparkle:edSignature="FT1Fi+NnLG8t3QXy2ClJnoPIVAKmXq5hTxN3l6af/kdOfiX6xDzkYVr38DOkGBo5L5lad37c/gqx5MHeFxVEDg==" length="7507379" type="application/octet-stream" />
+    </item>
+    <item>
       <title>Mini Whisper 0.5.1</title>
       <sparkle:version>0.5.1</sparkle:version>
       <sparkle:shortVersionString>0.5.1</sparkle:shortVersionString>
