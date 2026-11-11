@@ -19,6 +19,22 @@ struct SystemAudioTapIntegrationTests {
 
     @available(macOS 14.2, *)
     @Test func tapDeliversBuffersOn142() async throws {
+        let loud = try await Self.firstAudibleLevel(playing: "/usr/bin/afplay", [TestFixtures.wav("filler_words").path])
+        let level = try #require(loud)
+        #expect(level.sampleRate == 16000)
+        #expect(level.channels == 1)
+    }
+
+    /// Test-call voice lines are `say` processes (design R6).
+    @available(macOS 14.2, *)
+    @Test func tapHearsASayProcess() async throws {
+        let loud = try await Self.firstAudibleLevel(playing: "/usr/bin/say", ["-v", "Samantha", "The remaining risk is the webhook retry."])
+        #expect(loud != nil)
+    }
+
+    /// The first tapped level above −60 dBFS while `executable` plays, or nil after 5 s.
+    @available(macOS 14.2, *)
+    private static func firstAudibleLevel(playing executable: String, _ arguments: [String]) async throws -> Level? {
         let tap = SystemAudioTap(excluding: getpid())
         let (levels, continuation) = AsyncStream<Level>.makeStream()
         try tap.start { buffer in
@@ -28,12 +44,12 @@ struct SystemAudioTapIntegrationTests {
 
         // Played from a child process: the tap leaves out this process's own audio.
         let player = Process()
-        player.executableURL = URL(fileURLWithPath: "/usr/bin/afplay")
-        player.arguments = [try TestFixtures.wav("filler_words").path]
+        player.executableURL = URL(fileURLWithPath: executable)
+        player.arguments = arguments
         try player.run()
         defer { player.terminate() }
 
-        let loud = await withTaskGroup(of: Level?.self) { group in
+        return await withTaskGroup(of: Level?.self) { group in
             group.addTask {
                 // −60 dBFS.
                 for await level in levels where level.rms > 0.001 { return level }
@@ -47,10 +63,6 @@ struct SystemAudioTapIntegrationTests {
             group.cancelAll()
             return first
         }
-
-        let level = try #require(loud)
-        #expect(level.sampleRate == 16000)
-        #expect(level.channels == 1)
     }
 
     private static func rms(_ buffer: AVAudioPCMBuffer) -> Float {
