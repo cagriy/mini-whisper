@@ -1378,6 +1378,20 @@ None — plan matches design v5 exactly.
       dictation, the start error and `show(meeting)`.
     - `TestCallSession` also has `skip()` (design §5.1) and ignores a second `finish`, so a second
       Stop during the run's last poll cannot score twice.
+11. **Stage 14.**
+    - `MeetingCoordinator.swift` is edited too: `MeetingActions.skipLine` takes the pane's Skip
+      line to `TestCallSession.skip()`, and `startTestCall` attaches the session's pane to the
+      window model. `MeetingCoordinatorTests` and `TestCallSessionTests` (`FakeConductor.send`)
+      test both.
+    - The session creates the pane with its casting. `show(_:)` creates one from the tag's
+      library script for a tagged meeting, so `isTest` is `testCall != nil`; the session's pane
+      replaces it at start.
+    - The TEST chip takes the place of the mode chip, as in the mockup's header.
+    - The pane keeps the Notes pane's background (`underPageBackgroundColor`), not the mockup's
+      `#f6f6f8`; its notices sit on the text background, as the window's banners do.
+    - One remaining line reads "+ 1 more line" (the mockup's "+ 1 more lines" is a placeholder).
+    - A stopped test meeting's source line reads "… · speaker names stay as the engine labelled
+      them", as in the score mockup.
 
 ## Execution schedule
 
