@@ -1,0 +1,1412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Meeting Test Call</title>
+
+  <!--
+    ===================================================================
+    feature-tracker template
+    -------------------------------------------------------------------
+    Replace every {{TOKEN}} below with HTML. Each of the four panels
+    follows the same three-part shape:
+
+        timestamp chip  →  Highlights (≤10 bullets)  →  Detail (prose)
+
+    so a reader can pick up the section at a glance and then drill in.
+    Tokens for a panel are owned by the skill that produces that panel:
+
+      Brainstorming  ←  /feature-storm
+      Design         ←  /feature-design
+      Plan           ←  /feature-plan
+      Implementation ←  /feature-implement
+
+    A skill substitutes its own panel's tokens with real HTML. For
+    any panel whose owning skill has not yet run, the currently
+    running skill substitutes the placeholder values:
+
+      {{X_AT}}        → "Awaiting /feature-<step>"
+      {{X_BULLETS}}   → <p class="empty">Not yet filled — pending /feature-<step>.</p>
+      {{X_DETAILS}}   → <p class="empty">Not yet filled — pending /feature-<step>.</p>
+
+    Header tokens (any skill substitutes if still literal):
+      {{FEATURE_VERSION}}        integer, e.g. "3"
+      {{FEATURE_TITLE}}          readable title, max 10 words
+                                 (e.g. "Add payment checkout flow")
+      {{FEATURE_SLUG}}           "feature-v3-add-payment-checkout-flow"
+      {{GENERATED_AT}}           ISO date, e.g. "2026-05-26"
+
+    Per-panel tokens:
+      Brainstorming (owned by /feature-storm):
+        {{BRAINSTORMING_AT}}        chip text — "Updated <UTC ts>"
+                                    or "Awaiting /feature-storm"
+        {{BRAINSTORMING_BULLETS}}   <ul><li>…</li>…</ul>, ≤10 items
+        {{BRAINSTORMING_DETAILS}}   free-form HTML continuing the
+                                    requirement specifics
+
+      Design (owned by /feature-design):
+        {{DESIGN_AT}}               chip text — "Updated <UTC ts>"
+                                    or "Awaiting /feature-design"
+        {{DESIGN_BULLETS}}          <ul><li>…</li>…</ul>, ≤10 highlights
+        {{DESIGN_DETAILS}}          free-form HTML rendering the
+                                    design's key sections in
+                                    increasing detail
+
+      Plan (owned by /feature-plan):
+        {{PLAN_AT}}                 chip text — "Updated <UTC ts>"
+                                    or "Awaiting /feature-plan"
+        {{PLAN_BULLETS}}            <ul><li>…</li>…</ul>, ≤10 highlights
+        {{PLAN_DETAILS}}            free-form HTML rendering the
+                                    plan's stages, coverage map,
+                                    deviations, etc.
+
+      Implementation (owned by /feature-implement):
+        {{IMPLEMENTATION_AT}}       chip text — "Updated <UTC ts>"
+                                    or "Awaiting /feature-implement"
+        {{IMPLEMENTATION_BULLETS}}  <ul><li>…</li>…</ul>, ≤10 highlights
+        {{IMPLEMENTATION_DETAILS}}  free-form HTML — stage list,
+                                    test results, coverage,
+                                    deviations, etc.
+
+      Run usage (all eight owned by usage-report — never by the
+      panel's own skill):
+        {{BRAINSTORMING_USAGE_CHIP}}, {{DESIGN_USAGE_CHIP}},
+        {{PLAN_USAGE_CHIP}}, {{IMPLEMENTATION_USAGE_CHIP}}
+                                    headline chip beside the panel's
+                                    timestamp chip, e.g.
+                                    "8m 08s · 25,924 out · 76.0 tok/s"
+        {{BRAINSTORMING_USAGE}}, {{DESIGN_USAGE}},
+        {{PLAN_USAGE}}, {{IMPLEMENTATION_USAGE}}
+                                    <div class="usage-pair"> of two
+                                    <table class="usage"> halves, below
+                                    the panel's Highlights bullets
+
+      These eight are the one exception to the substitute-only-if-
+      literal rule: usage-report fills its own stage's pair and blanks
+      the other six on every run, so a re-run shows the latest figures
+      rather than a second table. Safe because they have exactly one
+      owner. Note the template has TWO consumers — usage-report and
+      bug-tracker-render, which blanks all twenty feature-panel
+      tokens — so adding or renaming one here is a two-skill change.
+
+    Progress stepper (Storming → Design → Plan → Implement):
+      The four <li class="step" data-stage="…"> elements track stage
+      lifecycle via data-state="pending|complete". The raw template
+      ships with every step set to "pending", which renders a grey
+      "nothing started yet" view. Each feature-* skill is responsible
+      for updating its own step:
+
+        data-stage="storm"      ← /feature-storm
+        data-stage="design"     ← /feature-design
+        data-stage="plan"       ← /feature-plan
+        data-stage="implement"  ← /feature-implement
+
+      The skill flips its own step pending → complete as part of its
+      tracker update step, only when its stage file is committed (or
+      finalised). There is no in-flight "current" state — a step is
+      either not done (grey) or done (green). Edits target both
+      attributes for uniqueness:
+
+        old: data-stage="design" data-state="pending"
+        new: data-stage="design" data-state="complete"
+
+      Do NOT touch sibling steps from another skill — the stepper is
+      an additive timeline, not a global state machine.
+
+    Tracker kind (feature view vs. bug tracker):
+      The page BODY element carries an optional data-tracker-kind attr.
+
+        (absent)            → feature view: stepper + the four feature
+                              tabs are shown; the Issues tab and its
+                              panel are hidden. This is the default the
+                              feature-* skills seed via feature-resolve.
+        data-tracker-kind   → bug tracker: the stepper and the four
+          ="bugs"             feature tabs/panels are hidden; only the
+                              Issues tab/panel is shown, and the header
+                              version chip + slug are hidden. /bug-submit
+                              sets this when it generates the repo-wide
+                              bugs/bugs-tracker.html from this template.
+
+    Issues panel (owned by /bug-submit, bug tracker only):
+      Unlike the four feature panels — each filled ONCE by its owning
+      skill via {{TOKEN}} substitution — the Issues panel is a LIVING
+      list regenerated wholesale on every /bug-submit run. Its content
+      lives between three pairs of HTML-comment markers (written with
+      real comment syntax in the panel markup below), NOT in {{tokens}}.
+      The marker names — each a :START / :END pair — are:
+
+        ISSUES_AT       the "Updated <UTC>" chip text
+        ISSUES_OPEN     one .issue card per open bug (folders in
+                        bugs/), else the empty placeholder
+        ISSUES_CLOSED   one .issue card per closed bug (folders in
+                        bugs/archive/), else the empty placeholder
+
+      (Note: do NOT paste those literal comment markers into THIS doc
+      block — an inner end-of-comment would close the doc comment early.)
+
+      /bug-submit replaces everything between each START/END pair. The
+      Open/Closed counts are computed at load time from the rendered
+      cards, so the skill never writes them. Each card is a
+      details.issue[data-status="open|closed"] with a summary
+      (#N, title, severity badge, filed date) and an expandable body
+      (report sections + img screenshots referenced by RELATIVE path).
+    ===================================================================
+  -->
+
+  <style>
+    :root {
+      --bg: #f9fafb;
+      --surface: #ffffff;
+      --surface-muted: #f3f4f6;
+      --border: #e5e7eb;
+      --text: #0f172a;
+      --text-muted: #6b7280;
+      --text-subtle: #9ca3af;
+      --accent: #4f46e5;
+      --accent-soft: #eef2ff;
+      --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04);
+      --shadow-md: 0 1px 2px rgba(15, 23, 42, 0.04), 0 12px 32px rgba(15, 23, 42, 0.06);
+      --radius: 14px;
+      --radius-sm: 8px;
+      --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+      --sans: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, system-ui, sans-serif;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0b0b0d;
+        --surface: #131316;
+        --surface-muted: #1a1a1f;
+        --border: #26262b;
+        --text: #f5f5f7;
+        --text-muted: #a1a1aa;
+        --text-subtle: #71717a;
+        --accent: #818cf8;
+        --accent-soft: rgba(129, 140, 248, 0.12);
+        --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+        --shadow-md: 0 1px 2px rgba(0, 0, 0, 0.4), 0 12px 32px rgba(0, 0, 0, 0.32);
+      }
+    }
+
+    *,
+    *::before,
+    *::after { box-sizing: border-box; }
+
+    html, body { margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      font-size: 16px;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    .container {
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 56px 32px 96px;
+    }
+
+    /* Header --------------------------------------------------------- */
+
+    .feature-header {
+      margin-bottom: 32px;
+      padding-bottom: 28px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .version-chip {
+      display: inline-flex;
+      align-items: center;
+      padding: 4px 10px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      border-radius: 999px;
+      font-size: 11.5px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .feature-title {
+      margin: 16px 0 10px;
+      font-size: 34px;
+      font-weight: 700;
+      letter-spacing: -0.022em;
+      line-height: 1.18;
+      color: var(--text);
+    }
+
+    .feature-slug {
+      font-family: var(--mono);
+      font-size: 13px;
+      color: var(--text-muted);
+      background: var(--surface-muted);
+      padding: 3px 9px;
+      border-radius: var(--radius-sm);
+      display: inline-block;
+      border: 1px solid var(--border);
+    }
+
+    /* Progress stepper ---------------------------------------------- */
+
+    .progress-stepper {
+      display: flex;
+      list-style: none;
+      margin: 0 0 36px;
+      padding: 0;
+      gap: 0;
+    }
+
+    .step {
+      position: relative;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    /* Connector line — drawn rightward from each step except the last.
+       Coloured by THIS step's state: a complete step extends an accent
+       line toward the next; anything else extends a muted line. */
+    .step::after {
+      content: "";
+      position: absolute;
+      top: 13px;
+      left: calc(50% + 18px);
+      right: calc(-50% + 18px);
+      height: 2px;
+      background: var(--border);
+      z-index: 0;
+      transition: background 0.2s ease;
+    }
+
+    .step:last-child::after { display: none; }
+
+    .step[data-state="complete"]::after { background: var(--accent); }
+
+    .step-indicator {
+      position: relative;
+      z-index: 1;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      border: 2px solid var(--border);
+      background: var(--surface);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-muted);
+      font-variant-numeric: tabular-nums;
+      transition: background 0.2s ease,
+                  border-color 0.2s ease,
+                  color 0.2s ease,
+                  box-shadow 0.2s ease;
+    }
+
+    .step-check { display: none; line-height: 1; }
+    .step-number { display: inline; line-height: 1; }
+
+    .step[data-state="complete"] .step-indicator {
+      border-color: var(--accent);
+      background: var(--accent);
+      color: #ffffff;
+    }
+
+    .step[data-state="complete"] .step-check { display: inline; }
+    .step[data-state="complete"] .step-number { display: none; }
+
+    .step-label {
+      font-size: 12.5px;
+      font-weight: 500;
+      color: var(--text-muted);
+      letter-spacing: 0.02em;
+      text-align: center;
+      line-height: 1.25;
+    }
+
+    .step[data-state="complete"] .step-label {
+      color: var(--text);
+      font-weight: 600;
+    }
+
+    /* Tabs ----------------------------------------------------------- */
+
+    .tabs {
+      position: sticky;
+      top: 0;
+      z-index: 5;
+      display: flex;
+      gap: 0;
+      margin-bottom: 28px;
+      border-bottom: 1px solid var(--border);
+      background: color-mix(in srgb, var(--bg) 88%, transparent);
+      backdrop-filter: saturate(180%) blur(10px);
+      -webkit-backdrop-filter: saturate(180%) blur(10px);
+      padding-top: 4px;
+    }
+
+    .tab {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 14px 18px;
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-family: inherit;
+      font-size: 14.5px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: color 0.15s ease;
+      border-radius: 0;
+      outline: none;
+    }
+
+    .tab:hover { color: var(--text); }
+
+    .tab:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: -4px;
+      border-radius: var(--radius-sm);
+    }
+
+    .tab[aria-selected="true"] {
+      color: var(--accent);
+      font-weight: 600;
+    }
+
+    .tab .tab-icon {
+      width: 16px;
+      height: 16px;
+      stroke-width: 2;
+      flex-shrink: 0;
+    }
+
+    .tab-indicator {
+      position: absolute;
+      left: 0;
+      bottom: -1px;
+      height: 2px;
+      width: 0;
+      background: var(--accent);
+      border-radius: 2px 2px 0 0;
+      transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+                  width 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+      pointer-events: none;
+    }
+
+    /* Panels --------------------------------------------------------- */
+
+    .panel { display: none; }
+
+    .panel.active {
+      display: block;
+      animation: panel-in 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    @keyframes panel-in {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .panel-section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 28px 32px;
+      margin-bottom: 16px;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .panel-section:last-child { margin-bottom: 0; }
+
+    .section-label {
+      margin: 0 0 18px;
+      font-size: 11.5px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--text-subtle);
+    }
+
+    /* Bullets -------------------------------------------------------- */
+
+    .bullets ul,
+    .prose ul {
+      list-style: none;
+      margin: 0;
+      padding-left: 0;
+    }
+
+    .bullets ol,
+    .prose ol {
+      margin: 0;
+      padding-left: 24px;
+    }
+
+    .bullets ul > li,
+    .prose ul > li {
+      position: relative;
+      padding-left: 22px;
+      margin-bottom: 10px;
+    }
+
+    .bullets ul > li::before,
+    .prose ul > li::before {
+      content: "";
+      position: absolute;
+      left: 6px;
+      top: 12px;
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: var(--accent);
+      opacity: 0.9;
+    }
+
+    .bullets ol > li,
+    .prose ol > li { margin-bottom: 10px; }
+
+    .bullets li:last-child,
+    .prose li:last-child { margin-bottom: 0; }
+
+    .bullets li > ul, .bullets li > ol,
+    .prose li > ul, .prose li > ol { margin-top: 8px; }
+
+    /* Prose ---------------------------------------------------------- */
+
+    .prose p { margin: 0 0 14px; }
+    .prose p:last-child { margin-bottom: 0; }
+    .prose strong { font-weight: 600; }
+
+    .prose a {
+      color: var(--accent);
+      text-decoration: none;
+      border-bottom: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
+      transition: border-color 0.15s ease;
+    }
+    .prose a:hover { border-bottom-color: var(--accent); }
+
+    .prose h2,
+    .prose h3,
+    .prose h4 {
+      margin: 28px 0 10px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      line-height: 1.3;
+    }
+    .prose h2 { font-size: 20px; }
+    .prose h3 { font-size: 16px; }
+    .prose h4 {
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+    }
+    .prose h2:first-child,
+    .prose h3:first-child,
+    .prose h4:first-child { margin-top: 0; }
+
+    .prose code {
+      font-family: var(--mono);
+      font-size: 0.9em;
+      background: var(--surface-muted);
+      color: var(--text);
+      padding: 1.5px 6px;
+      border-radius: 5px;
+      border: 1px solid var(--border);
+    }
+
+    .prose pre {
+      background: #0f172a;
+      color: #e2e8f0;
+      padding: 16px 18px;
+      border-radius: var(--radius-sm);
+      overflow-x: auto;
+      font-family: var(--mono);
+      font-size: 13px;
+      line-height: 1.55;
+      margin: 14px 0;
+    }
+    .prose pre code {
+      background: transparent;
+      border: none;
+      padding: 0;
+      color: inherit;
+      font-size: inherit;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      .prose pre { background: #05050a; }
+    }
+
+    .prose blockquote {
+      margin: 14px 0;
+      padding: 10px 16px;
+      border-left: 3px solid var(--accent);
+      background: var(--accent-soft);
+      color: var(--text);
+      border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+    }
+    .prose blockquote p:last-child { margin-bottom: 0; }
+
+    .prose table {
+      border-collapse: collapse;
+      width: 100%;
+      margin: 16px 0;
+      font-size: 14px;
+    }
+    .prose th,
+    .prose td {
+      text-align: left;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    .prose th {
+      font-weight: 600;
+      color: var(--text-muted);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      background: var(--surface-muted);
+    }
+
+    .empty {
+      color: var(--text-subtle);
+      font-style: italic;
+      margin: 0;
+    }
+
+    /* Section timestamp chip --------------------------------------- */
+
+    .section-timestamp {
+      margin: 0 0 16px;
+      display: inline-block;
+      padding: 4px 12px;
+      background: var(--surface-muted);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      font-family: var(--mono);
+      font-size: 11.5px;
+      font-weight: 500;
+      color: var(--text-muted);
+      letter-spacing: 0.02em;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* Run-usage chip and table (both filled by usage-report) --------- */
+
+    .chip.usage {
+      display: inline-block;
+      margin: 0 0 16px 8px;
+      padding: 4px 12px;
+      background: var(--accent-soft);
+      border: 1px solid var(--accent);
+      border-radius: 999px;
+      font-family: var(--mono);
+      font-size: 11.5px;
+      font-weight: 600;
+      color: var(--accent);
+      letter-spacing: 0.02em;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* The usage fragment is two halves side by side — the small total-only
+       groups beside the token breakdown — reflowing to stacked when the panel
+       is narrow. Each half is an ordinary table.usage, so every rule below
+       applies to both unchanged. */
+    .usage-pair {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0 28px;
+      align-items: flex-start;
+    }
+    .usage-pair > table.usage {
+      flex: 1 1 320px;
+      width: auto;
+      min-width: 0;
+    }
+
+    /* The usage fragment sits outside .prose, so it carries its own
+       table rules rather than inheriting the ones above. */
+    table.usage {
+      border-collapse: collapse;
+      width: 100%;
+      margin-top: 16px;
+      font-family: var(--mono);
+      font-size: 12px;
+      font-variant-numeric: tabular-nums;
+    }
+    table.usage th {
+      text-align: right;
+      padding: 5px 10px;
+      border-bottom: 1px solid var(--border);
+      font-weight: 600;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-subtle);
+    }
+    table.usage td {
+      text-align: right;
+      padding: 4px 10px;
+      border-bottom: 1px solid var(--surface-muted);
+      color: var(--text-muted);
+    }
+    table.usage th:first-child,
+    table.usage td:first-child { text-align: left; }
+    table.usage td:first-child { color: var(--text); }
+    table.usage tr.grp td {
+      padding-top: 12px;
+      border-bottom: none;
+      font-weight: 600;
+      font-size: 10.5px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-subtle);
+    }
+    table.usage tr.sub td:first-child {
+      padding-left: 24px;
+      color: var(--text-subtle);
+    }
+    table.usage tr.tp td {
+      background: var(--accent-soft);
+      font-weight: 600;
+      color: var(--accent);
+    }
+
+    /* Footer --------------------------------------------------------- */
+
+    .feature-footer {
+      margin-top: 40px;
+      padding-top: 20px;
+      border-top: 1px solid var(--border);
+      font-size: 12px;
+      color: var(--text-subtle);
+      text-align: center;
+      letter-spacing: 0.02em;
+    }
+
+    /* Responsive ----------------------------------------------------- */
+
+    @media (max-width: 720px) {
+      .container { padding: 32px 18px 64px; }
+      .feature-title { font-size: 26px; }
+      .tabs { overflow-x: auto; }
+      .tabs::-webkit-scrollbar { display: none; }
+      .tab {
+        white-space: nowrap;
+        padding: 12px 12px;
+        font-size: 13.5px;
+      }
+      .panel-section { padding: 20px 18px; }
+      .progress-stepper { margin-bottom: 24px; }
+      .step-label { font-size: 11px; }
+      .step-indicator { width: 26px; height: 26px; font-size: 12px; }
+      .step::after { top: 12px; left: calc(50% + 17px); right: calc(-50% + 17px); }
+    }
+
+    /* Tracker kind — feature view (default) vs. bug tracker --------- */
+
+    /* Feature view (no data-tracker-kind): hide the Issues tab + panel. */
+    body:not([data-tracker-kind="bugs"]) .tab[data-kind="issues"],
+    body:not([data-tracker-kind="bugs"]) #panel-issues { display: none !important; }
+
+    /* Bug tracker: only the Issues tab/panel; no stepper, no feature tabs,
+       no version chip/slug in the header. */
+    body[data-tracker-kind="bugs"] .progress-stepper,
+    body[data-tracker-kind="bugs"] .feature-header .version-chip,
+    body[data-tracker-kind="bugs"] .feature-header .feature-slug,
+    body[data-tracker-kind="bugs"] .tab:not([data-kind="issues"]) { display: none; }
+
+    body[data-tracker-kind="bugs"] .panel:not(#panel-issues) { display: none !important; }
+    body[data-tracker-kind="bugs"] #panel-issues { display: block; }
+
+    /* Issues panel --------------------------------------------------- */
+
+    .issue-filter {
+      display: inline-flex;
+      gap: 4px;
+      margin: 0 0 20px;
+      padding: 4px;
+      background: var(--surface-muted);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+    }
+
+    .issue-tab {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 6px 16px;
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      font-family: inherit;
+      font-size: 13.5px;
+      font-weight: 500;
+      border-radius: 999px;
+      cursor: pointer;
+      transition: background 0.15s ease, color 0.15s ease;
+    }
+
+    .issue-tab:hover { color: var(--text); }
+
+    .issue-tab:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    .issue-tab[aria-pressed="true"] {
+      background: var(--surface);
+      color: var(--accent);
+      font-weight: 600;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .issue-count {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 20px;
+      height: 18px;
+      padding: 0 6px;
+      border-radius: 999px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-size: 11.5px;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .issue-tab[aria-pressed="false"] .issue-count {
+      background: var(--border);
+      color: var(--text-muted);
+    }
+
+    .issue-list[hidden] { display: none; }
+
+    .issue {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      margin-bottom: 12px;
+      box-shadow: var(--shadow-sm);
+      overflow: hidden;
+    }
+    .issue:last-child { margin-bottom: 0; }
+
+    .issue-summary {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 16px 20px;
+      cursor: pointer;
+      list-style: none;
+      user-select: none;
+    }
+    .issue-summary::-webkit-details-marker { display: none; }
+
+    .issue-summary::before {
+      content: "";
+      width: 7px;
+      height: 7px;
+      border-right: 2px solid var(--text-subtle);
+      border-bottom: 2px solid var(--text-subtle);
+      transform: rotate(-45deg);
+      transition: transform 0.18s ease;
+      flex-shrink: 0;
+    }
+    .issue[open] > .issue-summary::before { transform: rotate(45deg); }
+
+    .issue-number {
+      font-family: var(--mono);
+      font-size: 12.5px;
+      font-weight: 600;
+      color: var(--text-subtle);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .issue-title {
+      flex: 1;
+      min-width: 0;
+      font-weight: 600;
+      font-size: 15px;
+      color: var(--text);
+    }
+
+    .issue-sev {
+      padding: 2px 9px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      flex-shrink: 0;
+    }
+    .sev-low      { background: #ecfdf5; color: #047857; }
+    .sev-medium   { background: #fffbeb; color: #b45309; }
+    .sev-high     { background: #fef2f2; color: #b91c1c; }
+    .sev-critical { background: #b91c1c; color: #ffffff; }
+
+    @media (prefers-color-scheme: dark) {
+      .sev-low      { background: rgba(16, 185, 129, 0.16); color: #34d399; }
+      .sev-medium   { background: rgba(245, 158, 11, 0.16); color: #fbbf24; }
+      .sev-high     { background: rgba(239, 68, 68, 0.16);  color: #f87171; }
+      .sev-critical { background: #dc2626; color: #ffffff; }
+    }
+
+    .issue-date {
+      font-family: var(--mono);
+      font-size: 11.5px;
+      color: var(--text-subtle);
+      font-variant-numeric: tabular-nums;
+      flex-shrink: 0;
+    }
+
+    .issue-body {
+      padding: 4px 20px 22px;
+      border-top: 1px solid var(--border);
+    }
+
+    .issue-body img {
+      max-width: 100%;
+      height: auto;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      margin: 10px 0;
+      display: block;
+    }
+
+    @media (max-width: 720px) {
+      .issue-summary { flex-wrap: wrap; gap: 8px; padding: 14px 16px; }
+      .issue-title { flex-basis: 100%; order: 3; }
+      .issue-body { padding: 4px 16px 18px; }
+    }
+
+    /* Print ---------------------------------------------------------- */
+
+    @media print {
+      .tabs,
+      .tab-indicator { display: none; }
+      body[data-tracker-kind="bugs"] .panel:not(#panel-issues) { display: none !important; }
+      .issue { break-inside: avoid; }
+      .panel {
+        display: block !important;
+        page-break-after: always;
+      }
+      .panel:last-of-type { page-break-after: auto; }
+      .container { max-width: none; padding: 24px; }
+      body { background: white; color: black; }
+      .panel-section {
+        box-shadow: none;
+        border: 1px solid #ccc;
+        break-inside: avoid;
+      }
+      .progress-stepper { break-inside: avoid; }
+    }
+  </style>
+</head>
+
+<body>
+  <main class="container">
+    <header class="feature-header">
+      <span class="version-chip">v5</span>
+      <h1 class="feature-title">Meeting Test Call</h1>
+      <code class="feature-slug">feature-v5-Meeting-test-call</code>
+    </header>
+
+    <ol class="progress-stepper" aria-label="Feature progress: Storming, Design, Plan, Implement">
+      <li class="step" data-stage="storm" data-state="pending">
+        <span class="step-indicator" aria-hidden="true">
+          <span class="step-check">&#10003;</span>
+          <span class="step-number">1</span>
+        </span>
+        <span class="step-label">Storming</span>
+      </li>
+      <li class="step" data-stage="design" data-state="complete">
+        <span class="step-indicator" aria-hidden="true">
+          <span class="step-check">&#10003;</span>
+          <span class="step-number">2</span>
+        </span>
+        <span class="step-label">Design</span>
+      </li>
+      <li class="step" data-stage="plan" data-state="complete">
+        <span class="step-indicator" aria-hidden="true">
+          <span class="step-check">&#10003;</span>
+          <span class="step-number">3</span>
+        </span>
+        <span class="step-label">Plan</span>
+      </li>
+      <li class="step" data-stage="implement" data-state="pending">
+        <span class="step-indicator" aria-hidden="true">
+          <span class="step-check">&#10003;</span>
+          <span class="step-number">4</span>
+        </span>
+        <span class="step-label">Implement</span>
+      </li>
+    </ol>
+
+    <nav class="tabs" role="tablist" aria-label="Feature sections">
+      <button class="tab" role="tab" aria-selected="true"
+              aria-controls="panel-brainstorming" id="tab-brainstorming" tabindex="0">
+        <svg class="tab-icon" xmlns="http://www.w3.org/2000/svg"
+             viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M9 18h6"/>
+          <path d="M10 22h4"/>
+          <path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5A4.61 4.61 0 0 1 8.91 14"/>
+        </svg>
+        <span>Brainstorming</span>
+      </button>
+
+      <button class="tab" role="tab" aria-selected="false"
+              aria-controls="panel-design" id="tab-design" tabindex="-1">
+        <svg class="tab-icon" xmlns="http://www.w3.org/2000/svg"
+             viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="10"/>
+          <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/>
+        </svg>
+        <span>Design</span>
+      </button>
+
+      <button class="tab" role="tab" aria-selected="false"
+              aria-controls="panel-plan" id="tab-plan" tabindex="-1">
+        <svg class="tab-icon" xmlns="http://www.w3.org/2000/svg"
+             viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <line x1="8" y1="6" x2="21" y2="6"/>
+          <line x1="8" y1="12" x2="21" y2="12"/>
+          <line x1="8" y1="18" x2="21" y2="18"/>
+          <line x1="3" y1="6" x2="3.01" y2="6"/>
+          <line x1="3" y1="12" x2="3.01" y2="12"/>
+          <line x1="3" y1="18" x2="3.01" y2="18"/>
+        </svg>
+        <span>Plan</span>
+      </button>
+
+      <button class="tab" role="tab" aria-selected="false"
+              aria-controls="panel-implementation" id="tab-implementation" tabindex="-1">
+        <svg class="tab-icon" xmlns="http://www.w3.org/2000/svg"
+             viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <polyline points="16 18 22 12 16 6"/>
+          <polyline points="8 6 2 12 8 18"/>
+        </svg>
+        <span>Implementation</span>
+      </button>
+
+      <button class="tab" role="tab" aria-selected="false" data-kind="issues"
+              aria-controls="panel-issues" id="tab-issues" tabindex="-1">
+        <svg class="tab-icon" xmlns="http://www.w3.org/2000/svg"
+             viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="9"/>
+          <line x1="12" y1="8" x2="12" y2="13"/>
+          <line x1="12" y1="16.5" x2="12.01" y2="16.5"/>
+        </svg>
+        <span>Issues</span>
+      </button>
+
+      <span class="tab-indicator" aria-hidden="true"></span>
+    </nav>
+
+    <section class="panel active" role="tabpanel"
+             id="panel-brainstorming" aria-labelledby="tab-brainstorming">
+      <p class="section-timestamp">Awaiting /feature-storm</p>
+      <!-- usage:BRAINSTORMING_USAGE_CHIP --><!-- /usage:BRAINSTORMING_USAGE_CHIP -->
+      <article class="panel-section">
+        <h2 class="section-label">Highlights</h2>
+        <div class="bullets"><p class="empty">Not yet filled — pending /feature-storm.</p></div>
+        <!-- usage:BRAINSTORMING_USAGE --><!-- /usage:BRAINSTORMING_USAGE -->
+      </article>
+      <article class="panel-section">
+        <h2 class="section-label">Detail</h2>
+        <div class="prose"><p class="empty">Not yet filled — pending /feature-storm.</p></div>
+      </article>
+    </section>
+
+    <section class="panel" role="tabpanel"
+             id="panel-design" aria-labelledby="tab-design" hidden>
+      <p class="section-timestamp">Updated 2026-11-11 13:03 UTC</p>
+      <!-- usage:DESIGN_USAGE_CHIP --><span class="chip usage">2h 23m 57s · 174,594 out · 116.8 tok/s</span><!-- /usage:DESIGN_USAGE_CHIP -->
+      <article class="panel-section">
+        <h2 class="section-label">Highlights</h2>
+        <div class="bullets"><ul>
+<li>A test call is a remote meeting where two macOS say voices speak scripted lines and you read yours from a script pane; at Stop the transcript is scored against the script.</li>
+<li>Started from a Test Call… link in the New Meeting chooser: Scenario (Random or one of 8, with latest WER), Engine (keys only, Settings default), Overlap.</li>
+<li>Exercises the real remote path end to end: AEC and ducking, process tap, leveller, mixer, engine, speaker attribution.</li>
+<li>Score: normalised WER per speaker and overall, majority label and purity, cross-credited words, latency median and max.</li>
+<li>After Stop the script pane becomes the Score pane; per-line badges expand to script vs heard; Earlier runs… compares runs of the same scenario revision.</li>
+<li>New core module MWTestCall: scenarios, voice catalogue, normaliser, aligner, clock-driven conductor, scorer, run history.</li>
+<li>Stored as testcall.json plus an optional test tag on meeting.json and index.json; old files decode unchanged.</li>
+<li>Hidden from agents by an AgentMeetings decorator at the CLI/MCP construction point; shown in the Meetings list and search with a TEST chip.</li>
+<li>Pause disabled; Stop excludes the running line; a sleep ends the script; about $0.02 per run, billed and summarised like any meeting.</li>
+</ul></div>
+        <!-- usage:DESIGN_USAGE --><div class="usage-pair">
+<table class="usage">
+<thead><tr><th>Metric</th><th>Main</th><th>Subagents</th><th>Total</th></tr></thead>
+<tbody>
+<tr class="grp"><td colspan="4">Time</td></tr>
+<tr><td>elapsed</td><td>—</td><td>—</td><td>2h 23m 57s</td></tr>
+<tr><td>run time</td><td>—</td><td>—</td><td>1h 29m 42s</td></tr>
+<tr class="grp"><td colspan="4">Requests</td></tr>
+<tr><td>model</td><td>114</td><td>0</td><td>114</td></tr>
+<tr><td>web_search</td><td>0</td><td>0</td><td>0</td></tr>
+<tr><td>web_fetch</td><td>0</td><td>0</td><td>0</td></tr>
+<tr class="grp"><td colspan="4">Throughput</td></tr>
+<tr class="tp"><td>output tok/s</td><td>—</td><td>—</td><td>116.8</td></tr>
+</tbody>
+</table>
+<table class="usage">
+<thead><tr><th>Metric</th><th>Main</th><th>Subagents</th><th>Total</th></tr></thead>
+<tbody>
+<tr class="grp"><td colspan="4">Tokens</td></tr>
+<tr><td>input_tokens</td><td>242</td><td>0</td><td>242</td></tr>
+<tr><td>output_tokens</td><td>174,594</td><td>0</td><td>174,594</td></tr>
+<tr class="sub"><td>thinking_tokens</td><td>87,660</td><td>0</td><td>87,660</td></tr>
+<tr><td>cache_write</td><td>499,394</td><td>0</td><td>499,394</td></tr>
+<tr class="sub"><td>ephemeral_1h</td><td>500,157</td><td>0</td><td>500,157</td></tr>
+<tr class="sub"><td>ephemeral_5m</td><td>0</td><td>0</td><td>0</td></tr>
+<tr><td>cache_read</td><td>23,218,612</td><td>0</td><td>23,218,612</td></tr>
+</tbody>
+</table>
+</div><!-- /usage:DESIGN_USAGE -->
+      </article>
+      <article class="panel-section">
+        <h2 class="section-label">Detail</h2>
+        <div class="prose"><p><a href="./mockups/mockup-v5-chooser-options.html#test-link">Chooser: Test Call link</a> (<a href="https://claude.ai/artifact/D41uFfFcyJE7igLXAU2DCJ#test-link">artifact</a>) · <a href="./mockups/mockup-v5-script-pane.html">Script pane</a> (<a href="https://claude.ai/artifact/97JRTvPtzPMsiPHJdFvS2M">artifact</a>) · <a href="./mockups/mockup-v5-pane-score.html">Score in the script pane</a> (<a href="https://claude.ai/artifact/VV8kAwi7aSnp7PRgP4TSDR">artifact</a>)</p>
+<h3>Summary</h3>
+<p>A scripted remote meeting that measures transcription quality on this Mac with a chosen engine. Two synthetic voices, played by macOS say in separate processes, are captured by the system-audio tap like the far side of a real call; the user reads their lines from a script pane. At Stop the transcript is scored against the script and the score is kept with the meeting.</p>
+<h3>Goals and non-goals</h3>
+<ul><li>Goals: two-click start; the real remote path end to end; objective WER, label and latency scores; runs kept and compared per scenario revision; invisible to agents.</li>
+<li>Non-goals: in-room test calls, generated content, rescoring after edits, unattended runs, cross-run charts.</li></ul>
+<h3>Design</h3>
+<h4>Components</h4>
+<table><tr><th>Component</th><th>Module</th><th>Role</th></tr>
+<tr><td>ScenarioLibrary</td><td>MWTestCall</td><td>8 scripts as Swift values, id + revision, seeded Random pick</td></tr>
+<tr><td>VoiceCatalog</td><td>MWTestCall</td><td>parses <code>say -v ?</code>, casts voices, substitutes English voices</td></tr>
+<tr><td>TranscriptNormalizer, WordAligner</td><td>MWTestCall</td><td>identical normalisation both sides; word-level Levenshtein</td></tr>
+<tr><td>TestCallConductor</td><td>MWTestCall</td><td>clock-driven script: voice lines, 1.2 s hand-over, 20 s skip, 30 s cap, overlap at +1.5 s</td></tr>
+<tr><td>TestCallScorer, TestRunHistory</td><td>MWTestCall</td><td>window alignment (−0.5 s / +1.5 s), WER, labels, latency; earlier runs</td></tr>
+<tr><td>TestCallTag, TestCallRecord, MeetingStore</td><td>MWMeetings</td><td>optional tag on meeting/index; testcall.json read/write</td></tr>
+<tr><td>MeetingController</td><td>MWMeetingPipeline</td><td>start with engine + tag, meeting time, arrivals, finishTest, Pause guard</td></tr>
+<tr><td>AgentMeetings</td><td>MWAgentAccess</td><td>MeetingReading decorator hiding test meetings from CLI and MCP</td></tr>
+<tr><td>SayProcessPlayer, TestCallSession, views</td><td>App</td><td>/usr/bin/say without a shell; Stop order; setup page, script and score panes</td></tr></table>
+<h4>Stop order</h4>
+<p>Conductor end (say terminated, running line stopped, rest not reached) → controller.stop(summarise: false) → finishTest (score, write testcall.json, set WER, emit) → summarise. The quit path skips the summary.</p>
+<h4>Scoring</h4>
+<p>Done lines only. Transcript words are assigned to lines by padded time windows; overlaps resolve by token match, then nearest span. Per-line alignment gives S/D/I; roles sum to WER. Clean labels need purity ≥ 95% and a unique majority label. Latency runs from line end to the arrival of the final segment holding the last matched word.</p>
+<h4>Security</h4>
+<p>say runs by absolute path with an argument array; voice names are allow-listed; testcall.json is 0600; agents cannot reach test meetings; no script or transcript text is logged.</p>
+<h3>Risks</h3>
+<ul><li>TTS mispronunciation counted as engine error: listening pass while authoring, revision bump on change.</li>
+<li>Default voices differ across macOS versions: substitution and a disabled state with instructions.</li>
+<li>Voices not captured (TCC, routing): unavailable banner plus a per-line capture check.</li>
+<li>Depends on the uncommitted ducking and leveller fix: shipped first.</li></ul>
+<h3>Rollout</h3>
+<p>Next minor release (0.6.0), no flag. Order: ducking fix, model/store/agent filter, normaliser/aligner/scorer/scenarios, conductor, controller, App surfaces. README section and CHANGELOG entry.</p></div>
+      </article>
+    </section>
+
+    <section class="panel" role="tabpanel"
+             id="panel-plan" aria-labelledby="tab-plan" hidden>
+      <p class="section-timestamp">Updated 2026-11-11 13:21 UTC</p>
+      <!-- usage:PLAN_USAGE_CHIP --><span class="chip usage">25m 30s · 168,156 out · 160.0 tok/s · $8.95</span><!-- /usage:PLAN_USAGE_CHIP -->
+      <article class="panel-section">
+        <h2 class="section-label">Highlights</h2>
+        <div class="bullets"><ul>
+<li>17 stages in 12 batches; test-first in every behaviour-changing stage, hybrids name their manual or integration check.</li>
+<li>Foundation: land the in-tree ducking and leveller fix; test tag, score record and store; MWTestCall module with normaliser and aligner.</li>
+<li>Parallel batch 4: agent filter, voice casting and run history, scenario catalogue, conductor, Meetings-list TEST chip.</li>
+<li>Parallel batch 5: scorer and the say player with system voices.</li>
+<li>Controller in two serial stages: test-meeting plumbing (engine, tag, timing, arrivals, Pause guard, .testScore on open), then finishTest at Stop.</li>
+<li>App: session and Stop order, script pane, score pane with Earlier runs, then the setup page and Test Call… link last, so nothing half-built is reachable.</li>
+<li>Docs and acceptance per engine, with the listening pass over all 8 scenarios.</li>
+<li>Critical path: 1 → 2 → 3 → 7 → 9 → 11 → 12 → 13 → 14 → 15 → 16 → 17 (12 of 17 stages).</li>
+<li>Deviations from the design: none. Eight factual or internal-consistency corrections made to the design in place.</li>
+</ul></div>
+        <!-- usage:PLAN_USAGE --><div class="usage-pair">
+<table class="usage">
+<thead><tr><th>Metric</th><th>Main</th><th>Subagents</th><th>Total</th></tr></thead>
+<tbody>
+<tr class="grp"><td colspan="4">Time</td></tr>
+<tr><td>elapsed</td><td>—</td><td>—</td><td>25m 30s</td></tr>
+<tr><td>run time</td><td>—</td><td>—</td><td>25m 30s</td></tr>
+<tr class="grp"><td colspan="4">Requests</td></tr>
+<tr><td>model</td><td>6</td><td>84</td><td>90</td></tr>
+<tr><td>web_search</td><td>0</td><td>0</td><td>0</td></tr>
+<tr><td>web_fetch</td><td>0</td><td>0</td><td>0</td></tr>
+<tr class="grp"><td colspan="4">Throughput</td></tr>
+<tr class="tp"><td>output tok/s</td><td>—</td><td>—</td><td>160.0</td></tr>
+</tbody>
+</table>
+<table class="usage">
+<thead><tr><th>Metric</th><th>Main</th><th>Subagents</th><th>Total</th></tr></thead>
+<tbody>
+<tr class="grp"><td colspan="4">Tokens</td></tr>
+<tr><td>input_tokens</td><td>16</td><td>170</td><td>186</td></tr>
+<tr><td>output_tokens</td><td>19,464</td><td>148,692</td><td>168,156</td></tr>
+<tr class="sub"><td>thinking_tokens</td><td>700</td><td>89,502</td><td>90,202</td></tr>
+<tr><td>cache_write</td><td>26,783</td><td>355,875</td><td>382,658</td></tr>
+<tr class="sub"><td>ephemeral_1h</td><td>26,783</td><td>0</td><td>26,783</td></tr>
+<tr class="sub"><td>ephemeral_5m</td><td>0</td><td>355,875</td><td>355,875</td></tr>
+<tr><td>cache_read</td><td>566,373</td><td>17,380,831</td><td>17,947,204</td></tr>
+</tbody>
+</table>
+</div><!-- /usage:PLAN_USAGE -->
+      </article>
+      <article class="panel-section">
+        <h2 class="section-label">Detail</h2>
+        <div class="prose">
+<h3>Overview</h3>
+<p>Four layers, bottom up, with the app working after every stage. Foundation (Stages 1–3), independent components in two parallel batches (Stages 4–10), the controller (Stages 11–12), then the App surfaces (Stages 13–17). The Test Call… entry point lands in Stage 16, after the session, script pane and score pane exist.</p>
+<h3>Stages</h3>
+<h4>Stage 1 — Land the in-tree ducking and leveller fix</h4>
+<p>Non-TDD (integration-verified): verify and commit the uncommitted fix the test call measures. Touches AVAudioEngineBackend, MeetingAudioPath, SystemAudioLeveller and its tests, CHANGELOG, README, CLAUDE.md.</p>
+<h4>Stage 2 — Test-call tag, score record and store support</h4>
+<p>TestCallTag, TestCallRecord (schema 1), optional test on Meeting and IndexEntry, MeetingStore write/read of testcall.json (0600), tag copied into index rows. Touches MWMeetings model and store, MeetingFixtures, MWMeetingsTests and two legacy fixtures.</p>
+<h4>Stage 3 — MWTestCall module, value model, normaliser and aligner</h4>
+<p>Registers the module in Package.swift and project.yml, adds the shared value types, TranscriptNormalizer (R14) and WordAligner (R15), and the say -v ? fixture.</p>
+<h4>Stage 4 — Hide test meetings from agents</h4>
+<p>AgentMeetings decorator in MWAgentAccess; App/AgentCommand.swift passes it to the CLI and MCP server (R22).</p>
+<h4>Stage 5 — Voice casting and run history</h4>
+<p>VoiceCatalog (parse, English filter, substitution, allow-list) and TestRunHistory (latest WER per current revision, runs newest first, capped at 50).</p>
+<h4>Stage 6 — Scenario catalogue</h4>
+<p>The 8 bundled scenarios, revision 1, with pick(.random | .named) under an injected RNG.</p>
+<h4>Stage 7 — Test-call conductor</h4>
+<p>Clock-driven script driver: say lines, 1.2 s hand-over, 20 s skip, 30 s cap, Skip, Overlap, Stop, sleep, say failures, capture check.</p>
+<h4>Stage 8 — Meetings list: TEST chip and test meta</h4>
+<p>MeetingsListModel row flag and R23 meta line, TestTag view, list chip.</p>
+<h4>Stage 9 — Test-call scorer</h4>
+<p>Per-line windows, alignment and heard, WER per role and overall, labels, purity, clean, cross-credited counts, latency.</p>
+<h4>Stage 10 — say player and system voices</h4>
+<p>SayProcessPlayer and SystemVoices in App/TestCall, unit-tested with stand-in executables; opt-in integration checks that say exits normally and the tap hears it.</p>
+<h4>Stage 11 — Controller: test-meeting plumbing</h4>
+<p>start(engine:test:), meetingTime, userSpeech, lastAudibleSystemAudio, segment arrivals, Pause no-op, .testScore on open; MeetingControlling and StubController move with it.</p>
+<h4>Stage 12 — Score at Stop: finishTest</h4>
+<p>Score, write testcall.json, set the tag's WER, emit .testScore; MWMeetingPipeline gains the MWTestCall edge.</p>
+<h4>Stage 13 — Test-call session and coordinator wiring</h4>
+<p>TestCallSession, the Stop order (end → stop(false) → finishTest → summarise), quit and sleep routing, coordinator startTestCall.</p>
+<h4>Stage 14 — Script pane during the call</h4>
+<p>TestCallPaneModel script half, ScriptPane, TEST chip and disabled Pause in the header, labelling note on the source line.</p>
+<h4>Stage 15 — Score pane and Earlier runs</h4>
+<p>Head block, line badges, expandable rows with transcript highlight, R20 messages, Earlier runs sheet.</p>
+<h4>Stage 16 — Setup page and the Test Call… entry point</h4>
+<p>Chooser link, TestCallSetupView (Scenario, Engine, Overlap), voice gating; manual end-to-end run against the accepted mockups.</p>
+<h4>Stage 17 — Documentation and acceptance</h4>
+<p>README Test call section, CHANGELOG Added entry, acceptance per engine, listening pass, agent checks.</p>
+<h3>Requirements coverage map</h3>
+<table>
+<thead><tr><th>Design req</th><th>Stages</th></tr></thead>
+<tbody>
+<tr><td>R1 Chooser link</td><td>16</td></tr>
+<tr><td>R2 Setup page</td><td>5, 16</td></tr>
+<tr><td>R3 Random</td><td>6, 13</td></tr>
+<tr><td>R4 Remote meeting, engine, tag</td><td>11, 13</td></tr>
+<tr><td>R5 Voices and substitution</td><td>5, 9, 13, 16</td></tr>
+<tr><td>R6 say voice lines</td><td>7, 10</td></tr>
+<tr><td>R7 1.2 s hand-over</td><td>7</td></tr>
+<tr><td>R8 20 s skip, 30 s cap</td><td>7</td></tr>
+<tr><td>R9 Skip line</td><td>7, 10, 14</td></tr>
+<tr><td>R10 Overlap</td><td>7, 16</td></tr>
+<tr><td>R11 Pause disabled</td><td>11, 14</td></tr>
+<tr><td>R12 Stop and sleep</td><td>7, 13, 14</td></tr>
+<tr><td>R13 When scored</td><td>9, 12, 13</td></tr>
+<tr><td>R14 Normalisation</td><td>3</td></tr>
+<tr><td>R15 WER</td><td>2, 3, 9, 15</td></tr>
+<tr><td>R16 Labels</td><td>9, 15</td></tr>
+<tr><td>R17 Latency</td><td>9, 11</td></tr>
+<tr><td>R18 Score pane</td><td>15</td></tr>
+<tr><td>R19 Earlier runs</td><td>5, 15</td></tr>
+<tr><td>R20 Missing score</td><td>11, 12, 15</td></tr>
+<tr><td>R21 Files</td><td>2, 12</td></tr>
+<tr><td>R22 Agents</td><td>4</td></tr>
+<tr><td>R23 Meetings list</td><td>8</td></tr>
+<tr><td>R24 Billing and summary</td><td>12, 13</td></tr>
+<tr><td>R25 VirtualClock</td><td>7, 11, 13</td></tr>
+<tr><td>R26 No new dependency</td><td>3, 17</td></tr>
+<tr><td>R27 No text logged</td><td>7, 12, 13</td></tr>
+</tbody>
+</table>
+<h3>Cross-cutting concerns</h3>
+<ul>
+<li><strong>Security:</strong> say by absolute path with an argument array; no line starts with "-"; voice names allow-listed before casting and launch; testcall.json 0600; the agent filter lands in Stage 4, before any stage can create a test meeting.</li>
+<li><strong>Performance:</strong> 100 ms main-actor poll; per-line alignment on ~15 tokens; scenario menu reads index.json only; Earlier runs loads ≤ 50 records off the main actor.</li>
+<li><strong>Observability:</strong> start, skipped, voice substituted and scored log lines carry ids and outcomes only, each with a no-text test.</li>
+<li><strong>Compatibility:</strong> optional fields, no migration; defaulted parameters keep every call site; protocol and stub change atomically.</li>
+</ul>
+<h3>Verification</h3>
+<p>Run a test call from the chooser per engine; check the score pane, list row, search hit and Earlier runs; reopen shows the same pane; mini-whisper meetings list, search and transcript never return a test call; an interrupted run shows "No score: the test call did not finish."; core and app suites green.</p>
+<h3>Execution schedule</h3>
+<table>
+<thead><tr><th>Batch</th><th>Stages</th><th>Mode</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>1</td><td>serial</td></tr>
+<tr><td>2</td><td>2</td><td>serial</td></tr>
+<tr><td>3</td><td>3</td><td>serial</td></tr>
+<tr><td>4</td><td>4, 5, 6, 7, 8</td><td>parallel</td></tr>
+<tr><td>5</td><td>9, 10</td><td>parallel</td></tr>
+<tr><td>6</td><td>11</td><td>serial</td></tr>
+<tr><td>7</td><td>12</td><td>serial</td></tr>
+<tr><td>8</td><td>13</td><td>serial</td></tr>
+<tr><td>9</td><td>14</td><td>serial</td></tr>
+<tr><td>10</td><td>15</td><td>serial</td></tr>
+<tr><td>11</td><td>16</td><td>serial</td></tr>
+<tr><td>12</td><td>17</td><td>serial</td></tr>
+</tbody>
+</table>
+<p>Critical path: Stage 1 → 2 → 3 → 7 → 9 → 11 → 12 → 13 → 14 → 15 → 16 → 17 (12 of 17 stages). At most one App-test stage per parallel batch.</p>
+<h3>Planning decisions taken</h3>
+<p>37 recorded in the plan. The most consequential:</p>
+<ul>
+<li>Controller work split: plumbing (Stage 11, no MWTestCall) and finishTest (Stage 12, adds the dependency edge).</li>
+<li>The entry point lands last (Stage 16), so no half-built test call is reachable between merges.</li>
+<li>Scorer fixture follows R14's hyphen split: 157 words and You 4.2% where the mockup showed 156 and 4.3%.</li>
+<li>Design corrected in place: CocoaError(.fileReadNoSuchFile), conductor events .captureMissing and .voicesFailed, reference on every record line, MWConfig dependency, project.yml product, chooser window size, drifted anchors.</li>
+</ul>
+<h3>Deviations from the design</h3>
+<p>None — plan matches design v5 exactly.</p>
+</div>
+      </article>
+    </section>
+
+    <section class="panel" role="tabpanel"
+             id="panel-implementation" aria-labelledby="tab-implementation" hidden>
+      <p class="section-timestamp">Awaiting /feature-implement</p>
+      <!-- usage:IMPLEMENTATION_USAGE_CHIP --><!-- /usage:IMPLEMENTATION_USAGE_CHIP -->
+      <article class="panel-section">
+        <h2 class="section-label">Highlights</h2>
+        <div class="bullets"><p class="empty">Not yet filled — pending /feature-implement.</p></div>
+        <!-- usage:IMPLEMENTATION_USAGE --><!-- /usage:IMPLEMENTATION_USAGE -->
+      </article>
+      <article class="panel-section">
+        <h2 class="section-label">Detail</h2>
+        <div class="prose"><p class="empty">Not yet filled — pending /feature-implement.</p></div>
+      </article>
+    </section>
+
+    <section class="panel" role="tabpanel"
+             id="panel-issues" aria-labelledby="tab-issues" hidden>
+      <p class="section-timestamp"><!-- ISSUES_AT:START -->Awaiting /bug-submit<!-- ISSUES_AT:END --></p>
+
+      <div class="issue-filter" role="group" aria-label="Filter issues by status">
+        <button type="button" class="issue-tab" data-status="open" aria-pressed="true">
+          Open <span class="issue-count" data-for="open">0</span>
+        </button>
+        <button type="button" class="issue-tab" data-status="closed" aria-pressed="false">
+          Closed <span class="issue-count" data-for="closed">0</span>
+        </button>
+      </div>
+
+      <div class="issue-list" data-status="open">
+        <!-- ISSUES_OPEN:START -->
+        <p class="empty">No open issues.</p>
+        <!-- ISSUES_OPEN:END -->
+      </div>
+
+      <div class="issue-list" data-status="closed" hidden>
+        <!-- ISSUES_CLOSED:START -->
+        <p class="empty">No closed issues.</p>
+        <!-- ISSUES_CLOSED:END -->
+      </div>
+    </section>
+
+    <footer class="feature-footer">
+      Generated 2026-11-11
+    </footer>
+  </main>
+
+  <script>
+    (function () {
+      const tabs = Array.from(document.querySelectorAll('[role="tab"]'))
+        .filter((t) => getComputedStyle(t).display !== 'none');
+      const panels = Array.from(document.querySelectorAll('[role="tabpanel"]'));
+      const indicator = document.querySelector('.tab-indicator');
+
+      function positionIndicator(tab) {
+        if (!indicator || !tab) return;
+        const navRect = tab.parentElement.getBoundingClientRect();
+        const rect = tab.getBoundingClientRect();
+        indicator.style.transform = `translateX(${rect.left - navRect.left}px)`;
+        indicator.style.width = `${rect.width}px`;
+      }
+
+      function activate(tab, focus) {
+        if (!tab) return;
+        tabs.forEach((t) => {
+          const selected = t === tab;
+          t.setAttribute('aria-selected', selected ? 'true' : 'false');
+          t.setAttribute('tabindex', selected ? '0' : '-1');
+        });
+        panels.forEach((p) => {
+          const isActive = p.id === tab.getAttribute('aria-controls');
+          p.hidden = !isActive;
+          p.classList.toggle('active', isActive);
+        });
+        positionIndicator(tab);
+        if (focus) tab.focus();
+      }
+
+      tabs.forEach((tab) => {
+        tab.addEventListener('click', () => activate(tab));
+        tab.addEventListener('keydown', (e) => {
+          const i = tabs.indexOf(tab);
+          let target = null;
+          if (e.key === 'ArrowRight') target = tabs[(i + 1) % tabs.length];
+          else if (e.key === 'ArrowLeft') target = tabs[(i - 1 + tabs.length) % tabs.length];
+          else if (e.key === 'Home') target = tabs[0];
+          else if (e.key === 'End') target = tabs[tabs.length - 1];
+          if (target) {
+            e.preventDefault();
+            activate(target, true);
+          }
+        });
+      });
+
+      const initial = tabs.find((t) => t.getAttribute('aria-selected') === 'true') || tabs[0];
+      // Defer to next frame so layout is settled before placing the indicator
+      requestAnimationFrame(() => activate(initial));
+
+      window.addEventListener('resize', () => {
+        const selected = tabs.find((t) => t.getAttribute('aria-selected') === 'true');
+        if (selected) positionIndicator(selected);
+      });
+    })();
+
+    // Issues panel: Open/Closed filter + auto-computed counts.
+    (function () {
+      const filterBtns = Array.from(document.querySelectorAll('.issue-tab'));
+      const lists = Array.from(document.querySelectorAll('.issue-list'));
+      if (!filterBtns.length) return;
+
+      lists.forEach((list) => {
+        const status = list.getAttribute('data-status');
+        const badge = document.querySelector(`.issue-count[data-for="${status}"]`);
+        if (badge) badge.textContent = list.querySelectorAll('.issue').length;
+      });
+
+      function show(status) {
+        filterBtns.forEach((b) =>
+          b.setAttribute('aria-pressed', b.getAttribute('data-status') === status ? 'true' : 'false'));
+        lists.forEach((l) => { l.hidden = l.getAttribute('data-status') !== status; });
+      }
+
+      filterBtns.forEach((b) => b.addEventListener('click', () => show(b.getAttribute('data-status'))));
+      show('open');
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,596 @@
+<title>Test Call Chooser</title>
+<style>
+*,*::before,*::after{box-sizing:border-box}
+:root{--page-bg:#1c1e22;--page-text:#e8e8ea;--page-muted:#9a9aa2;--accent:#7cc4ff;--banner:#26292f;--rule:#34383f;
+--win:#ececec;--win2:#f6f6f6;--txt:#1d1d1f;--mut:#6e6e73;--bd:#d2d2d7;--blue:#0a60ff;--red:#c62828;--green:#1f8a3b;--amber:#b25000;--test:#7a4fd0}
+body{margin:0;background:var(--page-bg);color:var(--page-text);font:14px/1.45 -apple-system,BlinkMacSystemFont,"Helvetica Neue",sans-serif;-webkit-font-smoothing:antialiased}
+.banner{background:var(--banner);border-bottom:1px solid var(--rule);padding:14px max(16px,env(safe-area-inset-right,0px)) 14px max(16px,env(safe-area-inset-left,0px));font-size:13px}
+.banner strong{color:#fff}.banner p{margin:4px 0 0;color:var(--page-muted);max-width:95ch}.banner .axis{color:var(--accent)}
+main{padding:26px max(16px,env(safe-area-inset-right,0px)) 40px max(16px,env(safe-area-inset-left,0px));display:flex;flex-direction:column;align-items:center;gap:44px}
+.opt{display:flex;flex-direction:column;align-items:center;gap:10px;width:100%}
+.opt h2{font-size:15px;margin:0;color:#fff;font-weight:600;text-align:center}
+.opt h2 code{font:12px ui-monospace,Menlo,monospace;color:var(--accent);background:#26292f;border:1px solid var(--rule);border-radius:5px;padding:1px 6px;margin-left:6px}
+.opt .why{font-size:12.5px;color:var(--page-muted);margin:0;max-width:92ch;text-align:center}
+.opt .why b{color:var(--page-text);font-weight:600}
+.frames{display:flex;flex-wrap:wrap;gap:22px;justify-content:center;width:100%}
+.frame{display:flex;flex-direction:column;gap:6px;align-items:center;min-width:0;max-width:100%}
+.frame small{font-size:11.5px;color:var(--page-muted);letter-spacing:.04em;text-transform:uppercase}
+.mac{width:640px;max-width:100%;background:var(--win);color:var(--txt);border-radius:11px;box-shadow:0 24px 60px rgba(0,0,0,.45);display:grid;grid-template-rows:40px auto;overflow:hidden;font-size:13px}
+.mac.narrow{width:520px}
+.title{background:#e3e3e7;border-bottom:1px solid #cfcfd4;display:flex;align-items:center;padding:0 14px;gap:14px;position:relative}
+.title .lights{display:flex;gap:7px}.title .lights i{width:12px;height:12px;border-radius:50%}
+.title h1{font-size:13px;font-weight:600;margin:0;position:absolute;left:50%;transform:translateX(-50%);color:#3a3a3f;white-space:nowrap}
+.mini{font:12px -apple-system,sans-serif;padding:4px 10px;border-radius:6px;border:1px solid #c3c3c8;background:#fff;color:var(--txt);cursor:default}
+.mini.primary{background:var(--blue);color:#fff;border-color:var(--blue)}.mini.big{font-size:13px;padding:7px 14px}
+.mini.link{border:0;background:none;color:var(--blue);padding:7px 4px}
+.choose{display:grid;place-items:center;padding:24px}
+.card{width:100%;background:#fff;border:1px solid var(--bd);border-radius:12px;padding:22px 24px 18px;display:flex;flex-direction:column;gap:14px}
+.card h3{margin:0;font-size:17px;font-weight:600;display:flex;align-items:center;gap:8px}
+.card p{margin:0;color:var(--mut);font-size:12.5px;line-height:1.5}
+.modes{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.modes.three{grid-template-columns:1fr 1fr 1fr}
+.mode{border:1px solid var(--bd);border-radius:10px;padding:12px 12px 10px;background:var(--win2);display:flex;flex-direction:column;gap:5px;position:relative;min-width:0}
+.mode.sel{border-color:var(--blue);box-shadow:0 0 0 2px rgba(10,96,255,.15);background:#fff}
+.mode b{font-size:13.5px;padding-right:18px}.mode small{color:var(--mut);font-size:11.5px;line-height:1.4}
+.mode .price{margin-top:auto;padding-top:4px;font-size:11.5px;color:var(--txt)}
+.mode .key{position:absolute;top:10px;right:10px;width:14px;height:14px;border-radius:50%;border:1.5px solid var(--bd);background:#fff}.mode.sel .key{border:4.5px solid var(--blue)}
+.tag{display:inline-flex;align-items:center;padding:1px 7px;border-radius:9px;font-size:10.5px;font-weight:600;color:var(--test);background:#f1ecfb;border:1px solid #ddd0f5}
+.setup{display:grid;grid-template-columns:auto 1fr;gap:9px 12px;align-items:center;font-size:12.5px;background:var(--win2);border:1px solid #e3e3e7;border-radius:10px;padding:12px 14px}
+.setup.indent{margin-left:24px}
+.setup label{color:var(--mut);text-align:right}
+.pop{display:inline-flex;align-items:center;gap:8px;justify-content:space-between;min-width:220px;max-width:100%;padding:3px 8px 3px 10px;border:1px solid #c3c3c8;border-radius:6px;background:#fff;font-size:12.5px;box-shadow:0 1px 0 rgba(0,0,0,.04)}
+.pop::after{content:"";width:14px;height:14px;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Crect width='14' height='14' rx='3' fill='%230a60ff'/%3E%3Cpath d='M4.5 5.8L7 3.5l2.5 2.3M4.5 8.2L7 10.5l2.5-2.3' fill='none' stroke='white' stroke-width='1.3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/14px no-repeat;flex:0 0 auto}
+.pop i{font-style:normal;color:var(--mut)}
+.chk{display:inline-flex;align-items:flex-start;gap:7px;font-size:12.5px;line-height:1.4}
+.chk .box{width:14px;height:14px;border:1px solid #b9b9be;border-radius:4px;background:#fff;flex:0 0 auto;margin-top:2px;display:grid;place-items:center}
+.chk .box.on{background:var(--blue);border-color:var(--blue)}
+.chk .box.on::after{content:"";width:7px;height:4px;border:solid #fff;border-width:0 0 1.6px 1.6px;transform:rotate(-45deg) translate(1px,-1px)}
+.chk small{display:block;color:var(--mut);font-size:11.5px}
+.row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.engine{font-size:12px;color:var(--mut)}.engine a{color:var(--blue);text-decoration:none}
+.actions{margin-left:auto;display:flex;gap:8px}
+.back{font-size:12.5px;color:var(--blue)}
+.cost{font-size:11.5px;color:var(--mut)}
+.inset{width:640px;max-width:100%;display:flex;gap:16px;flex-wrap:wrap;justify-content:center}
+.menu{background:#fff;color:var(--txt);border:1px solid #c3c3c8;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.35);padding:4px;display:flex;flex-direction:column;width:250px;font-size:12.5px}
+.menu span{padding:4px 10px;border-radius:5px;display:flex;justify-content:space-between;gap:10px}
+.menu span em{font-style:normal;color:var(--mut);font-size:11.5px;font-variant-numeric:tabular-nums}
+.menu span.on{background:var(--blue);color:#fff}.menu span.on em{color:#dfe8ff}
+.menu span.off{color:#b0b0b5}.menu span.off em{color:#c8c8cc}
+.menu hr{border:0;border-top:1px solid #e3e3e7;margin:3px 0}
+.inset small{display:block;font-size:11.5px;color:var(--page-muted);margin-bottom:6px;letter-spacing:.04em;text-transform:uppercase}
+@media (max-width:700px){.modes.three{grid-template-columns:1fr}.setup{grid-template-columns:1fr}.setup label{text-align:left}.pop{min-width:0;width:100%}.setup.indent{margin-left:0}}
+</style>
+<div class="banner"><strong>Mockup — not shipping code · Feature v5 · “Test Call Chooser” · round 1 · Option B accepted 2026-11-11</strong>
+<p>Where a test call starts from in the New Meeting window. Every option offers the same three controls: <b>Scenario</b> (Random, or one of 8 named scripts), <b>Engine</b> (only engines with a key; defaults to the Settings engine) and <b>Overlap</b> (off). A test call is always a remote call. <span class="axis">What differs: how prominent the test call is in a chooser most people use for real meetings.</span> Design language: the accepted v4 Meeting Window chooser (mockup-v4-meeting-window.html) — light macOS window on the dark review page, 13 pt system type, white hairline controls, blue selection ring. The two menus at the bottom are shared by all options. Names and figures are placeholders.</p></div>
+<main>
+
+<section class="opt" id="third-card" data-mf-option="third-card">
+<h2>A · Third mode card<code>third-card</code> · Not chosen</h2>
+<p class="why">Test call sits beside Remote call and In the room. Selecting it shows the three controls under the cards. <b>Trade-off:</b> found at a glance; adds a third card to a chooser used mostly for real meetings.</p>
+<div class="frames"><div class="frame">
+<div class="mac"><div class="title"><span class="lights"><i style="background:#ff5f57"></i><i style="background:#febc2e"></i><i style="background:#28c840"></i></span><h1>New Meeting</h1></div>
+<div class="choose"><div class="card">
+<h3>Start a meeting</h3>
+<div class="modes three">
+<div class="mode"><span class="key"></span><b>Remote call</b><small>Microphone plus the audio other apps play.</small><span class="price">About <b>$0.27</b> per hour</span></div>
+<div class="mode"><span class="key"></span><b>In the room</b><small>Microphone only; every voice diarized.</small><span class="price">About <b>$0.27</b> per hour</span></div>
+<div class="mode sel"><span class="key"></span><b>Test call</b><small>Two simulated voices talk with you from a script; the transcript is scored.</small><span class="price">About <b>$0.02</b> per run</span></div>
+</div>
+<div class="setup">
+<label>Scenario</label><span class="pop">Random <i>· one of 8</i></span>
+<label>Engine</label><span class="pop">AssemblyAI Streaming</span>
+<label></label><span class="chk"><span class="box"></span><span>Overlap<small>A voice sometimes starts while you are still speaking.</small></span></span>
+</div>
+<p>You read your lines from the screen; the voices reply through your speakers. About 2 minutes. Saved as a meeting marked Test.</p>
+<div class="row"><span class="actions"><button class="mini big" type="button">Cancel</button><button class="mini big primary" type="button">Start Test Call</button></span></div>
+</div></div></div>
+</div></div>
+</section>
+
+<section class="opt" id="test-link" data-mf-option="test-link">
+<h2>B · Link to a test-call page<code>test-link</code> · Accepted 2026-11-11</h2>
+<p class="why">The chooser stays as it is today, with a <b>Test Call…</b> link at the bottom. The link turns the card into the test-call setup, with a Back link. <b>Trade-off:</b> real meetings see no change; the test call is one click deeper.</p>
+<div class="frames">
+<div class="frame"><small>Chooser</small>
+<div class="mac narrow"><div class="title"><span class="lights"><i style="background:#ff5f57"></i><i style="background:#febc2e"></i><i style="background:#28c840"></i></span><h1>New Meeting</h1></div>
+<div class="choose"><div class="card">
+<h3>Start a meeting</h3>
+<div class="modes">
+<div class="mode sel"><span class="key"></span><b>Remote call</b><small>Microphone plus the audio other apps play.</small><span class="price">About <b>$0.27</b> per hour</span></div>
+<div class="mode"><span class="key"></span><b>In the room</b><small>Microphone only; every voice diarized.</small><span class="price">About <b>$0.27</b> per hour</span></div>
+</div>
+<div class="row"><span class="engine">Engine: AssemblyAI Streaming · <a href="#test-link">Settings → Meetings</a></span></div>
+<div class="row"><button class="mini link" type="button">Test Call…</button><span class="actions"><button class="mini big" type="button">Cancel</button><button class="mini big primary" type="button">Start</button></span></div>
+</div></div></div></div>
+<div class="frame"><small>After Test Call…</small>
+<div class="mac narrow"><div class="title"><span class="lights"><i style="background:#ff5f57"></i><i style="background:#febc2e"></i><i style="background:#28c840"></i></span><h1>New Meeting</h1></div>
+<div class="choose"><div class="card">
+<span class="back">‹ Back</span>
+<h3>Test call <span class="tag">TEST</span></h3>
+<p>Two simulated voices talk with you from a script, as on a remote call. You read your lines from the screen. At Stop the transcript is scored against the script. About 2 minutes, about $0.02.</p>
+<div class="setup">
+<label>Scenario</label><span class="pop">Random <i>· one of 8</i></span>
+<label>Engine</label><span class="pop">AssemblyAI Streaming</span>
+<label></label><span class="chk"><span class="box"></span><span>Overlap<small>A voice sometimes starts while you are still speaking.</small></span></span>
+</div>
+<div class="row"><span class="actions"><button class="mini big" type="button">Cancel</button><button class="mini big primary" type="button">Start Test Call</button></span></div>
+</div></div></div></div>
+</div>
+</section>
+
+<section class="opt" id="remote-checkbox" data-mf-option="remote-checkbox">
+<h2>C · Checkbox under Remote call<code>remote-checkbox</code> · Not chosen</h2>
+<p class="why">A <b>Test call</b> checkbox appears while Remote call is selected; ticking it reveals the controls and renames Start. <b>Trade-off:</b> says plainly that a test call is a remote call; the option is visible to every remote meeting.</p>
+<div class="frames"><div class="frame">
+<div class="mac"><div class="title"><span class="lights"><i style="background:#ff5f57"></i><i style="background:#febc2e"></i><i style="background:#28c840"></i></span><h1>New Meeting</h1></div>
+<div class="choose"><div class="card">
+<h3>Start a meeting</h3>
+<div class="modes">
+<div class="mode sel"><span class="key"></span><b>Remote call</b><small>Microphone plus the audio other apps play (Zoom, Teams, Meet).</small><span class="price">About <b>$0.27</b> per hour</span></div>
+<div class="mode"><span class="key"></span><b>In the room</b><small>Microphone only. Every voice is diarized into Speaker 1, 2…</small><span class="price">About <b>$0.27</b> per hour</span></div>
+</div>
+<span class="chk"><span class="box on"></span><span><b>Test call</b><small>Two simulated voices talk with you from a script; the transcript is scored. About 2 minutes, about $0.02.</small></span></span>
+<div class="setup indent">
+<label>Scenario</label><span class="pop">Random <i>· one of 8</i></span>
+<label>Engine</label><span class="pop">AssemblyAI Streaming</span>
+<label></label><span class="chk"><span class="box"></span><span>Overlap<small>A voice sometimes starts while you are still speaking.</small></span></span>
+</div>
+<div class="row"><span class="actions"><button class="mini big" type="button">Cancel</button><button class="mini big primary" type="button">Start Test Call</button></span></div>
+</div></div></div>
+</div></div>
+</section>
+
+<section class="opt">
+<h2>Shared by all options · the two menus</h2>
+<p class="why">Scenario shows each script's latest score on this Mac. Engine lists all four; an engine without a key is greyed with the reason.</p>
+<div class="inset">
+<div><small>Scenario</small><div class="menu">
+<span class="on">Random</span><hr>
+<span>Sprint planning <em>WER 6.8 %</em></span>
+<span>Budget review <em>WER 9.1 %</em></span>
+<span>Incident review <em>not run</em></span>
+<span>Hiring debrief <em>WER 7.4 %</em></span>
+<span>Product launch <em>not run</em></span>
+<span>Customer escalation <em>not run</em></span>
+<span>Office move <em>WER 5.2 %</em></span>
+<span>Quarterly sales <em>not run</em></span>
+</div></div>
+<div><small>Engine</small><div class="menu">
+<span class="on">AssemblyAI Streaming <em>default</em></span>
+<span>AssemblyAI Pro</span>
+<span class="off">Speechmatics Standard <em>no key</em></span>
+<span class="off">Speechmatics Enhanced <em>no key</em></span>
+</div></div>
+</div>
+</section>
+
+</main>
+
+<!-- mockup-feedback:start -->
+<style>
+.mf-bar {
+  --mf-bg: #f6f7f9;
+  --mf-fg: #1a2127;
+  --mf-muted: #59646d;
+  --mf-line: #d3d9de;
+  --mf-field: #ffffff;
+  --mf-accent: #2f5fd0;
+  --mf-accent-fg: #ffffff;
+  --mf-ok: #1d7a4c;
+  --mf-warn: #8f5d00;
+  --mf-err: #b2322b;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .mf-bar {
+    --mf-bg: #161b20;
+    --mf-fg: #e3e8ec;
+    --mf-muted: #98a3ab;
+    --mf-line: #2d363e;
+    --mf-field: #0f1317;
+    --mf-accent: #7ea2f5;
+    --mf-accent-fg: #0b1220;
+    --mf-ok: #57c48c;
+    --mf-warn: #e2ac45;
+    --mf-err: #f08077;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] .mf-bar {
+  --mf-bg: #161b20;
+  --mf-fg: #e3e8ec;
+  --mf-muted: #98a3ab;
+  --mf-line: #2d363e;
+  --mf-field: #0f1317;
+  --mf-accent: #7ea2f5;
+  --mf-accent-fg: #0b1220;
+  --mf-ok: #57c48c;
+  --mf-warn: #e2ac45;
+  --mf-err: #f08077;
+  color-scheme: dark;
+}
+.mf-bar, .mf-bar * { box-sizing: border-box; }
+.mf-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 2147483000;
+  margin: 24px 0 0;
+  padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px));
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--mf-bg);
+  color: var(--mf-fg);
+  border-top: 1px solid var(--mf-line);
+  box-shadow: 0 -6px 18px rgba(0, 0, 0, 0.08);
+  font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  text-align: left;
+}
+.mf-bar[hidden] { display: none; }
+.mf-bar .mf-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+.mf-bar .mf-tag {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--mf-muted);
+}
+.mf-bar .mf-title { font-weight: 600; }
+.mf-bar .mf-context { color: var(--mf-muted); min-width: 0; overflow-wrap: anywhere; }
+.mf-bar .mf-toggle {
+  margin-left: auto;
+  padding: 2px 6px;
+  border: 0;
+  background: none;
+  color: var(--mf-accent);
+  font: inherit;
+  font-size: 13px;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.mf-bar .mf-body { display: flex; flex-direction: column; gap: 8px; }
+.mf-bar.mf-collapsed .mf-body { display: none; }
+.mf-bar .mf-options { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; border: 0; }
+.mf-bar .mf-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border: 1.5px solid var(--mf-line);
+  border-radius: 999px;
+  background: var(--mf-field);
+  cursor: pointer;
+}
+.mf-bar .mf-chip input { margin: 0; accent-color: var(--mf-accent); }
+.mf-bar .mf-chip:has(input:checked) { border-color: var(--mf-accent); }
+.mf-bar .mf-chip:has(input:focus-visible) { outline: 2px solid var(--mf-accent); outline-offset: 2px; }
+.mf-bar .mf-note {
+  width: 100%;
+  min-height: 38px;
+  max-height: 140px;
+  padding: 7px 10px;
+  resize: vertical;
+  font: inherit;
+  color: var(--mf-fg);
+  background: var(--mf-field);
+  border: 1.5px solid var(--mf-line);
+  border-radius: 8px;
+}
+.mf-bar .mf-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.mf-bar .mf-btn {
+  padding: 7px 12px;
+  border: 1.5px solid var(--mf-line);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--mf-fg);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.mf-bar .mf-btn.mf-primary { background: var(--mf-accent); border-color: var(--mf-accent); color: var(--mf-accent-fg); }
+.mf-bar .mf-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.mf-bar .mf-btn:focus-visible, .mf-bar .mf-toggle:focus-visible, .mf-bar .mf-note:focus-visible {
+  outline: 2px solid var(--mf-accent);
+  outline-offset: 2px;
+}
+.mf-bar .mf-channel { display: flex; align-items: center; gap: 6px; margin: 0; font-size: 13px; color: var(--mf-muted); }
+.mf-bar .mf-dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--mf-muted); }
+.mf-bar .mf-channel[data-state="available"] .mf-dot { background: var(--mf-ok); }
+.mf-bar .mf-channel[data-state="no_session"] .mf-dot,
+.mf-bar .mf-channel[data-state="writers_only"] .mf-dot { background: var(--mf-warn); }
+.mf-bar .mf-channel[data-state="blocked"] .mf-dot { background: var(--mf-err); }
+.mf-bar .mf-result { margin: 0; font-size: 13px; }
+.mf-bar .mf-result[data-kind="ok"] { color: var(--mf-ok); }
+.mf-bar .mf-result[data-kind="err"] { color: var(--mf-err); }
+.mf-bar .mf-verdict { margin: 0; font-weight: 600; }
+[data-mf-option].mf-selected { outline: 3px solid #3b6fe0; outline-offset: 4px; }
+</style>
+<aside class="mf-bar" id="mf-bar" role="region" aria-label="Mockup feedback" data-uncommentable hidden>
+  <div class="mf-head">
+    <span class="mf-tag">Feedback</span>
+    <span class="mf-title" id="mf-title"></span>
+    <span class="mf-context" id="mf-context"></span>
+    <button type="button" class="mf-toggle" id="mf-toggle" aria-expanded="true" aria-controls="mf-body">Hide</button>
+  </div>
+  <div class="mf-body" id="mf-body">
+    <p class="mf-verdict" id="mf-verdict" hidden></p>
+    <fieldset class="mf-options" id="mf-options" hidden></fieldset>
+    <textarea class="mf-note" id="mf-note" maxlength="1500" placeholder="Note for Claude (optional; required to request changes)" aria-label="Note for Claude"></textarea>
+    <div class="mf-actions" id="mf-actions"></div>
+    <p class="mf-channel" id="mf-channel" data-state="checking">
+      <span class="mf-dot" aria-hidden="true"></span>
+      <span id="mf-channel-text">Checking whether a Claude session is listening.</span>
+      <button type="button" class="mf-toggle" id="mf-recheck" hidden>Check again</button>
+    </p>
+    <p class="mf-result" id="mf-result" role="status" aria-live="polite" hidden></p>
+  </div>
+</aside>
+<script type="application/json" id="mf-config">{"set":"v5-s1","setLabel":"Test call chooser","mode":"compare","options":[{"id":"third-card","label":"A · Third mode card"},{"id":"test-link","label":"B · Link to a test-call page"},{"id":"remote-checkbox","label":"C · Checkbox under Remote call"}],"this":null,"status":"accepted","chosen":"test-link"}</script>
+<script>
+(function () {
+  var cfg;
+  try { cfg = JSON.parse(document.getElementById("mf-config").textContent); } catch (e) { return; }
+  if (!cfg || !cfg.options || !cfg.options.length) return;
+
+  var PREFIX = "Mockup feedback · ";
+  var CHANNEL = {
+    checking: "Checking whether a Claude session is listening.",
+    available: "A Claude session is listening. Sending wakes it.",
+    no_session: "No Claude session is listening. Reply in chat, or check again once the session is back.",
+    writers_only: "Only editors of this page can send to Claude. Reply in chat instead.",
+    off: "Sending to Claude is not offered here. Reply in chat instead.",
+    absent: "Sending works on the published page. Here, reply in chat instead.",
+    blocked: "Commenting from this page is turned off. Reply in chat instead."
+  };
+  var KNOWN = ["available", "writers_only", "no_session", "off"];
+
+  var bar = document.getElementById("mf-bar");
+  var titleEl = document.getElementById("mf-title");
+  var contextEl = document.getElementById("mf-context");
+  var toggleBtn = document.getElementById("mf-toggle");
+  var verdictEl = document.getElementById("mf-verdict");
+  var optionsEl = document.getElementById("mf-options");
+  var noteEl = document.getElementById("mf-note");
+  var actionsEl = document.getElementById("mf-actions");
+  var channelEl = document.getElementById("mf-channel");
+  var channelText = document.getElementById("mf-channel-text");
+  var recheckBtn = document.getElementById("mf-recheck");
+  var resultEl = document.getElementById("mf-result");
+
+  var comments = null;
+  var state = "checking";
+  var busy = false;
+  var sent = false;
+  var buttons = [];
+
+  function byId(list, id) {
+    for (var i = 0; i < list.length; i++) if (list[i].id === id) return list[i];
+    return null;
+  }
+  function label(id) { var o = byId(cfg.options, id); return o ? o.label : id; }
+  function root(id) { return document.querySelector('[data-mf-option="' + id + '"]'); }
+  function picked() {
+    if (cfg.mode !== "compare") return cfg.mode === "pick" ? cfg["this"] : cfg.options[0].id;
+    var r = optionsEl.querySelector("input:checked");
+    return r ? r.value : null;
+  }
+  function say(text, kind) {
+    resultEl.hidden = !text;
+    resultEl.textContent = text || "";
+    if (kind) resultEl.setAttribute("data-kind", kind);
+    else resultEl.removeAttribute("data-kind");
+  }
+  function clean(text) {
+    return text.replace(/[\u0000-\u0008\u000B-\u001F\u007F]/g, "").trim();
+  }
+
+  // Header: the set, and where this page sits in it.
+  titleEl.textContent = cfg.setLabel;
+  if (cfg.mode === "pick") {
+    var others = [];
+    var position = 0;
+    for (var i = 0; i < cfg.options.length; i++) {
+      if (cfg.options[i].id === cfg["this"]) position = i + 1;
+      else others.push(cfg.options[i].label);
+    }
+    contextEl.textContent = "Option " + position + " of " + cfg.options.length + ": " + label(cfg["this"]) +
+      ". The others are on their own pages: " + others.join(", ") + ". Choosing here rules them out.";
+  } else if (cfg.mode === "compare") {
+    contextEl.textContent = cfg.options.length + " options on this page. Pick one.";
+  } else {
+    contextEl.textContent = label(cfg.options[0].id);
+  }
+
+  toggleBtn.addEventListener("click", function () {
+    var collapsed = bar.classList.toggle("mf-collapsed");
+    toggleBtn.textContent = collapsed ? "Show" : "Hide";
+    toggleBtn.setAttribute("aria-expanded", collapsed ? "false" : "true");
+  });
+
+  // A settled page shows its verdict and nothing to act on.
+  if (cfg.status !== "open") {
+    var verdict = {
+      accepted: cfg.mode === "compare" ? "Accepted: " + label(cfg.chosen) + "." : "Accepted.",
+      "not-chosen": "Not chosen.",
+      closed: "Closed. Choices on this page are no longer read."
+    }[cfg.status] || "Closed.";
+    verdictEl.textContent = verdict;
+    verdictEl.hidden = false;
+    noteEl.hidden = true;
+    channelEl.hidden = true;
+    if (cfg.mode === "compare" && cfg.status === "accepted" && root(cfg.chosen)) root(cfg.chosen).classList.add("mf-selected");
+    bar.hidden = false;
+    return;
+  }
+
+  // Compare: one chip per option, outlining its section when picked.
+  if (cfg.mode === "compare") {
+    var legend = document.createElement("legend");
+    legend.className = "mf-tag";
+    legend.textContent = "Options";
+    optionsEl.appendChild(legend);
+    cfg.options.forEach(function (o) {
+      var chip = document.createElement("label");
+      chip.className = "mf-chip";
+      var input = document.createElement("input");
+      input.type = "radio";
+      input.name = "mf-option";
+      input.id = "mf-option-" + o.id;
+      input.value = o.id;
+      input.addEventListener("change", function () {
+        var all = document.querySelectorAll("[data-mf-option]");
+        for (var k = 0; k < all.length; k++) all[k].classList.remove("mf-selected");
+        var el = root(o.id);
+        if (el) {
+          el.classList.add("mf-selected");
+          var still = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+          el.scrollIntoView({ block: "nearest", behavior: still ? "auto" : "smooth" });
+        }
+        refresh();
+      });
+      chip.appendChild(input);
+      chip.appendChild(document.createTextNode(o.label));
+      optionsEl.appendChild(chip);
+    });
+    optionsEl.hidden = false;
+  }
+
+  // Actions per shape. needsNote: a change request must say what to change.
+  var ACTIONS = {
+    review: [
+      { action: "accept", text: "Looks right", primary: true },
+      { action: "revise", text: "Request changes", needsNote: true },
+      { action: "alternatives", text: "Show alternatives" }
+    ],
+    compare: [
+      { action: "choose", text: "Send choice", primary: true, needsPick: true },
+      { action: "none", text: "None of these", needsNote: true },
+      { action: "comment", text: "Comment on this option", needsPick: true }
+    ],
+    pick: [
+      { action: "choose", text: "Choose this one", primary: true },
+      { action: "revise", text: "Request changes", needsNote: true },
+      { action: "none", text: "None of these", needsNote: true }
+    ]
+  }[cfg.mode] || [];
+
+  ACTIONS.forEach(function (a) {
+    var b = document.createElement("button");
+    b.type = "button";
+    b.className = "mf-btn" + (a.primary ? " mf-primary" : "");
+    b.id = "mf-" + a.action;
+    b.textContent = a.text;
+    b.addEventListener("click", function () {
+      if (a.action === "comment") compose();
+      else send(a);
+    });
+    actionsEl.appendChild(b);
+    buttons.push({ el: b, spec: a });
+  });
+
+  function render() {
+    channelEl.setAttribute("data-state", state);
+    channelText.textContent = CHANNEL[state] || CHANNEL.off;
+    recheckBtn.hidden = !comments || state === "available" || state === "checking" || state === "blocked";
+    var pick = picked();
+    buttons.forEach(function (b) {
+      if (b.spec.action === "comment") {
+        b.el.disabled = !comments || !pick;
+        b.el.hidden = !comments;
+        return;
+      }
+      b.el.disabled = busy || sent || state !== "available" || (b.spec.needsPick && !pick);
+    });
+    noteEl.disabled = sent;
+  }
+
+  function refresh() {
+    if (!comments || state === "blocked") { render(); return; }
+    comments.canSendToClaude().then(function (v) {
+      return KNOWN.indexOf(v) === -1 ? "off" : v;
+    }, function () {
+      return "off";
+    }).then(function (v) {
+      if (comments && state !== "blocked") state = v;
+      render();
+    });
+  }
+
+  function fail(err) {
+    var code = err && err.code;
+    if (code === "consent_required") {
+      say("Not sent. The page was not allowed to comment as you. Your note is kept.", "err");
+    } else if (code === "forbidden") {
+      state = "blocked";
+      say("Not sent. Commenting from this page is turned off.", "err");
+    } else if (code === "claude_unavailable") {
+      say("Not sent. No Claude session could receive it. Nothing was posted.", "err");
+      refresh();
+    } else if (code === "rate_limited") {
+      say("Not sent. Too many sends in a row. Wait a moment.", "err");
+    } else if (code === "invalid" || code === "transform_error") {
+      say("Not sent. The note has characters a comment cannot carry.", "err");
+    } else if (code === "not_granted" || code === "capability_disabled" || code === "capability_removed") {
+      comments = null;
+      state = "absent";
+      say("Not sent. This view cannot post comments from the page.", "err");
+    } else {
+      say("Not sent. Comments are unavailable right now. Try once more.", "err");
+    }
+  }
+
+  function send(spec) {
+    if (!comments || busy || sent) return;
+    var option = spec.action === "choose" || spec.action === "accept" || spec.action === "revise" ? picked() : null;
+    if (spec.needsPick && !option) { say("Pick an option first.", "err"); return; }
+    var note = clean(noteEl.value);
+    if (spec.needsNote && !note) {
+      say("Add a note saying what to change.", "err");
+      noteEl.focus();
+      return;
+    }
+    var text = PREFIX + cfg.set + " · " + spec.action + (option ? " " + option : "") + (note ? "\nNote: " + note : "");
+    var target = root(option || picked() || cfg.options[0].id) || bar.parentNode;
+    busy = true;
+    say("", null);
+    render();
+    comments.anchorFor(target).then(function (anchor) {
+      return comments.sendToClaude({ anchor: anchor, text: text });
+    }).then(function () {
+      sent = true;
+      say("Sent to Claude: " + spec.text.toLowerCase() + (option ? " (" + label(option) + ")" : "") +
+        ". Claude replies in the comment thread and updates this page.", "ok");
+    }, fail).then(function () {
+      busy = false;
+      render();
+    });
+  }
+
+  function compose() {
+    var option = picked();
+    var el = option && root(option);
+    if (!comments || !el) return;
+    comments.openComposer({ element: el }).then(function (r) {
+      if (r && r.opened) say("Comment box opened on " + label(option) + ". Write your comment and press Send to Claude.", "ok");
+    }, function (err) {
+      say(err && err.code === "rate_limited" ? "Too many tries in a row. Wait a moment." : "The comment box is unavailable here.", "err");
+    });
+  }
+
+  recheckBtn.addEventListener("click", refresh);
+  window.addEventListener("focus", refresh);
+  bar.hidden = false;
+  render();
+
+  var ready = window.claude && typeof window.claude.use === "function"
+    ? window.claude.use("comments")
+    : Promise.resolve(null);
+  ready.then(function (ns) { return ns; }, function () { return null; }).then(function (ns) {
+    comments = ns;
+    if (!ns) { state = "absent"; render(); return; }
+    refresh();
+  });
+})();
+</script>
+<!-- mockup-feedback:end -->

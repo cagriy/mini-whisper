@@ -1,0 +1,511 @@
+<title>Script Pane</title>
+<style>
+*,*::before,*::after{box-sizing:border-box}
+:root{--page-bg:#1c1e22;--page-text:#e8e8ea;--page-muted:#9a9aa2;--accent:#7cc4ff;--banner:#26292f;--rule:#34383f;
+--win:#ececec;--win2:#f6f6f6;--txt:#1d1d1f;--mut:#6e6e73;--bd:#d2d2d7;--blue:#0a60ff;--red:#c62828;--green:#1f8a3b;--amber:#b25000;--you:#0a60ff;--s1:#6a3fb5;--s2:#1a7f8e;--test:#7a4fd0}
+body{margin:0;background:var(--page-bg);color:var(--page-text);font:14px/1.45 -apple-system,BlinkMacSystemFont,"Helvetica Neue",sans-serif;-webkit-font-smoothing:antialiased}
+.banner{background:var(--banner);border-bottom:1px solid var(--rule);padding:14px max(16px,env(safe-area-inset-right,0px)) 14px max(16px,env(safe-area-inset-left,0px));font-size:13px}
+.banner strong{color:#fff}.banner p{margin:4px 0 0;color:var(--page-muted);max-width:95ch}.banner .axis{color:var(--accent)}.banner b{color:var(--page-text)}
+main{padding:26px max(16px,env(safe-area-inset-right,0px)) 40px max(16px,env(safe-area-inset-left,0px));display:flex;flex-direction:column;align-items:center;gap:34px}
+.state{display:flex;flex-direction:column;align-items:center;gap:10px;width:100%}
+.state h2{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--page-muted);margin:0;font-weight:600}
+.state .why{font-size:12.5px;color:var(--page-muted);margin:0;max-width:92ch;text-align:center}
+.mac{width:920px;max-width:100%;height:560px;background:var(--win);color:var(--txt);border-radius:11px;box-shadow:0 24px 60px rgba(0,0,0,.45);display:grid;grid-template-rows:40px 1fr;overflow:hidden;font-size:13px}
+.title{background:#e3e3e7;border-bottom:1px solid #cfcfd4;display:flex;align-items:center;padding:0 14px;gap:14px;position:relative}
+.title .lights{display:flex;gap:7px}.title .lights i{width:12px;height:12px;border-radius:50%}
+.title h1{font-size:13px;font-weight:600;margin:0;position:absolute;left:50%;transform:translateX(-50%);color:#3a3a3f;white-space:nowrap}
+.mini{font:12px -apple-system,sans-serif;padding:4px 10px;border-radius:6px;border:1px solid #c3c3c8;background:#fff;color:var(--txt);cursor:default}
+.mini.big{font-size:13px;padding:6px 13px}.mini.stop{background:var(--red);color:#fff;border-color:var(--red)}.mini[disabled]{color:#b0b0b5;background:#f4f4f6;border-color:#dcdce0}
+.num{font-variant-numeric:tabular-nums}.mut{color:var(--mut)}
+.body{display:grid;grid-template-rows:auto auto 1fr;min-height:0}
+.head{display:flex;align-items:center;gap:12px;padding:9px 16px;background:#f6f6f8;border-bottom:1px solid #d9d9de;flex-wrap:wrap}
+.head .ttl b{font-size:14px;font-weight:600;white-space:nowrap}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;border:1px solid var(--bd);background:#fff;color:var(--mut)}
+.chip.test{color:var(--test);background:#f1ecfb;border-color:#ddd0f5}
+.chip i{width:7px;height:7px;border-radius:50%;background:var(--green);display:inline-block}
+.head .stats{margin-left:auto;display:flex;align-items:baseline;gap:14px;font-size:12px;color:var(--mut)}
+.head .stats b{font-size:15px;color:var(--txt);font-weight:600}
+.head .btns{display:flex;gap:8px}
+.split{display:grid;grid-template-columns:1fr 280px;min-height:0}
+.split.wide{grid-template-columns:1fr 310px}
+.col{display:grid;grid-template-rows:1fr auto;min-height:0;background:#fff}
+.transcript{overflow:hidden;background:#fff;padding:12px 18px 14px;display:flex;flex-direction:column;gap:12px;min-height:0}
+.src{display:flex;gap:8px;align-items:center;font-size:11.5px;color:var(--mut);padding:0 0 6px;border-bottom:1px solid #ededf0}
+.seg{display:grid;grid-template-columns:120px 1fr;gap:12px;align-items:start}
+.seg .who{display:flex;flex-direction:column;gap:2px;min-width:0}
+.seg .who b{font-size:12.5px;display:inline-flex;align-items:center;gap:5px}
+.seg .who b::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--c,var(--mut));flex:0 0 auto}
+.seg .who .t{font-size:11px;color:var(--mut);font-variant-numeric:tabular-nums}
+.seg p{margin:0;font-size:13px;line-height:1.5;max-width:68ch}
+.seg p.partial{color:#7a7a80}.seg p.partial::after{content:"▍";color:var(--blue);animation:pulse 1s infinite}
+@keyframes pulse{50%{opacity:.35}}
+.notes{background:#f6f6f8;border-left:1px solid #d9d9de;display:grid;grid-template-rows:auto 1fr auto;min-height:0}
+.notes h4,.pane h4{margin:0;padding:10px 14px 8px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--mut);font-weight:600;border-bottom:1px solid #e3e3e7;display:flex;justify-content:space-between;gap:8px}
+.notes .list{padding:8px 14px;display:flex;flex-direction:column;gap:10px}
+.nt{display:grid;grid-template-columns:auto 1fr;gap:8px;font-size:12.5px;line-height:1.4}.nt .t{font-size:11px;color:var(--mut);font-variant-numeric:tabular-nums;padding-top:2px}
+.notes .in{border-top:1px solid #e3e3e7;padding:10px 14px}
+.notes .in .field{background:#fff;border:1px solid #c3c3c8;border-radius:7px;padding:6px 9px;font-size:12px;color:#9a9aa2;min-height:44px}
+.who-tag{font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--c)}
+.who-tag em{font-style:normal;font-weight:500;letter-spacing:0;text-transform:none;color:var(--mut)}
+.eq{display:inline-flex;gap:2px;align-items:flex-end;height:11px;margin-right:4px;vertical-align:-1px}
+.eq i{width:2.5px;background:var(--c);border-radius:1px;animation:eq 0.9s infinite ease-in-out}
+.eq i:nth-child(1){height:5px}.eq i:nth-child(2){height:11px;animation-delay:.15s}.eq i:nth-child(3){height:7px;animation-delay:.3s}
+@keyframes eq{50%{transform:scaleY(.4)}}
+.hint{font-size:11.5px;color:var(--mut)}
+/* script pane */
+.pane{background:#f6f6f8;border-left:1px solid #d9d9de;display:grid;grid-template-rows:auto 1fr auto;min-height:0}
+.lines{overflow:hidden;padding:8px 10px;display:flex;flex-direction:column;gap:4px}
+.ln{display:grid;grid-template-columns:18px 1fr;gap:6px;padding:6px 8px;border-radius:7px;font-size:12px;line-height:1.4;color:#3a3a3f}
+.ln .n{font-size:10.5px;color:var(--mut);font-variant-numeric:tabular-nums;padding-top:1px}
+.ln b{font-size:11px;color:var(--c);font-weight:600;display:block}
+.ln.done{color:#9a9aa2}.ln.done b{color:#a8a8ad}
+.ln.now{background:#fff;border:1px solid var(--c);box-shadow:0 0 0 2px color-mix(in srgb,var(--c) 18%,transparent);color:var(--txt);font-size:13px}
+.ln.now.you{background:#f2f7ff}
+.ln.next{color:#3a3a3f}
+.pane .foot{border-top:1px solid #e3e3e7;padding:10px 14px;display:flex;align-items:center;gap:10px}
+/* strip */
+.strip{display:grid;grid-template-columns:5px 1fr auto;gap:14px;align-items:center;padding:12px 16px 12px 0;background:#fbfbfd;border-bottom:1px solid #d9d9de}
+.strip .bar{align-self:stretch;background:var(--c)}
+.strip .line{font-size:18px;line-height:1.4;color:var(--txt);margin:3px 0 4px;max-width:64ch}
+.strip.you{background:#f2f7ff}
+.strip .next{font-size:12px;color:var(--mut)}.strip .next b{color:#3a3a3f;font-weight:600}
+.strip .side{display:flex;flex-direction:column;align-items:flex-end;gap:6px}
+/* dock */
+.dock{margin:0 14px 14px;border:1px solid #e0e0e5;border-radius:10px;background:#fbfbfd;padding:9px 12px;display:flex;align-items:center;gap:10px}
+.dock.you{border-color:var(--blue);box-shadow:0 0 0 3px rgba(10,96,255,.12);background:#f2f7ff;display:grid;grid-template-columns:1fr auto;gap:6px 14px;padding:12px 14px}
+.dock .line{font-size:17px;line-height:1.45;color:var(--txt);grid-column:1/2}
+.dock .r{margin-left:auto;display:flex;align-items:center;gap:10px}
+.dock.you .r{grid-column:2;grid-row:1/3;align-self:center;flex-direction:column;align-items:flex-end}
+@media (max-width:960px){.mac{height:auto;min-height:560px}.split,.split.wide{grid-template-columns:1fr}.notes,.pane{border-left:0;border-top:1px solid #d9d9de}.seg{grid-template-columns:1fr}.strip{grid-template-columns:5px 1fr}.strip .side{grid-column:2;align-items:flex-start}}
+@media (prefers-reduced-motion:reduce){.seg p.partial::after,.eq i{animation:none}}
+</style>
+<div class="banner"><strong>Mockup — not shipping code · Feature v5 · “Script Pane” · Option 1 of 3 · round 1 · Accepted 2026-11-11</strong><p>The meeting window during a test call. The script replaces the Notes pane on the right: earlier lines dim, the current line is ringed in the speaker's colour, the next lines follow. <b>Trade-off:</b> You see where the call is going and what was skipped; notes are not available during a test call. The other options: Prompt strip (<code>prompt-strip</code>), Prompt card (<code>prompt-card</code>). Pause is disabled in a test call; Stop ends it. <span class="axis">What differs between the options: where the teleprompter sits and how much of the script it shows.</span> Design language: the accepted v4 Meeting Window (mockup-v4-meeting-window.html) and the v5 TEST tag. Script, names and figures are placeholders.</p></div>
+<main><div id="script-pane" data-mf-option="script-pane" style="display:contents"><section class="state"><h2>State 1 · A voice is speaking (line 6, Priya)</h2><p class="why">The voice plays through your speakers; the system-audio tap hears it as it would a real call. Your line comes after Tom's.</p><div class="mac"><div class="title"><span class="lights"><i style="background:#ff5f57"></i><i style="background:#febc2e"></i><i style="background:#28c840"></i></span><h1>Meeting</h1></div><div class="body"><div class="head"><span class="ttl"><b>Test call · Sprint planning</b></span><span class="chip test">TEST</span><span class="chip"><i></i>Mic · System audio</span><div class="stats"><span><b class="num">00:00:44</b></span><span><b class="num">$0.01</b> so far</span></div><div class="btns"><button class="mini big" type="button" disabled title="Not available in a test call">Pause</button><button class="mini big stop" type="button">Stop</button></div></div><div class="split wide"><div class="transcript"><div class="src">AssemblyAI Streaming · English · speaker names stay as the engine labels them; the score checks them</div><div class="seg"><div class="who" style="--c:var(--s1)"><b>Speaker 1</b><span class="t">00:00:03</span></div><p>Morning both. Let&#x27;s keep this to fifteen minutes; the release review starts at half past ten.</p></div><div class="seg"><div class="who" style="--c:var(--s2)"><b>Speaker 2</b><span class="t">00:00:09</span></div><p>Sure. The payments migration is at eighty percent, but the Stripe webhook tests still fail on staging.</p></div><div class="seg"><div class="who" style="--c:var(--you)"><b>Alex</b><span class="t">00:00:18</span></div><p>I looked at those yesterday. The failures come from the retry header, not the payload, so it&#x27;s a one-line fix.</p></div><div class="seg"><div class="who" style="--c:var(--s1)"><b>Speaker 1</b><span class="t">00:00:29</span></div><p>Good. Can you pair with Priya on it before Thursday?</p></div><div class="seg"><div class="who" style="--c:var(--you)"><b>Alex</b><span class="t">00:00:34</span></div><p>Yes, I&#x27;ll block two hours tomorrow afternoon, from two until four.</p></div><div class="seg"><div class="who" style="--c:var(--s2)"><b>Speaker 2</b><span class="t">00:00:41</span></div><p class="partial">Then the remaining risk is the Kubernetes upgrade. It needs a maintenance</p></div></div><aside class="pane"><h4><span>Script · Sprint planning</span><span class="num">6 of 12</span></h4><div class="lines"><div class="ln done" style="--c:var(--you)"><span class="n">3</span><span><b>You</b>I looked at those yesterday. The failures come from the retry header, not the payload, so it&#x27;s a one-line fix.</span></div><div class="ln done" style="--c:var(--s1)"><span class="n">4</span><span><b>Tom</b>Good. Can you pair with Priya on it before Thursday?</span></div><div class="ln done" style="--c:var(--you)"><span class="n">5</span><span><b>You</b>Yes, I&#x27;ll block two hours tomorrow afternoon, from two until four.</span></div><div class="ln now" style="--c:var(--s2)"><span class="n">6</span><span><b><span class="who-tag" style="--c:var(--s2)"><span class="eq" style="--c:var(--s2)"><i></i><i></i><i></i></span>Priya <em>· Karen voice · speaking</em></span></b>Then the remaining risk is the Kubernetes upgrade. It needs a maintenance window of about forty minutes.</span></div><div class="ln next" style="--c:var(--s1)"><span class="n">7</span><span><b>Tom</b>Let&#x27;s ask ops for Wednesday night. Alex, can you send them the runbook?</span></div><div class="ln " style="--c:var(--you)"><span class="n">8</span><span><b>You</b>I&#x27;ll send it today and copy you both. Version three point two has the rollback steps.</span></div><div class="ln " style="--c:var(--s2)"><span class="n">9</span><span><b>Priya</b>One more thing: design wants the onboarding screens in sprint fourteen, not fifteen.</span></div><div class="hint" style="padding:2px 8px">+ 3 more lines</div></div><div class="foot"><span class="hint">Waits for the voice to finish</span><button class="mini" type="button" style="margin-left:auto">Skip line</button></div></aside></div></div></div></section><section class="state"><h2>State 2 · Your turn (line 8)</h2><p class="why">Read the highlighted line. When you stop for 1.2 s, the next voice starts; Skip moves on at once, and 20 s of silence skips the line. Skipped lines are left out of the score.</p><div class="mac"><div class="title"><span class="lights"><i style="background:#ff5f57"></i><i style="background:#febc2e"></i><i style="background:#28c840"></i></span><h1>Meeting</h1></div><div class="body"><div class="head"><span class="ttl"><b>Test call · Sprint planning</b></span><span class="chip test">TEST</span><span class="chip"><i></i>Mic · System audio</span><div class="stats"><span><b class="num">00:00:58</b></span><span><b class="num">$0.01</b> so far</span></div><div class="btns"><button class="mini big" type="button" disabled title="Not available in a test call">Pause</button><button class="mini big stop" type="button">Stop</button></div></div><div class="split wide"><div class="transcript"><div class="src">AssemblyAI Streaming · English · speaker names stay as the engine labels them; the score checks them</div><div class="seg"><div class="who" style="--c:var(--you)"><b>Alex</b><span class="t">00:00:18</span></div><p>I looked at those yesterday. The failures come from the retry header, not the payload, so it&#x27;s a one-line fix.</p></div><div class="seg"><div class="who" style="--c:var(--s1)"><b>Speaker 1</b><span class="t">00:00:29</span></div><p>Good. Can you pair with Priya on it before Thursday?</p></div><div class="seg"><div class="who" style="--c:var(--you)"><b>Alex</b><span class="t">00:00:34</span></div><p>Yes, I&#x27;ll block two hours tomorrow afternoon, from two until four.</p></div><div class="seg"><div class="who" style="--c:var(--s2)"><b>Speaker 2</b><span class="t">00:00:41</span></div><p>Then the remaining risk is the Kubernetes upgrade. It needs a maintenance window of about forty minutes.</p></div><div class="seg"><div class="who" style="--c:var(--s1)"><b>Speaker 1</b><span class="t">00:00:49</span></div><p>Let&#x27;s ask ops for Wednesday night. Alex, can you send them the runbook?</p></div></div><aside class="pane"><h4><span>Script · Sprint planning</span><span class="num">8 of 12</span></h4><div class="lines"><div class="ln done" style="--c:var(--you)"><span class="n">5</span><span><b>You</b>Yes, I&#x27;ll block two hours tomorrow afternoon, from two until four.</span></div><div class="ln done" style="--c:var(--s2)"><span class="n">6</span><span><b>Priya</b>Then the remaining risk is the Kubernetes upgrade. It needs a maintenance window of about forty minutes.</span></div><div class="ln done" style="--c:var(--s1)"><span class="n">7</span><span><b>Tom</b>Let&#x27;s ask ops for Wednesday night. Alex, can you send them the runbook?</span></div><div class="ln now you" style="--c:var(--you)"><span class="n">8</span><span><b><span class="who-tag" style="--c:var(--you)">Your turn <em>· read this line aloud</em></span></b>I&#x27;ll send it today and copy you both. Version three point two has the rollback steps.</span></div><div class="ln next" style="--c:var(--s2)"><span class="n">9</span><span><b>Priya</b>One more thing: design wants the onboarding screens in sprint fourteen, not fifteen.</span></div><div class="ln " style="--c:var(--s1)"><span class="n">10</span><span><b>Tom</b>That&#x27;s fine if we drop the CSV export. Nobody has asked for it since March.</span></div><div class="ln " style="--c:var(--you)"><span class="n">11</span><span><b>You</b>Agreed. I&#x27;ll move the export ticket to the backlog and update the board after this call.</span></div><div class="hint" style="padding:2px 8px">+ 1 more lines</div></div><div class="foot"><span class="hint">Hands over after a 1.2 s pause</span><button class="mini" type="button" style="margin-left:auto">Skip line</button></div></aside></div></div></div></section></div></main>
+
+<!-- mockup-feedback:start -->
+<style>
+.mf-bar {
+  --mf-bg: #f6f7f9;
+  --mf-fg: #1a2127;
+  --mf-muted: #59646d;
+  --mf-line: #d3d9de;
+  --mf-field: #ffffff;
+  --mf-accent: #2f5fd0;
+  --mf-accent-fg: #ffffff;
+  --mf-ok: #1d7a4c;
+  --mf-warn: #8f5d00;
+  --mf-err: #b2322b;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .mf-bar {
+    --mf-bg: #161b20;
+    --mf-fg: #e3e8ec;
+    --mf-muted: #98a3ab;
+    --mf-line: #2d363e;
+    --mf-field: #0f1317;
+    --mf-accent: #7ea2f5;
+    --mf-accent-fg: #0b1220;
+    --mf-ok: #57c48c;
+    --mf-warn: #e2ac45;
+    --mf-err: #f08077;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] .mf-bar {
+  --mf-bg: #161b20;
+  --mf-fg: #e3e8ec;
+  --mf-muted: #98a3ab;
+  --mf-line: #2d363e;
+  --mf-field: #0f1317;
+  --mf-accent: #7ea2f5;
+  --mf-accent-fg: #0b1220;
+  --mf-ok: #57c48c;
+  --mf-warn: #e2ac45;
+  --mf-err: #f08077;
+  color-scheme: dark;
+}
+.mf-bar, .mf-bar * { box-sizing: border-box; }
+.mf-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 2147483000;
+  margin: 24px 0 0;
+  padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px));
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--mf-bg);
+  color: var(--mf-fg);
+  border-top: 1px solid var(--mf-line);
+  box-shadow: 0 -6px 18px rgba(0, 0, 0, 0.08);
+  font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  text-align: left;
+}
+.mf-bar[hidden] { display: none; }
+.mf-bar .mf-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+.mf-bar .mf-tag {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--mf-muted);
+}
+.mf-bar .mf-title { font-weight: 600; }
+.mf-bar .mf-context { color: var(--mf-muted); min-width: 0; overflow-wrap: anywhere; }
+.mf-bar .mf-toggle {
+  margin-left: auto;
+  padding: 2px 6px;
+  border: 0;
+  background: none;
+  color: var(--mf-accent);
+  font: inherit;
+  font-size: 13px;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.mf-bar .mf-body { display: flex; flex-direction: column; gap: 8px; }
+.mf-bar.mf-collapsed .mf-body { display: none; }
+.mf-bar .mf-options { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; border: 0; }
+.mf-bar .mf-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border: 1.5px solid var(--mf-line);
+  border-radius: 999px;
+  background: var(--mf-field);
+  cursor: pointer;
+}
+.mf-bar .mf-chip input { margin: 0; accent-color: var(--mf-accent); }
+.mf-bar .mf-chip:has(input:checked) { border-color: var(--mf-accent); }
+.mf-bar .mf-chip:has(input:focus-visible) { outline: 2px solid var(--mf-accent); outline-offset: 2px; }
+.mf-bar .mf-note {
+  width: 100%;
+  min-height: 38px;
+  max-height: 140px;
+  padding: 7px 10px;
+  resize: vertical;
+  font: inherit;
+  color: var(--mf-fg);
+  background: var(--mf-field);
+  border: 1.5px solid var(--mf-line);
+  border-radius: 8px;
+}
+.mf-bar .mf-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.mf-bar .mf-btn {
+  padding: 7px 12px;
+  border: 1.5px solid var(--mf-line);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--mf-fg);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.mf-bar .mf-btn.mf-primary { background: var(--mf-accent); border-color: var(--mf-accent); color: var(--mf-accent-fg); }
+.mf-bar .mf-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.mf-bar .mf-btn:focus-visible, .mf-bar .mf-toggle:focus-visible, .mf-bar .mf-note:focus-visible {
+  outline: 2px solid var(--mf-accent);
+  outline-offset: 2px;
+}
+.mf-bar .mf-channel { display: flex; align-items: center; gap: 6px; margin: 0; font-size: 13px; color: var(--mf-muted); }
+.mf-bar .mf-dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--mf-muted); }
+.mf-bar .mf-channel[data-state="available"] .mf-dot { background: var(--mf-ok); }
+.mf-bar .mf-channel[data-state="no_session"] .mf-dot,
+.mf-bar .mf-channel[data-state="writers_only"] .mf-dot { background: var(--mf-warn); }
+.mf-bar .mf-channel[data-state="blocked"] .mf-dot { background: var(--mf-err); }
+.mf-bar .mf-result { margin: 0; font-size: 13px; }
+.mf-bar .mf-result[data-kind="ok"] { color: var(--mf-ok); }
+.mf-bar .mf-result[data-kind="err"] { color: var(--mf-err); }
+.mf-bar .mf-verdict { margin: 0; font-weight: 600; }
+[data-mf-option].mf-selected { outline: 3px solid #3b6fe0; outline-offset: 4px; }
+</style>
+<aside class="mf-bar" id="mf-bar" role="region" aria-label="Mockup feedback" data-uncommentable hidden>
+  <div class="mf-head">
+    <span class="mf-tag">Feedback</span>
+    <span class="mf-title" id="mf-title"></span>
+    <span class="mf-context" id="mf-context"></span>
+    <button type="button" class="mf-toggle" id="mf-toggle" aria-expanded="true" aria-controls="mf-body">Hide</button>
+  </div>
+  <div class="mf-body" id="mf-body">
+    <p class="mf-verdict" id="mf-verdict" hidden></p>
+    <fieldset class="mf-options" id="mf-options" hidden></fieldset>
+    <textarea class="mf-note" id="mf-note" maxlength="1500" placeholder="Note for Claude (optional; required to request changes)" aria-label="Note for Claude"></textarea>
+    <div class="mf-actions" id="mf-actions"></div>
+    <p class="mf-channel" id="mf-channel" data-state="checking">
+      <span class="mf-dot" aria-hidden="true"></span>
+      <span id="mf-channel-text">Checking whether a Claude session is listening.</span>
+      <button type="button" class="mf-toggle" id="mf-recheck" hidden>Check again</button>
+    </p>
+    <p class="mf-result" id="mf-result" role="status" aria-live="polite" hidden></p>
+  </div>
+</aside>
+<script type="application/json" id="mf-config">{"set":"v5-s2","setLabel":"Teleprompter","mode":"pick","options":[{"id":"script-pane","label":"Script pane"},{"id":"prompt-strip","label":"Prompt strip"},{"id":"prompt-card","label":"Prompt card"}],"this":"script-pane","status":"accepted","chosen":null}</script>
+<script>
+(function () {
+  var cfg;
+  try { cfg = JSON.parse(document.getElementById("mf-config").textContent); } catch (e) { return; }
+  if (!cfg || !cfg.options || !cfg.options.length) return;
+
+  var PREFIX = "Mockup feedback · ";
+  var CHANNEL = {
+    checking: "Checking whether a Claude session is listening.",
+    available: "A Claude session is listening. Sending wakes it.",
+    no_session: "No Claude session is listening. Reply in chat, or check again once the session is back.",
+    writers_only: "Only editors of this page can send to Claude. Reply in chat instead.",
+    off: "Sending to Claude is not offered here. Reply in chat instead.",
+    absent: "Sending works on the published page. Here, reply in chat instead.",
+    blocked: "Commenting from this page is turned off. Reply in chat instead."
+  };
+  var KNOWN = ["available", "writers_only", "no_session", "off"];
+
+  var bar = document.getElementById("mf-bar");
+  var titleEl = document.getElementById("mf-title");
+  var contextEl = document.getElementById("mf-context");
+  var toggleBtn = document.getElementById("mf-toggle");
+  var verdictEl = document.getElementById("mf-verdict");
+  var optionsEl = document.getElementById("mf-options");
+  var noteEl = document.getElementById("mf-note");
+  var actionsEl = document.getElementById("mf-actions");
+  var channelEl = document.getElementById("mf-channel");
+  var channelText = document.getElementById("mf-channel-text");
+  var recheckBtn = document.getElementById("mf-recheck");
+  var resultEl = document.getElementById("mf-result");
+
+  var comments = null;
+  var state = "checking";
+  var busy = false;
+  var sent = false;
+  var buttons = [];
+
+  function byId(list, id) {
+    for (var i = 0; i < list.length; i++) if (list[i].id === id) return list[i];
+    return null;
+  }
+  function label(id) { var o = byId(cfg.options, id); return o ? o.label : id; }
+  function root(id) { return document.querySelector('[data-mf-option="' + id + '"]'); }
+  function picked() {
+    if (cfg.mode !== "compare") return cfg.mode === "pick" ? cfg["this"] : cfg.options[0].id;
+    var r = optionsEl.querySelector("input:checked");
+    return r ? r.value : null;
+  }
+  function say(text, kind) {
+    resultEl.hidden = !text;
+    resultEl.textContent = text || "";
+    if (kind) resultEl.setAttribute("data-kind", kind);
+    else resultEl.removeAttribute("data-kind");
+  }
+  function clean(text) {
+    return text.replace(/[\u0000-\u0008\u000B-\u001F\u007F]/g, "").trim();
+  }
+
+  // Header: the set, and where this page sits in it.
+  titleEl.textContent = cfg.setLabel;
+  if (cfg.mode === "pick") {
+    var others = [];
+    var position = 0;
+    for (var i = 0; i < cfg.options.length; i++) {
+      if (cfg.options[i].id === cfg["this"]) position = i + 1;
+      else others.push(cfg.options[i].label);
+    }
+    contextEl.textContent = "Option " + position + " of " + cfg.options.length + ": " + label(cfg["this"]) +
+      ". The others are on their own pages: " + others.join(", ") + ". Choosing here rules them out.";
+  } else if (cfg.mode === "compare") {
+    contextEl.textContent = cfg.options.length + " options on this page. Pick one.";
+  } else {
+    contextEl.textContent = label(cfg.options[0].id);
+  }
+
+  toggleBtn.addEventListener("click", function () {
+    var collapsed = bar.classList.toggle("mf-collapsed");
+    toggleBtn.textContent = collapsed ? "Show" : "Hide";
+    toggleBtn.setAttribute("aria-expanded", collapsed ? "false" : "true");
+  });
+
+  // A settled page shows its verdict and nothing to act on.
+  if (cfg.status !== "open") {
+    var verdict = {
+      accepted: cfg.mode === "compare" ? "Accepted: " + label(cfg.chosen) + "." : "Accepted.",
+      "not-chosen": "Not chosen.",
+      closed: "Closed. Choices on this page are no longer read."
+    }[cfg.status] || "Closed.";
+    verdictEl.textContent = verdict;
+    verdictEl.hidden = false;
+    noteEl.hidden = true;
+    channelEl.hidden = true;
+    if (cfg.mode === "compare" && cfg.status === "accepted" && root(cfg.chosen)) root(cfg.chosen).classList.add("mf-selected");
+    bar.hidden = false;
+    return;
+  }
+
+  // Compare: one chip per option, outlining its section when picked.
+  if (cfg.mode === "compare") {
+    var legend = document.createElement("legend");
+    legend.className = "mf-tag";
+    legend.textContent = "Options";
+    optionsEl.appendChild(legend);
+    cfg.options.forEach(function (o) {
+      var chip = document.createElement("label");
+      chip.className = "mf-chip";
+      var input = document.createElement("input");
+      input.type = "radio";
+      input.name = "mf-option";
+      input.id = "mf-option-" + o.id;
+      input.value = o.id;
+      input.addEventListener("change", function () {
+        var all = document.querySelectorAll("[data-mf-option]");
+        for (var k = 0; k < all.length; k++) all[k].classList.remove("mf-selected");
+        var el = root(o.id);
+        if (el) {
+          el.classList.add("mf-selected");
+          var still = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+          el.scrollIntoView({ block: "nearest", behavior: still ? "auto" : "smooth" });
+        }
+        refresh();
+      });
+      chip.appendChild(input);
+      chip.appendChild(document.createTextNode(o.label));
+      optionsEl.appendChild(chip);
+    });
+    optionsEl.hidden = false;
+  }
+
+  // Actions per shape. needsNote: a change request must say what to change.
+  var ACTIONS = {
+    review: [
+      { action: "accept", text: "Looks right", primary: true },
+      { action: "revise", text: "Request changes", needsNote: true },
+      { action: "alternatives", text: "Show alternatives" }
+    ],
+    compare: [
+      { action: "choose", text: "Send choice", primary: true, needsPick: true },
+      { action: "none", text: "None of these", needsNote: true },
+      { action: "comment", text: "Comment on this option", needsPick: true }
+    ],
+    pick: [
+      { action: "choose", text: "Choose this one", primary: true },
+      { action: "revise", text: "Request changes", needsNote: true },
+      { action: "none", text: "None of these", needsNote: true }
+    ]
+  }[cfg.mode] || [];
+
+  ACTIONS.forEach(function (a) {
+    var b = document.createElement("button");
+    b.type = "button";
+    b.className = "mf-btn" + (a.primary ? " mf-primary" : "");
+    b.id = "mf-" + a.action;
+    b.textContent = a.text;
+    b.addEventListener("click", function () {
+      if (a.action === "comment") compose();
+      else send(a);
+    });
+    actionsEl.appendChild(b);
+    buttons.push({ el: b, spec: a });
+  });
+
+  function render() {
+    channelEl.setAttribute("data-state", state);
+    channelText.textContent = CHANNEL[state] || CHANNEL.off;
+    recheckBtn.hidden = !comments || state === "available" || state === "checking" || state === "blocked";
+    var pick = picked();
+    buttons.forEach(function (b) {
+      if (b.spec.action === "comment") {
+        b.el.disabled = !comments || !pick;
+        b.el.hidden = !comments;
+        return;
+      }
+      b.el.disabled = busy || sent || state !== "available" || (b.spec.needsPick && !pick);
+    });
+    noteEl.disabled = sent;
+  }
+
+  function refresh() {
+    if (!comments || state === "blocked") { render(); return; }
+    comments.canSendToClaude().then(function (v) {
+      return KNOWN.indexOf(v) === -1 ? "off" : v;
+    }, function () {
+      return "off";
+    }).then(function (v) {
+      if (comments && state !== "blocked") state = v;
+      render();
+    });
+  }
+
+  function fail(err) {
+    var code = err && err.code;
+    if (code === "consent_required") {
+      say("Not sent. The page was not allowed to comment as you. Your note is kept.", "err");
+    } else if (code === "forbidden") {
+      state = "blocked";
+      say("Not sent. Commenting from this page is turned off.", "err");
+    } else if (code === "claude_unavailable") {
+      say("Not sent. No Claude session could receive it. Nothing was posted.", "err");
+      refresh();
+    } else if (code === "rate_limited") {
+      say("Not sent. Too many sends in a row. Wait a moment.", "err");
+    } else if (code === "invalid" || code === "transform_error") {
+      say("Not sent. The note has characters a comment cannot carry.", "err");
+    } else if (code === "not_granted" || code === "capability_disabled" || code === "capability_removed") {
+      comments = null;
+      state = "absent";
+      say("Not sent. This view cannot post comments from the page.", "err");
+    } else {
+      say("Not sent. Comments are unavailable right now. Try once more.", "err");
+    }
+  }
+
+  function send(spec) {
+    if (!comments || busy || sent) return;
+    var option = spec.action === "choose" || spec.action === "accept" || spec.action === "revise" ? picked() : null;
+    if (spec.needsPick && !option) { say("Pick an option first.", "err"); return; }
+    var note = clean(noteEl.value);
+    if (spec.needsNote && !note) {
+      say("Add a note saying what to change.", "err");
+      noteEl.focus();
+      return;
+    }
+    var text = PREFIX + cfg.set + " · " + spec.action + (option ? " " + option : "") + (note ? "\nNote: " + note : "");
+    var target = root(option || picked() || cfg.options[0].id) || bar.parentNode;
+    busy = true;
+    say("", null);
+    render();
+    comments.anchorFor(target).then(function (anchor) {
+      return comments.sendToClaude({ anchor: anchor, text: text });
+    }).then(function () {
+      sent = true;
+      say("Sent to Claude: " + spec.text.toLowerCase() + (option ? " (" + label(option) + ")" : "") +
+        ". Claude replies in the comment thread and updates this page.", "ok");
+    }, fail).then(function () {
+      busy = false;
+      render();
+    });
+  }
+
+  function compose() {
+    var option = picked();
+    var el = option && root(option);
+    if (!comments || !el) return;
+    comments.openComposer({ element: el }).then(function (r) {
+      if (r && r.opened) say("Comment box opened on " + label(option) + ". Write your comment and press Send to Claude.", "ok");
+    }, function (err) {
+      say(err && err.code === "rate_limited" ? "Too many tries in a row. Wait a moment." : "The comment box is unavailable here.", "err");
+    });
+  }
+
+  recheckBtn.addEventListener("click", refresh);
+  window.addEventListener("focus", refresh);
+  bar.hidden = false;
+  render();
+
+  var ready = window.claude && typeof window.claude.use === "function"
+    ? window.claude.use("comments")
+    : Promise.resolve(null);
+  ready.then(function (ns) { return ns; }, function () { return null; }).then(function (ns) {
+    comments = ns;
+    if (!ns) { state = "absent"; render(); return; }
+    refresh();
+  });
+})();
+</script>
+<!-- mockup-feedback:end -->

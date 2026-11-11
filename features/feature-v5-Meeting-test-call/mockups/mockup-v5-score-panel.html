@@ -1,0 +1,601 @@
+<title>Score Panel</title>
+<style>
+*,*::before,*::after{box-sizing:border-box}
+:root{--page-bg:#1c1e22;--page-text:#e8e8ea;--page-muted:#9a9aa2;--accent:#7cc4ff;--banner:#26292f;--rule:#34383f;
+--win:#ececec;--win2:#f6f6f6;--txt:#1d1d1f;--mut:#6e6e73;--bd:#d2d2d7;--blue:#0a60ff;--red:#c62828;--green:#1f8a3b;--amber:#b25000;--you:#0a60ff;--s1:#6a3fb5;--s2:#1a7f8e;--test:#7a4fd0}
+body{margin:0;background:var(--page-bg);color:var(--page-text);font:14px/1.45 -apple-system,BlinkMacSystemFont,"Helvetica Neue",sans-serif;-webkit-font-smoothing:antialiased}
+.banner{background:var(--banner);border-bottom:1px solid var(--rule);padding:14px max(16px,env(safe-area-inset-right,0px)) 14px max(16px,env(safe-area-inset-left,0px));font-size:13px}
+.banner strong{color:#fff}.banner p{margin:4px 0 0;color:var(--page-muted);max-width:95ch}.banner .axis{color:var(--accent)}.banner b{color:var(--page-text)}
+main{padding:26px max(16px,env(safe-area-inset-right,0px)) 40px max(16px,env(safe-area-inset-left,0px));display:flex;flex-direction:column;align-items:center;gap:34px}
+.state{display:flex;flex-direction:column;align-items:center;gap:10px;width:100%}
+.state h2{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--page-muted);margin:0;font-weight:600}
+.state .why{font-size:12.5px;color:var(--page-muted);margin:0;max-width:92ch;text-align:center}
+.mac{width:920px;max-width:100%;height:560px;background:var(--win);color:var(--txt);border-radius:11px;box-shadow:0 24px 60px rgba(0,0,0,.45);display:grid;grid-template-rows:40px 1fr;overflow:hidden;font-size:13px}
+.title{background:#e3e3e7;border-bottom:1px solid #cfcfd4;display:flex;align-items:center;padding:0 14px;gap:14px;position:relative}
+.title .lights{display:flex;gap:7px}.title .lights i{width:12px;height:12px;border-radius:50%}
+.title h1{font-size:13px;font-weight:600;margin:0;position:absolute;left:50%;transform:translateX(-50%);color:#3a3a3f;white-space:nowrap}
+.mini{font:12px -apple-system,sans-serif;padding:4px 10px;border-radius:6px;border:1px solid #c3c3c8;background:#fff;color:var(--txt);cursor:default}
+.mini.big{font-size:13px;padding:6px 13px}.mini.stop{background:var(--red);color:#fff;border-color:var(--red)}.mini[disabled]{color:#b0b0b5;background:#f4f4f6;border-color:#dcdce0}
+.num{font-variant-numeric:tabular-nums}.mut{color:var(--mut)}
+.body{display:grid;grid-template-rows:auto auto 1fr;min-height:0}
+.head{display:flex;align-items:center;gap:12px;padding:9px 16px;background:#f6f6f8;border-bottom:1px solid #d9d9de;flex-wrap:wrap}
+.head .ttl b{font-size:14px;font-weight:600;white-space:nowrap}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;border:1px solid var(--bd);background:#fff;color:var(--mut)}
+.chip.test{color:var(--test);background:#f1ecfb;border-color:#ddd0f5}
+.chip i{width:7px;height:7px;border-radius:50%;background:var(--green);display:inline-block}
+.head .stats{margin-left:auto;display:flex;align-items:baseline;gap:14px;font-size:12px;color:var(--mut)}
+.head .stats b{font-size:15px;color:var(--txt);font-weight:600}
+.head .btns{display:flex;gap:8px}
+.split{display:grid;grid-template-columns:1fr 280px;min-height:0}
+.split.wide{grid-template-columns:1fr 310px}
+.col{display:grid;grid-template-rows:1fr auto;min-height:0;background:#fff}
+.transcript{overflow:hidden;background:#fff;padding:12px 18px 14px;display:flex;flex-direction:column;gap:12px;min-height:0}
+.src{display:flex;gap:8px;align-items:center;font-size:11.5px;color:var(--mut);padding:0 0 6px;border-bottom:1px solid #ededf0}
+.seg{display:grid;grid-template-columns:120px 1fr;gap:12px;align-items:start}
+.seg .who{display:flex;flex-direction:column;gap:2px;min-width:0}
+.seg .who b{font-size:12.5px;display:inline-flex;align-items:center;gap:5px}
+.seg .who b::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--c,var(--mut));flex:0 0 auto}
+.seg .who .t{font-size:11px;color:var(--mut);font-variant-numeric:tabular-nums}
+.seg p{margin:0;font-size:13px;line-height:1.5;max-width:68ch}
+.seg p.partial{color:#7a7a80}.seg p.partial::after{content:"▍";color:var(--blue);animation:pulse 1s infinite}
+@keyframes pulse{50%{opacity:.35}}
+.notes{background:#f6f6f8;border-left:1px solid #d9d9de;display:grid;grid-template-rows:auto 1fr auto;min-height:0}
+.notes h4,.pane h4{margin:0;padding:10px 14px 8px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--mut);font-weight:600;border-bottom:1px solid #e3e3e7;display:flex;justify-content:space-between;gap:8px}
+.notes .list{padding:8px 14px;display:flex;flex-direction:column;gap:10px}
+.nt{display:grid;grid-template-columns:auto 1fr;gap:8px;font-size:12.5px;line-height:1.4}.nt .t{font-size:11px;color:var(--mut);font-variant-numeric:tabular-nums;padding-top:2px}
+.notes .in{border-top:1px solid #e3e3e7;padding:10px 14px}
+.notes .in .field{background:#fff;border:1px solid #c3c3c8;border-radius:7px;padding:6px 9px;font-size:12px;color:#9a9aa2;min-height:44px}
+.who-tag{font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--c)}
+.who-tag em{font-style:normal;font-weight:500;letter-spacing:0;text-transform:none;color:var(--mut)}
+.eq{display:inline-flex;gap:2px;align-items:flex-end;height:11px;margin-right:4px;vertical-align:-1px}
+.eq i{width:2.5px;background:var(--c);border-radius:1px;animation:eq 0.9s infinite ease-in-out}
+.eq i:nth-child(1){height:5px}.eq i:nth-child(2){height:11px;animation-delay:.15s}.eq i:nth-child(3){height:7px;animation-delay:.3s}
+@keyframes eq{50%{transform:scaleY(.4)}}
+.hint{font-size:11.5px;color:var(--mut)}
+/* script pane */
+.pane{background:#f6f6f8;border-left:1px solid #d9d9de;display:grid;grid-template-rows:auto 1fr auto;min-height:0}
+.lines{overflow:hidden;padding:8px 10px;display:flex;flex-direction:column;gap:4px}
+.ln{display:grid;grid-template-columns:18px 1fr;gap:6px;padding:6px 8px;border-radius:7px;font-size:12px;line-height:1.4;color:#3a3a3f}
+.ln .n{font-size:10.5px;color:var(--mut);font-variant-numeric:tabular-nums;padding-top:1px}
+.ln b{font-size:11px;color:var(--c);font-weight:600;display:block}
+.ln.done{color:#9a9aa2}.ln.done b{color:#a8a8ad}
+.ln.now{background:#fff;border:1px solid var(--c);box-shadow:0 0 0 2px color-mix(in srgb,var(--c) 18%,transparent);color:var(--txt);font-size:13px}
+.ln.now.you{background:#f2f7ff}
+.ln.next{color:#3a3a3f}
+.pane .foot{border-top:1px solid #e3e3e7;padding:10px 14px;display:flex;align-items:center;gap:10px}
+/* strip */
+.strip{display:grid;grid-template-columns:5px 1fr auto;gap:14px;align-items:center;padding:12px 16px 12px 0;background:#fbfbfd;border-bottom:1px solid #d9d9de}
+.strip .bar{align-self:stretch;background:var(--c)}
+.strip .line{font-size:18px;line-height:1.4;color:var(--txt);margin:3px 0 4px;max-width:64ch}
+.strip.you{background:#f2f7ff}
+.strip .next{font-size:12px;color:var(--mut)}.strip .next b{color:#3a3a3f;font-weight:600}
+.strip .side{display:flex;flex-direction:column;align-items:flex-end;gap:6px}
+/* dock */
+.dock{margin:0 14px 14px;border:1px solid #e0e0e5;border-radius:10px;background:#fbfbfd;padding:9px 12px;display:flex;align-items:center;gap:10px}
+.dock.you{border-color:var(--blue);box-shadow:0 0 0 3px rgba(10,96,255,.12);background:#f2f7ff;display:grid;grid-template-columns:1fr auto;gap:6px 14px;padding:12px 14px}
+.dock .line{font-size:17px;line-height:1.45;color:var(--txt);grid-column:1/2}
+.dock .r{margin-left:auto;display:flex;align-items:center;gap:10px}
+.dock.you .r{grid-column:2;grid-row:1/3;align-self:center;flex-direction:column;align-items:flex-end}
+@media (max-width:960px){.mac{height:auto;min-height:560px}.split,.split.wide{grid-template-columns:1fr}.notes,.pane{border-left:0;border-top:1px solid #d9d9de}.seg{grid-template-columns:1fr}.strip{grid-template-columns:5px 1fr}.strip .side{grid-column:2;align-items:flex-start}}
+@media (prefers-reduced-motion:reduce){.seg p.partial::after,.eq i{animation:none}}
+
+.mac{position:relative}.mac.tall{height:620px}
+.body{display:flex;flex-direction:column;min-height:0;overflow:hidden}
+.split{flex:1}
+.title .tools{margin-left:auto;display:flex;gap:6px}
+.chip.off i{background:#a0a0a6}
+.left{display:flex;flex-direction:column;min-height:0;overflow:hidden;background:#fff}
+.summary{background:#fff;border-bottom:1px solid #d9d9de;padding:12px 18px 10px;display:grid;grid-template-columns:1fr 1fr;gap:8px 28px}
+h4.k,.summary h4{margin:0 0 4px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--mut);font-weight:600}
+.summary .sec{font-size:12.5px;line-height:1.5}.summary .sec ul{margin:0;padding-left:16px}
+.summary .meta{grid-column:1/-1;font-size:11px;color:var(--mut)}
+.summary.folded{display:flex;align-items:baseline;gap:10px;padding:8px 18px}
+.summary.folded .sub{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.score{background:#faf8fe;border-bottom:1px solid #e2dbf3;padding:12px 18px 10px;display:grid;grid-template-columns:auto 1fr auto;gap:10px 22px;align-items:start}
+.bign{font-size:30px;line-height:1.1;font-weight:600;color:var(--txt);font-variant-numeric:tabular-nums}
+.sub{font-size:11.5px;color:var(--mut)}
+.kv{font-size:12px;display:flex;flex-direction:column;gap:2px}
+table.t{border-collapse:collapse;font:12px -apple-system,BlinkMacSystemFont,"Helvetica Neue",sans-serif;color:var(--txt);width:100%}
+table.t.c td,table.t.c th{padding-right:7px;font-size:11.5px}
+.rpane h4{margin:0;padding:10px 14px 8px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--mut);font-weight:600;border-bottom:1px solid #e3e3e7;display:flex;justify-content:space-between;gap:8px}
+.card h4.k{letter-spacing:.02em;white-space:nowrap}
+.dline .w span.warn{color:var(--amber)}
+.cards{grid-template-columns:repeat(4,minmax(0,1fr))}
+.kv{min-width:190px}
+.score h4.k{white-space:nowrap}
+table.t th{font-size:10.5px;letter-spacing:.04em;text-transform:uppercase;color:var(--mut);font-weight:600;text-align:left;padding:0 10px 4px 0;border-bottom:1px solid #e6e6ea;white-space:nowrap}
+table.t td{padding:4px 10px 4px 0;border-bottom:1px solid #f0f0f3;white-space:nowrap}
+table.t .r{text-align:right}table.t tr.this td{font-weight:600}table.t tr.tot td{font-weight:600;border-top:1px solid #d9d9de}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--c);margin-right:6px}
+.warn{color:var(--amber)}.okc{color:var(--green)}
+.score .foot{grid-column:1/-1;display:flex;gap:6px 14px;align-items:center;flex-wrap:wrap;font-size:11.5px;color:var(--mut);border-top:1px solid #ece6f8;padding-top:7px}
+.link{color:var(--blue);cursor:default;white-space:nowrap}
+ruby.x{background:#fdecec;border-radius:3px;padding:0 2px;color:#a01818;ruby-position:over}
+ruby.x rt{font-size:9.5px;color:#8e5a5a}
+.d{color:#a01818;text-decoration:line-through;text-decoration-thickness:1.5px}
+.legend{display:inline-flex;gap:8px;align-items:baseline;flex-wrap:wrap}
+.transcript{gap:14px}
+.seg.sel{background:#f2f7ff;outline:1px solid #cfe0ff;border-radius:8px;margin:0 -8px;padding:6px 8px}
+.seg .who b.mis{color:var(--amber)}
+.skipline{font-size:11.5px;color:var(--mut);border-top:1px dashed #d9d9de;border-bottom:1px dashed #d9d9de;padding:5px 0;text-align:center}
+.lines{gap:2px}
+.rl{display:grid;grid-template-columns:18px 1fr auto;gap:6px;align-items:center;padding:5px 8px;border-radius:6px;font-size:12px;color:#3a3a3f;border:1px solid transparent}
+.rl .n{font-size:10.5px;color:var(--mut);font-variant-numeric:tabular-nums}
+.rl .tx{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.rl .tx b{color:var(--c);font-weight:600;font-size:11px;margin-right:5px}
+.rl .bs{display:flex;gap:4px}
+.rl.sel{background:#fff;border-color:var(--c);box-shadow:0 0 0 2px color-mix(in srgb,var(--c) 15%,transparent)}
+.badge{font-size:10.5px;font-weight:600;border-radius:8px;padding:1px 7px;font-variant-numeric:tabular-nums;border:1px solid;white-space:nowrap}
+.badge.ok{color:var(--green);border-color:#bfe3c9;background:#effaf2}
+.badge.err{color:#a01818;border-color:#f2c4c4;background:#fdf0f0}
+.badge.skip{color:var(--mut);border-color:#dcdce0;background:#f4f4f6}
+.badge.lab{color:var(--amber);border-color:#f0d5b8;background:#fdf5ec}
+.tabs{display:flex;justify-content:center;padding:8px 16px;background:#fff;border-bottom:1px solid #e3e3e7}
+.segc{display:inline-flex;background:#e3e3e7;border-radius:7px;padding:2px;gap:2px}
+.segc span{font-size:12px;padding:3px 14px;border-radius:5px;color:#3a3a3f}
+.segc span.on{background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.18);color:var(--txt);font-weight:500}
+.report{padding:14px 18px;display:flex;flex-direction:column;gap:16px;overflow:hidden;background:#fff;min-height:0}
+.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.card{border:1px solid #e3e3e7;border-radius:9px;padding:8px 11px;background:#fbfbfd;display:flex;flex-direction:column;gap:1px;min-width:0}
+.card .v{font-size:20px;font-weight:600;font-variant-numeric:tabular-nums}
+.dl{display:flex;flex-direction:column;gap:6px}
+.dline{display:grid;grid-template-columns:20px 112px 1fr;gap:8px;font-size:12.5px;line-height:1.6;padding:4px 6px;border-radius:7px}
+.dline .n{font-size:10.5px;color:var(--mut);font-variant-numeric:tabular-nums;padding-top:3px}
+.dline .w b{font-size:12px;color:var(--c);display:block}.dline .w span{font-size:11px;color:var(--mut)}
+.dline.sel{background:#f2f7ff;outline:1px solid #cfe0ff}
+.dline.skip{color:var(--mut)}
+.rpane{background:#f6f6f8;border-left:1px solid #d9d9de;display:grid;grid-template-rows:auto auto 1fr auto;min-height:0}
+.rhead{padding:10px 14px;border-bottom:1px solid #e3e3e7;display:flex;flex-direction:column;gap:7px;background:#faf8fe}
+.mrows{display:grid;grid-template-columns:1fr auto auto;gap:3px 10px;font-size:12px;align-items:baseline}
+.detail{background:#fff;border:1px solid var(--c);border-radius:8px;padding:8px 10px;margin:0 0 4px;font-size:12px;line-height:1.55;display:flex;flex-direction:column;gap:3px}
+.detail .sub{font-size:10.5px;letter-spacing:.04em;text-transform:uppercase;font-weight:600}
+.rpane .foot{border-top:1px solid #e3e3e7;padding:10px 14px;display:flex;align-items:center;gap:10px}
+.scrim{position:absolute;inset:40px 0 0;background:rgba(0,0,0,.18);display:flex;justify-content:center;align-items:flex-start}
+.sheet{width:660px;max-width:96%;background:#f6f6f8;border:1px solid #c9c9ce;border-top:0;border-radius:0 0 11px 11px;box-shadow:0 18px 40px rgba(0,0,0,.25);padding:16px 18px 14px;display:flex;flex-direction:column;gap:10px}
+.sheet h3{margin:0;font-size:13px}
+.sheet .tbl{background:#fff;border:1px solid #d9d9de;border-radius:8px;padding:8px 10px 2px;overflow-x:auto}
+.sheet .row{display:flex;justify-content:flex-end;gap:8px}
+.mini.primary{background:var(--blue);color:#fff;border-color:var(--blue)}
+.inset{width:680px;max-width:100%;background:var(--win);color:var(--txt);border-radius:11px;box-shadow:0 24px 60px rgba(0,0,0,.45);overflow:hidden;font-size:13px}
+.inset .title{height:40px}
+.search{margin-left:auto;width:220px;padding:5px 9px 5px 26px;border:1px solid var(--blue);box-shadow:0 0 0 2px rgba(10,96,255,.15);border-radius:7px;background:#fff url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 16 16%27%3E%3Ccircle cx=%277%27 cy=%277%27 r=%275%27 fill=%27none%27 stroke=%27%23888%27 stroke-width=%271.6%27/%3E%3Cpath d=%27M11 11l3.5 3.5%27 stroke=%27%23888%27 stroke-width=%271.6%27/%3E%3C/svg%3E") 7px 50%/13px no-repeat;color:var(--txt);font-size:12px;white-space:nowrap;overflow:hidden}
+.list{background:#fff;padding:6px 0}
+.item{display:grid;grid-template-columns:34px 1fr;gap:12px;padding:10px 16px;border-bottom:1px solid #ededf0;align-items:start}
+.item .ico{width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;background:#243b63}
+.item h3{margin:0;font-size:13px;font-weight:600;line-height:1.4;display:flex;align-items:center;gap:8px;min-width:0}
+.item p{margin:1px 0 0;font-size:12.5px;line-height:1.4;color:#3a3a3f;max-width:62ch}
+.item .meta{font-size:11.5px;color:var(--mut);margin-top:3px}
+.day{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--mut);padding:10px 16px 4px}
+mark{background:#fff1a8;color:inherit;border-radius:2px;padding:0 1px}
+@media (max-width:960px){.mac.tall{height:auto;min-height:620px}.score{grid-template-columns:1fr}.cards{grid-template-columns:1fr 1fr}.summary{grid-template-columns:1fr}.dline{grid-template-columns:20px 1fr}.dline .w{grid-column:2}.dline p{grid-column:2}}
+</style>
+<div class="banner"><strong>Mockup — not shipping code · Feature v5 · “Score Panel” · Option 1 of 3 · round 1 · Not chosen</strong><p>The meeting window after Stop on a test call, and when a test meeting is reopened. A score panel sits at the top of the meeting, above the summary, and the transcript marks each word the engine heard differently. The script pane from the call stays on the right with a badge per line. <b>Trade-off:</b> Everything is in one scroll and errors show where they happened; the summary and transcript start lower, and earlier runs need a click to expand. The other options: Score tab (<code>score-tab</code>), Score in the script pane (<code>pane-score</code>). All three carry the same figures: word error rate per speaker and overall, the label each speaker got and its purity, latency, skipped lines, and earlier runs of the scenario. <span class="axis">What differs between the options: where the score sits against the summary and transcript, and how much shows without a click.</span> Design language: the accepted v4 Meeting Window and Meetings list, the v5 Script pane and TEST tag. Script, names and figures are placeholders.</p></div>
+<main><div id="score-panel" data-mf-option="score-panel" style="display:contents"><section class="state"><h2>State 1 · Just stopped</h2><p class="why">The score is worked out at Stop, beside the summary. Red marks in the transcript show words heard differently (the script word above them) and struck words the engine missed. Reopening the test meeting from the Meetings list shows the same view.</p><div class="mac tall"><div class="title"><span class="lights"><i style="background:#ff5f57"></i><i style="background:#febc2e"></i><i style="background:#28c840"></i></span><h1>Meeting</h1><div class="tools"><button class="mini" type="button">Export transcript…</button><button class="mini" type="button">Export summary…</button></div></div><div class="body"><div class="head"><span class="ttl"><b>Test call · Sprint planning</b></span><span class="chip test">TEST</span><span class="chip off"><i></i>Ended 11:16</span><div class="stats"><span><b class="num">00:01:56</b></span><span><b class="num">$0.02</b> total</span><span class="mut">AssemblyAI Streaming + Claude Sonnet 5.5</span></div></div><div class="split wide"><div class="left"><div class="score"><div><h4 class="k">Word error rate</h4><div class="bign">6.4%</div><div class="sub">10 errors in 156 words</div></div><table class="t"><tr><th>Speaker</th><th class="r">WER</th><th>Labelled as</th></tr><tr><td><span class="dot" style="--c:var(--you)"></span>You <span class="mut">· read aloud</span></td><td class="r num">4.3%</td><td>Alex <span class="mut num">100%</span></td></tr><tr><td><span class="dot" style="--c:var(--s1)"></span>Tom <span class="mut">· Daniel voice</span></td><td class="r num">4.8%</td><td>Speaker 1 <span class="mut num">100%</span></td></tr><tr><td><span class="dot" style="--c:var(--s2)"></span>Priya <span class="mut">· Karen voice</span></td><td class="r num">10.6%</td><td>Speaker 2 <span class="warn num">87%</span></td></tr></table><div class="kv"><h4 class="k">Latency</h4><span><b>1.3 s</b> median · <b>2.9 s</b> max</span><span><b>11 of 12</b> lines scored · 1 skipped</span><span class="sub">Cross-credited words: 0</span></div><div class="foot"><span>Earlier runs of this scenario: <span class="num">3.8% · 5.1% · 7.7%</span> (best: Speechmatics Enhanced, 9 Nov)</span><span class="link">Compare ▾</span></div></div><div class="summary"><div class="sec"><h4>Summary</h4>The payments migration is at 80%. The Stripe webhook failures come from the retry header; Alex pairs on the fix before Thursday. The Kubernetes upgrade needs a 40-minute window, to be requested for Wednesday night.</div><div class="sec"><h4>Decisions</h4><ul><li>Onboarding screens move to sprint 14.</li><li>CSV export goes to the backlog.</li></ul></div><div class="sec"><h4>Action items</h4><ul><li>Alex: send the runbook (v3.2) to ops today.</li><li>Alex: retry-header fix, tomorrow 14:00–16:00.</li></ul></div><div class="sec"><h4>Open questions</h4><ul><li>None raised.</li></ul></div><div class="meta">Claude Sonnet 5.5 · 11:16 · 1.6k in / 190 out tokens · $0.01</div></div><div class="transcript"><div class="src" style="flex-wrap:wrap">AssemblyAI Streaming · English · marked against the script: <span class="legend"><ruby class="x">heard<rt>script</rt></ruby> heard differently · <span class="d" title="Missed">word</span> missed</span></div><div class="seg"><div class="who" style="--c:var(--s1)"><b>Speaker 1</b><span class="t">00:00:03 · line 1</span></div><p>Morning both. Let's keep this to fifteen minutes; the release review starts at half past ten.</p></div><div class="seg"><div class="who" style="--c:var(--s2)"><b>Speaker 2</b><span class="t">00:00:09 · line 2</span></div><p>Sure. The payments migration is at 80%, but the Stripe <ruby class="x">web hook<rt>webhook</rt></ruby> tests still fail on staging.</p></div><div class="seg"><div class="who" style="--c:var(--you)"><b>Alex</b><span class="t">00:00:18 · line 3</span></div><p>I looked at those yesterday. The failures come from the retry header, not the payload, so <ruby class="x">its<rt>it&#39;s</rt></ruby> <span class="d" title="Missed">a</span> one-line fix.</p></div><div class="seg"><div class="who" style="--c:var(--s1)"><b>Speaker 1</b><span class="t">00:00:29 · line 4</span></div><p>Good. Can you pair with Priya on it before Thursday?</p></div></div></div><aside class="pane"><h4><span>Script</span><span class="num">11 of 12 scored</span></h4><div class="lines"><div class="rl" style="--c:var(--s1)"><span class="n">1</span><span class="tx"><b>Tom</b>Morning both. Let's keep this to fifteen minutes; the release review starts at half past ten.</span><span class="bs"><span class="badge ok">✓</span></span></div><div class="rl" style="--c:var(--s2)"><span class="n">2</span><span class="tx"><b>Priya</b>Sure. The payments migration is at eighty percent, but the Stripe webhook tests still fail on staging.</span><span class="bs"><span class="badge err">2 errors</span></span></div><div class="rl" style="--c:var(--you)"><span class="n">3</span><span class="tx"><b>You</b>I looked at those yesterday. The failures come from the retry header, not the payload, so it's a one-line fix.</span><span class="bs"><span class="badge err">2 errors</span></span></div><div class="rl" style="--c:var(--s1)"><span class="n">4</span><span class="tx"><b>Tom</b>Good. Can you pair with Priya on it before Thursday?</span><span class="bs"><span class="badge ok">✓</span></span></div><div class="rl" style="--c:var(--you)"><span class="n">5</span><span class="tx"><b>You</b>Yes, I'll block two hours tomorrow afternoon, from two until four.</span><span class="bs"><span class="badge ok">✓</span></span></div><div class="rl" style="--c:var(--s2)"><span class="n">6</span><span class="tx"><b>Priya</b>Then the remaining risk is the Kubernetes upgrade. It needs a maintenance window of about forty minutes.</span><span class="bs"><span class="badge err">2 errors</span></span></div><div class="rl" style="--c:var(--s1)"><span class="n">7</span><span class="tx"><b>Tom</b>Let's ask ops for Wednesday night. Alex, can you send them the runbook?</span><span class="bs"><span class="badge err">3 errors</span></span></div><div class="rl" style="--c:var(--you)"><span class="n">8</span><span class="tx"><b>You</b>I'll send it today and copy you both. Version three point two has the rollback steps.</span><span class="bs"><span class="badge ok">✓</span></span></div><div class="rl" style="--c:var(--s2)"><span class="n">9</span><span class="tx"><b>Priya</b>One more thing: design wants the onboarding screens in sprint fourteen, not fifteen.</span><span class="bs"><span class="badge lab" title="6 of Priya’s words labelled Speaker 1">label</span><span class="badge err">1 error</span></span></div><div class="rl" style="--c:var(--s1)"><span class="n">10</span><span class="tx"><b>Tom</b>That's fine if we drop the CSV export. Nobody has asked for it since March.</span><span class="bs"><span class="badge ok">✓</span></span></div><div class="rl" style="--c:var(--you)"><span class="n">11</span><span class="tx"><b>You</b>Agreed. I'll move the export ticket to the backlog and update the board after this call.</span><span class="bs"><span class="badge skip">Skipped</span></span></div><div class="rl" style="--c:var(--s1)"><span class="n">12</span><span class="tx"><b>Tom</b>Great. Thanks both, see you at the review.</span><span class="bs"><span class="badge ok">✓</span></span></div></div><div class="foot"><span class="hint">Click a line to find it in the transcript.</span></div></aside></div></div></div></section><section class="state"><h2>State 2 · Comparing, and checking a line</h2><p class="why">Compare expands the earlier runs of this scenario and the summary folds to one line. Clicking line 6 in the script pane scrolls the transcript to it.</p><div class="mac tall"><div class="title"><span class="lights"><i style="background:#ff5f57"></i><i style="background:#febc2e"></i><i style="background:#28c840"></i></span><h1>Meeting</h1><div class="tools"><button class="mini" type="button">Export transcript…</button><button class="mini" type="button">Export summary…</button></div></div><div class="body"><div class="head"><span class="ttl"><b>Test call · Sprint planning</b></span><span class="chip test">TEST</span><span class="chip off"><i></i>Ended 11:16</span><div class="stats"><span><b class="num">00:01:56</b></span><span><b class="num">$0.02</b> total</span><span class="mut">AssemblyAI Streaming + Claude Sonnet 5.5</span></div></div><div class="split wide"><div class="left"><div class="score"><div><h4 class="k">Word error rate</h4><div class="bign">6.4%</div><div class="sub">10 errors in 156 words</div></div><table class="t"><tr><th>Speaker</th><th class="r">WER</th><th>Labelled as</th></tr><tr><td><span class="dot" style="--c:var(--you)"></span>You <span class="mut">· read aloud</span></td><td class="r num">4.3%</td><td>Alex <span class="mut num">100%</span></td></tr><tr><td><span class="dot" style="--c:var(--s1)"></span>Tom <span class="mut">· Daniel voice</span></td><td class="r num">4.8%</td><td>Speaker 1 <span class="mut num">100%</span></td></tr><tr><td><span class="dot" style="--c:var(--s2)"></span>Priya <span class="mut">· Karen voice</span></td><td class="r num">10.6%</td><td>Speaker 2 <span class="warn num">87%</span></td></tr></table><div class="kv"><h4 class="k">Latency</h4><span><b>1.3 s</b> median · <b>2.9 s</b> max</span><span><b>11 of 12</b> lines scored · 1 skipped</span><span class="sub">Cross-credited words: 0</span></div><div class="foot"><div style="width:100%"><h4 class="k">Earlier runs · Sprint planning, revision 1, this Mac</h4><table class="t c"><tr><th>Run</th><th>Engine</th><th class="r">WER</th><th class="r">You</th><th class="r">Tom</th><th class="r">Priya</th><th title="Clean: one label covers at least 95% of a speaker’s words, and no two speakers share it.">Clean</th><th>Latency</th></tr><tr class="this"><td class="num">Today 11:14</td><td>AssemblyAI Streaming</td><td class="r num">6.4%</td><td class="r num">4.3%</td><td class="r num">4.8%</td><td class="r num">10.6%</td><td title="Clean: one label covers at least 95% of a speaker’s words, and no two speakers share it.">2 of 3</td><td class="num">1.3 / 2.9 s</td></tr><tr class=""><td class="num">9 Nov 16:40</td><td>Speechmatics Enhanced</td><td class="r num">3.8%</td><td class="r num">2.1%</td><td class="r num">3.2%</td><td class="r num">6.4%</td><td title="Clean: one label covers at least 95% of a speaker’s words, and no two speakers share it.">3 of 3</td><td class="num">0.9 / 1.6 s</td></tr><tr class=""><td class="num">6 Nov 09:12</td><td>Speechmatics Standard</td><td class="r num">5.1%</td><td class="r num">4.3%</td><td class="r num">4.8%</td><td class="r num">6.4%</td><td title="Clean: one label covers at least 95% of a speaker’s words, and no two speakers share it.">3 of 3</td><td class="num">1.0 / 2.2 s</td></tr><tr class=""><td class="num">2 Nov 10:05</td><td>AssemblyAI Streaming</td><td class="r num">7.7%</td><td class="r num">6.4%</td><td class="r num">6.5%</td><td class="r num">10.6%</td><td title="Clean: one label covers at least 95% of a speaker’s words, and no two speakers share it.">2 of 3</td><td class="num">1.4 / 3.4 s</td></tr></table></div><span class="link">Hide</span></div></div><div class="summary folded"><h4 class="k" style="margin:0">Summary</h4><span class="sub">The payments migration is at 80%. The Stripe webhook failures come from the retry header…</span><span class="link" style="margin-left:auto">Show</span></div><div class="transcript"><div class="src" style="flex-wrap:wrap">AssemblyAI Streaming · English · marked against the script: <span class="legend"><ruby class="x">heard<rt>script</rt></ruby> heard differently · <span class="d" title="Missed">word</span> missed</span></div><div class="seg sel"><div class="who" style="--c:var(--s2)"><b>Speaker 2</b><span class="t">00:00:41 · line 6</span></div><p>Then the remaining risk is the <ruby class="x">Cooper Netties<rt>Kubernetes</rt></ruby> upgrade. It needs a maintenance window of about 40 minutes.</p></div><div class="seg"><div class="who" style="--c:var(--s1)"><b>Speaker 1</b><span class="t">00:00:49 · line 7</span></div><p>Let's ask <ruby class="x">ups<rt>ops</rt></ruby> for Wednesday night. Alex, can you send them the <ruby class="x">run book<rt>runbook</rt></ruby>?</p></div><div class="seg"><div class="who" style="--c:var(--you)"><b>Alex</b><span class="t">00:00:58 · line 8</span></div><p>I'll send it today and copy you both. Version 3.2 has the rollback steps.</p></div><div class="seg"><div class="who" style="--c:var(--s1)"><b class="mis" title="Script: Priya">Speaker 1</b><span class="t">00:01:09 · line 9</span><span class="t warn">Priya’s words</span></div><p>One more thing, design wants the</p></div><div class="seg"><div class="who" style="--c:var(--s2)"><b>Speaker 2</b><span class="t">00:01:11 · line 9</span></div><p>onboarding screens in sprint <ruby class="x">forty<rt>fourteen</rt></ruby>, not fifteen.</p></div></div></div><aside class="pane"><h4><span>Script</span><span class="num">11 of 12 scored</span></h4><div class="lines"><div class="rl" style="--c:var(--s1)"><span class="n">1</span><span class="tx"><b>Tom</b>Morning both. Let's keep this to fifteen minutes; the release review starts at half past ten.</span><span class="bs"><span class="badge ok">✓</span></span></div><div class="rl" style="--c:var(--s2)"><span class="n">2</span><span class="tx"><b>Priya</b>Sure. The payments migration is at eighty percent, but the Stripe webhook tests still fail on staging.</span><span class="bs"><span class="badge err">2 errors</span></span></div><div class="rl" style="--c:var(--you)"><span class="n">3</span><span class="tx"><b>You</b>I looked at those yesterday. The failures come from the retry header, not the payload, so it's a one-line fix.</span><span class="bs"><span class="badge err">2 errors</span></span></div><div class="rl" style="--c:var(--s1)"><span class="n">4</span><span class="tx"><b>Tom</b>Good. Can you pair with Priya on it before Thursday?</span><span class="bs"><span class="badge ok">✓</span></span></div><div class="rl" style="--c:var(--you)"><span class="n">5</span><span class="tx"><b>You</b>Yes, I'll block two hours tomorrow afternoon, from two until four.</span><span class="bs"><span class="badge ok">✓</span></span></div><div class="rl sel" style="--c:var(--s2)"><span class="n">6</span><span class="tx"><b>Priya</b>Then the remaining risk is the Kubernetes upgrade. It needs a maintenance window of about forty minutes.</span><span class="bs"><span class="badge err">2 errors</span></span></div><div class="rl" style="--c:var(--s1)"><span class="n">7</span><span class="tx"><b>Tom</b>Let's ask ops for Wednesday night. Alex, can you send them the runbook?</span><span class="bs"><span class="badge err">3 errors</span></span></div><div class="rl" style="--c:var(--you)"><span class="n">8</span><span class="tx"><b>You</b>I'll send it today and copy you both. Version three point two has the rollback steps.</span><span class="bs"><span class="badge ok">✓</span></span></div><div class="rl" style="--c:var(--s2)"><span class="n">9</span><span class="tx"><b>Priya</b>One more thing: design wants the onboarding screens in sprint fourteen, not fifteen.</span><span class="bs"><span class="badge lab" title="6 of Priya’s words labelled Speaker 1">label</span><span class="badge err">1 error</span></span></div><div class="rl" style="--c:var(--s1)"><span class="n">10</span><span class="tx"><b>Tom</b>That's fine if we drop the CSV export. Nobody has asked for it since March.</span><span class="bs"><span class="badge ok">✓</span></span></div><div class="rl" style="--c:var(--you)"><span class="n">11</span><span class="tx"><b>You</b>Agreed. I'll move the export ticket to the backlog and update the board after this call.</span><span class="bs"><span class="badge skip">Skipped</span></span></div><div class="rl" style="--c:var(--s1)"><span class="n">12</span><span class="tx"><b>Tom</b>Great. Thanks both, see you at the review.</span><span class="bs"><span class="badge ok">✓</span></span></div></div><div class="foot"><span class="hint">Click a line to find it in the transcript.</span></div></aside></div></div></div></section></div><section class="state"><h2>Same in all three options · Meetings list, searching “sprint”</h2><p class="why">Test calls are listed and found by search like any meeting, with a TEST chip and the score in the meta line. The CLI and the MCP server never return them. Opening a row opens the window above.</p><div class="inset"><div class="title"><span class="lights"><i style="background:#ff5f57"></i><i style="background:#febc2e"></i><i style="background:#28c840"></i></span><h1>Meetings</h1><span class="search">sprint</span></div><div class="list"><div class="day">Today</div><div class="item"><span class="ico"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><rect x="1.5" y="2.5" width="13" height="8.5" rx="1.5" fill="none" stroke="#fff" stroke-width="1.4"/><path d="M5.5 13.5h5M8 11v2.5" stroke="#fff" stroke-width="1.4" stroke-linecap="round"/></svg></span><div><h3>Test call · <mark>Sprint</mark> planning <span class="chip test">TEST</span></h3><p>The payments migration is at 80%. The Stripe webhook failures come from the retry header; Alex pairs on the fix before Thursday.</p><div class="meta"><span class="num">11:14</span> · 2 min · Remote call · WER 6.4% · AssemblyAI Streaming · $0.02</div></div></div><div class="day">Monday 9 Nov</div><div class="item"><span class="ico"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><rect x="1.5" y="2.5" width="13" height="8.5" rx="1.5" fill="none" stroke="#fff" stroke-width="1.4"/><path d="M5.5 13.5h5M8 11v2.5" stroke="#fff" stroke-width="1.4" stroke-linecap="round"/></svg></span><div><h3>Test call · <mark>Sprint</mark> planning <span class="chip test">TEST</span></h3><p>The payments migration is at 80%. The webhook failures come from the retry header, a one-line fix.</p><div class="meta"><span class="num">16:40</span> · 2 min · Remote call · WER 3.8% · Speechmatics Enhanced · $0.03</div></div></div><div class="day">Thursday 5 Nov</div><div class="item"><span class="ico"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><rect x="1.5" y="2.5" width="13" height="8.5" rx="1.5" fill="none" stroke="#fff" stroke-width="1.4"/><path d="M5.5 13.5h5M8 11v2.5" stroke="#fff" stroke-width="1.4" stroke-linecap="round"/></svg></span><div><h3><mark>Sprint</mark> 14 planning</h3><p>Sprint 14 takes the onboarding screens and the Kubernetes upgrade; the CSV export waits for customer demand.</p><div class="meta"><span class="num">10:00</span> · 34 min · Remote call · 4 speakers · $0.23 · Audio 16 MB</div></div></div></div></div></section></main>
+
+<!-- mockup-feedback:start -->
+<style>
+.mf-bar {
+  --mf-bg: #f6f7f9;
+  --mf-fg: #1a2127;
+  --mf-muted: #59646d;
+  --mf-line: #d3d9de;
+  --mf-field: #ffffff;
+  --mf-accent: #2f5fd0;
+  --mf-accent-fg: #ffffff;
+  --mf-ok: #1d7a4c;
+  --mf-warn: #8f5d00;
+  --mf-err: #b2322b;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .mf-bar {
+    --mf-bg: #161b20;
+    --mf-fg: #e3e8ec;
+    --mf-muted: #98a3ab;
+    --mf-line: #2d363e;
+    --mf-field: #0f1317;
+    --mf-accent: #7ea2f5;
+    --mf-accent-fg: #0b1220;
+    --mf-ok: #57c48c;
+    --mf-warn: #e2ac45;
+    --mf-err: #f08077;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] .mf-bar {
+  --mf-bg: #161b20;
+  --mf-fg: #e3e8ec;
+  --mf-muted: #98a3ab;
+  --mf-line: #2d363e;
+  --mf-field: #0f1317;
+  --mf-accent: #7ea2f5;
+  --mf-accent-fg: #0b1220;
+  --mf-ok: #57c48c;
+  --mf-warn: #e2ac45;
+  --mf-err: #f08077;
+  color-scheme: dark;
+}
+.mf-bar, .mf-bar * { box-sizing: border-box; }
+.mf-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 2147483000;
+  margin: 24px 0 0;
+  padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px));
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--mf-bg);
+  color: var(--mf-fg);
+  border-top: 1px solid var(--mf-line);
+  box-shadow: 0 -6px 18px rgba(0, 0, 0, 0.08);
+  font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  text-align: left;
+}
+.mf-bar[hidden] { display: none; }
+.mf-bar .mf-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+.mf-bar .mf-tag {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--mf-muted);
+}
+.mf-bar .mf-title { font-weight: 600; }
+.mf-bar .mf-context { color: var(--mf-muted); min-width: 0; overflow-wrap: anywhere; }
+.mf-bar .mf-toggle {
+  margin-left: auto;
+  padding: 2px 6px;
+  border: 0;
+  background: none;
+  color: var(--mf-accent);
+  font: inherit;
+  font-size: 13px;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.mf-bar .mf-body { display: flex; flex-direction: column; gap: 8px; }
+.mf-bar.mf-collapsed .mf-body { display: none; }
+.mf-bar .mf-options { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; border: 0; }
+.mf-bar .mf-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border: 1.5px solid var(--mf-line);
+  border-radius: 999px;
+  background: var(--mf-field);
+  cursor: pointer;
+}
+.mf-bar .mf-chip input { margin: 0; accent-color: var(--mf-accent); }
+.mf-bar .mf-chip:has(input:checked) { border-color: var(--mf-accent); }
+.mf-bar .mf-chip:has(input:focus-visible) { outline: 2px solid var(--mf-accent); outline-offset: 2px; }
+.mf-bar .mf-note {
+  width: 100%;
+  min-height: 38px;
+  max-height: 140px;
+  padding: 7px 10px;
+  resize: vertical;
+  font: inherit;
+  color: var(--mf-fg);
+  background: var(--mf-field);
+  border: 1.5px solid var(--mf-line);
+  border-radius: 8px;
+}
+.mf-bar .mf-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.mf-bar .mf-btn {
+  padding: 7px 12px;
+  border: 1.5px solid var(--mf-line);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--mf-fg);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.mf-bar .mf-btn.mf-primary { background: var(--mf-accent); border-color: var(--mf-accent); color: var(--mf-accent-fg); }
+.mf-bar .mf-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.mf-bar .mf-btn:focus-visible, .mf-bar .mf-toggle:focus-visible, .mf-bar .mf-note:focus-visible {
+  outline: 2px solid var(--mf-accent);
+  outline-offset: 2px;
+}
+.mf-bar .mf-channel { display: flex; align-items: center; gap: 6px; margin: 0; font-size: 13px; color: var(--mf-muted); }
+.mf-bar .mf-dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--mf-muted); }
+.mf-bar .mf-channel[data-state="available"] .mf-dot { background: var(--mf-ok); }
+.mf-bar .mf-channel[data-state="no_session"] .mf-dot,
+.mf-bar .mf-channel[data-state="writers_only"] .mf-dot { background: var(--mf-warn); }
+.mf-bar .mf-channel[data-state="blocked"] .mf-dot { background: var(--mf-err); }
+.mf-bar .mf-result { margin: 0; font-size: 13px; }
+.mf-bar .mf-result[data-kind="ok"] { color: var(--mf-ok); }
+.mf-bar .mf-result[data-kind="err"] { color: var(--mf-err); }
+.mf-bar .mf-verdict { margin: 0; font-weight: 600; }
+[data-mf-option].mf-selected { outline: 3px solid #3b6fe0; outline-offset: 4px; }
+</style>
+<aside class="mf-bar" id="mf-bar" role="region" aria-label="Mockup feedback" data-uncommentable hidden>
+  <div class="mf-head">
+    <span class="mf-tag">Feedback</span>
+    <span class="mf-title" id="mf-title"></span>
+    <span class="mf-context" id="mf-context"></span>
+    <button type="button" class="mf-toggle" id="mf-toggle" aria-expanded="true" aria-controls="mf-body">Hide</button>
+  </div>
+  <div class="mf-body" id="mf-body">
+    <p class="mf-verdict" id="mf-verdict" hidden></p>
+    <fieldset class="mf-options" id="mf-options" hidden></fieldset>
+    <textarea class="mf-note" id="mf-note" maxlength="1500" placeholder="Note for Claude (optional; required to request changes)" aria-label="Note for Claude"></textarea>
+    <div class="mf-actions" id="mf-actions"></div>
+    <p class="mf-channel" id="mf-channel" data-state="checking">
+      <span class="mf-dot" aria-hidden="true"></span>
+      <span id="mf-channel-text">Checking whether a Claude session is listening.</span>
+      <button type="button" class="mf-toggle" id="mf-recheck" hidden>Check again</button>
+    </p>
+    <p class="mf-result" id="mf-result" role="status" aria-live="polite" hidden></p>
+  </div>
+</aside>
+<script type="application/json" id="mf-config">{"set":"v5-s3","setLabel":"Test call results","mode":"pick","options":[{"id":"score-panel","label":"Score above the summary"},{"id":"score-tab","label":"Score tab"},{"id":"pane-score","label":"Score in the script pane"}],"this":"score-panel","status":"not-chosen","chosen":null}</script>
+<script>
+(function () {
+  var cfg;
+  try { cfg = JSON.parse(document.getElementById("mf-config").textContent); } catch (e) { return; }
+  if (!cfg || !cfg.options || !cfg.options.length) return;
+
+  var PREFIX = "Mockup feedback · ";
+  var CHANNEL = {
+    checking: "Checking whether a Claude session is listening.",
+    available: "A Claude session is listening. Sending wakes it.",
+    no_session: "No Claude session is listening. Reply in chat, or check again once the session is back.",
+    writers_only: "Only editors of this page can send to Claude. Reply in chat instead.",
+    off: "Sending to Claude is not offered here. Reply in chat instead.",
+    absent: "Sending works on the published page. Here, reply in chat instead.",
+    blocked: "Commenting from this page is turned off. Reply in chat instead."
+  };
+  var KNOWN = ["available", "writers_only", "no_session", "off"];
+
+  var bar = document.getElementById("mf-bar");
+  var titleEl = document.getElementById("mf-title");
+  var contextEl = document.getElementById("mf-context");
+  var toggleBtn = document.getElementById("mf-toggle");
+  var verdictEl = document.getElementById("mf-verdict");
+  var optionsEl = document.getElementById("mf-options");
+  var noteEl = document.getElementById("mf-note");
+  var actionsEl = document.getElementById("mf-actions");
+  var channelEl = document.getElementById("mf-channel");
+  var channelText = document.getElementById("mf-channel-text");
+  var recheckBtn = document.getElementById("mf-recheck");
+  var resultEl = document.getElementById("mf-result");
+
+  var comments = null;
+  var state = "checking";
+  var busy = false;
+  var sent = false;
+  var buttons = [];
+
+  function byId(list, id) {
+    for (var i = 0; i < list.length; i++) if (list[i].id === id) return list[i];
+    return null;
+  }
+  function label(id) { var o = byId(cfg.options, id); return o ? o.label : id; }
+  function root(id) { return document.querySelector('[data-mf-option="' + id + '"]'); }
+  function picked() {
+    if (cfg.mode !== "compare") return cfg.mode === "pick" ? cfg["this"] : cfg.options[0].id;
+    var r = optionsEl.querySelector("input:checked");
+    return r ? r.value : null;
+  }
+  function say(text, kind) {
+    resultEl.hidden = !text;
+    resultEl.textContent = text || "";
+    if (kind) resultEl.setAttribute("data-kind", kind);
+    else resultEl.removeAttribute("data-kind");
+  }
+  function clean(text) {
+    return text.replace(/[\u0000-\u0008\u000B-\u001F\u007F]/g, "").trim();
+  }
+
+  // Header: the set, and where this page sits in it.
+  titleEl.textContent = cfg.setLabel;
+  if (cfg.mode === "pick") {
+    var others = [];
+    var position = 0;
+    for (var i = 0; i < cfg.options.length; i++) {
+      if (cfg.options[i].id === cfg["this"]) position = i + 1;
+      else others.push(cfg.options[i].label);
+    }
+    contextEl.textContent = "Option " + position + " of " + cfg.options.length + ": " + label(cfg["this"]) +
+      ". The others are on their own pages: " + others.join(", ") + ". Choosing here rules them out.";
+  } else if (cfg.mode === "compare") {
+    contextEl.textContent = cfg.options.length + " options on this page. Pick one.";
+  } else {
+    contextEl.textContent = label(cfg.options[0].id);
+  }
+
+  toggleBtn.addEventListener("click", function () {
+    var collapsed = bar.classList.toggle("mf-collapsed");
+    toggleBtn.textContent = collapsed ? "Show" : "Hide";
+    toggleBtn.setAttribute("aria-expanded", collapsed ? "false" : "true");
+  });
+
+  // A settled page shows its verdict and nothing to act on.
+  if (cfg.status !== "open") {
+    var verdict = {
+      accepted: cfg.mode === "compare" ? "Accepted: " + label(cfg.chosen) + "." : "Accepted.",
+      "not-chosen": "Not chosen.",
+      closed: "Closed. Choices on this page are no longer read."
+    }[cfg.status] || "Closed.";
+    verdictEl.textContent = verdict;
+    verdictEl.hidden = false;
+    noteEl.hidden = true;
+    channelEl.hidden = true;
+    if (cfg.mode === "compare" && cfg.status === "accepted" && root(cfg.chosen)) root(cfg.chosen).classList.add("mf-selected");
+    bar.hidden = false;
+    return;
+  }
+
+  // Compare: one chip per option, outlining its section when picked.
+  if (cfg.mode === "compare") {
+    var legend = document.createElement("legend");
+    legend.className = "mf-tag";
+    legend.textContent = "Options";
+    optionsEl.appendChild(legend);
+    cfg.options.forEach(function (o) {
+      var chip = document.createElement("label");
+      chip.className = "mf-chip";
+      var input = document.createElement("input");
+      input.type = "radio";
+      input.name = "mf-option";
+      input.id = "mf-option-" + o.id;
+      input.value = o.id;
+      input.addEventListener("change", function () {
+        var all = document.querySelectorAll("[data-mf-option]");
+        for (var k = 0; k < all.length; k++) all[k].classList.remove("mf-selected");
+        var el = root(o.id);
+        if (el) {
+          el.classList.add("mf-selected");
+          var still = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+          el.scrollIntoView({ block: "nearest", behavior: still ? "auto" : "smooth" });
+        }
+        refresh();
+      });
+      chip.appendChild(input);
+      chip.appendChild(document.createTextNode(o.label));
+      optionsEl.appendChild(chip);
+    });
+    optionsEl.hidden = false;
+  }
+
+  // Actions per shape. needsNote: a change request must say what to change.
+  var ACTIONS = {
+    review: [
+      { action: "accept", text: "Looks right", primary: true },
+      { action: "revise", text: "Request changes", needsNote: true },
+      { action: "alternatives", text: "Show alternatives" }
+    ],
+    compare: [
+      { action: "choose", text: "Send choice", primary: true, needsPick: true },
+      { action: "none", text: "None of these", needsNote: true },
+      { action: "comment", text: "Comment on this option", needsPick: true }
+    ],
+    pick: [
+      { action: "choose", text: "Choose this one", primary: true },
+      { action: "revise", text: "Request changes", needsNote: true },
+      { action: "none", text: "None of these", needsNote: true }
+    ]
+  }[cfg.mode] || [];
+
+  ACTIONS.forEach(function (a) {
+    var b = document.createElement("button");
+    b.type = "button";
+    b.className = "mf-btn" + (a.primary ? " mf-primary" : "");
+    b.id = "mf-" + a.action;
+    b.textContent = a.text;
+    b.addEventListener("click", function () {
+      if (a.action === "comment") compose();
+      else send(a);
+    });
+    actionsEl.appendChild(b);
+    buttons.push({ el: b, spec: a });
+  });
+
+  function render() {
+    channelEl.setAttribute("data-state", state);
+    channelText.textContent = CHANNEL[state] || CHANNEL.off;
+    recheckBtn.hidden = !comments || state === "available" || state === "checking" || state === "blocked";
+    var pick = picked();
+    buttons.forEach(function (b) {
+      if (b.spec.action === "comment") {
+        b.el.disabled = !comments || !pick;
+        b.el.hidden = !comments;
+        return;
+      }
+      b.el.disabled = busy || sent || state !== "available" || (b.spec.needsPick && !pick);
+    });
+    noteEl.disabled = sent;
+  }
+
+  function refresh() {
+    if (!comments || state === "blocked") { render(); return; }
+    comments.canSendToClaude().then(function (v) {
+      return KNOWN.indexOf(v) === -1 ? "off" : v;
+    }, function () {
+      return "off";
+    }).then(function (v) {
+      if (comments && state !== "blocked") state = v;
+      render();
+    });
+  }
+
+  function fail(err) {
+    var code = err && err.code;
+    if (code === "consent_required") {
+      say("Not sent. The page was not allowed to comment as you. Your note is kept.", "err");
+    } else if (code === "forbidden") {
+      state = "blocked";
+      say("Not sent. Commenting from this page is turned off.", "err");
+    } else if (code === "claude_unavailable") {
+      say("Not sent. No Claude session could receive it. Nothing was posted.", "err");
+      refresh();
+    } else if (code === "rate_limited") {
+      say("Not sent. Too many sends in a row. Wait a moment.", "err");
+    } else if (code === "invalid" || code === "transform_error") {
+      say("Not sent. The note has characters a comment cannot carry.", "err");
+    } else if (code === "not_granted" || code === "capability_disabled" || code === "capability_removed") {
+      comments = null;
+      state = "absent";
+      say("Not sent. This view cannot post comments from the page.", "err");
+    } else {
+      say("Not sent. Comments are unavailable right now. Try once more.", "err");
+    }
+  }
+
+  function send(spec) {
+    if (!comments || busy || sent) return;
+    var option = spec.action === "choose" || spec.action === "accept" || spec.action === "revise" ? picked() : null;
+    if (spec.needsPick && !option) { say("Pick an option first.", "err"); return; }
+    var note = clean(noteEl.value);
+    if (spec.needsNote && !note) {
+      say("Add a note saying what to change.", "err");
+      noteEl.focus();
+      return;
+    }
+    var text = PREFIX + cfg.set + " · " + spec.action + (option ? " " + option : "") + (note ? "\nNote: " + note : "");
+    var target = root(option || picked() || cfg.options[0].id) || bar.parentNode;
+    busy = true;
+    say("", null);
+    render();
+    comments.anchorFor(target).then(function (anchor) {
+      return comments.sendToClaude({ anchor: anchor, text: text });
+    }).then(function () {
+      sent = true;
+      say("Sent to Claude: " + spec.text.toLowerCase() + (option ? " (" + label(option) + ")" : "") +
+        ". Claude replies in the comment thread and updates this page.", "ok");
+    }, fail).then(function () {
+      busy = false;
+      render();
+    });
+  }
+
+  function compose() {
+    var option = picked();
+    var el = option && root(option);
+    if (!comments || !el) return;
+    comments.openComposer({ element: el }).then(function (r) {
+      if (r && r.opened) say("Comment box opened on " + label(option) + ". Write your comment and press Send to Claude.", "ok");
+    }, function (err) {
+      say(err && err.code === "rate_limited" ? "Too many tries in a row. Wait a moment." : "The comment box is unavailable here.", "err");
+    });
+  }
+
+  recheckBtn.addEventListener("click", refresh);
+  window.addEventListener("focus", refresh);
+  bar.hidden = false;
+  render();
+
+  var ready = window.claude && typeof window.claude.use === "function"
+    ? window.claude.use("comments")
+    : Promise.resolve(null);
+  ready.then(function (ns) { return ns; }, function () { return null; }).then(function (ns) {
+    comments = ns;
+    if (!ns) { state = "absent"; render(); return; }
+    refresh();
+  });
+})();
+</script>
+<!-- mockup-feedback:end -->
