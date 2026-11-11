@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### Added
+
+- Test calls. **Test Call…** in the New Meeting window runs a scripted two-minute remote call:
+  two macOS voices speak through the speakers and you read your lines. Stop scores the
+  transcript against the script — word error rate per speaker and overall, speaker-label
+  consistency and latency — and keeps the score with the meeting for comparison with earlier
+  runs. Eight scenarios, about $0.02 a run. Test calls are marked TEST in *Meetings…* and hidden
+  from the `mini-whisper` tool and MCP server.
+
 ### Fixed
 
 - A remote meeting turned other apps' audio down by about 30 dB, the call included, and the

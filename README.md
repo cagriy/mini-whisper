@@ -124,6 +124,7 @@ every rate can be overridden in `config.json`'s `pricing_overrides`.
     segments.jsonl    transcript
     notes.jsonl       notes
     audio.m4a         AAC, 16 kHz mono, about 14 MB per hour
+    testcall.json     a test call's score
 ```
 
 Folders are 0700, files 0600, and nothing is deleted automatically. Turn off **Keep meeting
@@ -173,6 +174,26 @@ claude mcp add --transport stdio mini-whisper -- mini-whisper mcp
 Settings → Meetings → Claude Code copies this command, naming the app's binary by its full
 path until the tool is installed.
 
+### Test call
+
+**Test Call…**, at the bottom left of the New Meeting window, runs a scripted remote call that
+measures how well meetings transcribe on this Mac. Pick a scenario (Random, or one of eight), an
+engine and Overlap, then **Start Test Call**. Two macOS voices speak their lines through the
+speakers; you read yours from the script pane, which hands over after a 1.2 s pause. **Skip
+line** leaves a line out of the score. Pause is off during a test call.
+
+Stop scores the transcript against the script: word error rate per speaker and overall, which
+speaker label each voice got and how consistently, and how late the final text arrived. The
+score is kept with the meeting (`testcall.json`), and **Earlier runs…** compares runs of the
+same scenario on this Mac. A run takes about 2 minutes and costs about $0.02; it is billed and
+summarised like any meeting and marked TEST in **Meetings…**.
+
+- The score is a relative benchmark across engines, settings and builds: synthetic voices
+  diarise differently from people.
+- The `mini-whisper` tool and its MCP server never list, search or return a test call.
+- Test calls need two English voices. Add one in System Settings → Accessibility → Spoken
+  Content → System voice → Manage Voices….
+
 ## Privacy
 
 - API keys are stored in the macOS login Keychain (service `mini-whisper`), never on disk.
@@ -188,7 +209,7 @@ path until the tool is installed.
 - Meetings, with their audio unless **Keep meeting audio** is off, are stored **locally
   only**, in `~/.config/mini-whisper/meetings/` (folders 0700, files 0600), until you delete
   them. They are not part of dictation history. An agent connected to the MCP server can
-  read every meeting.
+  read every meeting except test calls.
 - There is no telemetry or analytics of any kind.
 
 ## Development
