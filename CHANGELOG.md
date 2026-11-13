@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [0.6.2] - 2026-11-13
+
+### Added
+
+- Settings → Meetings shows how to add the MCP server to the ChatGPT app for Mac, with the
+  command to paste.
+- A finished meeting's window has a **Meetings** button that closes it and opens the list.
+
 ## [0.6.1] - 2026-11-13
 
 ### Fixed
