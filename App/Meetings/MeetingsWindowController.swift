@@ -31,12 +31,10 @@ final class MeetingsWindowController: NSObject, NSWindowDelegate {
         // An LSUIElement app has no menu bar, so ⌘C/⌘V in the search field need one.
         EditMenu.ensure()
         Task { await model.reload() }
-        NSApp.setActivationPolicy(.regular)
-        NSApp.activate(ignoringOtherApps: true)
-        window.makeKeyAndOrderFront(nil)
+        WindowActivation.shown(window)
     }
 
     func windowWillClose(_ notification: Notification) {
-        NSApp.setActivationPolicy(.accessory)
+        WindowActivation.closed()
     }
 }

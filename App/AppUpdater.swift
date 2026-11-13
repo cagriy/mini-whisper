@@ -29,21 +29,15 @@ enum AppUpdater {
         // A user-initiated check gets no `willHandleShowingUpdate` callback when
         // there is nothing to install, so the "up to date" alert needs the policy
         // raised here instead.
-        UpdaterUserDriverSupport.beginForeground()
+        WindowActivation.foreground()
         controller?.checkForUpdates(nil)
     }
 }
 
 /// Mini Whisper is an `LSUIElement` app sitting at `.accessory`, so Sparkle's
-/// windows would otherwise open behind the frontmost app. Same activation-policy
-/// dance as `AboutPanel` and the window controllers.
+/// windows would otherwise open behind the frontmost app.
 private final class UpdaterUserDriverSupport: NSObject, SPUStandardUserDriverDelegate {
     var supportsGentleScheduledUpdateReminders: Bool { true }
-
-    @MainActor static func beginForeground() {
-        _ = NSApp.setActivationPolicy(.regular)
-        NSApp.activate(ignoringOtherApps: true)
-    }
 
     func standardUserDriverWillHandleShowingUpdate(
         _ handleShowingUpdate: Bool,
@@ -51,11 +45,12 @@ private final class UpdaterUserDriverSupport: NSObject, SPUStandardUserDriverDel
         state: SPUUserUpdateState
     ) {
         guard !state.userInitiated else { return }
-        MainActor.assumeIsolated { Self.beginForeground() }
+        MainActor.assumeIsolated { WindowActivation.foreground() }
     }
 
+    /// Sparkle closes its windows after this returns, which the deferred check allows for.
     func standardUserDriverWillFinishUpdateSession() {
-        MainActor.assumeIsolated { _ = NSApp.setActivationPolicy(.accessory) }
+        WindowActivation.closed()
     }
 }
 

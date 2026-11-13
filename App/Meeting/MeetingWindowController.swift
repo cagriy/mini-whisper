@@ -29,9 +29,7 @@ final class MeetingWindowController: NSObject, NSWindowDelegate, MeetingWindowPr
     func show() {
         // An LSUIElement app has no menu bar, so ⌘C/⌘V in the notes need one.
         EditMenu.ensure()
-        NSApp.setActivationPolicy(.regular)
-        NSApp.activate(ignoringOtherApps: true)
-        window.makeKeyAndOrderFront(nil)
+        WindowActivation.shown(window)
     }
 
     func close() {
@@ -43,7 +41,7 @@ final class MeetingWindowController: NSObject, NSWindowDelegate, MeetingWindowPr
     }
 
     func windowWillClose(_ notification: Notification) {
-        NSApp.setActivationPolicy(.accessory)
+        WindowActivation.closed()
         closed()
     }
 }

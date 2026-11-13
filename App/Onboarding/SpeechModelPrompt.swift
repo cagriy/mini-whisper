@@ -40,8 +40,7 @@ struct SpeechModelPrompt: Sendable {
 
     @MainActor
     static func ask() -> Choice {
-        NSApp.setActivationPolicy(.regular)
-        NSApp.activate(ignoringOtherApps: true)
+        WindowActivation.foreground()
         let alert = NSAlert()
         alert.messageText = "Download the on-device speech model?"
         alert.informativeText = """
@@ -52,7 +51,7 @@ struct SpeechModelPrompt: Sendable {
         alert.addButton(withTitle: "Download")
         alert.addButton(withTitle: "Not now")
         let response = alert.runModal()
-        NSApp.setActivationPolicy(.accessory)
+        WindowActivation.closed()
         return response == .alertFirstButtonReturn ? .download : .notNow
     }
 }

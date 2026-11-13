@@ -37,18 +37,16 @@ final class CorrectionWindowController: NSObject, NSWindowDelegate {
             )
             // An LSUIElement app has no menu bar, so ⌘C/⌘V in the fields need one.
             EditMenu.ensure()
-            NSApp.setActivationPolicy(.regular)
-            NSApp.activate(ignoringOtherApps: true)
-            window.makeKeyAndOrderFront(nil)
+            WindowActivation.shown(window)
         }
     }
 
     func hide() {
         window.orderOut(nil)
-        NSApp.setActivationPolicy(.accessory)
+        WindowActivation.closed()
     }
 
     func windowWillClose(_ notification: Notification) {
-        NSApp.setActivationPolicy(.accessory)
+        WindowActivation.closed()
     }
 }

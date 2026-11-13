@@ -82,9 +82,7 @@ final class OnboardingWindowController: NSObject, NSWindowDelegate {
         }
         self.timer = timer
 
-        NSApp.setActivationPolicy(.regular)
-        NSApp.activate(ignoringOtherApps: true)
-        window.makeKeyAndOrderFront(nil)
+        WindowActivation.shown(window)
     }
 
     /// The window cannot be dismissed while a permission is missing (F33).
@@ -231,7 +229,7 @@ final class OnboardingWindowController: NSObject, NSWindowDelegate {
         timer = nil
         window.delegate = nil
         window.close()
-        NSApp.setActivationPolicy(.accessory)
+        WindowActivation.closed()
         Log.ui.info("Onboarding complete; starting in-process")
         onContinue()
     }

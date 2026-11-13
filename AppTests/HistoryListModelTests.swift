@@ -21,6 +21,11 @@ import Testing
         func record(_ source: CorrectionSource) { sources.append(source) }
     }
 
+    /// Stands in for the front-app tracker: the paste target as it is right now.
+    private final class PreviousApp: @unchecked Sendable {
+        var target: PasteTarget?
+    }
+
     private final class RecordingPaster: Pasting, @unchecked Sendable {
         let log: EventLog
         private(set) var pastes: [(text: String, pid: pid_t, submit: SubmitKey?)] = []
@@ -76,6 +81,7 @@ import Testing
         let paster: RecordingPaster
         let pasteboard = RecordingPasteboard()
         let corrections = SourceLog()
+        let previous = PreviousApp()
         let clock: FakeClock
         let now: Date
         let retention: Int
@@ -111,6 +117,7 @@ import Testing
                 retentionDays: { retention },
                 clock: clock,
                 now: { now },
+                previousApp: { [previous] in previous.target },
                 hide: { log.record("hide") },
                 activate: { target in log.record("activate(\(target.pid))") },
                 correct: { [corrections] source in corrections.record(source) }
@@ -309,11 +316,11 @@ import Testing
         #expect(model.pasteTitle == nil)
         #expect(model.canPaste == false)
 
-        model.previousApp = PasteTarget(pid: 501, name: "Slack", bundleID: "com.tinyspeck.slackmacgap")
+        harness.previous.target = PasteTarget(pid: 501, name: "Slack", bundleID: "com.tinyspeck.slackmacgap")
         #expect(model.pasteTitle == "Paste into Slack")
         #expect(model.canPaste)
 
-        model.previousApp = PasteTarget(pid: 999, name: "TextEdit", bundleID: "com.apple.TextEdit")
+        harness.previous.target = PasteTarget(pid: 999, name: "TextEdit", bundleID: "com.apple.TextEdit")
         #expect(model.pasteTitle == "Paste into TextEdit")
         #expect(model.canPaste == false)
     }
@@ -324,7 +331,7 @@ import Testing
         try await harness.add(Self.entry("move the review", at: harness.now))
 
         let model = harness.model()
-        model.previousApp = PasteTarget(pid: 501, name: "Slack", bundleID: "com.tinyspeck.slackmacgap")
+        harness.previous.target = PasteTarget(pid: 501, name: "Slack", bundleID: "com.tinyspeck.slackmacgap")
         await model.reload()
         let row = try #require(model.days.first?.rows.first)
 
@@ -344,7 +351,7 @@ import Testing
         try await harness.add(Self.entry("move the review", at: harness.now))
 
         let model = harness.model()
-        model.previousApp = PasteTarget(pid: 501, name: "Slack", bundleID: nil)
+        harness.previous.target = PasteTarget(pid: 501, name: "Slack", bundleID: nil)
         await model.reload()
         let row = try #require(model.days.first?.rows.first)
 
@@ -352,6 +359,27 @@ import Testing
 
         #expect(harness.log.events.isEmpty)
         #expect(harness.paster.pastes.isEmpty)
+    }
+
+    @Test func pasteTargetIsReadAtPasteTime() async throws {
+        let harness = Harness(running: [501, 777])
+        defer { harness.cleanUp() }
+        try await harness.add(Self.entry("move the review", at: harness.now))
+
+        let model = harness.model()
+        await model.reload()
+        let row = try #require(model.days.first?.rows.first)
+
+        harness.previous.target = PasteTarget(pid: 501, name: "Slack", bundleID: "com.tinyspeck.slackmacgap")
+        await model.paste(row)
+        harness.previous.target = PasteTarget(pid: 777, name: "TextEdit", bundleID: "com.apple.TextEdit")
+        await model.paste(row)
+
+        #expect(harness.paster.pastes.map(\.pid) == [501, 777])
+        #expect(harness.log.events == [
+            "hide", "activate(501)", "sleep", "paste(501)",
+            "hide", "activate(777)", "sleep", "paste(777)",
+        ])
     }
 
     @Test func copyWritesTheRowTextToThePasteboard() async throws {

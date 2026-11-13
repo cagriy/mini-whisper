@@ -5,8 +5,7 @@ import AppKit
 enum AboutPanel {
     static func show() {
         let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "?"
-        NSApp.setActivationPolicy(.regular)
-        NSApp.activate(ignoringOtherApps: true)
+        WindowActivation.foreground()
         let alert = NSAlert()
         alert.messageText = "Mini Whisper"
         alert.informativeText = """
@@ -18,6 +17,6 @@ enum AboutPanel {
             Powered by OpenAI gpt-4o-mini-transcribe.
             """
         alert.runModal()
-        NSApp.setActivationPolicy(.accessory)
+        WindowActivation.closed()
     }
 }

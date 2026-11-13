@@ -1,8 +1,8 @@
 import AppKit
 import SwiftUI
 
-/// Hosts `SettingsView`. Like the source, showing the window makes the app a
-/// regular one so it can take focus, and closing it puts it back in the menu bar.
+/// Hosts `SettingsView`. Showing the window makes the app a regular one so it can take
+/// focus; it goes back to the menu bar with its last window.
 @MainActor
 final class SettingsWindowController: NSObject, NSWindowDelegate {
     let model: SettingsModel
@@ -30,9 +30,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
     func show() {
         EditMenu.ensure()
         model.refreshKeys()
-        NSApp.setActivationPolicy(.regular)
-        NSApp.activate(ignoringOtherApps: true)
-        window.makeKeyAndOrderFront(nil)
+        WindowActivation.shown(window)
     }
 
     func close() {
@@ -41,7 +39,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
 
     func windowWillClose(_ notification: Notification) {
         model.cancelCapture()
-        NSApp.setActivationPolicy(.accessory)
+        WindowActivation.closed()
     }
 }
 

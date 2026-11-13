@@ -21,6 +21,8 @@ final class HistoryListModel {
         var retentionDays: @Sendable () -> Int
         var clock: any MWSupport.Clock
         var now: @Sendable () -> Date
+        /// The app last frontmost before Mini Whisper, as it is right now.
+        var previousApp: @MainActor () -> PasteTarget?
         /// F30: the window is out of the way before the previous app comes forward.
         var hide: @MainActor () -> Void
         var activate: @MainActor (PasteTarget) -> Void
@@ -63,8 +65,6 @@ final class HistoryListModel {
 
     /// Case-insensitive substring search, applied by `reload()` (F29).
     var query = ""
-    /// The app that was frontmost when the window was shown — the paste target (F30).
-    var previousApp: PasteTarget?
     private(set) var days: [DayGroup] = []
 
     init(deps: Dependencies) {
@@ -72,6 +72,9 @@ final class HistoryListModel {
     }
 
     private var count: Int { days.reduce(0) { $0 + $1.rows.count } }
+
+    /// The paste target (F30).
+    var previousApp: PasteTarget? { deps.previousApp() }
 
     var footer: String {
         let dictations = "\(count) dictation\(count == 1 ? "" : "s")"

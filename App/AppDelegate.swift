@@ -22,6 +22,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private let sounds = SoundPlayer()
     private let retentionDays = OSAllocatedUnfairLock(initialState: 7)
+    private let frontAppTracker = FrontAppTracker()
 
     private var statusItem: StatusItemController?
     private var router: UIEventRouter?
@@ -234,6 +235,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             retentionDays: { [retentionDays] in retentionDays.withLock { $0 } },
             clock: SystemClock(),
             now: { Date() },
+            previousApp: { [frontAppTracker] in frontAppTracker.previousApp },
             hide: { [weak self] in self?.historyWindow?.hide() },
             activate: { target in NSRunningApplication(processIdentifier: target.pid)?.activate() },
             correct: { [weak self] source in self?.openCorrection(source) }
@@ -397,10 +399,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func openHistory() {
         guard let dependencies = historyDependencies else { return }
         if historyWindow == nil {
-            historyWindow = HistoryWindowController(
-                model: HistoryListModel(deps: dependencies),
-                frontmost: NSWorkspaceFrontmostApp()
-            )
+            historyWindow = HistoryWindowController(model: HistoryListModel(deps: dependencies))
         }
         historyWindow?.show()
     }
