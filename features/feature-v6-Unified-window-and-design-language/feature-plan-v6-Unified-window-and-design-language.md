@@ -520,6 +520,8 @@ None — plan matches design v6 exactly.
 - Stage 1: rule 5's `\d` is ASCII-only, because `Int` reads no other digits.
 - Stage 1: tests beyond the named ones: `billingAlwaysEncodesReplacedCost`, `aLongRunOfHashesOrSpacesParsesInLinearTime` and edge cases in `SummaryDocumentTests`.
 - Stage 2: two tests beyond the named ones: `themeAndWindowFrameNeverLandInExtra` (both keys in `Key.all`) and `nonFiniteWindowFrameReadsAsAbsentWhateverTheDecoderAllows` (the stock `JSONDecoder` already refuses `1e999`, so only a decoder converting non-finite spellings reaches `WindowFrame`'s own check).
+- Stage 3: two tests beyond the named ones, for §5.15's *cannot read or write* row: `migrationThrowsOnAnUnreadableFileAndLeavesIt` and `migrationThrowsWithoutABundledDefaultAndLeavesTheLegacyFile`. `migrationMatchesIgnoringSurroundingWhitespace` runs two cases: the trimmed text Settings saves, and the text with leading spaces and an extra newline.
+- Stage 3: `legacySummaryDefaults[0]` is the file as `git show e64ed39:…` prints it, final newline included; the match trims both sides, so behaviour is the same as without it.
 
 ## Execution schedule
 
