@@ -80,7 +80,7 @@ struct ScorePane: View {
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(TestTag.fill.opacity(0.45))
+        .background(DS.Colors.testFill.opacity(0.45))
         .background(Color(nsColor: .textBackgroundColor))
     }
 }
@@ -170,7 +170,7 @@ private struct LineDetailCard: View {
 private struct HeardWord: View {
     let heard: TestCallRecord.Heard
 
-    private static let errorText = Color(red: 0.63, green: 0.09, blue: 0.09)
+    private static let errorText = DS.Colors.recording
 
     var body: some View {
         switch heard.op {

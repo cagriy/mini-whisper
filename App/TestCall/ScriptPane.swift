@@ -190,7 +190,7 @@ extension SpeakerColor {
     /// The user in the accent colour; voices A and B as the engine's first two labels.
     static func of(_ role: TestCallRole) -> Color {
         switch role {
-        case .you: .accentColor
+        case .you: user
         case .a: palette[0]
         case .b: palette[1]
         }

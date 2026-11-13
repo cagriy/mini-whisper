@@ -172,15 +172,15 @@ private struct MeetingRecordingView: View {
             if model.isTest {
                 TestTag()
             } else {
-                Chip(text: MeetingWindowModel.title(of: model.mode))
+                Chip(MeetingWindowModel.title(of: model.mode))
             }
             if let ended = model.endedChip {
-                Chip(text: ended, dot: .secondary)
+                Chip(ended, .inactive)
             } else {
-                Chip(text: model.captureChip, dot: model.state == .recording ? .green : .secondary)
+                Chip(model.captureChip, model.state == .recording ? .active : .inactive)
             }
             if let connection = model.connectionChip {
-                Chip(text: connection, dot: .orange)
+                Chip(connection, .warning)
             }
             Spacer()
             Text(model.elapsedText).bold().monospacedDigit()
@@ -657,14 +657,11 @@ private struct NoteEditor: NSViewRepresentable {
 
 /// Speaker colours: the user in the accent colour, others by their label.
 enum SpeakerColor {
-    static let palette = [
-        Color(red: 0.42, green: 0.25, blue: 0.71),
-        Color(red: 0.10, green: 0.50, blue: 0.56),
-        Color(red: 0.70, green: 0.40, blue: 0.11),
-    ]
+    static let user = DS.Colors.accent
+    static let palette = [DS.Colors.speaker1, DS.Colors.speaker2, DS.Colors.speaker3]
 
     static func of(_ speaker: Int) -> Color {
-        speaker == SpeakerRegistry.userID ? .accentColor : palette[abs(speaker - 1) % palette.count]
+        speaker == SpeakerRegistry.userID ? user : palette[abs(speaker - 1) % palette.count]
     }
 }
 
@@ -684,25 +681,6 @@ struct PaneHeader: View {
         .foregroundStyle(.secondary)
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
-    }
-}
-
-private struct Chip: View {
-    let text: String
-    var dot: Color?
-
-    var body: some View {
-        HStack(spacing: 6) {
-            if let dot {
-                Circle().fill(dot).frame(width: 7, height: 7)
-            }
-            Text(text)
-        }
-        .font(.system(size: 11, weight: .semibold))
-        .foregroundStyle(.secondary)
-        .padding(.horizontal, 8)
-        .padding(.vertical, 2)
-        .overlay(Capsule().stroke(Color(nsColor: .separatorColor)))
     }
 }
 
