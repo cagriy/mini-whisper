@@ -3,6 +3,7 @@ import MWConfig
 import MWMeetingPipeline
 import MWMeetings
 import MWStreaming
+import MWSupport
 import MWTestCall
 import MWUsage
 import Observation
@@ -152,18 +153,29 @@ final class MeetingWindowModel {
         var time: Double
     }
 
-    /// R12: the panel above a stopped meeting's transcript.
+    /// The Summary tab of a stopped meeting (R12, R16).
     enum SummaryPanel: Equatable {
         case writing
         /// No summary: why, and whether *Summarise* is offered.
         case message(String, canSummarise: Bool)
-        case ready(sections: [SummarySection], meta: String)
+        /// The summary on screen; a notice says a new one is being written or was not.
+        case ready(blocks: [SummaryDocument.Block], meta: String, notice: Notice?)
+
+        enum Notice: Equatable {
+            case rewriting
+            case failed(String)
+        }
     }
 
-    /// One `## ` section of the summary; `title` is empty for text before the first heading.
-    struct SummarySection: Equatable {
-        var title: String
-        var body: String
+    enum Tab: Hashable {
+        case summary, transcript, notes
+    }
+
+    /// Copy summary's three forms (R17).
+    struct CopyPayload: Equatable {
+        let markdown: String
+        let html: String
+        let rtf: Data
     }
 
     /// R13: a segment's text as edited, or as it stands.
@@ -209,28 +221,6 @@ final class MeetingWindowModel {
         }
     }
 
-    /// The summary's `## ` sections in order (design §5.5).
-    nonisolated static func sections(of text: String) -> [SummarySection] {
-        var sections: [SummarySection] = []
-        var title: String?
-        var lines: [Substring] = []
-        func close() {
-            let body = lines.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
-            if title != nil || !body.isEmpty { sections.append(SummarySection(title: title ?? "", body: body)) }
-        }
-        for line in text.split(omittingEmptySubsequences: false, whereSeparator: \.isNewline) {
-            if line.hasPrefix("## ") {
-                close()
-                title = line.dropFirst(3).trimmingCharacters(in: .whitespaces)
-                lines = []
-            } else {
-                lines.append(line)
-            }
-        }
-        close()
-        return sections
-    }
-
     let chooser: Chooser
     /// The chooser's test-call setup page.
     let setup: TestCallSetupModel
@@ -250,6 +240,8 @@ final class MeetingWindowModel {
     private(set) var cost: Double = 0
     private(set) var systemAudio: SystemAudioState?
     private(set) var summary: SummaryState?
+    /// The summary on screen, parsed once per summary event.
+    private var document: SummaryDocument?
     private(set) var errorMessage: String?
     private(set) var endedAt: Date?
     /// A test meeting's score, once the controller has read or computed it.
@@ -269,6 +261,9 @@ final class MeetingWindowModel {
 
     @ObservationIgnored private var noteStartedAt: Double?
     @ObservationIgnored private let now: () -> Date
+    @ObservationIgnored private let clock: any MWSupport.Clock
+    /// The tab is chosen once, when the meeting first stops on this model.
+    @ObservationIgnored private var hasStopped = false
     @ObservationIgnored private let loadRuns: @MainActor (TestCallTag) async -> [TestRunHistory.Run]
     /// As last shown; the summary's "partial" note needs it.
     @ObservationIgnored private var meeting: Meeting?
@@ -291,6 +286,7 @@ final class MeetingWindowModel {
         chooser: Chooser,
         timeZone: TimeZone = .current,
         now: @escaping () -> Date = Date.init,
+        clock: any MWSupport.Clock = SystemClock(),
         /// Earlier runs of a test call's scenario revision, newest first.
         loadRuns: @escaping @MainActor (TestCallTag) async -> [TestRunHistory.Run] = { _ in [] }
     ) {
@@ -298,6 +294,7 @@ final class MeetingWindowModel {
         setup = TestCallSetupModel(keyedEngines: chooser.keyedEngines, defaultEngine: chooser.engine)
         self.timeZone = timeZone
         self.now = now
+        self.clock = clock
         self.loadRuns = loadRuns
         mode = chooser.defaultMode
     }
@@ -337,7 +334,11 @@ final class MeetingWindowModel {
     var sourceLine: String? {
         guard let engine else { return nil }
         let source = "\(engine.title) · English"
-        guard isTest else { return source }
+        guard isTest else {
+            return state == .stopped
+                ? source + " · double-click a paragraph to edit it, click a name to rename the speaker"
+                : source
+        }
         return source + (state == .stopped
             ? " · speaker names stay as the engine labelled them"
             : " · speaker names stay as the engine labels them; the score checks them")
@@ -358,17 +359,12 @@ final class MeetingWindowModel {
 
     /// Live: the engine so far. Stopped: the engine, the replaced summaries and the current one (R18).
     var costText: String {
-        switch summary {
-        case .ready(let current)?, .rewriting(let current)?, .kept(let current, _)?:
-            Pricing.dollars(cost + current.costUSD)
-        default:
-            Pricing.dollars(cost)
-        }
+        Pricing.dollars(cost + (shownSummary?.costUSD ?? 0))
     }
 
     var endedChip: String? {
         guard state == .stopped, let endedAt else { return nil }
-        return "Ended \(clock(endedAt))"
+        return "Ended \(timeOfDay(endedAt))"
     }
 
     var summaryPanel: SummaryPanel? {
@@ -379,8 +375,11 @@ final class MeetingWindowModel {
             return .message(transcribed ? Self.noSummaryYet : MeetingController.nothingTranscribed, canSummarise: transcribed)
         }
         return switch summary {
-        case .ready(let current), .rewriting(let current), .kept(let current, _):
-            .ready(sections: Self.sections(of: current.text), meta: meta(of: current))
+        case .ready(let current): .ready(blocks: document?.blocks ?? [], meta: meta(of: current), notice: nil)
+        case .rewriting(let current):
+            .ready(blocks: document?.blocks ?? [], meta: meta(of: current), notice: .rewriting)
+        case .kept(let current, let reason):
+            .ready(blocks: document?.blocks ?? [], meta: meta(of: current), notice: .failed(reason))
         case .writing: .writing
         case .none(let reason), .failed(let reason): .message(reason, canSummarise: transcribed)
         }
@@ -388,6 +387,89 @@ final class MeetingWindowModel {
 
     var canSummarise: Bool {
         if case .message(_, true)? = summaryPanel { true } else { false }
+    }
+
+    /// Summary, or Transcript for a test call, once the meeting first stops; the pill switch after.
+    var selectedTab: Tab = .summary
+
+    var notesTabTitle: String {
+        notes.isEmpty ? "Notes" : "Notes · \(notes.count)"
+    }
+
+    /// The finished page's chips: "Mon 9 Nov · 14:30–15:19", "48 min", the mode, up to three
+    /// speakers then "+N", and the total cost.
+    var chips: [String] {
+        guard state == .stopped, let meeting else { return [] }
+        let start = formatted(meeting.startedAt, "EEE d MMM · HH:mm")
+        var chips = [
+            endedAt.map { "\(start)–\(timeOfDay($0))" } ?? start,
+            MeetingsListModel.duration(elapsed),
+            Self.title(of: mode),
+        ]
+        if !speakers.isEmpty {
+            let names = speakers.prefix(3).map(\.name).joined(separator: ", ")
+            chips.append(speakers.count > 3 ? "\(names) +\(speakers.count - 3)" : names)
+        }
+        chips.append("\(costText) total")
+        return chips
+    }
+
+    /// The sidebar's recording pill (R3).
+    var pillTitle: String {
+        title.isEmpty ? "Starting…" : title
+    }
+
+    /// `mm:ss` under an hour, `h:mm:ss` from one, or `Paused`.
+    var pillDetail: String {
+        if case .paused = state { return "Paused" }
+        let seconds = Int(max(0, elapsed))
+        let (hours, minutes) = (seconds / 3600, seconds / 60 % 60)
+        return hours > 0
+            ? String(format: "%d:%02d:%02d", hours, minutes, seconds % 60)
+            : String(format: "%02d:%02d", minutes, seconds % 60)
+    }
+
+    var canCopySummary: Bool {
+        state == .stopped && shownSummary != nil
+    }
+
+    /// Not while a summary is being written (R16).
+    var canRegenerate: Bool {
+        guard state == .stopped else { return false }
+        return switch summary {
+        case .ready?, .kept?: true
+        default: false
+        }
+    }
+
+    /// The confirmation's message, naming what the current summary cost.
+    var regeneratePrompt: String? {
+        guard canRegenerate, let current = shownSummary else { return nil }
+        return "The current summary cost \(Pricing.dollars(current.costUSD)). It stays until the new one"
+            + " arrives, and stays if the request fails."
+    }
+
+    var copyPayload: CopyPayload? {
+        guard canCopySummary, let current = shownSummary, let document else { return nil }
+        return CopyPayload(
+            markdown: SummaryDocument.markdown(title: title, summary: current.text),
+            html: document.html(title: title),
+            rtf: SummaryRichText.rtf(title: title, blocks: document.blocks)
+        )
+    }
+
+    /// Copy summary reads `Copied` for 1.5 seconds after a copy.
+    private(set) var justCopied = false
+    @ObservationIgnored private(set) var copyReset: Task<Void, Never>?
+
+    func didCopySummary() {
+        justCopied = true
+        copyReset?.cancel()
+        copyReset = Task { [weak self, clock] in
+            try? await clock.sleep(for: .milliseconds(1500))
+            guard !Task.isCancelled else { return }
+            self?.justCopied = false
+        }
     }
 
     /// R13: edit and reassign after Stop only.
@@ -524,6 +606,10 @@ final class MeetingWindowModel {
         switch event {
         case .state(let state):
             self.state = state
+            if state == .stopped, !hasStopped {
+                hasStopped = true
+                selectedTab = isTest ? .transcript : .summary
+            }
             if state != .recording {
                 partialText = nil
                 connectionChip = nil
@@ -556,6 +642,7 @@ final class MeetingWindowModel {
             // The summary a regenerate replaced stays in the total.
             if case .rewriting(let replaced)? = self.summary, case .ready = summary { cost += replaced.costUSD }
             self.summary = summary
+            document = shownSummary.map { SummaryDocument(markdown: $0.text) }
             if case .ready = summary { summaryTruncated = isTruncated }
         case .systemAudio(let state):
             systemAudio = state
@@ -573,7 +660,7 @@ final class MeetingWindowModel {
     private func meta(of summary: Summary) -> String {
         var parts = [
             MeetingMarkdown.modelName(summary.model),
-            clock(summary.createdAt),
+            timeOfDay(summary.createdAt),
             "\(Self.tokens(summary.inputTokens)) in / \(Self.tokens(summary.outputTokens)) out tokens",
             Pricing.dollars(summary.costUSD),
         ]
@@ -593,11 +680,23 @@ final class MeetingWindowModel {
         return Summariser.isTruncated(LoadedMeeting(meeting: meeting, segments: segments, notes: notes))
     }
 
-    private func clock(_ date: Date) -> String {
+    /// The current summary of `.ready`, `.rewriting` or `.kept`.
+    private var shownSummary: Summary? {
+        switch summary {
+        case .ready(let current)?, .rewriting(let current)?, .kept(let current, _)?: current
+        default: nil
+        }
+    }
+
+    private func timeOfDay(_ date: Date) -> String {
+        formatted(date, "HH:mm")
+    }
+
+    private func formatted(_ date: Date, _ pattern: String) -> String {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.timeZone = timeZone
-        formatter.dateFormat = "HH:mm"
+        formatter.dateFormat = pattern
         return formatter.string(from: date)
     }
 

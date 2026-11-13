@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import MWConfig
 import MWMeetingPipeline
@@ -31,8 +32,8 @@ import Testing
         )
     }
 
-    private func model(_ chooser: MeetingWindowModel.Chooser? = nil) -> MeetingWindowModel {
-        MeetingWindowModel(chooser: chooser ?? self.chooser(), timeZone: Self.utc)
+    private func model(_ chooser: MeetingWindowModel.Chooser? = nil, clock: ManualClock = ManualClock()) -> MeetingWindowModel {
+        MeetingWindowModel(chooser: chooser ?? self.chooser(), timeZone: Self.utc, clock: clock)
     }
 
     private func segment(_ speaker: Int, _ start: Double, _ text: String) -> Segment {
@@ -334,8 +335,10 @@ import Testing
     }
 
     /// A stopped meeting with one segment unless `transcribed` is false.
-    private func stopped(_ summary: SummaryState?, transcribed: Bool = true) -> MeetingWindowModel {
-        let model = model()
+    private func stopped(
+        _ summary: SummaryState?, transcribed: Bool = true, clock: ManualClock = ManualClock()
+    ) -> MeetingWindowModel {
+        let model = model(clock: clock)
         model.show(Self.meeting())
         if transcribed { model.apply(.segmentAdded(segment(1, 10, "Agreed."))) }
         model.apply(.state(.stopped))
@@ -366,36 +369,60 @@ import Testing
         #expect(stopped(nil, transcribed: false).summaryPanel == .message("Nothing was transcribed.", canSummarise: false))
     }
 
-    @Test func readyPanelSplitsTheFourSections() throws {
-        let model = stopped(.ready(Self.summary))
-        guard case .ready(let sections, _)? = model.summaryPanel else {
-            Issue.record("no ready panel: \(String(describing: model.summaryPanel))")
-            return
-        }
-        #expect(sections.map(\.title) == ["Summary", "Decisions", "Action items", "Open questions"])
-        #expect(sections[0].body == "The Northwind rollout stays on schedule.")
-        #expect(sections[2].body == "- **Priya**: refresh staging data tonight.\n- **Marta**: migration script by Wednesday.")
-        #expect(MeetingWindowModel.sections(of: "No headings here.") == [.init(title: "", body: "No headings here.")])
+    private static let meta = "Claude Sonnet 5.5 · 15:19 · 12.5k in / 610 out tokens · $0.03"
+
+    @Test func summaryPanelForEachOfTheSixStates() {
+        let blocks = SummaryDocument(markdown: Self.summary.text).blocks
+        #expect(stopped(.none("No summary: add an Anthropic key under Keys.")).summaryPanel
+            == .message("No summary: add an Anthropic key under Keys.", canSummarise: true))
+        #expect(stopped(.writing).summaryPanel == .writing)
+        #expect(stopped(.ready(Self.summary)).summaryPanel == .ready(blocks: blocks, meta: Self.meta, notice: nil))
+        #expect(stopped(.failed("HTTP 529")).summaryPanel == .message("HTTP 529", canSummarise: true))
+
+        let rewriting = stopped(.ready(Self.summary))
+        rewriting.apply(.summary(.rewriting(Self.summary)))
+        #expect(rewriting.summaryPanel == .ready(blocks: blocks, meta: Self.meta, notice: .rewriting))
+        #expect(rewriting.canSummarise == false)
+
+        let kept = stopped(.ready(Self.summary))
+        kept.apply(.summary(.rewriting(Self.summary)))
+        kept.apply(.summary(.kept(Self.summary, reason: "API error (503).")))
+        #expect(kept.summaryPanel == .ready(blocks: blocks, meta: Self.meta, notice: .failed("API error (503).")))
+        #expect(kept.canSummarise == false)
     }
 
-    @Test func metaLineShowsModelTimeTokensCostAndPartial() {
-        let model = stopped(.ready(Self.summary))
-        guard case .ready(_, let meta)? = model.summaryPanel else {
-            Issue.record("no ready panel")
-            return
-        }
-        #expect(meta == "Claude Sonnet 5.5 · 15:19 · 12.5k in / 610 out tokens · $0.03")
+    @Test func fourSectionSummaryRendersAsHeadedBlocks() {
+        #expect(stopped(.ready(Self.summary)).summaryPanel == .ready(blocks: [
+            .heading(level: 2, text: "Summary"),
+            .paragraph("The Northwind rollout stays on schedule."),
+            .heading(level: 2, text: "Decisions"),
+            .item(depth: 0, ordinal: nil, text: "Sign-off moves to Wednesday (**Priya**)."),
+            .heading(level: 2, text: "Action items"),
+            .item(depth: 0, ordinal: nil, text: "**Priya**: refresh staging data tonight."),
+            .item(depth: 0, ordinal: nil, text: "**Marta**: migration script by Wednesday."),
+            .heading(level: 2, text: "Open questions"),
+            .item(depth: 0, ordinal: nil, text: "Whether the cap applies to trial accounts."),
+        ], meta: Self.meta, notice: nil))
+    }
 
-        let long = self.model()
+    @Test func partialMarkStaysInTheMeta() {
+        let long = model()
         long.show(Self.meeting())
         long.apply(.segmentAdded(segment(1, 0, String(repeating: "a", count: 600_000))))
         long.apply(.state(.stopped))
+        let partial = Self.meta + " · partial"
+
         long.apply(.summary(.ready(Self.summary)))
-        guard case .ready(_, let partialMeta)? = long.summaryPanel else {
-            Issue.record("no ready panel")
-            return
-        }
-        #expect(partialMeta == "Claude Sonnet 5.5 · 15:19 · 12.5k in / 610 out tokens · $0.03 · partial")
+        #expect(Self.meta(of: long.summaryPanel) == partial)
+        long.apply(.summary(.rewriting(Self.summary)))
+        #expect(Self.meta(of: long.summaryPanel) == partial)
+        long.apply(.summary(.kept(Self.summary, reason: "API error (503).")))
+        #expect(Self.meta(of: long.summaryPanel) == partial)
+        #expect(Self.meta(of: stopped(.ready(Self.summary)).summaryPanel) == Self.meta)
+    }
+
+    private static func meta(of panel: MeetingWindowModel.SummaryPanel?) -> String? {
+        if case .ready(_, let meta, _)? = panel { meta } else { nil }
     }
 
     @Test func summariseButtonExistsOnlyWithoutASummary() {
@@ -515,16 +542,194 @@ import Testing
         #expect(model.costText == Pricing.dollars(0.3665 + 0.03106 + 0.05))
     }
 
-    @Test func rewritingAndKeptStillShowTheCurrentSummary() {
-        let ready = stopped(.ready(Self.summary)).summaryPanel
-        #expect(ready != nil)
+    @Test func copyAndRegenerateAvailability() {
+        let live = model()
+        live.apply(.state(.recording))
+        #expect(live.canCopySummary == false)
+        #expect(live.canRegenerate == false)
 
-        for state in [SummaryState.rewriting(Self.summary), .kept(Self.summary, reason: "API error (503).")] {
-            let model = stopped(.ready(Self.summary))
-            model.apply(.summary(state))
-            #expect(model.summaryPanel == ready)
-            #expect(model.canSummarise == false)
+        let cases: [(SummaryState?, copy: Bool, regenerate: Bool)] = [
+            (nil, false, false),
+            (.none("No summary: add an Anthropic key under Keys."), false, false),
+            (.failed("HTTP 529"), false, false),
+            (.writing, false, false),
+            (.ready(Self.summary), true, true),
+            (.rewriting(Self.summary), true, false),
+            (.kept(Self.summary, reason: "API error (503)."), true, true),
+        ]
+        for (state, copy, regenerate) in cases {
+            let model = stopped(state)
+            #expect(model.canCopySummary == copy, "\(String(describing: state))")
+            #expect(model.canRegenerate == regenerate, "\(String(describing: state))")
         }
+    }
+
+    @Test func regeneratePromptNamesTheCurrentCost() {
+        let model = stopped(.ready(Self.summary))
+        #expect(model.regeneratePrompt
+            == "The current summary cost $0.03. It stays until the new one arrives, and stays if the request fails.")
+        model.apply(.summary(.rewriting(Self.summary)))
+        #expect(model.regeneratePrompt == nil)
+        model.apply(.summary(.ready(Self.regenerated)))
+        #expect(model.regeneratePrompt
+            == "The current summary cost $0.05. It stays until the new one arrives, and stays if the request fails.")
+        #expect(stopped(nil).regeneratePrompt == nil)
+    }
+
+    // MARK: - Finished page
+
+    private static let topics = Summary(
+        text: """
+        ## Catalog entries
+        - Existing entries were reviewed in the shared sheet
+          - Harbour billing
+        ## Next Steps
+        1. **Tomas** adds the two projects by Friday
+        2. See [the index](https://example.com/index)
+
+        """,
+        model: "claude-sonnet-5-5",
+        createdAt: Date(timeIntervalSince1970: 1_794_237_580),
+        inputTokens: 12_480,
+        outputTokens: 610,
+        costUSD: 0.03106
+    )
+
+    @Test func copyPayloadCarriesTitleAndSummaryInThreeForms() throws {
+        let model = stopped(.ready(Self.topics))
+        let payload = try #require(model.copyPayload)
+        let document = SummaryDocument(markdown: Self.topics.text)
+
+        #expect(payload.markdown == SummaryDocument.markdown(title: "Zoom · 9 Nov 2026 14:30", summary: Self.topics.text))
+        #expect(payload.markdown.hasPrefix("# Zoom · 9 Nov 2026 14:30\n\n## Catalog entries\n"))
+        #expect(payload.html == document.html(title: "Zoom · 9 Nov 2026 14:30"))
+        let rtf = try NSAttributedString(
+            data: payload.rtf, options: [.documentType: NSAttributedString.DocumentType.rtf], documentAttributes: nil
+        )
+        #expect(rtf.string == SummaryRichText.attributed(title: "Zoom · 9 Nov 2026 14:30", blocks: document.blocks).string)
+        #expect(rtf.string.hasPrefix("Zoom · 9 Nov 2026 14:30\nCatalog entries\n"))
+
+        _ = model.commitTitle("Catalog review")
+        #expect(model.copyPayload?.markdown.hasPrefix("# Catalog review\n\n") == true)
+        #expect(stopped(nil).copyPayload == nil)
+        #expect(stopped(.writing).copyPayload == nil)
+    }
+
+    @Test func justCopiedClearsAfter1point5Seconds() async throws {
+        let clock = ManualClock()
+        let model = stopped(.ready(Self.summary), clock: clock)
+        var sleeps = clock.sleeps.makeAsyncIterator()
+        #expect(model.justCopied == false)
+
+        model.didCopySummary()
+
+        #expect(model.justCopied)
+        // Without a reset under way the clock is never asked to sleep, and the wait below would not end.
+        try #require(model.copyReset != nil)
+        #expect(await sleeps.next() == .milliseconds(1500))
+        #expect(model.justCopied)
+        clock.wake()
+        await model.copyReset?.value
+        #expect(model.justCopied == false)
+    }
+
+    @Test func opensOnSummaryOrOnTranscriptForATestCall() {
+        let meeting = model()
+        meeting.show(Self.meeting())
+        meeting.selectedTab = .notes
+        meeting.apply(.state(.stopped))
+        #expect(meeting.selectedTab == .summary)
+
+        let test = model()
+        test.show(Self.testMeeting())
+        test.apply(.state(.stopped))
+        #expect(test.selectedTab == .transcript)
+    }
+
+    @Test func tabIsSetOnlyWhenTheMeetingFirstStops() {
+        let model = model()
+        model.show(Self.meeting())
+        model.apply(.state(.recording))
+        model.apply(.state(.stopped))
+        model.selectedTab = .notes
+
+        model.apply(.state(.stopped))
+        model.apply(.summary(.writing))
+        model.apply(.summary(.ready(Self.summary)))
+
+        #expect(model.selectedTab == .notes)
+    }
+
+    @Test func notesTabCountsOnlyAboveZero() {
+        let model = model()
+        #expect(model.notesTabTitle == "Notes")
+        model.apply(.note(note(760, "Marta owns the migration script")))
+        model.apply(.note(note(2405, "Ask ops for a window")))
+        #expect(model.notesTabTitle == "Notes · 2")
+    }
+
+    @Test func chipsReadDateRangeDurationModeSpeakersAndCost() {
+        let model = model()
+        model.show(Self.meeting())
+        model.apply(.speakers([Self.alex, SpeakerLabel(id: 1, name: "Marta"), SpeakerLabel(id: 2, name: "Priya")]))
+        #expect(model.chips.isEmpty)
+
+        model.apply(.state(.stopped))
+        model.show(Self.meeting(ended: true))
+        #expect(model.chips == ["Mon 9 Nov · 14:30–15:19", "48 min", "Remote call", "Alex, Marta, Priya", "$0.37 total"])
+
+        model.apply(.speakers([
+            Self.alex, SpeakerLabel(id: 1, name: "Marta"), SpeakerLabel(id: 2, name: "Priya"),
+            SpeakerLabel(id: 3, name: "Speaker 3"), SpeakerLabel(id: 4, name: "Speaker 4"),
+        ]))
+        model.apply(.summary(.ready(Self.summary)))
+        #expect(model.chips == ["Mon 9 Nov · 14:30–15:19", "48 min", "Remote call", "Alex, Marta, Priya +2", "$0.40 total"])
+
+        model.apply(.speakers([]))
+        #expect(model.chips == ["Mon 9 Nov · 14:30–15:19", "48 min", "Remote call", "$0.40 total"])
+    }
+
+    @Test func pillTextIsMinutesSecondsUnderAnHourThenHours() {
+        let model = model()
+        model.show(Self.meeting())
+        model.apply(.state(.recording))
+        #expect(model.pillTitle == "Zoom · 9 Nov 2026 14:30")
+        #expect(model.pillDetail == "00:00")
+        for (seconds, text) in [(768.4, "12:48"), (3599, "59:59"), (3600, "1:00:00"), (4380, "1:13:00"), (36_061, "10:01:01")] {
+            model.apply(.elapsed(seconds))
+            #expect(model.pillDetail == text)
+        }
+    }
+
+    @Test func pillReadsPausedAndStarting() {
+        let model = model()
+        model.apply(.state(.starting))
+        #expect(model.pillTitle == "Starting…")
+        model.show(Self.meeting())
+        model.apply(.state(.recording))
+        model.apply(.elapsed(768))
+        model.apply(.state(.paused(.user)))
+        #expect(model.pillDetail == "Paused")
+        model.apply(.state(.paused(.sleep)))
+        #expect(model.pillDetail == "Paused")
+        model.apply(.state(.recording))
+        #expect(model.pillDetail == "12:48")
+    }
+
+    @Test func sourceLineInvitesEditingOnlyOutsideATestCall() {
+        let model = model()
+        model.show(Self.meeting())
+        model.apply(.state(.recording))
+        #expect(model.sourceLine == "Speechmatics Standard · English")
+        model.apply(.state(.stopped))
+        #expect(model.sourceLine == "Speechmatics Standard · English · double-click a paragraph to edit it,"
+            + " click a name to rename the speaker")
+
+        let test = self.model()
+        test.show(Self.testMeeting())
+        test.apply(.state(.stopped))
+        #expect(test.sourceLine == "AssemblyAI Universal-Streaming · English · speaker names stay as the engine"
+            + " labelled them")
     }
 
     // MARK: - Test calls
@@ -584,7 +789,7 @@ import Testing
         model.apply(.state(.stopped))
         #expect(model.canPause == false)
         #expect(model.canStop == false)
-        #expect(model.sourceLine == "Speechmatics Standard · English")
+        #expect(model.sourceLine?.hasPrefix("Speechmatics Standard · English · double-click") == true)
     }
 
     @Test func testMeetingShowsItsScenariosScriptUntilTheSessionsPaneArrives() throws {

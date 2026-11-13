@@ -246,79 +246,6 @@ private struct TitleField: View {
     }
 }
 
-/// R12: above the stopped transcript: the summary, its progress, or why there is none.
-private struct SummaryPanelView: View {
-    let panel: MeetingWindowModel.SummaryPanel
-    let summarise: @MainActor () -> Void
-
-    var body: some View {
-        Group {
-            switch panel {
-            case .writing:
-                HStack(spacing: 8) {
-                    ProgressView().controlSize(.small)
-                    Text("Writing the summary…").foregroundStyle(.secondary)
-                }
-            case .message(let text, let canSummarise):
-                HStack {
-                    Text(text).foregroundStyle(.orange)
-                    Spacer()
-                    if canSummarise {
-                        Button("Summarise", action: summarise)
-                    }
-                }
-            case .ready(let sections, let meta):
-                VStack(alignment: .leading, spacing: 10) {
-                    LazyVGrid(
-                        columns: [GridItem(.flexible(), spacing: 28, alignment: .topLeading),
-                                  GridItem(.flexible(), alignment: .topLeading)],
-                        alignment: .leading,
-                        spacing: 10
-                    ) {
-                        ForEach(Array(sections.enumerated()), id: \.offset) { _, section in
-                            VStack(alignment: .leading, spacing: 4) {
-                                if !section.title.isEmpty {
-                                    Text(section.title.uppercased())
-                                        .font(.system(size: 11, weight: .semibold))
-                                        .foregroundStyle(.secondary)
-                                }
-                                Text(Self.rendered(section.body))
-                                    .font(.system(size: 12.5))
-                                    .textSelection(.enabled)
-                                    .fixedSize(horizontal: false, vertical: true)
-                            }
-                        }
-                    }
-                    Text(meta).font(.caption).foregroundStyle(.secondary)
-                }
-            }
-        }
-        .font(.callout)
-        .padding(.horizontal, 18)
-        .padding(.vertical, 12)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(nsColor: .textBackgroundColor))
-    }
-
-    /// Inline Markdown, bullets as "•". Links stay text: the summary is model output (§5.8).
-    private static func rendered(_ body: String) -> AttributedString {
-        var result = AttributedString()
-        for (index, line) in body.split(omittingEmptySubsequences: false, whereSeparator: \.isNewline).enumerated() {
-            if index > 0 { result += AttributedString("\n") }
-            var text = String(line)
-            if let bullet = text.range(of: #"^\s*[-*] "#, options: .regularExpression) {
-                text.replaceSubrange(bullet, with: "• ")
-            }
-            var markdown = (try? AttributedString(
-                markdown: text, options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace)
-            )) ?? AttributedString(text)
-            for run in markdown.runs where run.link != nil { markdown[run.range].link = nil }
-            result += markdown
-        }
-        return result
-    }
-}
-
 private struct TranscriptView: View {
     let model: MeetingWindowModel
     let actions: MeetingActions
@@ -346,7 +273,10 @@ private struct TranscriptView: View {
             ScrollView {
                 VStack(spacing: 0) {
                     if let panel = model.summaryPanel {
-                        SummaryPanelView(panel: panel, summarise: actions.summarise)
+                        SummaryView(panel: panel, summarise: actions.summarise)
+                            .padding(.horizontal, 18)
+                            .padding(.vertical, 12)
+                            .frame(maxWidth: .infinity, alignment: .leading)
                         Divider()
                     }
                     transcript
