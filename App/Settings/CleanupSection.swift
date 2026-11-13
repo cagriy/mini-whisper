@@ -6,18 +6,20 @@ struct CleanupSection: View {
     @Bindable var model: SettingsModel
 
     var body: some View {
-        SettingsPane(title: "Cleanup") {
-            Toggle(
+        Card {
+            SettingRow(
                 "Text cleanup",
-                isOn: settingsBinding(model.cleanupShownOn) { await model.setCleanupEnabled($0) }
-            )
-            .disabled(!model.cleanupToggleEnabled)
-
-            if !model.cleanupToggleEnabled {
-                SettingsFootnote(
-                    "Requires an OpenAI API key — add one under Keys. Without a key, on-device"
+                description: model.cleanupToggleEnabled
+                    ? nil
+                    : "Requires an OpenAI API key — add one under Keys. Without a key, on-device"
                         + " transcripts are pasted as spoken."
+            ) {
+                Toggle(
+                    "Text cleanup",
+                    isOn: settingsBinding(model.cleanupShownOn) { await model.setCleanupEnabled($0) }
                 )
+                .toggleStyle(.ds)
+                .disabled(!model.cleanupToggleEnabled)
             }
 
             promptFileEditor(
@@ -30,13 +32,13 @@ struct CleanupSection: View {
                 title: "Transcription instructions",
                 text: $model.transcribeDraft,
                 url: model.transcribeInstructionsURL,
-                save: model.saveTranscribeInstructions
+                save: model.saveTranscribeInstructions,
+                error: model.promptError
             )
-            if let error = model.promptError {
-                Text(error).font(.caption).foregroundStyle(.red)
-            }
 
-            ProfilesEditor(model: model.profiles)
+            SettingRow.full("Per-app profiles", spacing: DS.Space.s4) {
+                ProfilesEditor(model: model.profiles)
+            }
         }
         .onAppear(perform: model.loadPrompts)
     }
@@ -46,37 +48,34 @@ struct CleanupSection: View {
         title: String,
         text: Binding<String>,
         url: URL,
-        save: @escaping () -> Void
+        save: @escaping () -> Void,
+        error: String? = nil
     ) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
+        SettingRow.full(title, spacing: DS.Space.s4) {
             PromptTextEditor(title: title, text: text)
-            HStack {
+            HStack(spacing: DS.Space.s5) {
                 Button("Save Prompt", action: save)
                 Button("Open in Editor") {
                     save()
                     NSWorkspace.shared.open(url)
                 }
             }
-            .controlSize(.small)
+            .buttonStyle(.pill(size: .small))
+            if let error {
+                ErrorLine(error)
+            }
         }
     }
 }
 
-/// A labelled multi-line prompt field.
+/// A multi-line prompt field; the row it sits in names it on screen.
 struct PromptTextEditor: View {
     let title: String
     @Binding var text: String
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(title).font(.callout.weight(.medium))
-            TextEditor(text: $text)
-                .font(.system(size: 12))
-                .frame(height: 90)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 6)
-                        .stroke(Color(nsColor: .separatorColor))
-                )
-        }
+        TextEditor(text: $text)
+            .dsField(.area())
+            .accessibilityLabel(title)
     }
 }

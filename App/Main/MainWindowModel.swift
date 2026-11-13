@@ -11,14 +11,13 @@ final class MainWindowModel {
     struct Dependencies {
         /// Opens a stored meeting from the results.
         var openMeeting: @MainActor (UUID) async throws -> Void
-        /// Settings is still its own window.
-        var openSettings: @MainActor () -> Void
     }
 
     let navigation = MainNavigationModel()
     let meetings: MeetingsListModel
     let dictations: HistoryListModel
     let search: SearchModel
+    let settings: SettingsModel
     var usage = UsageTotals()
     /// Why a meeting result did not open; cleared by the next keystroke.
     private(set) var openError: String?
@@ -26,12 +25,21 @@ final class MainWindowModel {
     @ObservationIgnored private(set) var loading: Task<Void, Never>?
     private let deps: Dependencies
 
-    init(meetings: MeetingsListModel, dictations: HistoryListModel, search: SearchModel, deps: Dependencies) {
+    init(
+        meetings: MeetingsListModel,
+        dictations: HistoryListModel,
+        search: SearchModel,
+        settings: SettingsModel,
+        deps: Dependencies
+    ) {
         self.meetings = meetings
         self.dictations = dictations
         self.search = search
+        self.settings = settings
         self.deps = deps
         navigation.hooks.entered = { [weak self] in self?.entered($0) }
+        // R22: leaving Settings gives a hotkey capture back to the previous combo.
+        navigation.hooks.settingsLeft = { [weak settings] in settings?.cancelCapture() }
         navigation.hooks.reveal = { [weak self] id in
             guard let self else { return }
             loading = Task { await self.dictations.reveal(id) }
@@ -65,17 +73,15 @@ final class MainWindowModel {
         meetings.startMeeting()
     }
 
-    func openSettings() {
-        deps.openSettings()
-    }
-
     /// Every navigation lands here, including one that clears the query.
     private func entered(_ destination: MainNavigationModel.Destination) {
         search.query = navigation.query
         switch destination {
         case .meetings: loading = Task { await meetings.reload() }
         case .dictations: loading = Task { await dictations.reload() }
-        case .settings, .search, .meeting: break
+        // A key saved or removed elsewhere changes what the engine lists offer.
+        case .settings: settings.refreshKeys()
+        case .search, .meeting: break
         }
     }
 }

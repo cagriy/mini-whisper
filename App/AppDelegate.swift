@@ -31,8 +31,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var audio: AudioCaptureEngine?
     private var configTask: Task<Void, Never>?
     private var onboarding: OnboardingWindowController?
-    private var settings: SettingsWindowController?
-    private var settingsDependencies: SettingsModel.Dependencies?
     private var main: MainWindowController?
     private var correctionWindow: CorrectionWindowController?
     private var correctionDependencies: CorrectionModel.Dependencies?
@@ -185,7 +183,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 case .notice(let message): self?.router?.show(error: message)
                 case .settings(let action):
                     // Capture belongs to the Settings hotkey fields (F7).
-                    guard let model = self?.settings?.model else { return }
+                    guard let model = self?.main?.model.settings else { return }
                     Task { await model.handle(action) }
                 case .dictation, .ignore:
                     break
@@ -196,7 +194,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         self.listener = listener
         listener.start()
 
-        settingsDependencies = SettingsModel.Dependencies(
+        let settingsDependencies = SettingsModel.Dependencies(
             store: configStore,
             secrets: secrets,
             hotkeys: listener,
@@ -217,11 +215,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 try? await history.clear()
                 await self?.dictationsChanged()
             },
-            openHistory: { [weak self] in self?.main?.show(.dictations) },
             openCorrection: { [weak self] source in self?.openCorrection(source) },
             meetingIndex: { (try? store.index()) ?? [] },
             showMeetingsFolder: { Self.showInFinder(store) },
-            openMeetings: { [weak self] in self?.main?.show(.meetings) },
             installTool: { CommandLineToolInstaller.install() },
             isToolInstalled: { CommandLineToolInstaller.isInstalled() },
             copy: { _ = NSPasteboardAccess().write($0) }
@@ -260,6 +256,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             search: SearchModel(deps: SearchModel.Dependencies(
                 library: store, history: history, clock: SystemClock(), now: { Date() }, calendar: .current
             )),
+            settings: SettingsModel(config: await configStore.load(), deps: settingsDependencies),
             configStore: configStore,
             config: config
         )
@@ -350,6 +347,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         meetings: MeetingsListModel,
         dictations: HistoryListModel,
         search: SearchModel,
+        settings: SettingsModel,
         configStore: ConfigStore,
         config: Config
     ) -> MainWindowController {
@@ -357,9 +355,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             meetings: meetings,
             dictations: dictations,
             search: search,
+            settings: settings,
             deps: MainWindowModel.Dependencies(
-                openMeeting: { [weak self] in try await self?.meetings?.open($0) },
-                openSettings: { [weak self] in self?.openSettings() }
+                openMeeting: { [weak self] in try await self?.meetings?.open($0) }
             )
         )
         return MainWindowController(model: model, store: configStore, savedFrame: config.mainWindowFrame)
@@ -418,12 +416,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         Task { @MainActor in
             try? await Task.sleep(for: .seconds(1))
             Log.ui.info("No OpenAI key stored; opening Settings")
-            await openSettingsWindow()
+            openSettings()
         }
     }
 
+    /// Settings needs the live listener and stores, so it only opens once normal
+    /// operation has started — the guard `app.py:_open_settings` also has.
     private func openSettings() {
-        Task { await openSettingsWindow() }
+        main?.show(.settings)
     }
 
     /// R27: the last delivered dictation is the menu bar's own, so the window opens
@@ -440,18 +440,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             correctionWindow = CorrectionWindowController(deps: dependencies)
         }
         correctionWindow?.show(source: source)
-    }
-
-    /// Settings needs the live listener and stores, so it only opens once normal
-    /// operation has started — the guard `app.py:_open_settings` also has.
-    private func openSettingsWindow() async {
-        guard let dependencies = settingsDependencies else { return }
-        if settings == nil {
-            settings = SettingsWindowController(
-                model: SettingsModel(config: await dependencies.store.load(), deps: dependencies)
-            )
-        }
-        settings?.show()
     }
 
     /// F32's one-time dialog, asked after normal start so the app is already usable.
@@ -475,9 +463,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// rest through `ConfigStore` directly.
     private func apply(_ config: Config) {
         self.config = config
-        // R36: the one config-change consumer there is, so an open Settings window sees
-        // a rule the correction window just saved (N4).
-        settings?.model.refresh(from: config)
+        // R36: the one config-change consumer there is, so Settings sees a rule the
+        // correction window just saved (N4).
+        main?.model.settings.refresh(from: config)
         sounds.setVolume(Float(config.soundVolume))
         // R3: stored now, honoured at the card's next show.
         overlay?.setStyle(config.overlayStyle)
@@ -570,7 +558,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 await meetings.stop(summarise: false)
             }
             configTask?.cancel()
-            settings?.close()
             await main?.hide().value
             correctionWindow?.hide()
             await controller?.abort()

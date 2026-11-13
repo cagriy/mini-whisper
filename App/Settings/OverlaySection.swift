@@ -7,22 +7,24 @@ struct OverlaySection: View {
     let model: SettingsModel
 
     var body: some View {
-        SettingsPane(title: "Overlay") {
-            HStack(alignment: .top, spacing: 12) {
-                VStack(spacing: 5) {
-                    ForEach(model.overlayStyleRows) { row in
-                        styleRow(row)
+        Card {
+            SettingRow.full(spacing: DS.Space.s4) {
+                HStack(alignment: .top, spacing: DS.Space.s6) {
+                    VStack(spacing: 0) {
+                        ForEach(model.overlayStyleRows) { row in
+                            styleRow(row)
+                        }
                     }
+                    .frame(maxWidth: .infinity)
+
+                    well
                 }
-                .frame(width: 214)
 
-                well
+                SettingsFootnote(
+                    "The card appears beside the text field you are dictating into."
+                        + " The preview replays a short dictation with a simulated voice."
+                )
             }
-
-            SettingsFootnote(
-                "The card appears beside the text field you are dictating into."
-                    + " The preview replays a short dictation with a simulated voice."
-            )
         }
     }
 
@@ -31,46 +33,26 @@ struct OverlaySection: View {
             .frame(width: Constants.windowSize, height: Constants.windowSize)
             .frame(width: 316, height: 316)
             .background {
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(Color(nsColor: .underPageBackgroundColor))
+                RoundedRectangle(cornerRadius: DS.Radius.card).fill(DS.Colors.sidebar)
             }
             .overlay {
-                RoundedRectangle(cornerRadius: 12)
-                    .strokeBorder(Color(nsColor: .separatorColor), lineWidth: 1)
+                RoundedRectangle(cornerRadius: DS.Radius.card).strokeBorder(DS.Colors.line)
             }
     }
 
-    /// `GeneralSection.engineRow`'s form, with the summary folded away on every row
-    /// but the selected one so the six fit without scrolling.
+    /// The engine list's form, with the summary folded away on every row but the
+    /// selected one so the six fit without scrolling.
     private func styleRow(_ row: SettingsModel.OverlayStyleRow) -> some View {
         let isSelected = model.selectedOverlayStyle == row.style
-        return Button {
-            Task { await model.setOverlayStyle(row.style) }
-        } label: {
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Image(systemName: isSelected ? "largecircle.fill.circle" : "circle")
-                    .foregroundStyle(isSelected ? Color.accentColor : .secondary)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(row.title)
-                    if isSelected {
-                        Text(row.summary).font(.caption).foregroundStyle(.secondary)
-                    }
-                }
-                Spacer(minLength: 8)
-                if row.isDefault {
-                    Text("Default")
-                        .font(.caption2)
-                        .foregroundStyle(Color.accentColor)
-                        .padding(.horizontal, 5)
-                        .padding(.vertical, 1)
-                        .overlay {
-                            RoundedRectangle(cornerRadius: 4)
-                                .stroke(Color.accentColor, lineWidth: 1)
-                        }
-                }
+        return RadioRow(
+            row.title,
+            detail: isSelected ? .plain(row.summary) : nil,
+            selected: isSelected,
+            select: { Task { await model.setOverlayStyle(row.style) } }
+        ) {
+            if row.isDefault {
+                Chip("Default")
             }
-            .contentShape(.rect)
         }
-        .buttonStyle(.plain)
     }
 }

@@ -1,8 +1,8 @@
 import AppKit
 import SwiftUI
 
-/// The sidebar (design §5.8, §5.9, R2, R5): search, Start Meeting, the destinations and the
-/// usage table, with the window's shortcuts.
+/// The sidebar (design §5.8, §5.9, R2, R5): search, Start Meeting, the destinations with
+/// Settings' sections while Settings shows, and the usage table, with the window's shortcuts.
 struct SidebarView: View {
     @Bindable var model: MainWindowModel
 
@@ -27,8 +27,14 @@ struct SidebarView: View {
                     model.navigation.go(.dictations)
                 }
                 .keyboardShortcut("2")
-                NavRow(title: "Settings", symbol: "slider.horizontal.3", chevron: true, selected: destination == .settings) {
-                    model.openSettings()
+                NavRow(
+                    title: "Settings", symbol: "slider.horizontal.3", chevron: true, selected: destination == .settings
+                ) {
+                    model.navigation.go(.settings)
+                }
+                .keyboardShortcut(",")
+                if destination == .settings {
+                    sections
                 }
             }
             .padding(.top, DS.Space.s2)
@@ -43,6 +49,17 @@ struct SidebarView: View {
             Rectangle().fill(DS.Colors.line).frame(width: DS.Size.hairline)
         }
         .background { shortcuts }
+    }
+
+    private var sections: some View {
+        VStack(spacing: DS.Size.hairline) {
+            ForEach(SettingsModel.Section.allCases) { section in
+                SectionRow(title: section.title, selected: model.settings.selection == section) {
+                    model.settings.selection = section
+                }
+            }
+        }
+        .padding(EdgeInsets(top: DS.Space.s1, leading: DS.Space.s9, bottom: DS.Space.s1, trailing: 0))
     }
 
     /// ⌘F and ⌘W have no control of their own to sit on.
@@ -78,7 +95,11 @@ private struct NavRow: View {
                 Text(title)
                 Spacer(minLength: 0)
                 if chevron {
-                    Image(systemName: "chevron.right").font(DS.TextStyle.label.font)
+                    Image(systemName: "chevron.right")
+                        .font(DS.TextStyle.label.font)
+                        // Turned down while the sections show beneath it.
+                        .rotationEffect(.degrees(selected ? 90 : 0))
+                        .animation(.easeOut(duration: 0.15), value: selected)
                 }
             }
             .textStyle(DS.TextStyle.body.weight(.medium))
@@ -90,6 +111,34 @@ private struct NavRow: View {
                     .fill(selected || hovered ? DS.Colors.hover : Color.clear)
             )
             .contentShape(RoundedRectangle(cornerRadius: DS.Radius.field))
+        }
+        .buttonStyle(.plain)
+        .onHover { hovered = $0 }
+        .accessibilityAddTraits(selected ? .isSelected : [])
+    }
+}
+
+/// One of Settings' sections, as text beneath Settings.
+private struct SectionRow: View {
+    let title: String
+    let selected: Bool
+    let action: () -> Void
+
+    @State private var hovered = false
+
+    var body: some View {
+        Button(action: action) {
+            Text(title)
+                .textStyle(selected ? DS.TextStyle.body.weight(.semibold) : .body)
+                .foregroundStyle(selected ? DS.Colors.text : DS.Colors.textSecondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, DS.Space.s4)
+                .frame(height: 26)
+                .background(
+                    RoundedRectangle(cornerRadius: DS.Radius.small)
+                        .fill(selected || hovered ? DS.Colors.hover : Color.clear)
+                )
+                .contentShape(RoundedRectangle(cornerRadius: DS.Radius.small))
         }
         .buttonStyle(.plain)
         .onHover { hovered = $0 }

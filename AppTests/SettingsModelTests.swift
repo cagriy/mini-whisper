@@ -9,39 +9,6 @@ import Testing
 
 @MainActor
 @Suite struct SettingsModelTests {
-    private final class FakeSecrets: SecretStore, @unchecked Sendable {
-        var stored: [KeyAccount: String] = [:]
-
-        func secret(for account: KeyAccount) throws -> String? { stored[account] }
-        func setSecret(_ secret: String, for account: KeyAccount) throws { stored[account] = secret }
-        func removeSecret(for account: KeyAccount) throws { stored[account] = nil }
-    }
-
-    private final class FakeHotkeys: HotkeyCapturing, @unchecked Sendable {
-        var begun = 0
-        var cancelled = 0
-        var updates: [BindingName: HotkeyCombo] = [:]
-
-        func beginCapture() { begun += 1 }
-        func cancelCapture() { cancelled += 1 }
-        func update(binding: BindingName, combo: HotkeyCombo) { updates[binding] = combo }
-    }
-
-    private final class FakeSounds: SoundPreviewing, @unchecked Sendable {
-        var volume: Float = -1
-        var onPlays = 0
-
-        func setVolume(_ volume: Float) { self.volume = volume }
-        func playOn() { onPlays += 1 }
-    }
-
-    private final class FakeUpdater: UpdateChecking, @unchecked Sendable {
-        var automaticallyChecksForUpdates = true
-        var checks = 0
-
-        func checkForUpdates() { checks += 1 }
-    }
-
     /// The Meetings pane's reach into the store, the installer and the pasteboard.
     private final class MeetingHooks: @unchecked Sendable {
         var entries: [IndexEntry] = []
@@ -49,7 +16,6 @@ import Testing
         var installResult: Result<Void, CommandLineToolInstaller.Failure> = .success(())
         var copied: [String] = []
         var foldersShown = 0
-        var listsOpened = 0
     }
 
     private struct Harness {
@@ -94,12 +60,10 @@ import Testing
                     apps: StubApps(),
                     pruneHistory: { _ in },
                     clearHistory: {},
-                    openHistory: {},
                     openCorrection: { _ in },
                     accountName: "Alex Morgan",
                     meetingIndex: { [meetings] in meetings.entries },
                     showMeetingsFolder: { [meetings] in meetings.foldersShown += 1 },
-                    openMeetings: { [meetings] in meetings.listsOpened += 1 },
                     installTool: { [meetings] in
                         if case .success = meetings.installResult { meetings.installed = true }
                         return meetings.installResult
@@ -443,6 +407,35 @@ import Testing
         #expect(model.display(.paste) == previous)
     }
 
+    @Test func leavingTheHotkeysSectionCancelsCapture() async {
+        let harness = Harness()
+        defer { harness.cleanUp() }
+        let model = await harness.model()
+        let previous = model.display(.paste)
+        model.selection = .hotkeys
+
+        model.beginCapture(.paste)
+        model.selection = .keys
+
+        #expect(harness.hotkeys.cancelled == 1)
+        #expect(model.capturing == nil)
+        #expect(model.display(.paste) == previous)
+    }
+
+    @Test func changingSectionWhileNotCapturingCancelsNothing() async {
+        let harness = Harness()
+        defer { harness.cleanUp() }
+        let model = await harness.model()
+
+        model.selection = .hotkeys
+        model.selection = .keys
+        model.selection = .hotkeys
+        model.selection = .general
+
+        #expect(harness.hotkeys.cancelled == 0)
+        #expect(model.capturing == nil)
+    }
+
     @Test func capturingMeetingStoresMeetingHotkey() async throws {
         let harness = Harness()
         defer { harness.cleanUp() }
@@ -570,6 +563,10 @@ import Testing
         ])
         #expect(SettingsModel.Section.overlay.title == "Overlay")
         #expect(SettingsModel.Section.overlay.symbolName == "sparkles.rectangle.stack")
+    }
+
+    @Test func historySectionIsTitledDictations() {
+        #expect(SettingsModel.Section.history.title == "Dictations")
     }
 
     @Test func setOverlayStyleWritesTheConfigKey() async {
@@ -764,9 +761,7 @@ import Testing
         #expect(model.storageText == "3 meetings · 310 MB audio")
 
         model.showMeetingsFolder()
-        model.openMeetings()
         #expect(harness.meetings.foldersShown == 1)
-        #expect(harness.meetings.listsOpened == 1)
     }
 
     @Test func installReportsSuccessOrTheErrorText() async {

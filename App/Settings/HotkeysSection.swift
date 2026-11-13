@@ -6,19 +6,19 @@ struct HotkeysSection: View {
     let model: SettingsModel
 
     var body: some View {
-        SettingsPane(title: "Hotkeys") {
+        Card {
             ForEach(BindingName.allCases, id: \.self) { binding in
-                VStack(alignment: .trailing, spacing: 4) {
-                    HotkeyCaptureField(title: SettingsModel.title(of: binding), binding: binding, model: model)
-                    if let error = model.hotkeyError(for: binding) {
-                        Text(error).font(.caption).foregroundStyle(.red)
-                    }
+                SettingRow(
+                    SettingsModel.title(of: binding),
+                    description: binding == BindingName.allCases.last
+                        ? "Click a field, then press the shortcut. Hold to record, release to paste;"
+                            + " tap to toggle. Modifier-only shortcuts such as Right ⌘ are allowed."
+                        : nil,
+                    error: model.hotkeyError(for: binding)
+                ) {
+                    HotkeyCaptureField(binding: binding, model: model)
                 }
             }
-            SettingsFootnote(
-                "Click a field, then press the shortcut. Hold to record, release to paste;"
-                    + " tap to toggle. Modifier-only shortcuts such as Right ⌘ are allowed."
-            )
         }
     }
 }

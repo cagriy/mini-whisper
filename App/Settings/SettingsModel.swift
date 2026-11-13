@@ -30,7 +30,7 @@ protocol SoundPreviewing: AnyObject, Sendable {
     func playOn()
 }
 
-/// Everything the Settings window can do to the rest of the app, and the only
+/// Everything the Settings page can do to the rest of the app, and the only
 /// place its rules live (design §5.4). The views are thin: they read the
 /// published state and call the `async` mutators, each of which writes through
 /// to `config.json` immediately, as the source does.
@@ -51,7 +51,6 @@ final class SettingsModel {
         /// Applies the new retention and prunes; retention 0 deletes the file (F29).
         var pruneHistory: @Sendable (Int) async -> Void
         var clearHistory: @Sendable () async -> Void
-        var openHistory: @MainActor () -> Void
         /// R35: the tally's Remember… seeds the correction window rather than adding a
         /// second rule-entry form.
         var openCorrection: @MainActor (CorrectionSource) -> Void
@@ -59,7 +58,6 @@ final class SettingsModel {
         var accountName: String = NSFullUserName()
         var meetingIndex: @Sendable () async -> [IndexEntry] = { [] }
         var showMeetingsFolder: @MainActor () -> Void = {}
-        var openMeetings: @MainActor () -> Void = {}
         var installTool: @MainActor () -> Result<Void, CommandLineToolInstaller.Failure> = {
             .failure(CommandLineToolInstaller.Failure(message: "Install is unavailable."))
         }
@@ -80,7 +78,7 @@ final class SettingsModel {
             case .keys: "Keys"
             case .cleanup: "Cleanup"
             case .vocabulary: "Vocabulary"
-            case .history: "History"
+            case .history: "Dictations"
             case .meetings: "Meetings"
             case .overlay: "Overlay"
             case .sound: "Sound"
@@ -164,7 +162,12 @@ final class SettingsModel {
 
     /// The slider's live value; `commitVolume()` is what writes and previews (F34).
     var volume: Double
-    var selection: Section = .general
+    /// Leaving Hotkeys gives a capture under way back to the previous combo (R22).
+    var selection: Section = .general {
+        didSet {
+            if oldValue == .hotkeys, selection != .hotkeys { cancelCapture() }
+        }
+    }
 
     let vocabulary: VocabularyModel
     let profiles: ProfilesEditorModel
@@ -385,10 +388,6 @@ final class SettingsModel {
         await deps.clearHistory()
     }
 
-    func openHistory() {
-        deps.openHistory()
-    }
-
     // MARK: - Meetings (design v4 §3 R4, R20, R22)
 
     static let privacySettingsURL = MeetingWindowModel.privacySettingsURL
@@ -453,7 +452,7 @@ final class SettingsModel {
         loadSummaryPrompt()
     }
 
-    /// "12 meetings · 310 MB audio", as the Meetings window's footer reads.
+    /// "12 meetings · 310 MB audio", as the Meetings page's footer reads.
     private(set) var storageText = ""
     private var toolInstalled = false
     private var toolError: String?
@@ -470,10 +469,6 @@ final class SettingsModel {
 
     func showMeetingsFolder() {
         deps.showMeetingsFolder()
-    }
-
-    func openMeetings() {
-        deps.openMeetings()
     }
 
     /// R22: the row reports success, or the installer's reason such as "User canceled.".
@@ -524,7 +519,7 @@ final class SettingsModel {
         return "\(Pricing.dollars(hour - addOn)) + \(Pricing.dollars(addOn))/h"
     }
 
-    /// Decimal megabytes, as Finder and the Meetings window show them.
+    /// Decimal megabytes, as Finder and the Meetings page show them.
     private static func size(_ bytes: Int) -> String {
         bytes >= 1_000_000_000
             ? String(format: "%.1f GB", Double(bytes) / 1e9)

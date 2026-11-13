@@ -1,48 +1,41 @@
 import SwiftUI
 
-/// F29's retention control and the two history actions. The slider commits when
-/// the drag ends, so one adjustment writes the config and prunes once.
+/// F29's retention control and Clear History. The slider commits when the drag ends,
+/// so one adjustment writes the config and prunes once.
 struct HistorySection: View {
     let model: SettingsModel
+    @Binding var confirmingClear: Bool
 
     @State private var days = 0.0
-    @State private var confirmingClear = false
 
     private static let sliderRange = Double(SettingsModel.retentionDaysRange.lowerBound)
         ... Double(SettingsModel.retentionDaysRange.upperBound)
 
     var body: some View {
-        SettingsPane(title: "History") {
-            HStack {
-                Text("Keep dictations for")
-                Slider(value: $days, in: Self.sliderRange, step: 1) { editing in
-                    guard !editing else { return }
-                    Task { await model.setRetentionDays(Int(days)) }
-                }
-                .frame(width: 240)
-                Text(SettingsModel.retentionLabel(days: Int(days)))
-                    .monospacedDigit()
-                    .foregroundStyle(.secondary)
-                    .frame(width: 60, alignment: .trailing)
-            }
-
-            SettingsFootnote(
-                "0 days turns history off and writes nothing. Maximum 30 days."
+        Card {
+            SettingRow(
+                "Keep dictations for",
+                description: "0 days turns history off and writes nothing. Maximum 30 days."
                     + " Stored only on this Mac."
-            )
-
-            HStack {
-                Button("Open History…") { model.openHistory() }
-                Button("Clear History") { confirmingClear = true }
-            }
-            .confirmationDialog(
-                "Delete every stored dictation?",
-                isPresented: $confirmingClear
             ) {
-                Button("Clear History", role: .destructive) {
-                    Task { await model.clearHistory() }
+                HStack(spacing: DS.Space.s5) {
+                    Slider(value: $days, in: Self.sliderRange, step: 1) { editing in
+                        guard !editing else { return }
+                        Task { await model.setRetentionDays(Int(days)) }
+                    }
+                    .tint(DS.Colors.accent)
+                    .frame(width: 200)
+                    Text(SettingsModel.retentionLabel(days: Int(days)))
+                        .textStyle(.body)
+                        .monospacedDigit()
+                        .foregroundStyle(DS.Colors.textSecondary)
+                        .frame(width: 60, alignment: .trailing)
                 }
-                Button("Cancel", role: .cancel) {}
+            }
+            // The row is named by the confirmation's own question.
+            SettingRow("Delete every stored dictation") {
+                Button("Clear History") { confirmingClear = true }
+                    .buttonStyle(.pill(size: .small, tint: DS.Colors.recording))
             }
         }
         .onAppear { days = Double(model.config.historyRetentionDays) }

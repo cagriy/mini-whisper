@@ -4,6 +4,7 @@ import MWHistory
 import MWMeetings
 import MWPaste
 import MWPipeline
+import MWStreaming
 import MWUsage
 import Testing
 @testable import MiniWhisper
@@ -34,9 +35,10 @@ import Testing
         let directory: URL
         let history: HistoryStore
         let library: StubMeetingLibrary
+        let secrets = FakeSecrets()
+        let hotkeys = FakeHotkeys()
         var opened: [UUID] = []
         var openFails = false
-        var settingsOpened = 0
         lazy var model: MainWindowModel = {
             var calendar = Calendar(identifier: .gregorian)
             calendar.timeZone = TimeZone(identifier: "UTC")!
@@ -70,16 +72,36 @@ import Testing
             let search = SearchModel(deps: SearchModel.Dependencies(
                 library: library, history: history, clock: ManualClock(), now: { now }, calendar: calendar
             ))
+            let settings = SettingsModel(config: Config(), deps: SettingsModel.Dependencies(
+                store: ConfigStore(directory: directory),
+                secrets: secrets,
+                hotkeys: hotkeys,
+                sounds: FakeSounds(),
+                updates: FakeUpdater(),
+                platform: PlatformInfo(osMajor: 14, locale: Locale(identifier: "en_US")),
+                assetStatus: { .unavailable },
+                installAssets: {},
+                prompts: PromptFiles(
+                    directory: directory,
+                    bundledCleanup: directory.appendingPathComponent("default_prompt.txt"),
+                    bundledTranscribe: directory.appendingPathComponent("default_transcribe_prompt.txt"),
+                    bundledSummary: directory.appendingPathComponent("default_summary_prompt.txt")
+                ),
+                apps: StubApps(),
+                pruneHistory: { _ in },
+                clearHistory: {},
+                openCorrection: { _ in }
+            ))
             return MainWindowModel(
                 meetings: meetings,
                 dictations: dictations,
                 search: search,
+                settings: settings,
                 deps: MainWindowModel.Dependencies(
                     openMeeting: { [unowned self] id in
                         if openFails { throw OpenFailed() }
                         opened.append(id)
-                    },
-                    openSettings: { [unowned self] in settingsOpened += 1 }
+                    }
                 )
             )
         }()
@@ -212,12 +234,32 @@ import Testing
         #expect(harness.model.usageTable.month.audio == "2h 14m")
     }
 
-    @Test func settingsOpensItsWindowForNow() {
+    @Test func enteringSettingsRereadsTheKeys() {
         let harness = Harness()
         defer { harness.cleanUp() }
+        let settings = harness.model.settings
+        harness.secrets.stored[.openai] = "sk-test-5678"
+        #expect(settings.mask(for: .openai).isEmpty)
 
-        harness.model.openSettings()
+        harness.model.navigation.go(.settings)
 
-        #expect(harness.settingsOpened == 1)
+        #expect(harness.model.navigation.destination == .settings)
+        #expect(settings.mask(for: .openai) == "sk-…5678")
+    }
+
+    @Test func leavingSettingsCancelsHotkeyCapture() {
+        let harness = Harness()
+        defer { harness.cleanUp() }
+        let settings = harness.model.settings
+        let previous = settings.display(.paste)
+        harness.model.navigation.go(.settings)
+        settings.selection = .hotkeys
+        settings.beginCapture(.paste)
+
+        harness.model.navigation.go(.meetings)
+
+        #expect(harness.hotkeys.cancelled == 1)
+        #expect(settings.capturing == nil)
+        #expect(settings.display(.paste) == previous)
     }
 }

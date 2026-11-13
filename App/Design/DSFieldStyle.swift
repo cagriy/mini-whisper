@@ -46,6 +46,22 @@ extension View {
     }
 }
 
+extension View {
+    /// A field's placeholder in the tertiary colour, for a field given an empty prompt. macOS draws a
+    /// field's own prompt in a fixed dark grey whatever its style, so it reads as a value.
+    func fieldPlaceholder(_ text: String, shown: Bool) -> some View {
+        overlay(alignment: .leading) {
+            if shown {
+                Text(text)
+                    .foregroundStyle(DS.Colors.textTertiary)
+                    .lineLimit(1)
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
+            }
+        }
+    }
+}
+
 /// The search field: a pill with the magnifier and, at the right, the shortcut that focuses it.
 /// Esc empties it.
 struct SearchPill: View {
@@ -58,9 +74,10 @@ struct SearchPill: View {
     var body: some View {
         HStack(spacing: DS.Space.s3) {
             Image(systemName: "magnifyingglass")
-            TextField(prompt, text: $text, prompt: Text(prompt).foregroundStyle(DS.Colors.textTertiary))
+            TextField(prompt, text: $text, prompt: Text(""))
                 .textFieldStyle(.plain)
                 .foregroundStyle(DS.Colors.text)
+                .fieldPlaceholder(prompt, shown: text.isEmpty)
                 .focused(focused)
                 .onExitCommand { text = "" }
             if let hint {
@@ -75,8 +92,9 @@ struct SearchPill: View {
     }
 }
 
-/// A field's fill and hairline; focused, an accent border inside a soft ring.
-private struct FieldChrome<Outline: InsettableShape>: ViewModifier {
+/// A field's fill and hairline; focused, an accent border inside a soft ring. A control that acts as
+/// a field, such as a hotkey field, wears it too.
+struct FieldChrome<Outline: InsettableShape>: ViewModifier {
     let shape: Outline
     let fill: Color
     let focused: Bool

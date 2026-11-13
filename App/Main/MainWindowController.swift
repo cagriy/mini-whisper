@@ -8,7 +8,7 @@ import SwiftUI
 @MainActor
 final class MainWindowController: NSObject, NSWindowDelegate {
     let model: MainWindowModel
-    private let window: NSWindow
+    private let window: MainWindow
     private let store: ConfigStore
     /// The frame `config.json` holds, as far as this window knows.
     private var stored: WindowFrame?
@@ -18,7 +18,7 @@ final class MainWindowController: NSObject, NSWindowDelegate {
         self.model = model
         self.store = store
         stored = savedFrame
-        window = NSWindow(
+        window = MainWindow(
             contentRect: CGRect(origin: .zero, size: WindowFramePolicy.defaultSize),
             styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
             backing: .buffered,
@@ -36,6 +36,8 @@ final class MainWindowController: NSObject, NSWindowDelegate {
         host.sizingOptions = []
         window.contentView = host
         window.delegate = self
+        // Esc while a hotkey field is capturing restores the previous combo (F7).
+        window.onCancel = { [weak model] in model?.settings.cancelCapture() }
     }
 
     var isVisible: Bool { window.isVisible }
@@ -49,9 +51,11 @@ final class MainWindowController: NSObject, NSWindowDelegate {
         WindowActivation.shown(window)
     }
 
-    /// Orders the window out and stores its frame; quitting waits for the write.
+    /// Orders the window out and stores its frame; quitting waits for the write. A hotkey
+    /// capture under way gives way to the previous combo.
     @discardableResult
     func hide() -> Task<Void, Never> {
+        model.settings.cancelCapture()
         let saving = saveFrame()
         if window.isVisible || window.isMiniaturized {
             window.orderOut(nil)
@@ -62,6 +66,7 @@ final class MainWindowController: NSObject, NSWindowDelegate {
     }
 
     func windowWillClose(_ notification: Notification) {
+        model.settings.cancelCapture()
         saveFrame()
         Log.ui.info("main window hidden")
         WindowActivation.closed()
@@ -96,6 +101,14 @@ final class MainWindowController: NSObject, NSWindowDelegate {
                 if self?.stored == frame { self?.stored = previous }
             }
         }
+    }
+}
+
+private final class MainWindow: NSWindow {
+    var onCancel: (() -> Void)?
+
+    override func cancelOperation(_ sender: Any?) {
+        onCancel?()
     }
 }
 

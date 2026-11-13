@@ -7,18 +7,16 @@ struct ProfilesEditor: View {
     @Bindable var model: ProfilesEditorModel
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Per-app profiles").font(.callout.weight(.medium))
-
+        VStack(alignment: .leading, spacing: DS.Space.s4) {
             Table(model.rows, selection: $model.selection) {
                 TableColumn("Profile", value: \.name)
                 TableColumn("Apps", value: \.apps)
                 TableColumn("Cleanup", value: \.cleanup).width(70)
                 TableColumn("Submit key", value: \.submitKey).width(90)
             }
-            .frame(height: 130)
+            .settingsTable(height: 130)
 
-            HStack(spacing: 6) {
+            HStack(spacing: DS.Space.s3) {
                 Button("+") { Task { await model.add() } }
                 Button("−") {
                     guard let id = model.selectedProfile?.id else { return }
@@ -26,7 +24,7 @@ struct ProfilesEditor: View {
                 }
                 .disabled(model.selectedProfile == nil)
             }
-            .controlSize(.small)
+            .buttonStyle(.pill(size: .small))
 
             if let profile = model.selectedProfile {
                 ProfileDetail(profile: profile, model: model)
@@ -50,54 +48,52 @@ private struct ProfileDetail: View {
     @State private var prompt = ""
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Text("Name").frame(width: 90, alignment: .leading)
-                TextField("Profile name", text: $name)
+        VStack(alignment: .leading, spacing: DS.Space.s5) {
+            DetailRow("Name") {
+                TextField("Profile name", text: $name, prompt: Text(""))
+                    .fieldPlaceholder("Profile name", shown: name.isEmpty)
+                    .dsField()
                     .frame(width: 220)
                     .onSubmit { Task { await model.setName(name, for: profile.id) } }
             }
 
-            HStack(alignment: .top) {
-                Text("Apps").frame(width: 90, alignment: .leading)
+            DetailRow("Apps", alignment: .top) {
                 appChips
             }
 
             if let error = model.appAssignmentError {
-                Text(error).font(.caption).foregroundStyle(.red)
+                ErrorLine(error)
             }
 
-            Toggle(
-                "Cleanup",
-                isOn: settingsBinding(profile.cleanupEnabled) {
-                    await model.setCleanupEnabled($0, for: profile.id)
-                }
-            )
+            DetailRow("Cleanup") {
+                Toggle(
+                    "Cleanup",
+                    isOn: settingsBinding(profile.cleanupEnabled) {
+                        await model.setCleanupEnabled($0, for: profile.id)
+                    }
+                )
+                .toggleStyle(.ds)
+            }
 
-            HStack {
-                Text("Submit key").frame(width: 90, alignment: .leading)
-                Picker(
-                    "",
+            DetailRow("Submit key") {
+                SegmentedPill(
                     selection: settingsBinding(profile.submitKey) {
                         await model.setSubmitKey($0, for: profile.id)
-                    }
-                ) {
-                    ForEach(SubmitKey.allCases, id: \.self) { key in
-                        Text(ProfilesEditorModel.label(for: key)).tag(key)
-                    }
-                }
-                .labelsHidden()
-                .frame(width: 140)
+                    },
+                    options: SubmitKey.allCases.map { ($0, ProfilesEditorModel.label(for: $0)) }
+                )
             }
 
-            PromptTextEditor(title: "Prompt", text: $prompt)
-            HStack {
+            DetailRow("Prompt", alignment: .top) {
+                PromptTextEditor(title: "Prompt", text: $prompt)
+            }
+            HStack(spacing: DS.Space.s5) {
                 Button("Save Prompt") { Task { await model.setPrompt(prompt, for: profile.id) } }
-                    .controlSize(.small)
+                    .buttonStyle(.pill(size: .small))
                 SettingsFootnote("Clear this to fall back to prompt.txt.")
             }
         }
-        .padding(.top, 4)
+        .padding(.top, DS.Space.s2)
         .task(id: profile.id) {
             name = profile.name
             prompt = model.prompt(for: profile.id)
@@ -105,36 +101,26 @@ private struct ProfileDetail: View {
     }
 
     private var appChips: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack {
+        VStack(alignment: .leading, spacing: DS.Space.s3) {
+            FlowLayout {
                 ForEach(profile.bundleIDs, id: \.self) { bundleID in
-                    HStack(spacing: 4) {
-                        Text(model.displayName(bundleID))
-                        Button {
-                            Task { await model.removeBundleID(bundleID, from: profile.id) }
-                        } label: {
-                            Image(systemName: "xmark.circle.fill")
-                        }
-                        .buttonStyle(.plain)
+                    Chip(model.displayName(bundleID)) {
+                        Task { await model.removeBundleID(bundleID, from: profile.id) }
                     }
-                    .font(.caption)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 3)
-                    .background(Capsule().fill(Color(nsColor: .controlBackgroundColor)))
                 }
             }
-            Menu("Add…") {
-                ForEach(model.runningApps) { app in
-                    Button(app.name) { Task { await model.addBundleID(app.bundleID, to: profile.id) } }
-                }
-                Divider()
-                Button("Choose from Applications…") {
-                    guard let choice = AppChooser.chooseFromApplications() else { return }
-                    Task { await model.addBundleID(choice.bundleID, to: profile.id) }
-                }
+            PillMenu(title: "Add…") {
+                model.runningApps.map { app in
+                    PillMenu.Item(title: app.name) {
+                        Task { await model.addBundleID(app.bundleID, to: profile.id) }
+                    }
+                } + [
+                    PillMenu.Item(title: "Choose from Applications…", separated: true) {
+                        guard let choice = AppChooser.chooseFromApplications() else { return }
+                        Task { await model.addBundleID(choice.bundleID, to: profile.id) }
+                    },
+                ]
             }
-            .menuStyle(.borderlessButton)
-            .frame(width: 160, alignment: .leading)
         }
     }
 }

@@ -9,113 +9,101 @@ struct CorrectionsEditor: View {
     @Bindable var model: CorrectionsEditorModel
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            corrections
-            tally
-            hints
-        }
+        SettingRow.full("Corrections", spacing: DS.Space.s4) { corrections }
+        SettingRow.full("Often corrected", spacing: DS.Space.s4) { tally }
+        SettingRow.full("Recognition hints", spacing: DS.Space.s4) { hints }
     }
 
     // MARK: - Corrections (R33, R34)
 
-    private var corrections: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Corrections").font(.callout.weight(.medium))
-
-            Table(model.rows, selection: $model.selection) {
-                TableColumn("Heard", value: \.heard)
-                TableColumn("Write", value: \.write)
-                TableColumn("Scope", value: \.scope).width(120)
-                TableColumn("Enabled") { row in
-                    Text(row.enabled ? "on" : "off")
-                        .foregroundStyle(row.enabled ? AnyShapeStyle(.primary) : AnyShapeStyle(.tertiary))
-                }
-                .width(60)
+    @ViewBuilder private var corrections: some View {
+        Table(model.rows, selection: $model.selection) {
+            TableColumn("Heard", value: \.heard)
+            TableColumn("Write", value: \.write)
+            TableColumn("Scope", value: \.scope).width(120)
+            TableColumn("Enabled") { row in
+                Text(row.enabled ? "on" : "off")
+                    .foregroundStyle(row.enabled ? DS.Colors.text : DS.Colors.textTertiary)
             }
-            .frame(height: 130)
-
-            Button("−") {
-                guard let id = model.selectedRule?.id else { return }
-                Task { await model.remove(id) }
-            }
-            .controlSize(.small)
-            .disabled(model.selectedRule == nil)
-
-            if let rule = model.selectedRule {
-                RuleDetail(rule: rule, model: model)
-            }
-
-            if let error = model.error {
-                Text(error).font(.caption).foregroundStyle(.red)
-            }
-
-            SettingsFootnote(
-                "Free text commits on Return. Rules are created from a dictation:"
-                    + " Correct Last Dictation… in the menu bar, or Correct… on a History row."
-            )
+            .width(60)
         }
+        .settingsTable(height: 130)
+
+        Button("−") {
+            guard let id = model.selectedRule?.id else { return }
+            Task { await model.remove(id) }
+        }
+        .buttonStyle(.pill(size: .small))
+        .disabled(model.selectedRule == nil)
+
+        if let rule = model.selectedRule {
+            RuleDetail(rule: rule, model: model)
+        }
+
+        if let error = model.error {
+            ErrorLine(error)
+        }
+
+        SettingsFootnote(
+            "Free text commits on Return. Rules are created from a dictation:"
+                + " Correct Last Dictation… in the menu bar, or Correct… on a Dictations row."
+        )
     }
 
     // MARK: - Often corrected (R33, R35)
 
-    private var tally: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("Often corrected").font(.callout.weight(.medium))
-
-            ForEach(model.tallyRows, id: \.heard) { row in
-                HStack(spacing: 10) {
-                    Text(row.heard)
-                    Spacer()
-                    Text("×\(row.count)").monospacedDigit().foregroundStyle(.secondary)
-                    if row.hasRule {
-                        Text("remembered").foregroundStyle(.green)
-                    } else {
-                        Button("Remember…") { model.remember(row.heard) }
-                            .controlSize(.small)
-                    }
+    @ViewBuilder private var tally: some View {
+        ForEach(model.tallyRows, id: \.heard) { row in
+            HStack(spacing: DS.Space.s5) {
+                Text(row.heard).foregroundStyle(DS.Colors.text)
+                Spacer()
+                Text("×\(row.count)").monospacedDigit().foregroundStyle(DS.Colors.textSecondary)
+                if row.hasRule {
+                    Text("remembered").foregroundStyle(DS.Colors.ok)
+                } else {
+                    Button("Remember…") { model.remember(row.heard) }
+                        .buttonStyle(.pill(size: .small))
                 }
-                .font(.callout)
-                .frame(width: 380, alignment: .leading)
             }
-
-            SettingsFootnote(
-                "Phrases you corrected in the correction window, remembered or not."
-                    + " Remember… opens that window with the phrase selected."
-            )
+            .textStyle(.body)
+            .frame(width: 380, alignment: .leading)
         }
+
+        SettingsFootnote(
+            "Phrases you corrected in the correction window, remembered or not."
+                + " Remember… opens that window with the phrase selected."
+        )
     }
 
     // MARK: - Recognition hints (R33)
 
-    private var hints: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("Recognition hints").font(.callout.weight(.medium))
-
-            ForEach(model.hintRows) { row in
-                HStack(alignment: .firstTextBaseline, spacing: 8) {
-                    Circle()
-                        .fill(Self.dot(row.status))
-                        .frame(width: 8, height: 8)
-                    Text(row.label).frame(width: 150, alignment: .leading)
-                    Text(row.detail)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                .font(.caption)
+    @ViewBuilder private var hints: some View {
+        ForEach(model.hintRows) { row in
+            HStack(alignment: .firstTextBaseline, spacing: DS.Space.s4) {
+                Circle()
+                    .fill(Self.dot(row.status))
+                    .frame(width: 8, height: 8)
+                Text(row.label)
+                    .foregroundStyle(DS.Colors.text)
+                    .frame(width: 150, alignment: .leading)
+                Text(row.detail)
+                    .foregroundStyle(DS.Colors.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
-
-            SettingsFootnote(
-                "Counts include every rule regardless of app. A hint makes a spelling more"
-                    + " likely; the rule makes it certain."
-            )
+            .textStyle(.meta)
         }
+
+        SettingsFootnote(
+            "Counts include every rule regardless of app. A hint makes a spelling more"
+                + " likely; the rule makes it certain."
+        )
     }
 
     private static func dot(_ status: CorrectionsEditorModel.HintStatus) -> Color {
         switch status {
-        case .ok: .green
-        case .warning: .orange
-        case .off: .secondary
+        case .ok: DS.Colors.ok
+        case .warning: DS.Colors.warn
+        case .off: DS.Colors.textTertiary
         }
     }
 }
@@ -131,30 +119,26 @@ private struct RuleDetail: View {
     @State private var soundsLike = ""
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: DS.Space.s5) {
             field("Heard", text: $heard) { await model.setHeard($0, for: rule.id) }
             field("Write", text: $write) { await model.setWrite($0, for: rule.id) }
             field("Sounds like", text: $soundsLike) { await model.setSoundsLike($0, for: rule.id) }
 
-            HStack {
-                Text("Scope").frame(width: 90, alignment: .leading)
+            DetailRow("Scope") {
                 scope
             }
 
-            HStack {
-                Text("Enabled").frame(width: 90, alignment: .leading)
+            DetailRow("Enabled") {
                 Toggle(
-                    "",
+                    "Enabled",
                     isOn: settingsBinding(rule.enabled) {
                         await model.setEnabled($0, for: rule.id)
                     }
                 )
-                .toggleStyle(.switch)
-                .labelsHidden()
-                .controlSize(.small)
+                .toggleStyle(.ds)
             }
         }
-        .padding(.top, 4)
+        .padding(.top, DS.Space.s2)
         .task(id: rule.id) {
             heard = rule.heard
             write = rule.write
@@ -167,10 +151,10 @@ private struct RuleDetail: View {
         text: Binding<String>,
         commit: @escaping @MainActor (String) async -> Void
     ) -> some View {
-        HStack {
-            Text(label).frame(width: 90, alignment: .leading)
-            TextField(label, text: text)
-                .labelsHidden()
+        DetailRow(label) {
+            TextField(label, text: text, prompt: Text(""))
+                .fieldPlaceholder(label, shown: text.wrappedValue.isEmpty)
+                .dsField()
                 .frame(width: 220)
                 .onSubmit {
                     let value = text.wrappedValue
@@ -180,24 +164,23 @@ private struct RuleDetail: View {
     }
 
     private var scope: some View {
-        Menu(model.scopeLabel(rule.bundleID)) {
-            Button("All apps") { Task { await model.setScope(nil, for: rule.id) } }
+        PillMenu(title: model.scopeLabel(rule.bundleID)) {
+            var items = [PillMenu.Item(title: "All apps") { Task { await model.setScope(nil, for: rule.id) } }]
             if let bundleID = rule.bundleID {
-                Button(model.displayName(bundleID)) {
+                items.append(PillMenu.Item(title: model.displayName(bundleID)) {
                     Task { await model.setScope(bundleID, for: rule.id) }
-                }
+                })
             }
-            Divider()
-            ForEach(model.runningApps) { app in
-                Button(app.name) { Task { await model.setScope(app.bundleID, for: rule.id) } }
+            for (index, app) in model.runningApps.enumerated() {
+                items.append(PillMenu.Item(title: app.name, separated: index == 0) {
+                    Task { await model.setScope(app.bundleID, for: rule.id) }
+                })
             }
-            Divider()
-            Button("Choose from Applications…") {
+            items.append(PillMenu.Item(title: "Choose from Applications…", separated: true) {
                 guard let choice = AppChooser.chooseFromApplications() else { return }
                 Task { await model.setScope(choice.bundleID, for: rule.id) }
-            }
+            })
+            return items
         }
-        .menuStyle(.borderlessButton)
-        .frame(width: 200, alignment: .leading)
     }
 }

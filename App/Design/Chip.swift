@@ -1,6 +1,7 @@
 import SwiftUI
 
-/// A small outlined label, with a dot when it reports a state.
+/// A small outlined label, with a dot when it reports a state, or a remove mark when it is one of a
+/// list the user edits.
 struct Chip: View {
     enum Kind {
         case plain
@@ -16,10 +17,12 @@ struct Chip: View {
 
     private let text: String
     private let kind: Kind
+    private let remove: (() -> Void)?
 
-    init(_ text: String, _ kind: Kind = .plain) {
+    init(_ text: String, _ kind: Kind = .plain, remove: (() -> Void)? = nil) {
         self.text = text
         self.kind = kind
+        self.remove = remove
     }
 
     private var dot: Color? {
@@ -45,6 +48,11 @@ struct Chip: View {
                 Circle().fill(dot).frame(width: 6, height: 6)
             }
             Text(text)
+            if let remove {
+                Button(action: remove) { Image(systemName: "xmark") }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Remove \(text)")
+            }
         }
         .font(DS.TextStyle.label.font)
         .lineLimit(1)
