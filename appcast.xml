@@ -5,6 +5,16 @@
     <link>https://raw.githubusercontent.com/cagriy/mini-whisper/main/appcast.xml</link>
     <language>en</language>
     <item>
+      <title>Mini Whisper 0.6.2</title>
+      <sparkle:version>0.6.2</sparkle:version>
+      <sparkle:shortVersionString>0.6.2</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <description>&lt;h3&gt;Added&lt;/h3&gt;
+&lt;ul&gt;&lt;li&gt;Settings → Meetings shows how to add the MCP server to the ChatGPT app for Mac, with the command to paste.&lt;/li&gt;&lt;li&gt;A finished meeting's window has a &lt;strong&gt;Meetings&lt;/strong&gt; button that closes it and opens the list.&lt;/li&gt;&lt;/ul&gt;</description>
+      <pubDate>Fri, 13 Nov 2026 11:46:41 +0000</pubDate>
+      <enclosure url="https://github.com/cagriy/mini-whisper/releases/download/v0.6.2/MiniWhisper-0.6.2-arm64.dmg" sparkle:edSignature="xUIpq//kkR5i1+zSCeJimd7GoM0ragkHAYfnoJi1sdrBaxk+/XWDFht3fkoefxyBhVtxDIHGSKknt4b9uwptBg==" length="7513464" type="application/octet-stream" />
+    </item>
+    <item>
       <title>Mini Whisper 0.6.1</title>
       <sparkle:version>0.6.1</sparkle:version>
       <sparkle:shortVersionString>0.6.1</sparkle:shortVersionString>
