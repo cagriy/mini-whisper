@@ -8,10 +8,11 @@ import os
 /// (F18, F19).
 public final class AVAudioEngineBackend: AudioBackend, @unchecked Sendable {
     private let engine = AVAudioEngine()
-    /// The default level turns other apps' audio, the meeting tap's copy of the call included,
-    /// down about 30 dB; this one about 7 dB.
-    private static let otherAudioDucking = AVAudioVoiceProcessingOtherAudioDuckingConfiguration(
-        enableAdvancedDucking: true, duckingLevel: .min
+    /// Voice processing turns other apps' audio down, the meeting tap's copy of the call
+    /// included. Measured on macOS 26: 30 dB by default and with advanced ducking at any level,
+    /// 8 dB with this.
+    static let otherAudioDucking = AVAudioVoiceProcessingOtherAudioDuckingConfiguration(
+        enableAdvancedDucking: false, duckingLevel: .min
     )
     /// Kept so a voice-processing change can reinstall the tap at the new input format.
     private let tap = OSAllocatedUnfairLock<(size: AVAudioFrameCount, handler: @Sendable (AVAudioPCMBuffer) -> Void)?>(

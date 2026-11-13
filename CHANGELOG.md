@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- The 0.6.0 fix for quiet remote calls did not take effect: other apps still dropped about
+  30 dB while a remote meeting recorded, and the call still reached the transcription engine
+  too quiet. Other apps now drop about 8 dB and the call reaches the engine at speech level,
+  both measured.
+
 ## [0.6.0] - 2026-11-11
 
 ### Added

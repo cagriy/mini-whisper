@@ -88,13 +88,13 @@ struct AVAudioEngineBackendIntegrationTests {
         #expect(await probe.nextBuffer(within: .seconds(5)) ?? 0 > 0)
     }
 
-    /// Default ducking turned other apps' audio, the tap's copy of the call included, down ~30 dB.
+    /// The input node keeps the backend's ducking setting once voice processing is on.
     @Test func voiceProcessingDucksOtherAudioOnlyMinimally() throws {
         let backend = AVAudioEngineBackend()
         defer { try? backend.setVoiceProcessing(false) }
         try backend.setVoiceProcessing(true)
         let ducking = backend.otherAudioDucking
-        #expect(ducking.enableAdvancedDucking.boolValue)
+        #expect(!ducking.enableAdvancedDucking.boolValue)
         #expect(ducking.duckingLevel == .min)
     }
 }

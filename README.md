@@ -138,7 +138,7 @@ participants.
 
 - A remote call is one mixed stream: overlapping voices can garble words, and words said over
   you may be labelled as yours.
-- While a remote call records, other apps play a little quieter (about 7 dB): macOS lowers them
+- While a remote call records, other apps play a little quieter (about 8 dB): macOS lowers them
   while echo cancellation keeps your speakers out of the microphone.
 - If the provider merges two voices into one speaker, renaming cannot split them; move their
   segments one at a time after Stop.
