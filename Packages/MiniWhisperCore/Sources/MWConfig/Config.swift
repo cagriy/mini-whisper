@@ -109,6 +109,15 @@ public struct Config: Equatable, Sendable {
     /// Raw `overlay_style` value that this build does not recognise, kept only so that
     /// saving round-trips it (F2). Never honoured at runtime.
     var unrecognisedOverlayStyle: String?
+    /// Like `overlayStyle`: an absent key means the default, which is written back.
+    public var theme: AppTheme = .system {
+        didSet { unrecognisedTheme = nil }
+    }
+    /// Raw `theme` value that this build does not recognise, kept only so that saving
+    /// round-trips it. Never honoured at runtime.
+    var unrecognisedTheme: String?
+    /// Absent until the main window's frame is first saved.
+    public var mainWindowFrame: WindowFrame?
     public var meetingHotkey = "ctrl+alt+cmd+m"
     /// Absent means "first tier with a key" (`MeetingEngine.resolve`).
     public var meetingEngine: MeetingEngine?
@@ -182,6 +191,8 @@ extension Config: Codable {
         static let streamingEnabled = "streaming_enabled"
         static let streamingEngine = "streaming_engine"
         static let overlayStyle = "overlay_style"
+        static let theme = "theme"
+        static let mainWindowFrame = "main_window_frame"
         static let pricingOverrides = "pricing_overrides"
         static let usage = "usage"
         static let historyRetentionDays = "history_retention_days"
@@ -203,7 +214,7 @@ extension Config: Codable {
             pricingOverrides, usage, historyRetentionDays, idleStopSeconds, toggleMaxSeconds,
             speechModelPrompted, vocabulary, profiles, corrections, correctionTally,
             overlayStyle, meetingHotkey, meetingEngine, meetingKeepAudio, meetingUserName,
-            meetingSystemAudioExplained,
+            meetingSystemAudioExplained, theme, mainWindowFrame,
         ]
     }
 
@@ -249,6 +260,15 @@ extension Config: Codable {
         overlayStyle = known ?? .default
         unrecognisedOverlayStyle = known == nil ? style : nil
 
+        let rawTheme: String? = try value(Key.theme)
+        let knownTheme = rawTheme.flatMap(AppTheme.init(rawValue:))
+        theme = knownTheme ?? .system
+        unrecognisedTheme = knownTheme == nil ? rawTheme : nil
+
+        // `try?`: a throw here would have `ConfigStore` back the whole file up as corrupt
+        // over a value that only places a window.
+        mainWindowFrame = try? value(Key.mainWindowFrame)
+
         for key in container.allKeys where !Key.all.contains(key.stringValue) {
             extra[key.stringValue] = try container.decode(JSONValue.self, forKey: key)
         }
@@ -280,6 +300,8 @@ extension Config: Codable {
             unrecognisedOverlayStyle ?? overlayStyle.rawValue,
             forKey: AnyCodingKey(Key.overlayStyle)
         )
+        try container.encode(unrecognisedTheme ?? theme.rawValue, forKey: AnyCodingKey(Key.theme))
+        try container.encodeIfPresent(mainWindowFrame, forKey: AnyCodingKey(Key.mainWindowFrame))
         try container.encode(meetingHotkey, forKey: AnyCodingKey(Key.meetingHotkey))
         if let meetingEngine {
             try container.encode(meetingEngine, forKey: AnyCodingKey(Key.meetingEngine))

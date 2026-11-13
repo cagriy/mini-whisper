@@ -22,6 +22,10 @@ import Testing
         try JSONDecoder().decode(Config.self, from: Data(json.utf8))
     }
 
+    private func saved(_ config: Config) throws -> [String: Any] {
+        try #require(JSONSerialization.jsonObject(with: config.encoded()) as? [String: Any])
+    }
+
     @Test func decodesPythonDefaultsExactly() throws {
         let config = try decode(Self.pythonDefaultsJSON)
 
@@ -203,6 +207,115 @@ import Testing
         let text = String(decoding: try Config().encoded(), as: UTF8.self)
 
         #expect(text.contains(#""overlay_style" : "soft_meter""#))
+    }
+
+    @Test func themeDefaultsToSystemAndIsWritten() throws {
+        let config = try decode("{}")
+        #expect(config.theme == .system)
+
+        #expect(try saved(config)["theme"] as? String == "system")
+    }
+
+    @Test func themeRoundTripsEachValue() throws {
+        #expect(AppTheme.allCases.map(\.rawValue) == ["system", "light", "dark"])
+
+        for theme in AppTheme.allCases {
+            let config = try decode(#"{"theme": "\#(theme.rawValue)"}"#)
+            #expect(config.theme == theme)
+            #expect(try saved(config)["theme"] as? String == theme.rawValue)
+        }
+    }
+
+    @Test func unknownThemeReadsAsSystemAndSurvivesASave() throws {
+        let config = try decode(#"{"theme": "sepia"}"#)
+        #expect(config.theme == .system)
+        // Kept as the theme's own raw value, not as an unknown key.
+        #expect(config.extra.isEmpty)
+
+        #expect(try saved(config)["theme"] as? String == "sepia")
+    }
+
+    /// `.system` included: it is what an unrecognised value already reads as, and choosing
+    /// it must still replace the raw value.
+    @Test func settingThemeClearsTheUnrecognisedValue() throws {
+        for theme in AppTheme.allCases {
+            var config = try decode(#"{"theme": "sepia"}"#)
+            config.theme = theme
+
+            #expect(try saved(config)["theme"] as? String == theme.rawValue)
+        }
+    }
+
+    @Test func windowFrameRoundTrips() throws {
+        let config = try decode(
+            #"{"main_window_frame": {"x": -1440, "y": 80.5, "width": 1080, "height": 720}}"#
+        )
+        #expect(config.mainWindowFrame == WindowFrame(x: -1440, y: 80.5, width: 1080, height: 720))
+
+        let frame = try #require(try saved(config)["main_window_frame"] as? [String: Double])
+        #expect(frame == ["x": -1440, "y": 80.5, "width": 1080, "height": 720])
+        #expect(try decode(String(decoding: config.encoded(), as: UTF8.self)) == config)
+    }
+
+    @Test func windowFrameAbsentIsNil() throws {
+        var config = try decode("{}")
+        #expect(config.mainWindowFrame == nil)
+        #expect(try !saved(config).keys.contains("main_window_frame"))
+
+        config.mainWindowFrame = WindowFrame(x: 0, y: 0, width: 900, height: 600)
+        #expect(try saved(config).keys.contains("main_window_frame"))
+
+        config.mainWindowFrame = nil
+        #expect(try !saved(config).keys.contains("main_window_frame"))
+    }
+
+    /// A throw from `Config.init(from:)` makes `ConfigStore` back the whole file up as
+    /// corrupt, so a bad frame must cost the frame only.
+    @Test(arguments: [
+        #""1080x720""#,
+        #"{"x": 0, "y": 0, "height": 720}"#,
+        #"{"x": 1e999, "y": 0, "width": 1080, "height": 720}"#,
+    ])
+    func malformedWindowFrameReadsAsAbsentAndKeepsTheRestOfTheConfig(frame: String) throws {
+        let config = try decode(#"{"hotkey": "cmd+space", "main_window_frame": \#(frame)}"#)
+
+        #expect(config.mainWindowFrame == nil)
+        #expect(config.hotkey == "cmd+space")
+        #expect(config.extra.isEmpty)
+    }
+
+    /// `JSONDecoder` refuses `1e999` by default; one set to accept non-finite spellings
+    /// hands them over, so the frame has to check its own numbers.
+    @Test func nonFiniteWindowFrameReadsAsAbsentWhateverTheDecoderAllows() throws {
+        let decoder = JSONDecoder()
+        decoder.nonConformingFloatDecodingStrategy = .convertFromString(
+            positiveInfinity: "inf", negativeInfinity: "-inf", nan: "nan"
+        )
+        func decoded(frame: [String: Any]) throws -> Config {
+            let json: [String: Any] = ["hotkey": "cmd+space", "main_window_frame": frame]
+            return try decoder.decode(Config.self, from: JSONSerialization.data(withJSONObject: json))
+        }
+        let finite: [String: Any] = ["x": 0, "y": 0, "width": 1080, "height": 720]
+        #expect(try decoded(frame: finite).mainWindowFrame != nil)
+
+        for member in finite.keys.sorted() {
+            for spelling in ["inf", "-inf", "nan"] {
+                var frame = finite
+                frame[member] = spelling
+                let config = try decoded(frame: frame)
+
+                #expect(config.mainWindowFrame == nil, "\(member): \(spelling)")
+                #expect(config.hotkey == "cmd+space")
+            }
+        }
+    }
+
+    @Test func themeAndWindowFrameNeverLandInExtra() throws {
+        let config = try decode(
+            #"{"theme": "dark", "main_window_frame": {"x": 0, "y": 0, "width": 900, "height": 600}}"#
+        )
+
+        #expect(config.extra.isEmpty)
     }
 
     @Test func duplicateBundleIDKeepsFirstProfile() throws {
