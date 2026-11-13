@@ -511,6 +511,16 @@ Once Stage 17 is in, on a built app (`xcodebuild … build`, then run `.dd/Build
 
 None — plan matches design v6 exactly.
 
+## Deviations from plan
+
+- Before Stage 1: `DESIGN.md` and `design/specimen.html` entered version control with the feature documents in `736827b`, not in Stage 6, so every checkout carries the design language. Stage 6 leaves both as they are.
+- Batch 1: Stage 1 left the parallel wave. Its *Touches* missed `Tests/MWMeetingsTests/TestCallModelTests.swift`, a file a worktree may not cross into, so it was finished serially in the main tree and Stage 2 landed after it by cherry-pick.
+- Stage 1: `TestCallModelTests.legacyMeetingAndIndexDecodeWithoutATag` asserted that a v0.5 `meeting.json` re-encodes byte for byte. Design §5.2 always encodes `replacedSummaryCostUSD`, so the test now expects the legacy bytes plus that one key; the index bytes are unchanged.
+- Stage 1: parsing rule 3 matches `^ {0,3}(#{1,6})\s+` and cuts the closing `#`s and whitespace by hand. Same result as `(.*?)\s*#*$`, which backtracks quadratically on a long run of `#` or spaces; `aLongRunOfHashesOrSpacesParsesInLinearTime` guards it.
+- Stage 1: rule 5's `\d` is ASCII-only, because `Int` reads no other digits.
+- Stage 1: tests beyond the named ones: `billingAlwaysEncodesReplacedCost`, `aLongRunOfHashesOrSpacesParsesInLinearTime` and edge cases in `SummaryDocumentTests`.
+- Stage 2: two tests beyond the named ones: `themeAndWindowFrameNeverLandInExtra` (both keys in `Key.all`) and `nonFiniteWindowFrameReadsAsAbsentWhateverTheDecoderAllows` (the stock `JSONDecoder` already refuses `1e999`, so only a decoder converting non-finite spellings reaches `WindowFrame`'s own check).
+
 ## Execution schedule
 
 Batches run in order; a batch starts only when the previous one has fully landed. Stages inside a *parallel* batch are independent and may be built concurrently; a *serial* batch holds one stage. `/feature-implement` follows this table and demotes any batch it cannot verify to serial.
