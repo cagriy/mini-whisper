@@ -106,4 +106,91 @@ import MWTestSupport
 
         #expect(try provider.summaryPrompt() == "Summarise the meeting.")
     }
+
+    // MARK: - Summary prompt migration
+
+    /// `git show e64ed39:App/Resources/default_summary_prompt.txt`, final newline included.
+    private static let shippedAtE64ed39 = """
+        You summarise a meeting for the person who attended it. Write four sections with these \
+        exact headings: `## Summary`, `## Decisions`, `## Action items`, `## Open questions`. \
+        Summary is one short paragraph. Decisions, Action items and Open questions are bullet \
+        lists; an action item starts with the owner's name in bold when the transcript names one. \
+        Use the speaker names exactly as given. Do not invent names, decisions, owners or dates; \
+        when something was discussed but not settled, list it under Open questions. The \
+        attendee's own notes are provided separately and may be used as hints about what \
+        mattered, never as transcript. Answer in the language of the transcript.
+
+        """
+
+    private static let topicDefault = "Write the meeting up by topic.\n"
+
+    @Test func legacyDefaultIsTheTextShippedAtE64ed39() {
+        #expect(PromptFiles.legacySummaryDefaults.first == Self.shippedAtE64ed39)
+    }
+
+    @Test func migrationLeavesAMissingFileAlone() throws {
+        let fixture = try makeFixture()
+
+        #expect(try fixture.files.migrateSummaryPrompt() == false)
+        #expect(!FileManager.default.fileExists(atPath: fixture.files.summaryPromptURL.path))
+    }
+
+    @Test func migrationReplacesTheLegacyDefault() throws {
+        let fixture = try makeFixture(summary: Self.topicDefault)
+        let file = fixture.files.summaryPromptURL
+        try Data(PromptFiles.legacySummaryDefaults[0].utf8).write(to: file)
+
+        #expect(try fixture.files.migrateSummaryPrompt() == true)
+        #expect(try String(contentsOf: file, encoding: .utf8) == Self.topicDefault)
+    }
+
+    /// Settings saves the prompt trimmed; an editor may leave blank lines around it.
+    @Test(arguments: [
+        Self.shippedAtE64ed39.trimmingCharacters(in: .whitespacesAndNewlines),
+        "  \n  " + Self.shippedAtE64ed39 + "\n",
+    ])
+    func migrationMatchesIgnoringSurroundingWhitespace(stored: String) throws {
+        let fixture = try makeFixture(summary: Self.topicDefault)
+        let file = fixture.files.summaryPromptURL
+        try Data(stored.utf8).write(to: file)
+
+        #expect(try fixture.files.migrateSummaryPrompt() == true)
+        #expect(try String(contentsOf: file, encoding: .utf8) == Self.topicDefault)
+    }
+
+    @Test func migrationLeavesAnEditedFileByteForByte() throws {
+        let fixture = try makeFixture()
+        let file = fixture.files.summaryPromptURL
+        let edited = Data((Self.shippedAtE64ed39 + "Also list the risks.\r\n").utf8)
+        let saved = Date(timeIntervalSince1970: 1_700_000_000)
+        try edited.write(to: file)
+        try FileManager.default.setAttributes([.modificationDate: saved], ofItemAtPath: file.path)
+
+        #expect(try fixture.files.migrateSummaryPrompt() == false)
+        #expect(try Data(contentsOf: file) == edited)
+        #expect(
+            try FileManager.default.attributesOfItem(atPath: file.path)[.modificationDate] as? Date == saved
+        )
+    }
+
+    @Test func migrationThrowsOnAnUnreadableFileAndLeavesIt() throws {
+        let fixture = try makeFixture()
+        let file = fixture.files.summaryPromptURL
+        let notUTF8 = Data([0xFF, 0xFE, 0xFD])
+        try notUTF8.write(to: file)
+
+        #expect(throws: (any Error).self) { try fixture.files.migrateSummaryPrompt() }
+        #expect(try Data(contentsOf: file) == notUTF8)
+    }
+
+    @Test func migrationThrowsWithoutABundledDefaultAndLeavesTheLegacyFile() throws {
+        let fixture = try makeFixture()
+        let file = fixture.files.summaryPromptURL
+        let legacy = Data(Self.shippedAtE64ed39.utf8)
+        try legacy.write(to: file)
+        try FileManager.default.removeItem(at: fixture.bundle.file("default_summary_prompt.txt"))
+
+        #expect(throws: (any Error).self) { try fixture.files.migrateSummaryPrompt() }
+        #expect(try Data(contentsOf: file) == legacy)
+    }
 }

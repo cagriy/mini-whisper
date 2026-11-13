@@ -104,6 +104,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             bundledTranscribe: Self.bundledPrompt("default_transcribe_prompt"),
             bundledSummary: Self.bundledPrompt("default_summary_prompt")
         )
+        do {
+            if try prompts.migrateSummaryPrompt() { Log.ui.info("summary prompt migrated") }
+        } catch {
+            Log.ui.warning("summary prompt migration failed: \(AnyError(error).description)")
+        }
         let history = HistoryStore(
             url: Self.configDirectory.appendingPathComponent("history.jsonl"),
             retention: { [retentionDays] in retentionDays.withLock { $0 } }
