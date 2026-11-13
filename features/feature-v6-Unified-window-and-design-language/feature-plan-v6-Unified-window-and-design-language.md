@@ -527,6 +527,12 @@ None — plan matches design v6 exactly.
 - Stage 4: `logging(to:_:)` in `Tests/MWMeetingPipelineTests/MeetingControllerTestCallTests.swift`, a file outside the stage's *Touches*, lost its `private` so the new suite reuses it.
 - Stage 5: `DayEntry.add(_:)`, for a `DayEntry` and for a `ProviderUsage`, is a public extension in `MWUsage/UsageTotals.swift`. The month sum would have been the third copy of the accumulation in `UsageStore.add` and `FakeUsageStore.add`; all three now call it.
 - Stage 5: `PricingTests.partialMinutesFloor`, not in the stage's list, also moved to `UsageTotals`. `usageTableAt0_59And134Minutes` also checks `1h 0m` and `10h 0m`.
+- Stage 6: the user's speaker colour is `SpeakerColor.user`, `DS.Colors.accent`, where it was the system accent. `App/TestCall/ScriptPane.swift`, outside the stage's *Touches*, reads it for `.you`, so the user has one colour in the transcript and the script.
+- Stage 6: `DS` holds values beyond the tested palette, each read off the mockups: `Colors.white`, `knobShadow`, `scrim` and `dialogShadow`, `Radius.small` (6), `Size` (`hairline`, `control` 30, `controlSmall` 24, `pageColumn` 736, `readingColumn` 640) and `TextStyle.label` (11/14 semibold, chips). `typeScaleMatchesDesignMD` pins line heights, weights and designs as well as point sizes.
+- Stage 6: `textStyle(_:)` gives each line the style's line height, as CSS does: the font, line spacing and half the difference above and below. The mockups' boxes include their 1-point border, so padding inside a bordered component adds `DS.Size.hairline`.
+- Stage 6: `DSFieldStyle` is a `ViewModifier` applied with `.dsField()`, not a `TextFieldStyle`, so it also dresses a `TextEditor` (`.area`). `SearchPill` lives in `DSFieldStyle.swift` and `PulseBars` in `StatusLine.swift`, each a view of its own. `DSToggleStyle` draws the switch only; the label reaches assistive technology through an accessibility representation.
+- Stage 6: a setting's description uses `type.meta` (12/16); the mockup's `.set .d` is 12/17, so a row is a point shorter per description line.
+- Stage 6: the components were also rendered to bitmaps, light and dark, by a temporary test that is not in the commit, and compared with the mockups. The hand check in the running app is still due.
 
 ## Execution schedule
 
