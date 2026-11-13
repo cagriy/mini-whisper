@@ -356,10 +356,14 @@ final class MeetingWindowModel {
 
     var elapsedText: String { MeetingTime.format(elapsed) }
 
-    /// Live: the engine so far. Stopped: the engine plus the summary (R18).
+    /// Live: the engine so far. Stopped: the engine, the replaced summaries and the current one (R18).
     var costText: String {
-        guard case .ready(let summary)? = summary else { return Pricing.dollars(cost) }
-        return Pricing.dollars(cost + summary.costUSD)
+        switch summary {
+        case .ready(let current)?, .rewriting(let current)?, .kept(let current, _)?:
+            Pricing.dollars(cost + current.costUSD)
+        default:
+            Pricing.dollars(cost)
+        }
     }
 
     var endedChip: String? {
@@ -375,7 +379,8 @@ final class MeetingWindowModel {
             return .message(transcribed ? Self.noSummaryYet : MeetingController.nothingTranscribed, canSummarise: transcribed)
         }
         return switch summary {
-        case .ready(let summary): .ready(sections: Self.sections(of: summary.text), meta: meta(of: summary))
+        case .ready(let current), .rewriting(let current), .kept(let current, _):
+            .ready(sections: Self.sections(of: current.text), meta: meta(of: current))
         case .writing: .writing
         case .none(let reason), .failed(let reason): .message(reason, canSummarise: transcribed)
         }
@@ -458,7 +463,7 @@ final class MeetingWindowModel {
         if let endedAt = meeting.endedAt {
             self.endedAt = endedAt
             elapsed = meeting.durationSeconds
-            cost = meeting.billing.costUSD
+            cost = meeting.billing.costUSD + meeting.billing.replacedSummaryCostUSD
         }
     }
 
@@ -548,6 +553,8 @@ final class MeetingWindowModel {
         case .cost(let dollars):
             cost = dollars
         case .summary(let summary):
+            // The summary a regenerate replaced stays in the total.
+            if case .rewriting(let replaced)? = self.summary, case .ready = summary { cost += replaced.costUSD }
             self.summary = summary
             if case .ready = summary { summaryTruncated = isTruncated }
         case .systemAudio(let state):

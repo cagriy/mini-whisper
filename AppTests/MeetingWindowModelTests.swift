@@ -4,6 +4,7 @@ import MWMeetingPipeline
 import MWMeetings
 import MWStreaming
 import MWTestCall
+import MWUsage
 import Testing
 @testable import MiniWhisper
 
@@ -479,6 +480,51 @@ import Testing
         #expect(model.costText == "$0.37")
         model.apply(.summary(.ready(Self.summary)))
         #expect(model.costText == "$0.40")
+    }
+
+    // MARK: - Regenerate
+
+    private static let regenerated = Summary(
+        text: "## Rollout\n- On schedule.", model: "claude-sonnet-5-5",
+        createdAt: Date(timeIntervalSince1970: 1_794_240_000), inputTokens: 13_000, outputTokens: 480, costUSD: 0.05
+    )
+
+    @Test func costAfterARegenerateIncludesTheReplacedSummary() {
+        let model = stopped(.ready(Self.summary))
+        model.show(Self.meeting(ended: true))
+
+        model.apply(.summary(.rewriting(Self.summary)))
+        #expect(model.costText == Pricing.dollars(0.3665 + 0.03106))
+        model.apply(.summary(.ready(Self.regenerated)))
+        #expect(model.costText == Pricing.dollars(0.3665 + 0.03106 + 0.05))
+        #expect(model.costText == "$0.45")
+
+        // Nothing is replaced when the summary is kept.
+        model.apply(.summary(.rewriting(Self.regenerated)))
+        model.apply(.summary(.kept(Self.regenerated, reason: "API error (503).")))
+        #expect(model.costText == "$0.45")
+    }
+
+    @Test func showReadsTheReplacedCostFromBilling() {
+        var meeting = Self.meeting(ended: true)
+        meeting.billing.replacedSummaryCostUSD = 0.03106
+        let model = stopped(.ready(Self.regenerated))
+
+        model.show(meeting)
+
+        #expect(model.costText == Pricing.dollars(0.3665 + 0.03106 + 0.05))
+    }
+
+    @Test func rewritingAndKeptStillShowTheCurrentSummary() {
+        let ready = stopped(.ready(Self.summary)).summaryPanel
+        #expect(ready != nil)
+
+        for state in [SummaryState.rewriting(Self.summary), .kept(Self.summary, reason: "API error (503).")] {
+            let model = stopped(.ready(Self.summary))
+            model.apply(.summary(state))
+            #expect(model.summaryPanel == ready)
+            #expect(model.canSummarise == false)
+        }
     }
 
     // MARK: - Test calls

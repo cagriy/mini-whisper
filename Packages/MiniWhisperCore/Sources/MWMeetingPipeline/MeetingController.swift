@@ -607,11 +607,58 @@ public final class MeetingController {
     /// Design §5.6 Summarise; does nothing once the meeting has a summary.
     public func summarise() async {
         guard state == .stopped, !summarising, let meeting, meeting.summary == nil else { return }
-        guard !segments.isEmpty else { return emit(.summary(.none(Self.nothingTranscribed))) }
-        guard secret(.anthropic) != nil else { return emit(.summary(.none(Self.noSummaryKey))) }
+        if let reason = summaryBlocker { return emit(.summary(.none(reason))) }
         summarising = true
         defer { summarising = false }
         emit(.summary(.writing))
+        switch await requestSummary(of: meeting) {
+        case .ready(let summary):
+            await adopt(summary)
+            emit(.summary(.ready(summary)))
+        case .failed(let reason):
+            emit(.summary(.failed(reason)))
+        case .empty:
+            emit(.summary(.none(Self.nothingTranscribed)))
+        }
+    }
+
+    /// Design §5.6 Regenerate: the current summary stays until a new one has arrived, and is
+    /// kept, with nothing saved, when none does.
+    public func regenerateSummary() async {
+        guard state == .stopped, !summarising, let meeting, let current = meeting.summary else { return }
+        if let reason = summaryBlocker { return keep(current, reason) }
+        summarising = true
+        defer { summarising = false }
+        log.info("summary regenerate started")
+        emit(.summary(.rewriting(current)))
+        switch await requestSummary(of: meeting) {
+        case .ready(let summary):
+            self.meeting?.billing.replacedSummaryCostUSD += current.costUSD
+            await adopt(summary)
+            log.info("summary regenerate: ready")
+            emit(.summary(.ready(summary)))
+        case .failed(let reason):
+            keep(current, reason)
+        case .empty:
+            keep(current, Self.nothingTranscribed)
+        }
+    }
+
+    private enum SummaryAttempt {
+        case ready(Summary)
+        /// Declined, or the request's error.
+        case failed(String)
+        case empty
+    }
+
+    /// Why no request is made: nothing to summarise, or no Anthropic key.
+    private var summaryBlocker: String? {
+        if segments.isEmpty { return Self.nothingTranscribed }
+        return secret(.anthropic) == nil ? Self.noSummaryKey : nil
+    }
+
+    /// One summary request over the meeting as it stands; saves nothing.
+    private func requestSummary(of meeting: Meeting) async -> SummaryAttempt {
         let summariser = Summariser(
             prompts: deps.prompts,
             client: deps.summarizer,
@@ -620,23 +667,29 @@ public final class MeetingController {
         )
         do {
             switch try await summariser.run(LoadedMeeting(meeting: meeting, segments: segments, notes: notes)) {
-            case .ready(let summary):
-                self.meeting?.summary = summary
-                await saveMeeting()
-                await addUsage(ProviderUsage(
-                    inputTokens: summary.inputTokens, outputTokens: summary.outputTokens, costUSD: summary.costUSD
-                ))
-                emit(.summary(.ready(summary)))
-            case .declined(let category):
-                emit(.summary(.failed("Summary declined (\(category))")))
-            case .empty:
-                emit(.summary(.none(Self.nothingTranscribed)))
+            case .ready(let summary): return .ready(summary)
+            case .declined(let category): return .failed("Summary declined (\(category))")
+            case .empty: return .empty
             }
         } catch {
             let reason = AnyError(error).description
             log.warning("summary failed: \(reason)")
-            emit(.summary(.failed(reason)))
+            return .failed(reason)
         }
+    }
+
+    /// Stores the summary and bills its tokens.
+    private func adopt(_ summary: Summary) async {
+        meeting?.summary = summary
+        await saveMeeting()
+        await addUsage(ProviderUsage(
+            inputTokens: summary.inputTokens, outputTokens: summary.outputTokens, costUSD: summary.costUSD
+        ))
+    }
+
+    private func keep(_ current: Summary, _ reason: String) {
+        log.info("summary regenerate: kept (\(reason))")
+        emit(.summary(.kept(current, reason: reason)))
     }
 
     // MARK: - Persistence

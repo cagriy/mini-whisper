@@ -24,6 +24,10 @@ public enum SummaryState: Sendable, Equatable {
     case ready(Summary)
     /// The request failed or was declined; *Summarise* stays available.
     case failed(String)
+    /// A new summary is being written; this one is still current.
+    case rewriting(Summary)
+    /// Regeneration did not produce one; this one is still current.
+    case kept(Summary, reason: String)
 }
 
 /// The capture chip and the silence hint (design §3 R2, §5.6).

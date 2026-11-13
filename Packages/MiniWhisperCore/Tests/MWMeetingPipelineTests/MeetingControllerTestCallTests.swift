@@ -380,7 +380,7 @@ private let sprintPlanning = TestCallTag(scenarioID: "sprint-planning", revision
 }
 
 /// `Log.withSinks` around a main-actor body.
-private func logging(to sink: CapturingLogSink, _ body: @MainActor @Sendable () async throws -> Void) async throws {
+func logging(to sink: CapturingLogSink, _ body: @MainActor @Sendable () async throws -> Void) async throws {
     try await Log.withSinks(debug: true, sinks: [sink]) { try await body() }
 }
 
