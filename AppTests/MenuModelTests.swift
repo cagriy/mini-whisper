@@ -27,7 +27,7 @@ import Testing
             "",
             "Start Meeting…",
             "Meetings…",
-            "History...",
+            "Dictations…",
             "Settings...",
             "",
             "Check for Updates…",
@@ -36,14 +36,14 @@ import Testing
         ])
         #expect(model.items.map(\.isSeparator) == [false, false, true, false, false, false, false, true, false, false, false])
         #expect(model.items.map(\.action) == [
-            nil, nil, nil, .startMeeting, .meetings, .history, .settings, nil, .checkForUpdates, .about, .quit,
+            nil, nil, nil, .startMeeting, .meetings, .dictations, .settings, nil, .checkForUpdates, .about, .quit,
         ])
     }
 
     @Test func activeMeetingShowsStopAndShowMeeting() {
         var model = MenuModel()
         model.setMeetingActive(true)
-        #expect(model.items.map(\.title)[2...6] == ["", "Stop Meeting", "Show Meeting…", "Meetings…", "History..."])
+        #expect(model.items.map(\.title)[2...6] == ["", "Stop Meeting", "Show Meeting…", "Meetings…", "Dictations…"])
         #expect(model.items.map(\.action)[3...4] == [.stopMeeting, .showMeeting])
         #expect(!model.items.contains { $0.action == .startMeeting })
     }
@@ -64,7 +64,7 @@ import Testing
             let titles = model.items.map(\.title)
             let meetings = titles.firstIndex(of: "Meetings…")
             #expect(model.items.filter { $0.action == .meetings }.count == 1)
-            #expect(meetings.map { titles[$0 + 1] } == "History...")
+            #expect(meetings.map { titles[$0 + 1] } == "Dictations…")
             #expect(meetings.map { titles[$0 - 1] } == (active ? "Show Meeting…" : "Start Meeting…"))
         }
     }
@@ -78,7 +78,7 @@ import Testing
         ])
         model.setMeetingActive(false)
         #expect(model.items.map(\.title)[2...7] == [
-            "Last: \"hello\"", "Correct Last Dictation…", "", "Start Meeting…", "Meetings…", "History...",
+            "Last: \"hello\"", "Correct Last Dictation…", "", "Start Meeting…", "Meetings…", "Dictations…",
         ])
     }
 
@@ -94,7 +94,7 @@ import Testing
             "",
             "Start Meeting…",
             "Meetings…",
-            "History...",
+            "Dictations…",
             "Settings...",
             "",
             "Check for Updates…",

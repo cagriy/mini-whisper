@@ -47,12 +47,13 @@ extension View {
 }
 
 /// The search field: a pill with the magnifier and, at the right, the shortcut that focuses it.
+/// Esc empties it.
 struct SearchPill: View {
     @Binding var text: String
+    /// Its owner focuses it from a shortcut.
+    let focused: FocusState<Bool>.Binding
     var prompt = "Search"
     var hint: String?
-
-    @FocusState private var focused: Bool
 
     var body: some View {
         HStack(spacing: DS.Space.s3) {
@@ -60,7 +61,8 @@ struct SearchPill: View {
             TextField(prompt, text: $text, prompt: Text(prompt).foregroundStyle(DS.Colors.textTertiary))
                 .textFieldStyle(.plain)
                 .foregroundStyle(DS.Colors.text)
-                .focused($focused)
+                .focused(focused)
+                .onExitCommand { text = "" }
             if let hint {
                 Text(hint).font(DS.TextStyle.label.weight(.regular).font)
             }
@@ -69,7 +71,7 @@ struct SearchPill: View {
         .foregroundStyle(DS.Colors.textTertiary)
         .padding(.horizontal, DS.Space.s5 + DS.Size.hairline)
         .frame(height: DS.Size.control)
-        .modifier(FieldChrome(shape: Capsule(), fill: DS.Colors.card, focused: focused))
+        .modifier(FieldChrome(shape: Capsule(), fill: DS.Colors.card, focused: focused.wrappedValue))
     }
 }
 

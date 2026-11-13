@@ -4,7 +4,7 @@ import SwiftUI
 /// Return confirms; Esc and a click on the scrim cancel.
 struct DSDialog: View {
     let title: String
-    let message: String
+    var message: String?
     /// The filled button's title.
     let confirmTitle: String
     var cancelTitle = "Cancel"
@@ -22,10 +22,12 @@ struct DSDialog: View {
                     .textStyle(.titleDialog)
                     .foregroundStyle(DS.Colors.text)
                     .accessibilityAddTraits(.isHeader)
-                Text(message)
-                    .textStyle(.body)
-                    .foregroundStyle(DS.Colors.textSecondary)
-                    .fixedSize(horizontal: false, vertical: true)
+                if let message {
+                    Text(message)
+                        .textStyle(.body)
+                        .foregroundStyle(DS.Colors.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
                 HStack(spacing: DS.Space.s4) {
                     Spacer(minLength: 0)
                     Button(cancelTitle, action: cancel)

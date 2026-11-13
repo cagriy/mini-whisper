@@ -120,7 +120,8 @@ import Testing
                 previousApp: { [previous] in previous.target },
                 hide: { log.record("hide") },
                 activate: { target in log.record("activate(\(target.pid))") },
-                correct: { [corrections] source in corrections.record(source) }
+                correct: { [corrections] source in corrections.record(source) },
+                changed: { log.record("changed") }
             ))
         }
 
@@ -151,7 +152,7 @@ import Testing
         Calendar.current.date(byAdding: .day, value: -count, to: date)!
     }
 
-    // MARK: - Grouping and search
+    // MARK: - Grouping and selection
 
     @Test func groupsByDayNewestFirst() async throws {
         let harness = Harness()
@@ -175,23 +176,51 @@ import Testing
         #expect(model.days.last?.title != "Yesterday")
     }
 
-    @Test func searchFiltersCaseInsensitive() async throws {
+    @Test func revealSelectsTheRow() async throws {
+        let harness = Harness()
+        defer { harness.cleanUp() }
+        let older = Self.entry("older", at: harness.now.addingTimeInterval(-60))
+        try await harness.add(Self.entry("newest", at: harness.now), older)
+
+        // Revealed before the page has loaded: reveal reads the store itself.
+        let model = harness.model()
+        await model.reveal(older.id)
+
+        #expect(model.selection == older.id)
+        #expect(model.days.flatMap(\.rows).map(\.text) == ["newest", "older"])
+    }
+
+    @Test func revealOfARemovedDictationSelectsNothing() async throws {
+        let harness = Harness()
+        defer { harness.cleanUp() }
+        let kept = Self.entry("kept", at: harness.now)
+        try await harness.add(kept)
+
+        let model = harness.model()
+        await model.reveal(kept.id)
+        #expect(model.selection == kept.id)
+        await model.reveal("removed-by-retention")
+
+        #expect(model.selection == nil)
+    }
+
+    @Test func deleteAndClearReportAChange() async throws {
         let harness = Harness()
         defer { harness.cleanUp() }
         try await harness.add(
-            Self.entry("Move the design review to Thursday", at: harness.now),
-            Self.entry("order the usual", at: harness.now.addingTimeInterval(-60))
+            Self.entry("one", at: harness.now),
+            Self.entry("two", at: harness.now.addingTimeInterval(-60))
         )
 
         let model = harness.model()
-        model.query = "THURSDAY"
         await model.reload()
+        #expect(harness.log.events.isEmpty)
 
-        #expect(model.days.flatMap(\.rows).map(\.text) == ["Move the design review to Thursday"])
+        await model.delete(try #require(model.days.first?.rows.first))
+        #expect(harness.log.events == ["changed"])
 
-        model.query = ""
-        await model.reload()
-        #expect(model.days.flatMap(\.rows).count == 2)
+        await model.clear()
+        #expect(harness.log.events == ["changed", "changed"])
     }
 
     // MARK: - Row and footer text

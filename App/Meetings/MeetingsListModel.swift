@@ -4,7 +4,7 @@ import MWSupport
 import MWUsage
 import Observation
 
-/// What the Meetings window needs of the store; `MeetingStore` conforms. The list renames and
+/// What the Meetings page needs of the store; `MeetingStore` conforms. The list renames and
 /// deletes through it directly (*Planning decisions taken* #22).
 protocol MeetingLibrary: MeetingReading {
     var isIndexMissing: Bool { get }
@@ -22,21 +22,20 @@ extension MeetingStore: MeetingLibrary {
     }
 }
 
-/// Everything the Meetings window decides (design §3 R16, R17, §5.9; mockup
-/// `mockup-v4-meetings-list.html`): day groups, row and footer texts, debounced search with
-/// labelled snippets, and the open, export, delete and rename intents.
+/// Everything the Meetings page decides (design v6 §3 R18, §5.9; mockup
+/// `mockup-v6-overview.html`): day groups, row and count texts, and the open, export, delete
+/// and rename intents.
 @MainActor
 @Observable
 final class MeetingsListModel {
     struct Dependencies {
         var library: any MeetingLibrary
-        var clock: any MWSupport.Clock
         var now: @Sendable () -> Date
         /// Its time zone sets the day groups and start times.
         var calendar: Calendar
         /// The meeting hotkey as shown, for the empty state.
         var hotkey: @MainActor () -> String
-        /// A meeting with a window open: its own controller renames it, and it cannot be deleted.
+        /// A meeting held by a session: its own controller renames it, and it cannot be deleted.
         var isOpen: @MainActor (UUID) -> Bool
         /// Renames an open meeting through its window; false when it is not open.
         var retitleOpen: @MainActor (UUID, String) async -> Bool
@@ -46,18 +45,18 @@ final class MeetingsListModel {
         var showInFinder: @MainActor () -> Void
     }
 
-    typealias Snippet = SearchModel.Snippet
-
     struct Row: Identifiable, Equatable {
         let id: UUID
         let title: String
         let mode: MeetingMode
-        /// The summary's first sentence, or else the first transcript line, shown in italics.
-        let excerpt: String
-        let excerptIsTranscript: Bool
-        /// While searching, in place of the excerpt.
-        let snippets: [Snippet]
+        /// R18: the summary's topics or first sentence; without a summary, the first transcript
+        /// line in curly quotes.
+        let subLine: String
+        /// The sub line quotes the transcript, and is shown in italics.
+        let subLineIsTranscript: Bool
         let meta: String
+        /// The start, "14:30".
+        let time: String
         let audioBytes: Int
         /// A test call: the TEST chip follows the title (R23).
         let isTest: Bool
@@ -89,23 +88,13 @@ final class MeetingsListModel {
         let confirmTitle: String
     }
 
-    static let searchDelay = Duration.milliseconds(150)
-
     private let deps: Dependencies
     @ObservationIgnored private let timeFormat: DateFormatter
     @ObservationIgnored private let dayFormat: DateFormatter
     /// Newest first.
     private(set) var entries: [IndexEntry] = []
-    var query = "" {
-        didSet { if query != oldValue { scheduleSearch() } }
-    }
-
-    /// Snippets per matching meeting; nil when not searching.
-    private(set) var hits: [UUID: [Snippet]]?
     private(set) var pendingDeletion: Deletion?
     private(set) var errorMessage: String?
-    /// The debounced search under way, if any.
-    @ObservationIgnored private(set) var search: Task<Void, Never>?
 
     init(deps: Dependencies) {
         self.deps = deps
@@ -116,9 +105,8 @@ final class MeetingsListModel {
     // MARK: - Outputs
 
     var days: [DayGroup] {
-        let shown = hits.map { hits in entries.filter { hits[$0.id] != nil } } ?? entries
         var groups: [(day: Date, rows: [Row])] = []
-        for entry in shown {
+        for entry in entries {
             let day = deps.calendar.startOfDay(for: entry.startedAt)
             if groups.last?.day == day {
                 groups[groups.count - 1].rows.append(row(for: entry))
@@ -129,14 +117,11 @@ final class MeetingsListModel {
         return groups.map { DayGroup(id: $0.day, title: dayTitle($0.day), rows: $0.rows) }
     }
 
+    /// "12 meetings · 310 MB audio", under the page title.
     var footer: String {
-        guard let hits else {
-            let audio = entries.reduce(0) { $0 + $1.audioBytes }
-            let count = Self.plural(entries.count, "meeting")
-            return audio > 0 ? "\(count) · \(Self.size(audio)) audio" : count
-        }
-        let matches = entries.filter { hits[$0.id] != nil }.count
-        return "\(matches) of \(Self.plural(entries.count, "meeting")) \(matches == 1 ? "matches" : "match")"
+        let audio = entries.reduce(0) { $0 + $1.audioBytes }
+        let count = Self.plural(entries.count, "meeting")
+        return audio > 0 ? "\(count) · \(Self.size(audio)) audio" : count
     }
 
     /// R16: before the first meeting, the message naming the hotkey.
@@ -148,6 +133,11 @@ final class MeetingsListModel {
 
     func canDelete(_ row: Row) -> Bool {
         !deps.isOpen(row.id)
+    }
+
+    /// Why Delete is disabled (R12), or nil when it is not.
+    func deleteHelp(_ row: Row) -> String? {
+        canDelete(row) ? nil : "This meeting is recording, on screen, or its summary is being written"
     }
 
     func exportItems(for row: Row) -> [ExportItem] {
@@ -174,7 +164,6 @@ final class MeetingsListModel {
         } catch {
             show(error, doing: "list")
         }
-        if hits != nil { scheduleSearch() }
     }
 
     func open(_ row: Row) async {
@@ -243,76 +232,38 @@ final class MeetingsListModel {
 
     func showInFinder() { deps.showInFinder() }
 
-    // MARK: - Search
-
-    /// §5.9: 150 ms after the last keystroke, `MeetingSearch` over every stored meeting, off the
-    /// main actor.
-    private func scheduleSearch() {
-        search?.cancel()
-        let query = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !query.isEmpty else {
-            search = nil
-            hits = nil
-            return
-        }
-        let library = deps.library
-        let clock = deps.clock
-        let ids = entries.map(\.id)
-        search = Task { [weak self] in
-            try? await clock.sleep(for: Self.searchDelay)
-            guard !Task.isCancelled else { return }
-            let found = await Task.detached { Self.matches(query, ids: ids, in: library) }.value
-            guard !Task.isCancelled else { return }
-            self?.hits = found
-        }
-    }
-
-    private nonisolated static func matches(_ query: String, ids: [UUID], in library: any MeetingLibrary) -> [UUID: [Snippet]] {
-        let meetings = ids.compactMap { try? library.load($0) }
-        var found: [UUID: [Snippet]] = [:]
-        for hit in MeetingSearch().search(query, in: meetings) {
-            guard let meeting = meetings.first(where: { $0.meeting.id == hit.meetingID }) else { continue }
-            found[hit.meetingID] = hit.snippets.map {
-                Snippet(label: SearchModel.label(of: $0, in: meeting), text: $0.text)
-            }
-        }
-        return found
-    }
-
     // MARK: - Presentation
 
     private func row(for entry: IndexEntry) -> Row {
-        Row(
+        let quoted = !entry.hasSummary && !entry.excerpt.isEmpty
+        return Row(
             id: entry.id,
             title: entry.title,
             mode: entry.mode,
-            excerpt: entry.excerpt,
-            excerptIsTranscript: !entry.hasSummary,
-            snippets: hits?[entry.id] ?? [],
+            subLine: quoted ? "\u{201C}\(entry.excerpt)\u{201D}" : entry.excerpt,
+            subLineIsTranscript: !entry.hasSummary,
             meta: meta(of: entry),
+            time: timeFormat.string(from: entry.startedAt),
             audioBytes: entry.audioBytes,
             isTest: entry.test != nil
         )
     }
 
-    /// "14:30 · 48 min · Remote call · 3 speakers · $0.40 · Audio 23 MB" (mockup State 1); a test
-    /// call reads "11:14 · 2 min · Remote call · WER 6.4% · AssemblyAI Universal-Streaming · $0.02",
-    /// without the WER until it is scored (R23).
+    /// "48 min · Remote call · 3 speakers · $0.40"; a test call reads
+    /// "2 min · WER 6.4% · AssemblyAI Universal-Streaming · $0.02", without the WER until it is scored.
     private func meta(of entry: IndexEntry) -> String {
-        var parts = [
-            timeFormat.string(from: entry.startedAt),
-            Self.duration(entry.duration),
-            MeetingWindowModel.title(of: entry.mode),
-        ]
+        var parts = [Self.duration(entry.duration)]
         if let test = entry.test {
             if let wer = test.wer { parts.append(String(format: "WER %.1f%%", wer * 100)) }
             parts += [entry.engine.title, Pricing.dollars(entry.costUSD)]
             return parts.joined(separator: " · ")
         }
-        parts += [Self.plural(entry.speakerCount, "speaker"), Pricing.dollars(entry.costUSD)]
+        parts += [
+            MeetingWindowModel.title(of: entry.mode),
+            Self.plural(entry.speakerCount, "speaker"),
+            Pricing.dollars(entry.costUSD),
+        ]
         if !entry.hasSummary { parts.append("No summary") }
-        // §5.7: the index cannot tell deleted audio from audio never kept.
-        parts.append(entry.audioBytes > 0 ? "Audio \(Self.size(entry.audioBytes))" : "Audio deleted")
         return parts.joined(separator: " · ")
     }
 

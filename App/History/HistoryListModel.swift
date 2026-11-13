@@ -7,9 +7,9 @@ import MWSupport
 import MWUsage
 import Observation
 
-/// Everything the History window decides (design §5.4, F29/F30): day grouping,
-/// search, the row and footer strings, and the three row actions. `HistoryView`
-/// is a projection of this — it holds no rules of its own.
+/// Everything the Dictations page decides (design v6 §5.9, §5.13; F29/F30): day grouping,
+/// the selected row, the row and count strings, and the row actions. `DictationsPage` is a
+/// projection of this.
 @MainActor
 @Observable
 final class HistoryListModel {
@@ -23,11 +23,13 @@ final class HistoryListModel {
         var now: @Sendable () -> Date
         /// The app last frontmost before Mini Whisper, as it is right now.
         var previousApp: @MainActor () -> PasteTarget?
-        /// F30: the window is out of the way before the previous app comes forward.
+        /// F30: the main window is out of the way before the previous app comes forward.
         var hide: @MainActor () -> Void
         var activate: @MainActor (PasteTarget) -> Void
         /// R28: opens the correction window on this row's dictation.
         var correct: @MainActor (CorrectionSource) -> Void
+        /// Stored dictations were deleted: what search read is stale.
+        var changed: @MainActor () -> Void
     }
 
     struct Row: Identifiable, Equatable {
@@ -63,9 +65,9 @@ final class HistoryListModel {
 
     private let deps: Dependencies
 
-    /// Case-insensitive substring search, applied by `reload()` (F29).
-    var query = ""
     private(set) var days: [DayGroup] = []
+    /// The selected row's id.
+    var selection: String?
 
     init(deps: Dependencies) {
         self.deps = deps
@@ -93,7 +95,13 @@ final class HistoryListModel {
     }
 
     func reload() async {
-        days = Self.group(await deps.history.search(query), now: deps.now())
+        days = Self.group(await deps.history.search(""), now: deps.now())
+    }
+
+    /// A search result's row, selected once the page holds it; none when retention removed it.
+    func reveal(_ id: String) async {
+        await reload()
+        selection = days.contains { $0.rows.contains { $0.id == id } } ? id : nil
     }
 
     /// R28: the window the menu bar opens, on this row's dictation instead.
@@ -113,6 +121,7 @@ final class HistoryListModel {
         } catch {
             Log.ui.error("history: delete failed: \(AnyError(error).description)")
         }
+        deps.changed()
         await reload()
     }
 
@@ -122,6 +131,7 @@ final class HistoryListModel {
         } catch {
             Log.ui.error("history: clear failed: \(AnyError(error).description)")
         }
+        deps.changed()
         await reload()
     }
 

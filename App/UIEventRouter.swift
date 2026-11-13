@@ -1,8 +1,9 @@
 import CoreGraphics
 import MWPipeline
+import MWUsage
 
-/// Main-actor fan-out of `DictationController.uiEvents` to the menu bar and the two
-/// overlay panels (design §5.5, §5.6).
+/// Main-actor fan-out of `DictationController.uiEvents` to the menu bar, the main window's
+/// usage table and the two overlay panels (design §5.5, §5.6).
 @MainActor
 final class UIEventRouter {
     private let statusItem: StatusItemController
@@ -10,6 +11,8 @@ final class UIEventRouter {
     private let caption: CaptionPanelController
     private let placement: DisplayPlacement
     private let frontmost: any FrontmostAppProviding
+    /// The main window's usage table.
+    private let usage: @MainActor (UsageTotals) -> Void
     private var task: Task<Void, Never>?
 
     init(
@@ -17,13 +20,15 @@ final class UIEventRouter {
         overlay: OverlayPanelController,
         caption: CaptionPanelController,
         placement: DisplayPlacement,
-        frontmost: any FrontmostAppProviding
+        frontmost: any FrontmostAppProviding,
+        usage: @escaping @MainActor (UsageTotals) -> Void
     ) {
         self.statusItem = statusItem
         self.overlay = overlay
         self.caption = caption
         self.placement = placement
         self.frontmost = frontmost
+        self.usage = usage
     }
 
     func start(_ events: AsyncStream<UIEvent>) {
@@ -76,6 +81,7 @@ final class UIEventRouter {
             caption.hide()
         case .usage(let totals):
             statusItem.setUsage(totals)
+            usage(totals)
         }
     }
 

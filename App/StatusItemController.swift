@@ -13,7 +13,7 @@ final class StatusItemController: NSObject {
     private let onStopMeeting: () -> Void
     private let onShowMeeting: () -> Void
     private let onMeetings: () -> Void
-    private let onHistory: () -> Void
+    private let onDictations: () -> Void
     private let onSettings: () -> Void
     private let onQuit: () -> Void
     private var model = MenuModel()
@@ -25,7 +25,7 @@ final class StatusItemController: NSObject {
         onStopMeeting: @escaping () -> Void,
         onShowMeeting: @escaping () -> Void,
         onMeetings: @escaping () -> Void,
-        onHistory: @escaping () -> Void,
+        onDictations: @escaping () -> Void,
         onSettings: @escaping () -> Void,
         onQuit: @escaping () -> Void
     ) {
@@ -35,7 +35,7 @@ final class StatusItemController: NSObject {
         self.onStopMeeting = onStopMeeting
         self.onShowMeeting = onShowMeeting
         self.onMeetings = onMeetings
-        self.onHistory = onHistory
+        self.onDictations = onDictations
         self.onSettings = onSettings
         self.onQuit = onQuit
         super.init()
@@ -95,7 +95,7 @@ final class StatusItemController: NSObject {
         case .stopMeeting: onStopMeeting()
         case .showMeeting: onShowMeeting()
         case .meetings: onMeetings()
-        case .history: onHistory()
+        case .dictations: onDictations()
         case .settings: onSettings()
         case .checkForUpdates: AppUpdater.checkForUpdates()
         case .about: AboutPanel.show()

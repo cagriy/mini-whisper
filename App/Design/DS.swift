@@ -101,6 +101,10 @@ enum DS {
         static let mono = TextStyle(size: 12, lineHeight: 18, design: .monospaced)
         /// Chips.
         static let label = TextStyle(size: 11, lineHeight: 14, weight: .semibold)
+        /// The usage table's figures.
+        static let usage = TextStyle(size: 11, lineHeight: 16)
+        /// The usage table's column headers.
+        static let usageHeader = TextStyle(size: 10, lineHeight: 16)
 
         var font: Font { .system(size: size, weight: weight, design: design) }
 

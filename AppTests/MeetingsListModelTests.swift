@@ -43,7 +43,6 @@ import Testing
     @MainActor
     private final class Harness {
         let library: StubMeetingLibrary
-        let clock = ManualClock()
         var openMeetings: Set<UUID> = []
         var opened: [UUID] = []
         var exports: [(kind: MeetingExporter.Kind, id: UUID)] = []
@@ -52,7 +51,6 @@ import Testing
         var finderShows = 0
         lazy var model = MeetingsListModel(deps: MeetingsListModel.Dependencies(
             library: library,
-            clock: clock,
             now: { MeetingsListModelTests.now },
             calendar: MeetingsListModelTests.calendar,
             hotkey: { "⌃⌥⌘M" },
@@ -97,70 +95,113 @@ import Testing
         ])
     }
 
-    @Test func rowShowsSummaryExcerptOrItalicFirstLine() async {
+    @Test func rowSubLineIsTheTopicsOrTheFirstSentence() async {
         let harness = Harness(StubMeetingLibrary([
-            Self.entry("Northwind rollout sync", hoursAgo: 1),
-            Self.entry("Standup", hoursAgo: 2, summary: false, excerpt: "Morning everyone, let's start."),
+            Self.entry("Weekly platform sync", hoursAgo: 1, excerpt: "Catalog entries · Additions requested"),
+            Self.entry("Quarterly planning", hoursAgo: 2, excerpt: "The team agreed to move the launch to March."),
         ]))
         let rows = rows(await harness.loaded())
 
-        #expect(rows.map(\.excerpt) == ["The rollout stays on schedule.", "Morning everyone, let's start."])
-        #expect(rows.map(\.excerptIsTranscript) == [false, true])
+        #expect(rows.map(\.subLine) == [
+            "Catalog entries · Additions requested", "The team agreed to move the launch to March.",
+        ])
+        #expect(rows.map(\.subLineIsTranscript) == [false, false])
         #expect(rows.map(\.mode) == [.remote, .remote])
     }
 
-    @Test func metaLineShowsDurationSpeakersCostAndAudioSize() async {
+    @Test func rowSubLineQuotesTheFirstTranscriptLineWhenThereIsNoSummary() async {
+        let harness = Harness(StubMeetingLibrary([
+            Self.entry("Standup", hoursAgo: 2, summary: false, excerpt: "Morning everyone, let's start."),
+            Self.entry("Silent", hoursAgo: 3, summary: false, excerpt: ""),
+        ]))
+        let rows = rows(await harness.loaded())
+
+        #expect(rows.map(\.subLine) == ["\u{201C}Morning everyone, let's start.\u{201D}", ""])
+        #expect(rows.map(\.subLineIsTranscript) == [true, true])
+    }
+
+    @Test func metaReadsDurationModeSpeakersCost() async {
         let harness = Harness(StubMeetingLibrary([
             Self.entry("Northwind rollout sync", hoursAgo: 0.5),
-            Self.entry("Standup", hoursAgo: 4, duration: 1620, speakers: 2, cost: 0.2, summary: false, audio: 13_000_000),
             Self.entry("Design review", hoursAgo: 23, duration: 4320, mode: .inRoom, speakers: 1, cost: 0.57),
             Self.entry("Q4 planning", hoursAgo: 30, duration: 7440, cost: 0.96, audio: 1_400_000_000),
         ]))
         let rows = rows(await harness.loaded())
 
         #expect(rows.map(\.meta) == [
-            "14:30 · 48 min · Remote call · 3 speakers · $0.40 · Audio 23 MB",
-            "11:00 · 27 min · Remote call · 2 speakers · $0.20 · No summary · Audio 13 MB",
-            "16:00 · 1 h 12 min · In the room · 1 speaker · $0.57 · Audio 23 MB",
-            "09:00 · 2 h 04 min · Remote call · 3 speakers · $0.96 · Audio 1.4 GB",
+            "48 min · Remote call · 3 speakers · $0.40",
+            "1 h 12 min · In the room · 1 speaker · $0.57",
+            "2 h 04 min · Remote call · 3 speakers · $0.96",
         ])
     }
 
-    @Test func deletedAudioReadsAudioDeleted() async {
-        let harness = Harness(StubMeetingLibrary([Self.entry("Hiring loop debrief", hoursAgo: 1, cost: 0.29, audio: 0)]))
+    @Test func metaMarksNoSummary() async {
+        let harness = Harness(StubMeetingLibrary([
+            Self.entry("Standup", hoursAgo: 4, duration: 1620, speakers: 2, cost: 0.2, summary: false),
+        ]))
         let rows = rows(await harness.loaded())
 
-        #expect(rows.first?.meta == "14:00 · 48 min · Remote call · 3 speakers · $0.29 · Audio deleted")
+        #expect(rows.first?.meta == "27 min · Remote call · 2 speakers · $0.20 · No summary")
     }
 
-    @Test func testRowShowsTheChipAndTheWERMeta() async {
+    @Test func testCallMetaReadsDurationWerEngineCost() async {
         let harness = Harness(StubMeetingLibrary([
             Self.entry(
                 "Test call · Sprint planning", hoursAgo: 226 / 60, duration: 125, cost: 0.0215, summary: false,
                 audio: 2_000_000, engine: .assemblyaiStreaming, test: Self.sprintPlanning(wer: 0.064)
             ),
-            Self.entry("Sprint 14 planning", hoursAgo: 5),
+            Self.entry(
+                "Test call · Budget review", hoursAgo: 5, duration: 125, cost: 0.0215,
+                engine: .assemblyaiStreaming, test: Self.sprintPlanning()
+            ),
+            Self.entry("Sprint 14 planning", hoursAgo: 6),
         ]))
         let rows = rows(await harness.loaded())
 
         #expect(rows.map(\.meta) == [
-            "11:14 · 2 min · Remote call · WER 6.4% · AssemblyAI Universal-Streaming · $0.02",
-            "10:00 · 48 min · Remote call · 3 speakers · $0.40 · Audio 23 MB",
+            "2 min · WER 6.4% · AssemblyAI Universal-Streaming · $0.02",
+            "2 min · AssemblyAI Universal-Streaming · $0.02",
+            "48 min · Remote call · 3 speakers · $0.40",
         ])
-        #expect(rows.map(\.isTest) == [true, false])
+        #expect(rows.map(\.isTest) == [true, true, false])
     }
 
-    @Test func unscoredTestRowOmitsWER() async {
+    @Test func startTimeSitsApartFromTheMeta() async {
         let harness = Harness(StubMeetingLibrary([
-            Self.entry(
-                "Test call · Sprint planning", hoursAgo: 226 / 60, duration: 125, cost: 0.0215,
-                engine: .assemblyaiStreaming, test: Self.sprintPlanning()
-            ),
+            Self.entry("Northwind rollout sync", hoursAgo: 0.5),
+            Self.entry("Standup", hoursAgo: 4),
         ]))
         let rows = rows(await harness.loaded())
 
-        #expect(rows.first?.meta == "11:14 · 2 min · Remote call · AssemblyAI Universal-Streaming · $0.02")
-        #expect(rows.first?.isTest == true)
+        #expect(rows.map(\.time) == ["14:30", "11:00"])
+        #expect(rows.allSatisfy { !$0.meta.contains($0.time) })
+    }
+
+    @Test func audioSizeStaysInTheExportMenuOnly() async {
+        let harness = Harness(StubMeetingLibrary([
+            Self.entry("Northwind rollout sync", hoursAgo: 1),
+            Self.entry("Retro", hoursAgo: 2, audio: 0),
+        ]))
+        let rows = rows(await harness.loaded())
+
+        #expect(rows.allSatisfy { !$0.meta.contains("Audio") && !$0.meta.contains("MB") })
+        #expect(harness.model.exportItems(for: rows[0]).last?.title == "Delete audio (23 MB)")
+        #expect(harness.model.exportItems(for: rows[1]).contains { $0.action == .deleteAudio } == false)
+    }
+
+    @Test func deleteIsBlockedWithHelpWhileOpen() async {
+        let harness = Harness(StubMeetingLibrary([Self.entry("Northwind rollout sync", hoursAgo: 1)]))
+        let model = await harness.loaded()
+        let row = rows(model)[0]
+
+        #expect(model.canDelete(row))
+        #expect(model.deleteHelp(row) == nil)
+
+        harness.openMeetings = [row.id]
+        #expect(model.canDelete(row) == false)
+        #expect(model.deleteHelp(row) == "This meeting is recording, on screen, or its summary is being written")
+        model.requestDelete(row)
+        #expect(model.pendingDeletion == nil)
     }
 
     @Test func footerCountsMeetingsAndAudio() async {
@@ -173,78 +214,6 @@ import Testing
 
         let single = Harness(StubMeetingLibrary([Self.entry("Standup", hoursAgo: 2, audio: 0)]))
         #expect(await single.loaded().footer == "1 meeting")
-    }
-
-    @Test func searchWaits150MillisecondsBeforeRunning() async {
-        let northwind = Self.loaded("Northwind rollout sync", note: "Ask ops for a Wednesday maintenance window")
-        let harness = Harness(StubMeetingLibrary([Self.entry(from: northwind)], meetings: [northwind]))
-        let model = await harness.loaded()
-        var sleeps = harness.clock.sleeps.makeAsyncIterator()
-
-        model.query = "main"
-        model.query = "maintenance"
-        #expect(await sleeps.next() == .milliseconds(150))
-        #expect(await sleeps.next() == .milliseconds(150))
-        #expect(harness.library.loads == 0)
-        #expect(rows(model).first?.snippets == [])
-
-        harness.clock.wake()
-        await model.search?.value
-
-        #expect(harness.library.loads == 1)
-        #expect(rows(model).first?.snippets.map(\.label) == ["Note · 00:40:05"])
-    }
-
-    @Test func searchShowsUpToTwoLabelledSnippets() async {
-        let northwind = Self.loaded(
-            "Northwind rollout sync",
-            note: "Ask ops for a Wednesday maintenance window",
-            summary: "## Action items\n- **Alex**: ask ops for a Wednesday maintenance window."
-        )
-        let planning = Self.loaded(
-            "Q4 planning", startedHoursAgo: 6 * 24,
-            segment: (speaker: 3, start: 4368, text: "We cannot move the database without a maintenance window."),
-            summary: "## Summary\nThree themes, and a maintenance window for the database move."
-        )
-        let standup = Self.loaded("Standup", startedHoursAgo: 2, note: "Nothing to see")
-        let harness = Harness(StubMeetingLibrary(
-            [northwind, standup, planning].map(Self.entry(from:)), meetings: [northwind, standup, planning]
-        ))
-        let model = await harness.loaded()
-        var sleeps = harness.clock.sleeps.makeAsyncIterator()
-
-        model.query = "maintenance window"
-        _ = await sleeps.next()
-        harness.clock.wake()
-        await model.search?.value
-
-        #expect(rows(model).map(\.title) == ["Northwind rollout sync", "Q4 planning"])
-        #expect(rows(model).map { $0.snippets.map(\.label) } == [["Note · 00:40:05", "Summary"], ["Speaker 3 · 01:12:48", "Summary"]])
-        #expect(rows(model)[0].snippets[0].text == "Ask ops for a Wednesday maintenance window")
-        #expect(model.footer == "2 of 3 meetings match")
-
-        model.query = ""
-        #expect(rows(model).count == 3)
-        #expect(model.footer.hasPrefix("3 meetings"))
-    }
-
-    @Test func searchStillFindsTestMeetings() async {
-        let testCall = Self.loaded(
-            "Test call · Sprint planning", note: "Sprint scope agreed", test: Self.sprintPlanning(wer: 0.064)
-        )
-        let standup = Self.loaded("Standup", startedHoursAgo: 2, note: "Nothing to see")
-        let harness = Harness(StubMeetingLibrary([testCall, standup].map(Self.entry(from:)), meetings: [testCall, standup]))
-        let model = await harness.loaded()
-        var sleeps = harness.clock.sleeps.makeAsyncIterator()
-
-        model.query = "sprint"
-        _ = await sleeps.next()
-        harness.clock.wake()
-        await model.search?.value
-
-        #expect(rows(model).map(\.title) == ["Test call · Sprint planning"])
-        #expect(rows(model).map(\.isTest) == [true])
-        #expect(rows(model).first?.snippets.map(\.label) == ["Note · 00:40:05"])
     }
 
     @Test func emptyStateNamesTheHotkey() async {
@@ -292,7 +261,8 @@ import Testing
         #expect(harness.model.pendingDeletion?.prompt == "Delete the audio of “Northwind rollout sync”?")
         await harness.model.confirmDeletion()
         #expect(harness.library.audioDeleted == [rows[0].id])
-        #expect(self.rows(harness.model).first?.meta.hasSuffix("Audio deleted") == true)
+        let reloaded = try #require(self.rows(harness.model).first)
+        #expect(harness.model.exportItems(for: reloaded).contains { $0.action == .deleteAudio } == false)
     }
 
     @Test func deleteAsksForConfirmationThenRemovesTheRow() async {
@@ -366,41 +336,5 @@ import Testing
         await model.open(rows(model)[0])
 
         #expect(harness.opened == [rows(model)[0].id])
-    }
-
-    // MARK: - Fixtures
-
-    private static func loaded(
-        _ title: String,
-        startedHoursAgo: Double = 0.5,
-        segment: (speaker: Int, start: Double, text: String)? = nil,
-        note: String? = nil,
-        summary: String? = nil,
-        test: TestCallTag? = nil
-    ) -> LoadedMeeting {
-        let start = now.addingTimeInterval(-startedHoursAgo * 3600)
-        let meeting = Meeting(
-            title: title, startedAt: start, endedAt: start.addingTimeInterval(2932), durationSeconds: 2932,
-            mode: .remote, engine: .speechmaticsStandard, userName: "Alex",
-            speakers: [SpeakerLabel(id: 0, name: "Alex", isUser: true), SpeakerLabel(id: 3, name: "Speaker 3")],
-            summary: summary.map {
-                Summary(text: $0, model: "claude-sonnet-5-5", createdAt: start, inputTokens: 1, outputTokens: 1, costUSD: 0)
-            },
-            test: test
-        )
-        return LoadedMeeting(
-            meeting: meeting,
-            segments: segment.map { [Segment(speaker: $0.speaker, start: $0.start, end: $0.start + 3, text: $0.text, session: 1)] } ?? [],
-            notes: note.map { [Note(time: 2405, text: $0, createdAt: start)] } ?? []
-        )
-    }
-
-    private static func entry(from loaded: LoadedMeeting) -> IndexEntry {
-        let m = loaded.meeting
-        return IndexEntry(
-            id: m.id, title: m.title, startedAt: m.startedAt, endedAt: m.endedAt, duration: m.durationSeconds,
-            mode: m.mode, app: nil, engine: m.engine, speakerCount: m.speakers.count, costUSD: 0.1,
-            hasSummary: m.summary != nil, audioBytes: 0, excerpt: "Excerpt.", test: m.test
-        )
     }
 }

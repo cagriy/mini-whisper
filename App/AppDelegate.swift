@@ -33,14 +33,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var onboarding: OnboardingWindowController?
     private var settings: SettingsWindowController?
     private var settingsDependencies: SettingsModel.Dependencies?
-    private var historyWindow: HistoryWindowController?
-    private var historyDependencies: HistoryListModel.Dependencies?
+    private var main: MainWindowController?
     private var correctionWindow: CorrectionWindowController?
     private var correctionDependencies: CorrectionModel.Dependencies?
     private var appliedBindings: [BindingName: HotkeyCombo] = [:]
     private var meetings: MeetingCoordinator?
-    private var meetingsWindow: MeetingsWindowController?
-    private var meetingsListDependencies: MeetingsListModel.Dependencies?
     /// The config as last loaded or changed, for the meeting chooser.
     private var config = Config()
     private var overlay: OverlayPanelController?
@@ -62,8 +59,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             onStartMeeting: { [weak self] in self?.meetings?.openChooser() },
             onStopMeeting: { [weak self] in Task { await self?.meetings?.stop() } },
             onShowMeeting: { [weak self] in self?.meetings?.show() },
-            onMeetings: { [weak self] in self?.openMeetingsList() },
-            onHistory: { [weak self] in self?.openHistory() },
+            onMeetings: { [weak self] in self?.main?.show(.meetings) },
+            onDictations: { [weak self] in self?.main?.show(.dictations) },
             onSettings: { [weak self] in self?.openSettings() },
             onQuit: { [weak self] in self?.quit() }
         )
@@ -151,7 +148,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             audio: audio, secrets: secrets, configStore: configStore, usage: usage, prompts: prompts,
             store: store, export: export
         )
-        meetingsListDependencies = makeMeetingsList(store: store, export: export)
 
         if let statusItem {
             // §5.5: the panels exist off-screen before the first press.
@@ -170,13 +166,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     pointer: NSEventPointer(),
                     screens: NSScreenList()
                 ),
-                frontmost: NSWorkspaceFrontmostApp()
+                frontmost: NSWorkspaceFrontmostApp(),
+                usage: { [weak self] in self?.main?.model.usage = $0 }
             )
             router.start(controller.uiEvents)
             self.router = router
-
-            statusItem.setUsage(await usage.totals())
         }
+        let totals = await usage.totals()
+        statusItem?.setUsage(totals)
 
         let listener = GlobalKeyListener(
             bindings: Self.bindings(from: config),
@@ -216,18 +213,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 retentionDays.withLock { $0 = days }
                 try? await history.prune()
             },
-            clearHistory: { try? await history.clear() },
-            openHistory: { [weak self] in self?.openHistory() },
+            clearHistory: { [weak self] in
+                try? await history.clear()
+                await self?.dictationsChanged()
+            },
+            openHistory: { [weak self] in self?.main?.show(.dictations) },
             openCorrection: { [weak self] source in self?.openCorrection(source) },
             meetingIndex: { (try? store.index()) ?? [] },
             showMeetingsFolder: { Self.showInFinder(store) },
-            openMeetings: { [weak self] in self?.openMeetingsList() },
+            openMeetings: { [weak self] in self?.main?.show(.meetings) },
             installTool: { CommandLineToolInstaller.install() },
             isToolInstalled: { CommandLineToolInstaller.isInstalled() },
             copy: { _ = NSPasteboardAccess().write($0) }
         )
 
-        historyDependencies = HistoryListModel.Dependencies(
+        let dictations = HistoryListModel(deps: HistoryListModel.Dependencies(
             history: history,
             paster: paster,
             pasteboard: NSPasteboardAccess(),
@@ -236,10 +236,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             clock: SystemClock(),
             now: { Date() },
             previousApp: { [frontAppTracker] in frontAppTracker.previousApp },
-            hide: { [weak self] in self?.historyWindow?.hide() },
+            hide: { [weak self] in self?.main?.hide() },
             activate: { target in NSRunningApplication(processIdentifier: target.pid)?.activate() },
-            correct: { [weak self] source in self?.openCorrection(source) }
-        )
+            correct: { [weak self] source in self?.openCorrection(source) },
+            changed: { [weak self] in self?.dictationsChanged() }
+        ))
 
         correctionDependencies = CorrectionModel.Dependencies(
             store: configStore,
@@ -252,6 +253,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 }
             }
         )
+
+        main = makeMain(
+            meetings: MeetingsListModel(deps: makeMeetingsList(store: store, export: export)),
+            dictations: dictations,
+            search: SearchModel(deps: SearchModel.Dependencies(
+                library: store, history: history, clock: SystemClock(), now: { Date() }, calendar: .current
+            )),
+            configStore: configStore,
+            config: config
+        )
+        main?.model.usage = totals
 
         configTask = Task { [weak self] in
             for await updated in configStore.changes {
@@ -314,7 +326,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             now: { Date() },
             endDictation: { [weak self] in await self?.controller?.abort() },
             openSettings: { [weak self] in self?.openSettings() },
-            openMeetings: { [weak self] in self?.openMeetingsList() },
+            openMeetings: { [weak self] in self?.main?.show(.meetings) },
             export: export,
             changed: { [weak self] in self?.meetingChanged(usage: usage) },
             testCalls: TestCallDependencies(
@@ -333,13 +345,32 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         ))
     }
 
-    /// R16: the Meetings window, over the same store as the meeting windows.
+    /// The main window and its pages (design §5.8), created hidden.
+    private func makeMain(
+        meetings: MeetingsListModel,
+        dictations: HistoryListModel,
+        search: SearchModel,
+        configStore: ConfigStore,
+        config: Config
+    ) -> MainWindowController {
+        let model = MainWindowModel(
+            meetings: meetings,
+            dictations: dictations,
+            search: search,
+            deps: MainWindowModel.Dependencies(
+                openMeeting: { [weak self] in try await self?.meetings?.open($0) },
+                openSettings: { [weak self] in self?.openSettings() }
+            )
+        )
+        return MainWindowController(model: model, store: configStore, savedFrame: config.mainWindowFrame)
+    }
+
+    /// R16: the Meetings page, over the same store as the meeting windows.
     private func makeMeetingsList(
         store: MeetingStore, export: @escaping @MainActor (MeetingExporter.Kind, UUID) -> Void
     ) -> MeetingsListModel.Dependencies {
         MeetingsListModel.Dependencies(
             library: store,
-            clock: SystemClock(),
             now: { Date() },
             calendar: .current,
             hotkey: { [weak self] in
@@ -361,23 +392,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSWorkspace.shared.activateFileViewerSelecting([folder])
     }
 
-    private func openMeetingsList() {
-        guard let dependencies = meetingsListDependencies else { return }
-        if meetingsWindow == nil {
-            meetingsWindow = MeetingsWindowController(model: MeetingsListModel(deps: dependencies))
-        }
-        meetingsWindow?.show()
-    }
-
-    /// The menu follows the meeting; Stop and the summary add usage (R18). An open Meetings
-    /// window follows its titles, summaries and new rows.
+    /// The menu follows the meeting; Stop and the summary add usage (R18). The Meetings page
+    /// and the results follow titles, summaries and new rows.
     private func meetingChanged(usage: UsageStore) {
         statusItem?.setMeetingActive(meetings?.isActive ?? false)
-        if let list = meetingsWindow, list.isVisible { Task { await list.model.reload() } }
+        if let main {
+            Task { await main.model.meetings.reload() }
+            main.model.search.invalidate()
+        }
         Task { [weak self] in
             let totals = await usage.totals()
             self?.statusItem?.setUsage(totals)
+            self?.main?.model.usage = totals
         }
+    }
+
+    /// Stored dictations were deleted: the results read before are stale.
+    private func dictationsChanged() {
+        main?.model.search.invalidate()
     }
 
     /// §5.5 Launch: with no OpenAI key stored, the source opens Settings a second
@@ -392,16 +424,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func openSettings() {
         Task { await openSettingsWindow() }
-    }
-
-    /// Like Settings, History needs the stores, so it only opens once normal
-    /// operation has started (F29).
-    private func openHistory() {
-        guard let dependencies = historyDependencies else { return }
-        if historyWindow == nil {
-            historyWindow = HistoryWindowController(model: HistoryListModel(deps: dependencies))
-        }
-        historyWindow?.show()
     }
 
     /// R27: the last delivered dictation is the menu bar's own, so the window opens
@@ -516,12 +538,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         Log.ui.info("Mini Whisper launched (debug: \(arguments.debug))")
     }
 
-    /// ⌘Q and logout (§5.7 Quit while recording); the menu's Quit asks in `quit()`.
+    /// ⌘Q and logout (§5.7 Quit while recording); the menu's Quit asks in `quit()`. The main
+    /// window's frame is stored on the way out.
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
-        guard let meetings, meetings.needsQuitConfirmation else { return .terminateNow }
-        guard Self.confirmQuitDuringMeeting() else { return .terminateCancel }
-        Task {
-            await meetings.stop(summarise: false)
+        let stopping = meetings?.needsQuitConfirmation ?? false
+        guard stopping || main != nil else { return .terminateNow }
+        if stopping, !Self.confirmQuitDuringMeeting() { return .terminateCancel }
+        Task { [meetings, main] in
+            if stopping { await meetings?.stop(summarise: false) }
+            await main?.hide().value
             sender.reply(toApplicationShouldTerminate: true)
         }
         return .terminateLater
@@ -546,7 +571,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
             configTask?.cancel()
             settings?.close()
-            historyWindow?.hide()
+            await main?.hide().value
             correctionWindow?.hide()
             await controller?.abort()
             router?.stop()

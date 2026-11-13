@@ -3,8 +3,7 @@ import MWConfig
 import SwiftUI
 
 /// Hosts `CorrectionView`. One instance is reused for every correction; `show(source:)`
-/// replaces the model with one built from the config as it stands right now, exactly as
-/// `HistoryWindowController` reuses its window (design §5.1).
+/// replaces the model with one built from the config as it stands right now (design §5.1).
 @MainActor
 final class CorrectionWindowController: NSObject, NSWindowDelegate {
     private let deps: CorrectionModel.Dependencies
