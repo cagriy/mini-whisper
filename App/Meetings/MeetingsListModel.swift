@@ -46,11 +46,7 @@ final class MeetingsListModel {
         var showInFinder: @MainActor () -> Void
     }
 
-    /// A search hit: "Note · 00:40:05", "Speaker 3 · 01:12:48" or "Summary".
-    struct Snippet: Equatable, Sendable {
-        let label: String
-        let text: String
-    }
+    typealias Snippet = SearchModel.Snippet
 
     struct Row: Identifiable, Equatable {
         let id: UUID
@@ -276,23 +272,11 @@ final class MeetingsListModel {
         var found: [UUID: [Snippet]] = [:]
         for hit in MeetingSearch().search(query, in: meetings) {
             guard let meeting = meetings.first(where: { $0.meeting.id == hit.meetingID }) else { continue }
-            found[hit.meetingID] = hit.snippets.map { Snippet(label: label(of: $0, in: meeting), text: $0.text) }
+            found[hit.meetingID] = hit.snippets.map {
+                Snippet(label: SearchModel.label(of: $0, in: meeting), text: $0.text)
+            }
         }
         return found
-    }
-
-    private nonisolated static func label(of snippet: SearchSnippet, in meeting: LoadedMeeting) -> String {
-        let time = snippet.time.map(MeetingTime.format) ?? ""
-        switch snippet.source {
-        case .summary:
-            return "Summary"
-        case .note:
-            return "Note · \(time)"
-        case .transcript:
-            let speaker = meeting.segments.first { $0.start == snippet.time }?.speaker
-            let name = speaker.map { id in meeting.meeting.speakers.first { $0.id == id }?.name ?? "Speaker \(id)" }
-            return "\(name ?? "Transcript") · \(time)"
-        }
     }
 
     // MARK: - Presentation
@@ -333,16 +317,19 @@ final class MeetingsListModel {
     }
 
     private func dayTitle(_ day: Date) -> String {
-        let calendar = deps.calendar
-        let now = deps.now()
+        Self.dayTitle(day, now: deps.now(), calendar: deps.calendar, format: dayFormat)
+    }
+
+    /// "Today", "Yesterday", or the day as `format` writes it.
+    static func dayTitle(_ day: Date, now: Date, calendar: Calendar, format: DateFormatter) -> String {
         if calendar.isDate(day, inSameDayAs: now) { return "Today" }
         if let yesterday = calendar.date(byAdding: .day, value: -1, to: now), calendar.isDate(day, inSameDayAs: yesterday) {
             return "Yesterday"
         }
-        return dayFormat.string(from: day)
+        return format.string(from: day)
     }
 
-    private static func formatter(_ pattern: String, _ calendar: Calendar) -> DateFormatter {
+    static func formatter(_ pattern: String, _ calendar: Calendar) -> DateFormatter {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.calendar = calendar
@@ -352,7 +339,7 @@ final class MeetingsListModel {
     }
 
     /// "48 min", "1 h 12 min", "2 h 04 min".
-    private static func duration(_ seconds: Double) -> String {
+    static func duration(_ seconds: Double) -> String {
         let minutes = Int(max(0, seconds)) / 60
         guard minutes >= 60 else { return "\(minutes) min" }
         return String(format: "%d h %02d min", minutes / 60, minutes % 60)

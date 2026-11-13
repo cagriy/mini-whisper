@@ -109,7 +109,7 @@ private final class StubController: MeetingControlling {
 }
 
 /// Collects log messages; AppTests cannot reach `MWTestSupport`'s capturing sink.
-private final class MessageSink: LogSink, @unchecked Sendable {
+final class MessageSink: LogSink, @unchecked Sendable {
     private let lock = NSLock()
     private var stored: [String] = []
 
@@ -121,7 +121,7 @@ private final class MessageSink: LogSink, @unchecked Sendable {
 }
 
 /// `Log.withSinks` around a main-actor body.
-private func logging(to sink: MessageSink, _ body: @MainActor @Sendable () async -> Void) async {
+func logging(to sink: MessageSink, _ body: @MainActor @Sendable () async -> Void) async {
     await Log.withSinks(debug: true, sinks: [sink]) { await body() }
 }
 

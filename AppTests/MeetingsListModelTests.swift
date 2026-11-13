@@ -40,116 +40,9 @@ import Testing
         TestCallTag(scenarioID: "sprint-planning", revision: 1, scenarioTitle: "Sprint planning", wer: wer)
     }
 
-    /// The store as the list sees it: index entries plus whatever loads.
-    private final class StubLibrary: MeetingLibrary, @unchecked Sendable {
-        private let lock = NSLock()
-        private var _entries: [IndexEntry]
-        private var _meetings: [UUID: LoadedMeeting] = [:]
-        private var _indexMissing = false
-        private var _refreshes = 0
-        private var _loads = 0
-        private var _deleted: [UUID] = []
-        private var _audioDeleted: [UUID] = []
-        private var _retitled: [String] = []
-
-        init(_ entries: [IndexEntry] = [], meetings: [LoadedMeeting] = []) {
-            _entries = entries
-            for meeting in meetings { _meetings[meeting.meeting.id] = meeting }
-        }
-
-        private func locked<T>(_ body: () throws -> T) rethrows -> T {
-            lock.lock()
-            defer { lock.unlock() }
-            return try body()
-        }
-
-        var indexMissing: Bool {
-            get { locked { _indexMissing } }
-            set { locked { _indexMissing = newValue } }
-        }
-
-        var refreshes: Int { locked { _refreshes } }
-        var loads: Int { locked { _loads } }
-        var deleted: [UUID] { locked { _deleted } }
-        var audioDeleted: [UUID] { locked { _audioDeleted } }
-        var retitled: [String] { locked { _retitled } }
-
-        var isIndexMissing: Bool { indexMissing }
-
-        func index() throws -> [IndexEntry] { locked { _entries } }
-
-        func load(_ id: UUID) throws -> LoadedMeeting {
-            try locked {
-                _loads += 1
-                guard let meeting = _meetings[id] else { throw CocoaError(.fileNoSuchFile) }
-                return meeting
-            }
-        }
-
-        func refreshIndex() async throws -> [IndexEntry] {
-            locked {
-                _refreshes += 1
-                _indexMissing = false
-                return _entries
-            }
-        }
-
-        func delete(_ id: UUID) async throws {
-            locked {
-                _deleted.append(id)
-                _entries.removeAll { $0.id == id }
-            }
-        }
-
-        func deleteAudio(_ id: UUID) async throws {
-            locked {
-                _audioDeleted.append(id)
-                if let index = _entries.firstIndex(where: { $0.id == id }) { _entries[index].audioBytes = 0 }
-            }
-        }
-
-        func retitle(_ id: UUID, to title: String) async throws {
-            locked {
-                _retitled.append(title)
-                if let index = _entries.firstIndex(where: { $0.id == id }) { _entries[index].title = title }
-            }
-        }
-    }
-
-    /// Sleeps until `wake()`, reporting each sleep's duration.
-    private final class ManualClock: MWSupport.Clock, @unchecked Sendable {
-        let sleeps: AsyncStream<Duration>
-        private let sleep: AsyncStream<Duration>.Continuation
-        private let lock = NSLock()
-        private var sleepers: [CheckedContinuation<Void, Never>] = []
-
-        init() {
-            (sleeps, sleep) = AsyncStream.makeStream()
-        }
-
-        var now: TimeInterval { 0 }
-
-        func sleep(for duration: Duration) async throws {
-            await withCheckedContinuation { continuation in
-                lock.lock()
-                sleepers.append(continuation)
-                lock.unlock()
-                sleep.yield(duration)
-            }
-        }
-
-        func wake() {
-            lock.lock()
-            let woken = sleepers
-            sleepers = []
-            lock.unlock()
-            woken.forEach { $0.resume() }
-        }
-    }
-
     @MainActor
     private final class Harness {
-        let library: StubLibrary
+        let library: StubMeetingLibrary
         let clock = ManualClock()
         var openMeetings: Set<UUID> = []
         var opened: [UUID] = []
@@ -175,7 +68,7 @@ import Testing
             showInFinder: { [unowned self] in finderShows += 1 }
         ))
 
-        init(_ library: StubLibrary) {
+        init(_ library: StubMeetingLibrary) {
             self.library = library
         }
 
@@ -190,7 +83,7 @@ import Testing
     }
 
     @Test func rowsGroupByDayNewestFirst() async {
-        let harness = Harness(StubLibrary([
+        let harness = Harness(StubMeetingLibrary([
             Self.entry("Q4 planning", hoursAgo: 6 * 24),
             Self.entry("Northwind rollout sync", hoursAgo: 0.5),
             Self.entry("Design review", hoursAgo: 23),
@@ -205,7 +98,7 @@ import Testing
     }
 
     @Test func rowShowsSummaryExcerptOrItalicFirstLine() async {
-        let harness = Harness(StubLibrary([
+        let harness = Harness(StubMeetingLibrary([
             Self.entry("Northwind rollout sync", hoursAgo: 1),
             Self.entry("Standup", hoursAgo: 2, summary: false, excerpt: "Morning everyone, let's start."),
         ]))
@@ -217,7 +110,7 @@ import Testing
     }
 
     @Test func metaLineShowsDurationSpeakersCostAndAudioSize() async {
-        let harness = Harness(StubLibrary([
+        let harness = Harness(StubMeetingLibrary([
             Self.entry("Northwind rollout sync", hoursAgo: 0.5),
             Self.entry("Standup", hoursAgo: 4, duration: 1620, speakers: 2, cost: 0.2, summary: false, audio: 13_000_000),
             Self.entry("Design review", hoursAgo: 23, duration: 4320, mode: .inRoom, speakers: 1, cost: 0.57),
@@ -234,14 +127,14 @@ import Testing
     }
 
     @Test func deletedAudioReadsAudioDeleted() async {
-        let harness = Harness(StubLibrary([Self.entry("Hiring loop debrief", hoursAgo: 1, cost: 0.29, audio: 0)]))
+        let harness = Harness(StubMeetingLibrary([Self.entry("Hiring loop debrief", hoursAgo: 1, cost: 0.29, audio: 0)]))
         let rows = rows(await harness.loaded())
 
         #expect(rows.first?.meta == "14:00 · 48 min · Remote call · 3 speakers · $0.29 · Audio deleted")
     }
 
     @Test func testRowShowsTheChipAndTheWERMeta() async {
-        let harness = Harness(StubLibrary([
+        let harness = Harness(StubMeetingLibrary([
             Self.entry(
                 "Test call · Sprint planning", hoursAgo: 226 / 60, duration: 125, cost: 0.0215, summary: false,
                 audio: 2_000_000, engine: .assemblyaiStreaming, test: Self.sprintPlanning(wer: 0.064)
@@ -258,7 +151,7 @@ import Testing
     }
 
     @Test func unscoredTestRowOmitsWER() async {
-        let harness = Harness(StubLibrary([
+        let harness = Harness(StubMeetingLibrary([
             Self.entry(
                 "Test call · Sprint planning", hoursAgo: 226 / 60, duration: 125, cost: 0.0215,
                 engine: .assemblyaiStreaming, test: Self.sprintPlanning()
@@ -271,20 +164,20 @@ import Testing
     }
 
     @Test func footerCountsMeetingsAndAudio() async {
-        let harness = Harness(StubLibrary([
+        let harness = Harness(StubMeetingLibrary([
             Self.entry("Northwind rollout sync", hoursAgo: 1),
             Self.entry("Standup", hoursAgo: 2, audio: 13_000_000),
             Self.entry("Retro", hoursAgo: 3, audio: 0),
         ]))
         #expect(await harness.loaded().footer == "3 meetings · 36 MB audio")
 
-        let single = Harness(StubLibrary([Self.entry("Standup", hoursAgo: 2, audio: 0)]))
+        let single = Harness(StubMeetingLibrary([Self.entry("Standup", hoursAgo: 2, audio: 0)]))
         #expect(await single.loaded().footer == "1 meeting")
     }
 
     @Test func searchWaits150MillisecondsBeforeRunning() async {
         let northwind = Self.loaded("Northwind rollout sync", note: "Ask ops for a Wednesday maintenance window")
-        let harness = Harness(StubLibrary([Self.entry(from: northwind)], meetings: [northwind]))
+        let harness = Harness(StubMeetingLibrary([Self.entry(from: northwind)], meetings: [northwind]))
         let model = await harness.loaded()
         var sleeps = harness.clock.sleeps.makeAsyncIterator()
 
@@ -314,7 +207,7 @@ import Testing
             summary: "## Summary\nThree themes, and a maintenance window for the database move."
         )
         let standup = Self.loaded("Standup", startedHoursAgo: 2, note: "Nothing to see")
-        let harness = Harness(StubLibrary(
+        let harness = Harness(StubMeetingLibrary(
             [northwind, standup, planning].map(Self.entry(from:)), meetings: [northwind, standup, planning]
         ))
         let model = await harness.loaded()
@@ -340,7 +233,7 @@ import Testing
             "Test call · Sprint planning", note: "Sprint scope agreed", test: Self.sprintPlanning(wer: 0.064)
         )
         let standup = Self.loaded("Standup", startedHoursAgo: 2, note: "Nothing to see")
-        let harness = Harness(StubLibrary([testCall, standup].map(Self.entry(from:)), meetings: [testCall, standup]))
+        let harness = Harness(StubMeetingLibrary([testCall, standup].map(Self.entry(from:)), meetings: [testCall, standup]))
         let model = await harness.loaded()
         var sleeps = harness.clock.sleeps.makeAsyncIterator()
 
@@ -355,19 +248,19 @@ import Testing
     }
 
     @Test func emptyStateNamesTheHotkey() async {
-        let model = await Harness(StubLibrary()).loaded()
+        let model = await Harness(StubMeetingLibrary()).loaded()
 
         #expect(model.days.isEmpty)
         #expect(model.emptyState == "Press ⌃⌥⌘M or choose Start Meeting… from the menu bar. Mini Whisper transcribes"
             + " live with speaker labels, keeps your notes beside the transcript and writes a summary when you stop.")
         #expect(model.footer == "0 meetings")
 
-        let some = await Harness(StubLibrary([Self.entry("Standup", hoursAgo: 1)])).loaded()
+        let some = await Harness(StubMeetingLibrary([Self.entry("Standup", hoursAgo: 1)])).loaded()
         #expect(some.emptyState == nil)
     }
 
     @Test func footerActionsStartAMeetingAndShowTheFolder() async {
-        let harness = Harness(StubLibrary())
+        let harness = Harness(StubMeetingLibrary())
         let model = await harness.loaded()
 
         model.startMeeting()
@@ -378,7 +271,7 @@ import Testing
     }
 
     @Test func exportMenuOffersDeleteAudioWithItsSize() async throws {
-        let harness = Harness(StubLibrary([
+        let harness = Harness(StubMeetingLibrary([
             Self.entry("Northwind rollout sync", hoursAgo: 1),
             Self.entry("Retro", hoursAgo: 2, audio: 0),
         ]))
@@ -403,7 +296,7 @@ import Testing
     }
 
     @Test func deleteAsksForConfirmationThenRemovesTheRow() async {
-        let harness = Harness(StubLibrary([
+        let harness = Harness(StubMeetingLibrary([
             Self.entry("Northwind rollout sync", hoursAgo: 1),
             Self.entry("Standup", hoursAgo: 2),
         ]))
@@ -431,7 +324,7 @@ import Testing
     }
 
     @Test func renameUpdatesTheRowAndTheStore() async {
-        let harness = Harness(StubLibrary([
+        let harness = Harness(StubMeetingLibrary([
             Self.entry("Zoom · 9 Nov 2026 14:30", hoursAgo: 1),
             Self.entry("Standup", hoursAgo: 2),
         ]))
@@ -454,7 +347,7 @@ import Testing
     }
 
     @Test func missingIndexTriggersRefreshIndex() async {
-        let library = StubLibrary([Self.entry("Standup", hoursAgo: 1)])
+        let library = StubMeetingLibrary([Self.entry("Standup", hoursAgo: 1)])
         library.indexMissing = true
         let harness = Harness(library)
 
@@ -467,7 +360,7 @@ import Testing
     }
 
     @Test func openOpensTheMeeting() async {
-        let harness = Harness(StubLibrary([Self.entry("Standup", hoursAgo: 1)]))
+        let harness = Harness(StubMeetingLibrary([Self.entry("Standup", hoursAgo: 1)]))
         let model = await harness.loaded()
 
         await model.open(rows(model)[0])
