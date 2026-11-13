@@ -525,6 +525,8 @@ None — plan matches design v6 exactly.
 - Outside the stages: `RepeatingTimerTests.firesRepeatedlyUntilStopped`, an existing test, failed about once in sixty runs. `stop()` cancels the timer but does not interrupt a tick already running, which could land after the count was read. The test now drains the timer's queue before counting (400 repetitions green); `RepeatingTimer` is unchanged.
 - Stage 4: one test beyond the named ones, `regeneratingTwiceAddsEachReplacedCostAndLogsNoSummaryText`: it uses `FakeSummarizer`'s result queue, checks that a later save keeps the replaced cost, and pins the log lines of the success path. The suite carries `.timeLimit(.minutes(1))`, so a wait that never returns fails instead of hanging the run.
 - Stage 4: `logging(to:_:)` in `Tests/MWMeetingPipelineTests/MeetingControllerTestCallTests.swift`, a file outside the stage's *Touches*, lost its `private` so the new suite reuses it.
+- Stage 5: `DayEntry.add(_:)`, for a `DayEntry` and for a `ProviderUsage`, is a public extension in `MWUsage/UsageTotals.swift`. The month sum would have been the third copy of the accumulation in `UsageStore.add` and `FakeUsageStore.add`; all three now call it.
+- Stage 5: `PricingTests.partialMinutesFloor`, not in the stage's list, also moved to `UsageTotals`. `usageTableAt0_59And134Minutes` also checks `1h 0m` and `10h 0m`.
 
 ## Execution schedule
 
