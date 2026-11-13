@@ -47,12 +47,15 @@ import Testing
     }
 
     @Test func firesRepeatedlyUntilStopped() async throws {
-        let timer = makeTimer()
+        let queue = DispatchQueue(label: "test.repeating-timer")
+        let timer = RepeatingTimer(queue: queue)
         let ticks = OSCounter()
 
         timer.start(interval: .milliseconds(10)) { ticks.increment() }
         try await Task.sleep(for: .milliseconds(200))
         timer.stop()
+        // Cancelling does not interrupt a tick already running: let it finish before counting.
+        queue.sync {}
 
         let afterStop = ticks.value
         #expect(afterStop >= 2)
