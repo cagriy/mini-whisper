@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-11-13
+
 ### Fixed
 
 - The 0.6.0 fix for quiet remote calls did not take effect: other apps still dropped about
