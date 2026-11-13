@@ -160,6 +160,19 @@ struct MeetingsSection: View {
                 "Registers a read-only MCP server with four tools: list_meetings, get_transcript, get_summary,"
                     + " search_meetings. Nothing in the app can be changed through it."
             )
+            labelled("ChatGPT") {
+                Text(model.chatGPTCommand)
+                    .font(.system(size: 11, design: .monospaced))
+                    .textSelection(.enabled)
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer()
+                Button("Copy", action: model.copyChatGPTCommand)
+            }
+            SettingsFootnote(
+                "In the ChatGPT app for Mac: Settings → MCP servers → Add server. Name it mini-whisper, choose"
+                    + " STDIO, paste this as the command and add the argument mcp. Save, then Restart. ChatGPT"
+                    + " on the web cannot reach servers on this Mac."
+            )
         }
     }
 

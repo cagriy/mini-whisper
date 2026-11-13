@@ -58,6 +58,8 @@ struct MeetingActions {
     var retitle: @MainActor (_ draft: String) -> Void
     var export: @MainActor (MeetingExporter.Kind) -> Void
     var openSettings: @MainActor () -> Void
+    /// A stopped meeting's *Meetings* button: this window closes and the list comes up.
+    var backToMeetings: @MainActor () -> Void
     /// The window was closed: a chooser or an ended meeting goes away, a live one only hides.
     var closed: @MainActor () -> Void
 }
@@ -78,6 +80,7 @@ final class MeetingCoordinator {
         /// now routes to the notice), so it neither shares the microphone nor pastes mid-meeting.
         var endDictation: @MainActor () async -> Void
         var openSettings: @MainActor () -> Void
+        var openMeetings: @MainActor () -> Void
         /// Asks where to write the stored meeting's Markdown, then writes it (R17).
         var export: @MainActor (MeetingExporter.Kind, UUID) -> Void
         /// A meeting changed state, title or summary: the menu, usage rows and list follow.
@@ -350,6 +353,11 @@ final class MeetingCoordinator {
                 self?.deps.export(kind, id)
             },
             openSettings: deps.openSettings,
+            // Closed first: closing makes the app an accessory, and the list makes it regular again.
+            backToMeetings: { [weak session, openMeetings = deps.openMeetings] in
+                session?.window?.close()
+                openMeetings()
+            },
             closed: { [weak self, weak session] in
                 guard let session else { return }
                 self?.closed(session)

@@ -812,6 +812,19 @@ import Testing
         #expect(harness.meetings.copied == ["claude mcp add --transport stdio mini-whisper -- mini-whisper mcp"])
     }
 
+    @Test func chatGPTCommandFollowsInstallStateAndCopies() async {
+        let harness = Harness()
+        defer { harness.cleanUp() }
+        let model = await harness.model()
+        await model.refreshMeetings()
+        #expect(model.chatGPTCommand == "/Applications/Mini Whisper.app/Contents/MacOS/Mini Whisper")
+
+        harness.meetings.installed = true
+        await model.refreshMeetings()
+        model.copyChatGPTCommand()
+        #expect(harness.meetings.copied == ["/usr/local/bin/mini-whisper"])
+    }
+
     private static func entry(audioBytes: Int) -> IndexEntry {
         IndexEntry(
             id: UUID(), title: "Standup", startedAt: Date(timeIntervalSince1970: 1_794_236_400), endedAt: nil,

@@ -84,6 +84,13 @@ enum CommandLineToolInstaller {
         "claude mcp add --transport stdio mini-whisper -- \(installed ? "mini-whisper" : shellQuoted(binaryPath)) mcp"
     }
 
+    /// What the ChatGPT app's STDIO server takes as its command, with `mcp` as the argument: an
+    /// absolute path, since a GUI app lacks the shell's PATH, and unquoted, since it is not parsed
+    /// by a shell.
+    static func chatGPTCommand(installed: Bool, binaryPath: String) -> String {
+        installed ? path : binaryPath
+    }
+
     private static func shellQuoted(_ text: String) -> String {
         "'" + text.replacingOccurrences(of: "'", with: #"'\''"#) + "'"
     }

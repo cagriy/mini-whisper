@@ -156,6 +156,8 @@ import Testing
         var frontApp: String? = "Zoom"
         /// Starts the controller had seen each time a dictation was ended.
         var startsWhenDictationEnded: [Int] = []
+        /// Each time the Meetings list opened: whether the meeting window was still visible.
+        var listOpens: [Bool] = []
         lazy var coordinator = MeetingCoordinator(deps: MeetingCoordinator.Dependencies(
             makeController: { [unowned self] frontApp in
                 frontApps.append(frontApp)
@@ -186,6 +188,7 @@ import Testing
                 startsWhenDictationEnded.append(controllers.last?.starts.count ?? -1)
             },
             openSettings: {},
+            openMeetings: { [unowned self] in listOpens.append(windows.last?.isVisible ?? false) },
             export: { [unowned self] kind, id in exports.append((kind, id)) },
             changed: { [unowned self] in
                 changeCount += 1
@@ -426,6 +429,17 @@ import Testing
 
         harness.actions[0].closed()
         #expect(harness.coordinator.isOpen(id) == false)
+    }
+
+    @Test func backToMeetingsClosesTheWindowThenOpensTheList() async throws {
+        let harness = Harness()
+        try await harness.coordinator.open(UUID())
+        for await _ in harness.changes where !harness.windows.isEmpty { break }
+
+        harness.actions[0].backToMeetings()
+
+        #expect(harness.windows[0].closes == 1)
+        #expect(harness.listOpens == [false])
     }
 
     @Test func listRenameOfAnOpenMeetingGoesThroughItsController() async throws {

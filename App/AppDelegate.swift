@@ -308,6 +308,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             now: { Date() },
             endDictation: { [weak self] in await self?.controller?.abort() },
             openSettings: { [weak self] in self?.openSettings() },
+            openMeetings: { [weak self] in self?.openMeetingsList() },
             export: export,
             changed: { [weak self] in self?.meetingChanged(usage: usage) },
             testCalls: TestCallDependencies(

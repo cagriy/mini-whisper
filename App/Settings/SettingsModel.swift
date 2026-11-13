@@ -499,6 +499,14 @@ final class SettingsModel {
         deps.copy(claudeCodeCommand)
     }
 
+    var chatGPTCommand: String {
+        CommandLineToolInstaller.chatGPTCommand(installed: toolInstalled, binaryPath: deps.toolBinaryPath)
+    }
+
+    func copyChatGPTCommand() {
+        deps.copy(chatGPTCommand)
+    }
+
     private static func subtitle(of engine: MeetingEngine) -> String {
         switch engine {
         case .speechmaticsStandard: "Speaker labels included · English"

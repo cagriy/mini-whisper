@@ -111,4 +111,16 @@ import Testing
 
         #expect(command == "claude mcp add --transport stdio mini-whisper -- '/Applications/Mini Whisper.app/Contents/MacOS/Mini Whisper' mcp")
     }
+
+    @Test func chatGPTCommandIsTheWrapperPathWhenInstalled() {
+        let command = CommandLineToolInstaller.chatGPTCommand(installed: true, binaryPath: Self.app + "/Contents/MacOS/Mini Whisper")
+
+        #expect(command == "/usr/local/bin/mini-whisper")
+    }
+
+    @Test func chatGPTCommandIsTheUnquotedBinaryPathOtherwise() {
+        let command = CommandLineToolInstaller.chatGPTCommand(installed: false, binaryPath: Self.app + "/Contents/MacOS/Mini Whisper")
+
+        #expect(command == "/Applications/Mini Whisper.app/Contents/MacOS/Mini Whisper")
+    }
 }
