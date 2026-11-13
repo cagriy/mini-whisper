@@ -1,0 +1,1118 @@
+<title>Mini Whisper main window</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/* Layout: one live 1080x720 window on a quiet stage, then the language it is built from. */
+:root{
+  --stage:#E8E5DE; --bg:#FBFAF7; --side:#F2F0EA; --card:#FFFFFF; --hover:#ECE9E2; --line:#E1DDD3;
+  --ink:#23221F; --ink2:#6B675E; --ink3:#969084;
+  --accent:#2A6FC9; --accent-ink:#FFFFFF; --accent-soft:#E3EEFB;
+  --rec:#D2452D; --rec-soft:#FBE9E5; --ok:#2F8A5B; --warn:#A56A00;
+  --test:#7A4FD0; --test-soft:#F1ECFB; --teal:#1A808F; --teal-soft:#DDF0F1;
+  --sp1:#7A4FD0; --sp2:#1A808F; --sp3:#B3661C;
+  --shadow:0 14px 36px rgba(35,34,31,.18);
+  --serif:ui-serif,"New York","Iowan Old Style",Georgia,serif;
+  --sans:-apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,"Segoe UI",sans-serif;
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --stage:#151413; --bg:#262522; --side:#1E1D1B; --card:#2F2E2A; --hover:#39372F; --line:#46443D;
+  --ink:#F1EEE7; --ink2:#B4AFA4; --ink3:#878278;
+  --accent:#7DB8F0; --accent-ink:#10202F; --accent-soft:#2A3948;
+  --rec:#F07A62; --rec-soft:#45261F; --ok:#7FC79E; --warn:#E2B45E;
+  --test:#B79CF0; --test-soft:#3A3150; --teal:#6CC5D1; --teal-soft:#1F3B3E;
+  --sp1:#B79CF0; --sp2:#6CC5D1; --sp3:#E0A565;
+  --shadow:0 14px 36px rgba(0,0,0,.45); color-scheme:dark}}
+:root[data-theme="dark"]{
+  --stage:#151413; --bg:#262522; --side:#1E1D1B; --card:#2F2E2A; --hover:#39372F; --line:#46443D;
+  --ink:#F1EEE7; --ink2:#B4AFA4; --ink3:#878278;
+  --accent:#7DB8F0; --accent-ink:#10202F; --accent-soft:#2A3948;
+  --rec:#F07A62; --rec-soft:#45261F; --ok:#7FC79E; --warn:#E2B45E;
+  --test:#B79CF0; --test-soft:#3A3150; --teal:#6CC5D1; --teal-soft:#1F3B3E;
+  --sp1:#B79CF0; --sp2:#6CC5D1; --sp3:#E0A565;
+  --shadow:0 14px 36px rgba(0,0,0,.45); color-scheme:dark}
+/* The window's own Theme setting (System / Light / Dark) overrides the viewer's theme. */
+.mw[data-theme="light"]{
+  --bg:#FBFAF7; --side:#F2F0EA; --card:#FFFFFF; --hover:#ECE9E2; --line:#E1DDD3;
+  --ink:#23221F; --ink2:#6B675E; --ink3:#969084;
+  --accent:#2A6FC9; --accent-ink:#FFFFFF; --accent-soft:#E3EEFB;
+  --rec:#D2452D; --rec-soft:#FBE9E5; --ok:#2F8A5B; --warn:#A56A00;
+  --test:#7A4FD0; --test-soft:#F1ECFB; --teal:#1A808F; --teal-soft:#DDF0F1;
+  --sp1:#7A4FD0; --sp2:#1A808F; --sp3:#B3661C;
+  --shadow:0 14px 36px rgba(35,34,31,.18); color-scheme:light}
+.mw[data-theme="dark"]{
+  --bg:#262522; --side:#1E1D1B; --card:#2F2E2A; --hover:#39372F; --line:#46443D;
+  --ink:#F1EEE7; --ink2:#B4AFA4; --ink3:#878278;
+  --accent:#7DB8F0; --accent-ink:#10202F; --accent-soft:#2A3948;
+  --rec:#F07A62; --rec-soft:#45261F; --ok:#7FC79E; --warn:#E2B45E;
+  --test:#B79CF0; --test-soft:#3A3150; --teal:#6CC5D1; --teal-soft:#1F3B3E;
+  --sp1:#B79CF0; --sp2:#6CC5D1; --sp3:#E0A565;
+  --shadow:0 14px 36px rgba(0,0,0,.45); color-scheme:dark}
+
+*,*::before,*::after{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;background:var(--stage);color:var(--ink);font:14px/1.5 var(--sans);-webkit-font-smoothing:antialiased}
+button,input,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.page{max-width:1160px;margin:0 auto;padding-block:24px 120px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  display:grid;gap:20px}
+.ic{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;flex:none}
+
+/* Page chrome (not part of the app) */
+.banner{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 20px;display:grid;gap:6px}
+.banner .tag{font:600 11px/14px var(--sans);letter-spacing:.06em;text-transform:uppercase;color:var(--warn)}
+.banner h1{margin:0;font:500 24px/30px var(--serif);text-wrap:balance}
+.banner p{margin:0;color:var(--ink2);max-width:86ch}
+.preview{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;color:var(--ink2);font-size:13px}
+.preview b{color:var(--ink);font-weight:600}
+.stage{overflow-x:auto;padding:4px 2px 28px}
+.sect{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px;display:grid;gap:14px;min-width:0}
+.sect h2{margin:0;font:500 20px/26px var(--serif)}
+.sect h3{margin:0;font:600 12px/16px var(--sans);color:var(--ink2)}
+.sect ol{margin:0;padding-left:20px;display:grid;gap:6px;max-width:86ch}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px}
+.sw{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.sw div{border:1px solid var(--line);border-radius:8px;overflow:hidden;font:12px/16px var(--mono);color:var(--ink2)}
+.sw i{display:grid;grid-template-columns:1fr 1fr;height:40px}
+.sw span{display:block;padding:6px 8px}
+.sw b{display:block;color:var(--ink);font-weight:600}
+.ty{display:grid;gap:10px}
+.ty div{display:grid;grid-template-columns:150px minmax(0,1fr);gap:12px;align-items:baseline}
+.ty small{font:12px/16px var(--mono);color:var(--ink2)}
+.kit{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+
+/* ---------- The window ---------- */
+.mw{position:relative;display:grid;grid-template-columns:248px minmax(0,1fr);width:1080px;height:720px;margin:0 auto;
+  background:var(--bg);color:var(--ink);font:13px/18px var(--sans);
+  border:1px solid var(--line);border-radius:12px;overflow:hidden;box-shadow:var(--shadow)}
+.side{background:var(--side);border-right:1px solid var(--line);padding:14px 12px 12px;display:flex;flex-direction:column;gap:10px;min-height:0}
+.lights{display:flex;gap:8px;padding:2px 4px 10px}
+.lights i{width:12px;height:12px;border-radius:50%;background:var(--line)}
+.search{display:flex;align-items:center;gap:6px;height:30px;padding:0 10px;border:1px solid var(--line);border-radius:999px;background:var(--card);color:var(--ink3)}
+.search input{flex:1;min-width:0;border:0;background:transparent;outline:0;color:var(--ink);appearance:none;-webkit-appearance:none}
+.search input::-webkit-search-cancel-button{-webkit-appearance:none}
+.search:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.search kbd{font:11px/14px var(--sans);color:var(--ink3)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:30px;padding:0 14px;border-radius:999px;
+  border:1px solid var(--line);background:transparent;color:var(--ink);font:500 13px/18px var(--sans);white-space:nowrap}
+.btn:hover{background:var(--hover)}
+.btn.primary{background:var(--accent);border-color:transparent;color:var(--accent-ink);font-weight:600}
+.btn.primary:hover{filter:brightness(1.06)}
+.btn.quiet{border-color:transparent;color:var(--ink2)}
+.btn.sm{height:24px;padding:0 10px;font-size:12px}
+.btn.danger{color:var(--rec)}
+.btn.accent{color:var(--accent)}
+.start{width:100%}
+.recpill{display:flex;align-items:center;gap:8px;width:100%;height:36px;padding:0 12px;border-radius:999px;border:1px solid transparent;
+  background:var(--rec-soft);color:var(--ink);text-align:left}
+.recpill .t{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500}
+.recpill time{font-variant-numeric:tabular-nums;color:var(--ink2)}
+.bars{display:flex;align-items:center;gap:2px;height:14px;color:var(--rec)}
+.bars i{width:2px;border-radius:1px;background:currentColor;height:6px;animation:bar 1.1s ease-in-out infinite}
+.bars i:nth-child(2){animation-delay:.15s}.bars i:nth-child(3){animation-delay:.3s}.bars i:nth-child(4){animation-delay:.45s}
+@keyframes bar{0%,100%{height:4px}50%{height:14px}}
+@media (prefers-reduced-motion:reduce){.bars i{animation:none;height:10px}}
+.navs{display:grid;gap:2px;margin-top:4px}
+.nav{display:flex;align-items:center;gap:8px;height:30px;padding:0 8px;border:0;border-radius:8px;background:transparent;color:var(--ink2);font-weight:500;text-align:left;width:100%}
+.nav:hover{background:var(--hover)}
+.nav.on{background:var(--hover);color:var(--ink)}
+.nav .grow{flex:1}
+.nav .chev{transition:transform .15s}
+.nav.open .chev{transform:rotate(90deg)}
+.subnav{display:grid;gap:1px;padding:2px 0 2px 24px}
+.subnav button{height:26px;padding:0 8px;border:0;border-radius:6px;background:transparent;color:var(--ink2);text-align:left}
+.subnav button:hover{background:var(--hover)}
+.subnav button.on{color:var(--ink);font-weight:600;background:var(--hover)}
+.usage{margin-top:auto;padding:10px 4px 0;border-top:1px solid var(--line);font:11px/16px var(--sans);color:var(--ink3);font-variant-numeric:tabular-nums;
+  display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;gap:2px 10px}
+.usage span{text-align:right;white-space:nowrap}
+.usage .l{text-align:left;color:var(--ink2)}
+.usage .h{font-size:10px}
+
+.main{min-width:0;overflow:auto;background:var(--bg)}
+.col{max-width:736px;margin:0 auto;padding:40px 32px 56px;display:grid;gap:18px}
+.display{margin:0;font:500 28px/34px var(--serif);letter-spacing:-.01em;text-wrap:balance}
+.sub{color:var(--ink2);margin-top:-10px;display:flex;flex-wrap:wrap;gap:4px 10px;align-items:center}
+.link{border:0;background:none;padding:0;color:var(--accent)}
+.day{margin:10px 0 2px;padding:0 12px;font:500 12px/16px var(--sans);color:var(--ink3)}
+.rows{display:grid;gap:2px}
+.row{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:12px;padding:10px 12px;border-radius:10px;align-items:start;cursor:default}
+.row:hover,.row.is-hover{background:var(--hover)}
+.tile{width:32px;height:32px;border-radius:8px;display:grid;place-items:center;background:var(--accent-soft);color:var(--accent);font:600 11px/1 var(--sans)}
+.tile.room{background:var(--teal-soft);color:var(--teal)}
+.tile.app{color:#fff}
+.rtitle{font:500 14px/20px var(--sans);display:flex;gap:8px;align-items:center;min-width:0}
+.rtitle span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rsub{color:var(--ink2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rsub.q{font-style:italic}
+.rtext{font:13px/19px var(--sans);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.rmeta{display:flex;align-items:center;gap:8px;min-height:24px;color:var(--ink3);font:12px/16px var(--sans);font-variant-numeric:tabular-nums}
+.rmeta .grow{flex:1}
+.ract{display:flex;gap:6px;opacity:0;pointer-events:none}
+.row:hover .ract,.row.is-hover .ract,.row:focus-within .ract{opacity:1;pointer-events:auto}
+.rtime{color:var(--ink2);font:13px/20px var(--sans);font-variant-numeric:tabular-nums}
+.chip{display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 9px;border-radius:999px;border:1px solid var(--line);color:var(--ink2);font:600 11px/14px var(--sans);white-space:nowrap}
+.chip.test{border-color:transparent;background:var(--test-soft);color:var(--test)}
+.chip .dot{width:6px;height:6px;border-radius:50%;background:var(--ok)}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+mark{background:var(--accent-soft);color:inherit;border-radius:3px;padding:0 2px}
+.snip{display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px;color:var(--ink2)}
+.snip b{font:500 12px/18px var(--sans);color:var(--ink3);font-variant-numeric:tabular-nums}
+
+.topbar{position:sticky;top:0;z-index:2;display:flex;align-items:center;gap:8px;padding:12px 16px;background:var(--bg);border-bottom:1px solid transparent}
+.topbar .grow{flex:1}
+.seg{display:inline-flex;padding:2px;border:1px solid var(--line);border-radius:999px;background:var(--side);width:max-content}
+.seg button{height:24px;padding:0 12px;border:0;border-radius:999px;background:transparent;color:var(--ink2);font:500 12px/16px var(--sans)}
+.seg button[aria-pressed="true"],.seg button[aria-selected="true"]{background:var(--card);color:var(--ink);box-shadow:0 0 0 1px var(--line)}
+.read{max-width:640px;font:15px/24px var(--sans)}
+.read h2{margin:22px 0 6px;font:600 16px/24px var(--sans)}
+.read h2:first-child{margin-top:4px}
+.read ul{margin:0;padding-left:20px;display:grid;gap:4px}
+.read ul ul{margin-top:4px;color:var(--ink2)}
+.read li::marker{color:var(--ink3)}
+.meta{margin-top:18px;padding-top:12px;border-top:1px solid var(--line);font:12px/16px var(--sans);color:var(--ink3);font-variant-numeric:tabular-nums}
+.status{display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:10px;background:var(--accent-soft);color:var(--ink);font:13px/18px var(--sans)}
+.status .bars{color:var(--accent)}
+.para{display:grid;gap:2px;margin-bottom:14px;max-width:640px}
+.para b{font:600 13px/18px var(--sans)}
+.para b small{font:400 12px/16px var(--sans);color:var(--ink3);margin-left:8px;font-variant-numeric:tabular-nums}
+.para p{margin:0;font:14px/22px var(--sans)}
+.marker{display:flex;align-items:center;gap:10px;color:var(--ink3);font:12px/16px var(--sans);margin:4px 0 14px;max-width:640px}
+.marker::before,.marker::after{content:"";flex:1;border-top:1px dashed var(--line)}
+.note{display:grid;grid-template-columns:64px minmax(0,1fr);gap:10px;padding:8px 0;border-top:1px solid var(--line);max-width:640px;font:14px/22px var(--sans)}
+.note time{color:var(--ink3);font:12px/22px var(--sans);font-variant-numeric:tabular-nums}
+
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:0 16px}
+.group{font:500 12px/16px var(--sans);color:var(--ink3);margin:8px 0 -10px;padding:0 4px}
+.set{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 16px;align-items:center;padding:14px 0;border-top:1px solid var(--line)}
+.set:first-child{border-top:0}
+.set .t{font:500 13px/18px var(--sans)}
+.set .d{color:var(--ink2);font:12px/17px var(--sans);max-width:56ch}
+.set .full{grid-column:1/-1}
+.toggle{width:36px;height:20px;border-radius:999px;border:0;background:var(--line);position:relative;padding:0}
+.toggle::after{content:"";position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.25);transition:left .15s}
+.toggle[aria-pressed="true"]{background:var(--accent)}
+.toggle[aria-pressed="true"]::after{left:18px}
+.field{height:30px;padding:0 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);min-width:0}
+.field:focus{outline:0;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+textarea.field{height:96px;padding:8px 10px;width:100%;resize:none;font:12px/18px var(--mono)}
+.step{display:inline-flex;align-items:center;gap:8px;color:var(--ink2);font-variant-numeric:tabular-nums}
+.step i{display:inline-grid;grid-template-columns:22px 22px;border:1px solid var(--line);border-radius:999px;overflow:hidden;font-style:normal;text-align:center;color:var(--ink2);line-height:22px}
+.step i b{font-weight:500}.step i b+b{border-left:1px solid var(--line)}
+.radio{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:2px 10px;align-items:start;padding:7px 0}
+.radio .o{width:16px;height:16px;border-radius:50%;border:1.5px solid var(--ink3);margin-top:1px}
+.radio.on .o{border:5px solid var(--accent)}
+.radio.off{opacity:.55}
+.radio .d{color:var(--ink2);font:12px/16px var(--sans)}
+.radio .p{color:var(--ink2);font-variant-numeric:tabular-nums}
+.mono{font:12px/18px var(--mono);color:var(--ink2);overflow-wrap:anywhere}
+.scrim{position:absolute;inset:0;z-index:5;background:rgba(20,19,17,.36);display:grid;place-items:center}
+.dialog{width:380px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:22px;box-shadow:var(--shadow);display:grid;gap:8px}
+.dialog h4{margin:0;font:500 18px/24px var(--serif)}
+.dialog p{margin:0;color:var(--ink2)}
+.dialog div{display:flex;justify-content:flex-end;gap:8px;margin-top:10px}
+.empty{display:grid;justify-items:center;gap:10px;text-align:center;padding:28px 16px;color:var(--ink2)}
+.empty .display{font-size:22px;line-height:28px;color:var(--ink)}
+.empty p{margin:0;max-width:46ch}
+.mini{border:1px solid var(--line);border-radius:12px;background:var(--bg);color:var(--ink);font:13px/18px var(--sans);overflow:hidden}
+</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></symbol>
+  <symbol id="i-wave" viewBox="0 0 24 24"><path d="M4 10v4M8 6v12M12 9v6M16 4v16M20 10v4"/></symbol>
+  <symbol id="i-mic" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></symbol>
+  <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 7h9M19 7h1M4 17h1M11 17h9"/><circle cx="16" cy="7" r="2.5"/><circle cx="8" cy="17" r="2.5"/></symbol>
+  <symbol id="i-right" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></symbol>
+  <symbol id="i-left" viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></symbol>
+  <symbol id="i-screen" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="12" rx="2"/><path d="M9 21h6M12 17v4"/></symbol>
+  <symbol id="i-people" viewBox="0 0 24 24"><circle cx="9" cy="9" r="3"/><path d="M3 19a6 6 0 0 1 12 0"/><circle cx="17.5" cy="10" r="2.3"/><path d="M17 15a4.5 4.5 0 0 1 4.5 4"/></symbol>
+  <symbol id="i-pencil" viewBox="0 0 24 24"><path d="M4 20l1-4L16 5l3 3L8 19z"/></symbol>
+  <symbol id="i-cloud" viewBox="0 0 48 32"><path d="M13 23a7 7 0 0 1 1-13.9A9.5 9.5 0 0 1 32.4 8 7.5 7.5 0 0 1 35 23"/><path d="M4 27h14l3-7 4 11 3-8 2 4h14"/></symbol>
+</defs></svg>
+
+<div class="page" id="overview" data-mf-option="overview">
+
+  <header class="banner">
+    <span class="tag">Mockup — not shipping code · feature v6 · sample data throughout · Accepted 2026-11-13</span>
+    <h1>Main window overview</h1>
+    <p>The whole main window at rest: sidebar, Meetings, a finished meeting, Dictations, search results and Settings, in one design language. It is derived from your three reference screenshots (warm surfaces, serif display titles, pill controls, a centred reading column, grouped settings cards) and made Mini Whisper's own with the sky blue and the cloud-and-pulse mark of the app icon. Starting, recording and the small windows come in the next set.</p>
+    <p><b>Revision 2.</b> Usage at the foot of the sidebar is a small table: tokens, audio time and cost in their own aligned columns, for Today and Month.</p>
+    <p>Design language: baseline <code>DESIGN.md</code> 6200af0 plus the references. Intended fonts: New York for display titles, SF Pro for everything else, SF Mono for commands — system fonts, nothing bundled.</p>
+  </header>
+
+  <div class="preview">
+    <span><b>The window is live.</b> Use its sidebar, open the first meeting, switch Summary / Transcript / Notes, press Regenerate, type in Search.</span>
+    <span>Theme <span class="seg" id="pv-theme"><button aria-pressed="true" data-v="">System</button><button aria-pressed="false" data-v="light">Light</button><button aria-pressed="false" data-v="dark">Dark</button></span></span>
+    <span>Meeting in progress <button class="toggle" id="pv-rec" aria-pressed="false" aria-label="Show a meeting in progress"></button></span>
+  </div>
+
+  <div class="stage">
+  <div class="mw" id="mw">
+    <aside class="side">
+      <div class="lights" aria-hidden="true"><i></i><i></i><i></i></div>
+      <label class="search"><svg class="ic"><use href="#i-search"/></svg><input id="mw-search" type="search" placeholder="Search" aria-label="Search meetings and dictations"><kbd>⌘F</kbd></label>
+      <button class="btn primary start" id="mw-start"><svg class="ic"><use href="#i-wave"/></svg>Start Meeting</button>
+      <button class="recpill" id="mw-rec" hidden title="Returns to the live meeting"><span class="bars" aria-hidden="true"><i></i><i></i><i></i><i></i></span><span class="t">Supplier call</span><time>12:48</time></button>
+      <div class="navs">
+        <button class="nav on" data-go="meetings"><svg class="ic"><use href="#i-wave"/></svg>Meetings</button>
+        <button class="nav" data-go="dictations"><svg class="ic"><use href="#i-mic"/></svg>Dictations</button>
+        <button class="nav" data-go="set-general" id="nav-settings"><svg class="ic"><use href="#i-sliders"/></svg>Settings<span class="grow"></span><svg class="ic chev"><use href="#i-right"/></svg></button>
+        <div class="subnav" id="subnav" hidden>
+          <button data-go="set-general">General</button><button data-go="set-other" data-name="Hotkeys">Hotkeys</button><button data-go="set-other" data-name="Keys">Keys</button><button data-go="set-other" data-name="Cleanup">Cleanup</button><button data-go="set-other" data-name="Vocabulary">Vocabulary</button><button data-go="set-other" data-name="Dictations">Dictations</button><button data-go="set-meetings">Meetings</button><button data-go="set-other" data-name="Overlay">Overlay</button><button data-go="set-other" data-name="Sound">Sound</button>
+        </div>
+      </div>
+      <div class="usage" aria-label="Usage">
+        <span></span><span class="h">Tokens in/out</span><span class="h">Audio</span><span class="h">Cost</span>
+        <span class="l">Today</span><span>1.2k/340</span><span>3m</span><span>$0.12</span>
+        <span class="l">Month</span><span>48.6k/9.1k</span><span>2h 14m</span><span>$1.50</span>
+      </div>
+    </aside>
+
+    <main class="main" id="main">
+
+      <!-- Meetings (home) -->
+      <section data-page="meetings">
+        <div class="col">
+          <h1 class="display">Meetings</h1>
+          <div class="sub"><span>12 meetings · 310 MB audio</span><button class="link">Show in Finder</button></div>
+          <div class="rows">
+            <h2 class="day">Today</h2>
+            <article class="row" data-go="meeting" tabindex="0">
+              <span class="tile"><svg class="ic"><use href="#i-screen"/></svg></span>
+              <div><div class="rtitle"><span>Weekly platform sync</span></div>
+                <div class="rsub">Catalog entries · Additions requested · Linking and indexing</div>
+                <div class="rmeta"><span>48 min · Remote call · 3 speakers · $0.40</span><span class="grow"></span><span class="ract"><button class="btn sm">Open</button><button class="btn sm">Export<svg class="ic"><use href="#i-down"/></svg></button><button class="btn sm danger">Delete</button></span></div></div>
+              <time class="rtime">14:30</time>
+            </article>
+            <article class="row is-hover" tabindex="0">
+              <span class="tile"><svg class="ic"><use href="#i-screen"/></svg></span>
+              <div><div class="rtitle"><span>Test call · Budget review</span><span class="chip test">TEST</span></div>
+                <div class="rsub q">“Thanks for joining. Shall we start with the travel line?”</div>
+                <div class="rmeta"><span>2 min · WER 6.4% · AssemblyAI · $0.02</span><span class="grow"></span><span class="ract"><button class="btn sm">Open</button><button class="btn sm">Export<svg class="ic"><use href="#i-down"/></svg></button><button class="btn sm danger">Delete</button></span></div></div>
+              <time class="rtime">11:14</time>
+            </article>
+            <h2 class="day">Yesterday</h2>
+            <article class="row" tabindex="0">
+              <span class="tile room"><svg class="ic"><use href="#i-people"/></svg></span>
+              <div><div class="rtitle"><span>Design review with Orla</span></div>
+                <div class="rsub">Navigation model · Reading column · Open risks</div>
+                <div class="rmeta"><span>1 h 12 min · In the room · 4 speakers · $0.61</span><span class="grow"></span><span class="ract"><button class="btn sm">Open</button><button class="btn sm">Export<svg class="ic"><use href="#i-down"/></svg></button><button class="btn sm danger">Delete</button></span></div></div>
+              <time class="rtime">10:05</time>
+            </article>
+            <article class="row" tabindex="0">
+              <span class="tile"><svg class="ic"><use href="#i-screen"/></svg></span>
+              <div><div class="rtitle"><span>Zoom — 12 Nov 16:00</span></div>
+                <div class="rsub q">“Okay, can everyone hear me? Let's start with the rollout dates.”</div>
+                <div class="rmeta"><span>9 min · Remote call · 2 speakers · $0.08 · No summary</span><span class="grow"></span><span class="ract"><button class="btn sm">Open</button><button class="btn sm">Export<svg class="ic"><use href="#i-down"/></svg></button><button class="btn sm danger">Delete</button></span></div></div>
+              <time class="rtime">16:00</time>
+            </article>
+            <h2 class="day">Tuesday 10 Nov</h2>
+            <article class="row" tabindex="0">
+              <span class="tile"><svg class="ic"><use href="#i-screen"/></svg></span>
+              <div><div class="rtitle"><span>Quarterly planning</span></div>
+                <div class="rsub">The team agreed to move the launch to March and split the pilot in two.</div>
+                <div class="rmeta"><span>55 min · Remote call · 5 speakers · $0.47</span><span class="grow"></span><span class="ract"><button class="btn sm">Open</button><button class="btn sm">Export<svg class="ic"><use href="#i-down"/></svg></button><button class="btn sm danger">Delete</button></span></div></div>
+              <time class="rtime">09:30</time>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <!-- Finished meeting -->
+      <section data-page="meeting" hidden>
+        <div class="topbar">
+          <button class="btn sm" data-go="meetings"><svg class="ic"><use href="#i-left"/></svg>Meetings</button>
+          <span class="grow"></span>
+          <button class="btn sm" id="mw-copy">Copy summary</button>
+          <button class="btn sm" id="mw-regen">Regenerate</button>
+          <button class="btn sm">Export<svg class="ic"><use href="#i-down"/></svg></button>
+        </div>
+        <div class="col" style="padding-top:12px">
+          <h1 class="display">Weekly platform sync</h1>
+          <div class="chips"><span class="chip">Fri 13 Nov · 14:30–15:18</span><span class="chip">48 min</span><span class="chip">Remote call</span><span class="chip">You, Mara, Tomas</span><span class="chip">$0.40 total</span></div>
+          <div class="seg" role="tablist" id="mw-tabs"><button role="tab" aria-selected="true" data-tab="summary">Summary</button><button role="tab" aria-selected="false" data-tab="transcript">Transcript</button><button role="tab" aria-selected="false" data-tab="notes">Notes · 3</button></div>
+
+          <div data-tab="summary">
+            <div class="status" id="mw-writing" hidden><span class="bars" aria-hidden="true"><i></i><i></i><i></i><i></i></span>Writing a new summary. This one stays until it arrives.</div>
+            <div class="read">
+              <h2>Catalog entries</h2>
+              <ul><li>Existing entries were reviewed in the shared sheet
+                <ul><li>Harbour billing</li><li>Field survey app</li><li>Several smaller tools are still unlisted</li></ul></li></ul>
+              <h2>Additions requested</h2>
+              <ul><li>Two projects to add this week
+                <ul><li>Data platform</li><li>Agent workbench</li></ul></li>
+                <li>Mara wants an owner named on every new entry</li></ul>
+              <h2>Linking and indexing</h2>
+              <ul><li>Each entry gets its notes linked and an owner</li><li>Goal: findable from the index when searched later</li><li>Whether archived projects are indexed was not settled</li></ul>
+              <h2>Next Steps</h2>
+              <ul><li><strong>Tomas</strong> adds the two projects by Friday</li><li><strong>Mara</strong> links the notes for the existing entries</li><li><strong>You</strong> check the index once linking is done</li></ul>
+              <div class="meta" id="mw-meta">Claude Sonnet 5.5 · 15:19 · 12.5k in / 610 out tokens · $0.03</div>
+            </div>
+          </div>
+
+          <div data-tab="transcript" hidden>
+            <div class="meta" style="margin:0 0 14px;border:0;padding:0">Speechmatics · English · double-click a paragraph to edit it, click a name to rename the speaker</div>
+            <div class="para"><b style="color:var(--accent)">You<small>00:00:04</small></b><p>Right, let's look at what is already in the catalog before we add anything.</p></div>
+            <div class="para"><b style="color:var(--sp1)">Mara<small>00:00:11</small></b><p>I can see Harbour billing and the field survey app. A few of the smaller tools are missing.</p></div>
+            <div class="marker">Paused 00:04:10–00:05:02</div>
+            <div class="para"><b style="color:var(--sp2)">Tomas<small>00:05:06</small></b><p>Then the two new ones are the data platform and the agent workbench. I can add both this week.</p></div>
+            <div class="para"><b style="color:var(--sp1)">Mara<small>00:05:19</small></b><p>Put an owner on each, otherwise nobody keeps them current.</p></div>
+          </div>
+
+          <div data-tab="notes" hidden>
+            <div class="note" style="border-top:0"><time>00:02:40</time><span>Ask about the unlisted tools</span></div>
+            <div class="note"><time>00:05:22</time><span>Owner on every entry</span></div>
+            <div class="note"><time>00:31:05</time><span>Archived projects: decide next week</span></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Dictations -->
+      <section data-page="dictations" hidden>
+        <div class="col">
+          <h1 class="display">Dictations</h1>
+          <div class="sub"><span>Keeping 7 days · 23 dictations</span><button class="link" style="color:var(--rec)">Clear…</button></div>
+          <div class="rows">
+            <h2 class="day">Today</h2>
+            <article class="row is-hover" tabindex="0">
+              <span class="tile app" style="background:#3B70D9">S</span>
+              <div><div class="rtext">Can we move the review to Thursday afternoon? I'd like the pilot numbers in before we decide.</div>
+                <div class="rmeta"><span>14:52 · Slack · SpeechAnalyzer · 6.2s · $0.001</span><span class="grow"></span><span class="ract"><button class="btn sm accent">Paste into Slack</button><button class="btn sm">Correct…</button><button class="btn sm">Copy</button><button class="btn sm danger">Delete</button></span></div></div>
+              <span></span>
+            </article>
+            <article class="row" tabindex="0">
+              <span class="tile app" style="background:#4A9E5C">VS</span>
+              <div><div class="rtext">Rename the helper to parse summary blocks and add a test for nested bullets.</div>
+                <div class="rmeta"><span>13:07 · VS Code · On-device · $0.000</span><span class="grow"></span><span class="ract"><button class="btn sm accent">Paste into Slack</button><button class="btn sm">Correct…</button><button class="btn sm">Copy</button><button class="btn sm danger">Delete</button></span></div></div>
+              <span></span>
+            </article>
+            <h2 class="day">Yesterday</h2>
+            <article class="row" tabindex="0">
+              <span class="tile app" style="background:#D97033">M</span>
+              <div><div class="rtext">Thanks Orla, the catalog notes look good. I'll send the remaining two entries tomorrow morning.</div>
+                <div class="rmeta"><span>17:41 · Mail · SpeechAnalyzer · 5.0s · $0.001</span><span class="grow"></span><span class="ract"><button class="btn sm accent">Paste into Slack</button><button class="btn sm">Correct…</button><button class="btn sm">Copy</button><button class="btn sm danger">Delete</button></span></div></div>
+              <span></span>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <!-- Search results -->
+      <section data-page="search" hidden>
+        <div class="col">
+          <h1 class="display">Results for “<span id="mw-q">catalog</span>”</h1>
+          <div class="rows">
+            <h2 class="day">Meetings · 2</h2>
+            <article class="row" data-go="meeting" tabindex="0">
+              <span class="tile"><svg class="ic"><use href="#i-screen"/></svg></span>
+              <div><div class="rtitle"><span>Weekly platform sync</span></div>
+                <div class="snip"><b>Mara · 00:00:11</b><span>…billing and the field survey app in the <mark>catalog</mark>. A few of the smaller…</span></div>
+                <div class="snip"><b>Summary</b><span><mark>Catalog</mark> entries were reviewed in the shared sheet</span></div>
+                <div class="rmeta"><span>Today · 48 min · Remote call</span></div></div>
+              <time class="rtime">14:30</time>
+            </article>
+            <article class="row" tabindex="0">
+              <span class="tile room"><svg class="ic"><use href="#i-people"/></svg></span>
+              <div><div class="rtitle"><span>Design review with Orla</span></div>
+                <div class="snip"><b>Note · 00:40:05</b><span>link the <mark>catalog</mark> page from the reading column</span></div>
+                <div class="rmeta"><span>Yesterday · 1 h 12 min · In the room</span></div></div>
+              <time class="rtime">10:05</time>
+            </article>
+            <h2 class="day">Dictations · 1</h2>
+            <article class="row" data-go="dictations" tabindex="0">
+              <span class="tile app" style="background:#D97033">M</span>
+              <div><div class="rtext">Thanks Orla, the <mark>catalog</mark> notes look good. I'll send the remaining two entries tomorrow morning.</div>
+                <div class="rmeta"><span>Yesterday 17:41 · Mail</span></div></div>
+              <span></span>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <!-- Settings: General -->
+      <section data-page="set-general" hidden>
+        <div class="col">
+          <h1 class="display">General</h1>
+          <div class="group">Dictation</div>
+          <div class="card">
+            <div class="set"><div><div class="t">Live transcript</div><div class="d">Show the words in the overlay while you speak.</div></div><button class="toggle" aria-pressed="true" aria-label="Live transcript"></button></div>
+            <div class="set"><div class="full"><div class="t">Engine</div>
+              <div class="radio on"><span class="o"></span><div><div>SpeechAnalyzer</div><div class="d">On-device · macOS 26 · best accuracy</div></div><span class="p">Installed</span></div>
+              <div class="radio"><span class="o"></span><div><div>On-device (Apple Speech)</div><div class="d">Free, offline</div></div><span></span></div>
+              <div class="radio off"><span class="o"></span><div><div>OpenAI Realtime</div><div class="d" style="color:var(--warn)">Add an OpenAI key under Keys</div></div><span></span></div>
+            </div></div>
+            <div class="set"><div><div class="t">Stop microphone after idle</div><div class="d">The mic indicator shows only while the engine runs. Lower values save power; higher values keep the next press instant.</div></div><span class="step">60 s <i><b>−</b><b>+</b></i></span></div>
+            <div class="set"><div><div class="t">Stop tap-to-talk after</div><div class="d">A tap arms toggle mode; recording ends at the next tap or at this limit.</div></div><span class="step">5 min <i><b>−</b><b>+</b></i></span></div>
+          </div>
+          <div class="group">Appearance</div>
+          <div class="card">
+            <div class="set"><div><div class="t">Theme</div><div class="d">Follow macOS, or keep Mini Whisper light or dark. The dictation overlay is unaffected.</div></div><span class="seg" id="mw-theme"><button aria-pressed="true" data-v="">System</button><button aria-pressed="false" data-v="light">Light</button><button aria-pressed="false" data-v="dark">Dark</button></span></div>
+          </div>
+          <div class="group">Updates</div>
+          <div class="card">
+            <div class="set"><div><div class="t">Automatically check for updates</div><div class="d">Version 0.7.0. Checked once a day; an update installs only after you approve it.</div></div><button class="toggle" aria-pressed="true" aria-label="Automatically check for updates"></button></div>
+            <div class="set"><div class="t">Check for an update now</div><button class="btn sm">Check Now</button></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Settings: Meetings -->
+      <section data-page="set-meetings" hidden>
+        <div class="col">
+          <h1 class="display">Meetings</h1>
+          <div class="group">Engine</div>
+          <div class="card">
+            <div class="set"><div class="full">
+              <div class="radio on"><span class="o"></span><div><div>Speechmatics</div><div class="d">Real-time, speaker labels included</div></div><span class="p">$0.00/h</span></div>
+              <div class="radio"><span class="o"></span><div><div>AssemblyAI Universal-Streaming</div><div class="d">Real-time, speaker labels as an add-on</div></div><span class="p">$0.00 + $0.00/h</span></div>
+              <div class="d" style="margin-top:6px">Meetings are English only. These list prices drive the running cost in a meeting and the Today and Month totals. (Prices here are placeholders.)</div>
+            </div></div>
+          </div>
+          <div class="group">Recording</div>
+          <div class="card">
+            <div class="set"><div><div class="t">Your name</div><div class="d">Labels your microphone in remote calls and in exports. Starts as your macOS account name.</div></div><input class="field" id="mw-name" value="Sample User" aria-label="Your name" style="width:180px"></div>
+            <div class="set"><div><div class="t">Keep meeting audio</div><div class="d">Saves the audio as AAC beside the transcript, about 14 MB per hour.</div></div><button class="toggle" aria-pressed="true" aria-label="Keep meeting audio"></button></div>
+            <div class="set"><div><div class="t">System Audio Recording</div><div class="d">macOS asks for this at the first remote meeting. If a remote call shows only your side, allow Mini Whisper under Privacy &amp; Security.</div></div><button class="btn sm">Open Privacy Settings…</button></div>
+          </div>
+          <div class="group">Summary</div>
+          <div class="card">
+            <div class="set"><div class="full" style="display:grid;gap:8px"><div class="t">Summary prompt</div>
+              <textarea class="field" id="mw-prompt" aria-label="Summary prompt">You write up a meeting for the person who attended it, as notes organised by topic.
+
+Give each topic the meeting covered its own section, in the order the topics came up…</textarea>
+              <div class="kit"><button class="btn sm">Save Prompt</button><button class="btn sm">Open in Editor</button><button class="btn sm">Restore Default</button></div>
+              <div class="d">Claude Sonnet 5.5 writes the summary when a meeting stops.</div></div></div>
+          </div>
+          <div class="group">Storage</div>
+          <div class="card">
+            <div class="set"><div><div class="t">12 meetings · 310 MB</div><div class="d">Meetings live in ~/.config/mini-whisper/meetings and are never deleted automatically.</div></div><button class="btn sm">Show in Finder</button></div>
+          </div>
+          <div class="group">Command line and agents</div>
+          <div class="card">
+            <div class="set"><div><div class="t">Command-line tool</div><div class="d">Not installed. Adds mini-whisper meetings list | transcript | summary | search to any terminal.</div></div><button class="btn sm">Install…</button></div>
+            <div class="set"><div><div class="t">Claude Code</div><div class="mono">claude mcp add mini-whisper -- "/Applications/Mini Whisper.app/…" mcp</div></div><button class="btn sm">Copy</button></div>
+            <div class="set"><div><div class="t">ChatGPT</div><div class="mono">/Applications/Mini Whisper.app/Contents/MacOS/…</div></div><button class="btn sm">Copy</button></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Settings: the other seven sections follow the same pattern -->
+      <section data-page="set-other" hidden>
+        <div class="col">
+          <h1 class="display" id="mw-other-title">Hotkeys</h1>
+          <div class="card" id="mw-other-card"></div>
+          <div class="sub" style="margin-top:0">This section keeps today's settings, laid out as cards of rows like General and Meetings.</div>
+        </div>
+      </section>
+    </main>
+
+    <div class="scrim" id="mw-sheet" hidden>
+      <div class="dialog" role="dialog" aria-labelledby="mw-sheet-t">
+        <h4 id="mw-sheet-t">Regenerate the summary?</h4>
+        <p>The current summary cost $0.03. It stays until the new one arrives, and stays if the request fails.</p>
+        <div><button class="btn" id="mw-sheet-no">Cancel</button><button class="btn primary" id="mw-sheet-yes">Regenerate</button></div>
+      </div>
+    </div>
+  </div>
+  </div>
+
+  <section class="sect">
+    <h2>What this proposes</h2>
+    <ol>
+      <li><b>Sidebar.</b> Search at the top, then Start Meeting. While a meeting runs, Start Meeting is replaced in place by the recording pill (pulse, title, elapsed time), which returns to the live meeting. Then Meetings, Dictations, Settings. Settings opens its nine sections beneath it and closes again when you leave. Usage sits at the foot as a small table: Today and Month, with tokens, audio time and cost in aligned columns, covering dictations, meetings and summaries.</li>
+      <li><b>Meetings row.</b> Title; then the summary's topic headings on one line; then duration, mode, speakers and cost. Start time on the right. A meeting without a summary shows its first words in italics; an old four-section summary keeps its first sentence. Open, Export and Delete appear on hover without moving anything; Rename stays in the right-click menu and on the meeting's title.</li>
+      <li><b>Finished meeting.</b> The summary is the page, in a 640-point reading column. Transcript and Notes are one switch away. Copy summary, Regenerate and Export sit top right; Regenerate asks first and shows the cost.</li>
+      <li><b>Search.</b> Typing shows one results page grouped Meetings and Dictations; clearing the field returns to where you were.</li>
+      <li><b>Settings.</b> A serif title per section, then cards of rows: name and consequence on the left, control on the right. Theme lives in General. The "Open Meetings…" and "Open History…" buttons go, since the sidebar is always there.</li>
+    </ol>
+  </section>
+
+  <section class="sect">
+    <h2>The language</h2>
+    <div class="grid2">
+      <div style="display:grid;gap:10px"><h3>Colour · light | dark</h3>
+        <div class="sw">
+          <div><i><b style="background:#FBFAF7"></b><b style="background:#262522"></b></i><span><b>canvas</b>#FBFAF7 · #262522</span></div>
+          <div><i><b style="background:#F2F0EA"></b><b style="background:#1E1D1B"></b></i><span><b>sidebar</b>#F2F0EA · #1E1D1B</span></div>
+          <div><i><b style="background:#FFFFFF"></b><b style="background:#2F2E2A"></b></i><span><b>card</b>#FFFFFF · #2F2E2A</span></div>
+          <div><i><b style="background:#ECE9E2"></b><b style="background:#39372F"></b></i><span><b>hover</b>#ECE9E2 · #39372F</span></div>
+          <div><i><b style="background:#E1DDD3"></b><b style="background:#46443D"></b></i><span><b>line</b>#E1DDD3 · #46443D</span></div>
+          <div><i><b style="background:#23221F"></b><b style="background:#F1EEE7"></b></i><span><b>text</b>#23221F · #F1EEE7</span></div>
+          <div><i><b style="background:#6B675E"></b><b style="background:#B4AFA4"></b></i><span><b>text 2</b>#6B675E · #B4AFA4</span></div>
+          <div><i><b style="background:#969084"></b><b style="background:#878278"></b></i><span><b>text 3</b>#969084 · #878278</span></div>
+          <div><i><b style="background:#2A6FC9"></b><b style="background:#7DB8F0"></b></i><span><b>accent (sky)</b>#2A6FC9 · #7DB8F0</span></div>
+          <div><i><b style="background:#E3EEFB"></b><b style="background:#2A3948"></b></i><span><b>accent soft</b>#E3EEFB · #2A3948</span></div>
+          <div><i><b style="background:#D2452D"></b><b style="background:#F07A62"></b></i><span><b>recording</b>#D2452D · #F07A62</span></div>
+          <div><i><b style="background:#2F8A5B"></b><b style="background:#7FC79E"></b></i><span><b>ok</b>#2F8A5B · #7FC79E</span></div>
+        </div>
+      </div>
+      <div style="display:grid;gap:10px;align-content:start"><h3>Type</h3>
+        <div class="ty">
+          <div><small>display · New York 500 · 28/34</small><span class="display">Weekly platform sync</span></div>
+          <div><small>heading · SF Pro 600 · 16/24</small><span style="font:600 16px/24px var(--sans)">Linking and indexing</span></div>
+          <div><small>reading · SF Pro 400 · 15/24</small><span style="font:15px/24px var(--sans)">Each entry gets its notes linked and an owner.</span></div>
+          <div><small>row title · SF Pro 500 · 14/20</small><span style="font:500 14px/20px var(--sans)">Design review with Orla</span></div>
+          <div><small>body · SF Pro 400 · 13/18</small><span style="font:13px/18px var(--sans)">Follow macOS, or keep Mini Whisper light or dark.</span></div>
+          <div><small>meta · SF Pro 400 · 12/16</small><span style="font:12px/16px var(--sans);color:var(--ink3)">48 min · Remote call · 3 speakers · $0.40</span></div>
+          <div><small>label · SF Pro 600 · 11/14</small><span class="chip">Remote call</span></div>
+          <div><small>mono · SF Mono 400 · 12/18</small><span class="mono">mini-whisper meetings list</span></div>
+        </div>
+      </div>
+    </div>
+    <h3>Components</h3>
+    <div class="kit">
+      <button class="btn primary"><svg class="ic"><use href="#i-wave"/></svg>Start Meeting</button>
+      <button class="btn">Secondary</button><button class="btn quiet">Quiet</button>
+      <button class="btn sm">Small</button><button class="btn sm accent">Paste into Slack</button><button class="btn sm danger">Delete</button>
+      <span class="seg"><button aria-pressed="true">Summary</button><button aria-pressed="false">Transcript</button></span>
+      <button class="toggle" aria-pressed="true" aria-label="Sample toggle"></button>
+      <input class="field" id="kit-field" value="Text field" aria-label="Sample field" style="width:130px">
+      <span class="chip"><span class="dot"></span>Mic · System audio</span><span class="chip test">TEST</span>
+      <span class="tile"><svg class="ic"><use href="#i-screen"/></svg></span><span class="tile room"><svg class="ic"><use href="#i-people"/></svg></span>
+    </div>
+    <p style="margin:0;color:var(--ink2);max-width:86ch">Radii: 8 for tiles, fields and sidebar rows, 10 for list rows, 14 for cards and dialogs, full for buttons, chips and search. Spacing in steps of 4. No shadows inside the window; only dialogs and menus lift. Icons are SF Symbols in outline.</p>
+    <h3>Before the first meeting</h3>
+    <div class="mini"><div class="empty"><svg viewBox="0 0 48 32" width="72" height="48" class="ic" style="width:72px;height:48px;color:var(--accent);stroke-width:1.4"><use href="#i-cloud"/></svg><div class="display">No meetings yet</div><p>Press ⌃⌥⌘M or Start Meeting. Mini Whisper transcribes live with speaker labels, keeps your notes beside the transcript and writes a summary when you stop.</p><button class="btn primary"><svg class="ic"><use href="#i-wave"/></svg>Start Meeting</button></div></div>
+  </section>
+</div>
+
+<script>
+(() => {
+  const mw = document.getElementById("mw");
+  const $ = (id) => document.getElementById(id);
+  const all = (sel, root) => Array.from((root || mw).querySelectorAll(sel));
+  let current = "meetings", beforeSearch = "meetings";
+
+  const OTHER = {
+    Hotkeys: [["Dictation", "Hold to talk, tap to toggle", "⇧ Right ⌘"], ["Dictate and submit", "Pastes, then presses Return", "Right ⌘"], ["Meeting", "Starts a meeting, or stops the one running", "⌃⌥⌘M"]],
+    Keys: [["OpenAI", "Transcription and cleanup", "Saved"], ["Speechmatics", "Meetings", "Saved"], ["AssemblyAI", "Meetings", "Not set"], ["Anthropic", "Meeting summaries", "Saved"]],
+    Cleanup: [["Clean up dictations", "Fixes punctuation and filler words before pasting", "On"], ["Cleanup prompt", "Edited in place or in your editor", "Edit"]],
+    Vocabulary: [["Vocabulary", "Names and terms the engines should prefer", "14 terms"], ["Corrections", "Phrases rewritten after transcription", "6 rules"]],
+    Dictations: [["Keep dictations for", "0 turns the list off", "7 days"], ["Clear all dictations", "Deletes every stored dictation now", "Clear…"]],
+    Overlay: [["Animation", "What the recording card draws while you speak", "Constellation"], ["Preview", "Plays the chosen style", "Play"]],
+    Sound: [["Volume", "Start and stop sounds", "100%"], ["Test", "Plays the start sound", "Play"]],
+  };
+
+  function show(page, name) {
+    current = page;
+    all("[data-page]").forEach((p) => { p.hidden = p.dataset.page !== page; });
+    const inSettings = page.startsWith("set-");
+    all(".nav").forEach((n) => n.classList.toggle("on", n.dataset.go === page || (inSettings && n.id === "nav-settings") || (page === "meeting" && n.dataset.go === "meetings")));
+    $("nav-settings").classList.toggle("open", inSettings);
+    $("subnav").hidden = !inSettings;
+    all("#subnav button").forEach((b) => b.classList.toggle("on", page === "set-other" ? b.dataset.name === name : b.dataset.go === page && !b.dataset.name));
+    if (page === "set-other") {
+      $("mw-other-title").textContent = name;
+      const card = $("mw-other-card");
+      card.textContent = "";
+      (OTHER[name] || []).forEach(([t, d, v]) => {
+        const row = document.createElement("div"); row.className = "set";
+        const left = document.createElement("div");
+        const tt = document.createElement("div"); tt.className = "t"; tt.textContent = t;
+        const dd = document.createElement("div"); dd.className = "d"; dd.textContent = d;
+        left.append(tt, dd);
+        const val = document.createElement("span"); val.className = "btn sm"; val.textContent = v;
+        row.append(left, val); card.append(row);
+      });
+    }
+    $("main").scrollTop = 0;
+  }
+
+  mw.addEventListener("click", (e) => {
+    const go = e.target.closest("[data-go]");
+    if (!go || e.target.closest(".ract")) return;
+    if ($("mw-search").value) { $("mw-search").value = ""; }
+    show(go.dataset.go, go.dataset.name);
+  });
+  mw.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && e.target.matches(".row[data-go]")) show(e.target.dataset.go);
+  });
+
+  // Global search: results while there is a query, back to the previous page when cleared.
+  $("mw-search").addEventListener("input", (e) => {
+    const q = e.target.value.trim();
+    if (q) {
+      if (current !== "search") beforeSearch = current;
+      $("mw-q").textContent = q;
+      show("search");
+    } else if (current === "search") {
+      show(beforeSearch);
+    }
+  });
+
+  // Summary / Transcript / Notes
+  $("mw-tabs").addEventListener("click", (e) => {
+    const tab = e.target.closest("button[data-tab]");
+    if (!tab) return;
+    all("#mw-tabs button").forEach((b) => b.setAttribute("aria-selected", String(b === tab)));
+    all('[data-page="meeting"] div[data-tab]').forEach((p) => { p.hidden = p.dataset.tab !== tab.dataset.tab; });
+  });
+
+  // Regenerate: confirm with the cost, keep the current summary while the new one is written.
+  $("mw-regen").addEventListener("click", () => { $("mw-sheet").hidden = false; });
+  $("mw-sheet-no").addEventListener("click", () => { $("mw-sheet").hidden = true; });
+  $("mw-sheet-yes").addEventListener("click", () => {
+    $("mw-sheet").hidden = true;
+    $("mw-writing").hidden = false;
+    setTimeout(() => {
+      $("mw-writing").hidden = true;
+      $("mw-meta").textContent = "Claude Sonnet 5.5 · 16:02 · 12.5k in / 640 out tokens · $0.03";
+    }, 3500);
+  });
+  $("mw-copy").addEventListener("click", (e) => {
+    const b = e.currentTarget; b.textContent = "Copied";
+    setTimeout(() => { b.textContent = "Copy summary"; }, 1500);
+  });
+
+  // Theme: the preview control and the Settings row are the same setting.
+  function theme(v) {
+    if (v) mw.setAttribute("data-theme", v); else mw.removeAttribute("data-theme");
+    document.querySelectorAll("#pv-theme button, #mw-theme button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.v === v)));
+  }
+  ["pv-theme", "mw-theme"].forEach((id) => $(id).addEventListener("click", (e) => {
+    const b = e.target.closest("button[data-v]"); if (b) theme(b.dataset.v);
+  }));
+
+  // A meeting in progress: Start Meeting gives way to the recording pill.
+  function recording(on) {
+    $("pv-rec").setAttribute("aria-pressed", String(on));
+    $("mw-start").hidden = on; $("mw-rec").hidden = !on;
+  }
+  $("pv-rec").addEventListener("click", () => recording($("pv-rec").getAttribute("aria-pressed") !== "true"));
+  $("mw-start").addEventListener("click", () => recording(true));
+
+  mw.addEventListener("click", (e) => {
+    const t = e.target.closest(".toggle"); if (t) t.setAttribute("aria-pressed", String(t.getAttribute("aria-pressed") !== "true"));
+  });
+})();
+</script>
+
+<!-- mockup-feedback:start -->
+<style>
+.mf-bar {
+  --mf-bg: #f6f7f9;
+  --mf-fg: #1a2127;
+  --mf-muted: #59646d;
+  --mf-line: #d3d9de;
+  --mf-field: #ffffff;
+  --mf-accent: #2f5fd0;
+  --mf-accent-fg: #ffffff;
+  --mf-ok: #1d7a4c;
+  --mf-warn: #8f5d00;
+  --mf-err: #b2322b;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .mf-bar {
+    --mf-bg: #161b20;
+    --mf-fg: #e3e8ec;
+    --mf-muted: #98a3ab;
+    --mf-line: #2d363e;
+    --mf-field: #0f1317;
+    --mf-accent: #7ea2f5;
+    --mf-accent-fg: #0b1220;
+    --mf-ok: #57c48c;
+    --mf-warn: #e2ac45;
+    --mf-err: #f08077;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] .mf-bar {
+  --mf-bg: #161b20;
+  --mf-fg: #e3e8ec;
+  --mf-muted: #98a3ab;
+  --mf-line: #2d363e;
+  --mf-field: #0f1317;
+  --mf-accent: #7ea2f5;
+  --mf-accent-fg: #0b1220;
+  --mf-ok: #57c48c;
+  --mf-warn: #e2ac45;
+  --mf-err: #f08077;
+  color-scheme: dark;
+}
+.mf-bar, .mf-bar * { box-sizing: border-box; }
+.mf-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 2147483000;
+  margin: 24px 0 0;
+  padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px));
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--mf-bg);
+  color: var(--mf-fg);
+  border-top: 1px solid var(--mf-line);
+  box-shadow: 0 -6px 18px rgba(0, 0, 0, 0.08);
+  font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  text-align: left;
+}
+.mf-bar[hidden] { display: none; }
+.mf-bar .mf-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+.mf-bar .mf-tag {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--mf-muted);
+}
+.mf-bar .mf-title { font-weight: 600; }
+.mf-bar .mf-context { color: var(--mf-muted); min-width: 0; overflow-wrap: anywhere; }
+.mf-bar .mf-toggle {
+  margin-left: auto;
+  padding: 2px 6px;
+  border: 0;
+  background: none;
+  color: var(--mf-accent);
+  font: inherit;
+  font-size: 13px;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.mf-bar .mf-body { display: flex; flex-direction: column; gap: 8px; }
+.mf-bar.mf-collapsed .mf-body { display: none; }
+.mf-bar .mf-options { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; border: 0; }
+.mf-bar .mf-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border: 1.5px solid var(--mf-line);
+  border-radius: 999px;
+  background: var(--mf-field);
+  cursor: pointer;
+}
+.mf-bar .mf-chip input { margin: 0; accent-color: var(--mf-accent); }
+.mf-bar .mf-chip:has(input:checked) { border-color: var(--mf-accent); }
+.mf-bar .mf-chip:has(input:focus-visible) { outline: 2px solid var(--mf-accent); outline-offset: 2px; }
+.mf-bar .mf-note {
+  width: 100%;
+  min-height: 38px;
+  max-height: 140px;
+  padding: 7px 10px;
+  resize: vertical;
+  font: inherit;
+  color: var(--mf-fg);
+  background: var(--mf-field);
+  border: 1.5px solid var(--mf-line);
+  border-radius: 8px;
+}
+.mf-bar .mf-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.mf-bar .mf-btn {
+  padding: 7px 12px;
+  border: 1.5px solid var(--mf-line);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--mf-fg);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.mf-bar .mf-btn.mf-primary { background: var(--mf-accent); border-color: var(--mf-accent); color: var(--mf-accent-fg); }
+.mf-bar .mf-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.mf-bar .mf-btn:focus-visible, .mf-bar .mf-toggle:focus-visible, .mf-bar .mf-note:focus-visible {
+  outline: 2px solid var(--mf-accent);
+  outline-offset: 2px;
+}
+.mf-bar .mf-channel { display: flex; align-items: center; gap: 6px; margin: 0; font-size: 13px; color: var(--mf-muted); }
+.mf-bar .mf-dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--mf-muted); }
+.mf-bar .mf-channel[data-state="available"] .mf-dot { background: var(--mf-ok); }
+.mf-bar .mf-channel[data-state="no_session"] .mf-dot,
+.mf-bar .mf-channel[data-state="writers_only"] .mf-dot { background: var(--mf-warn); }
+.mf-bar .mf-channel[data-state="blocked"] .mf-dot { background: var(--mf-err); }
+.mf-bar .mf-result { margin: 0; font-size: 13px; }
+.mf-bar .mf-result[data-kind="ok"] { color: var(--mf-ok); }
+.mf-bar .mf-result[data-kind="err"] { color: var(--mf-err); }
+.mf-bar .mf-verdict { margin: 0; font-weight: 600; }
+[data-mf-option].mf-selected { outline: 3px solid #3b6fe0; outline-offset: 4px; }
+</style>
+<aside class="mf-bar" id="mf-bar" role="region" aria-label="Mockup feedback" data-uncommentable hidden>
+  <div class="mf-head">
+    <span class="mf-tag">Feedback</span>
+    <span class="mf-title" id="mf-title"></span>
+    <span class="mf-context" id="mf-context"></span>
+    <button type="button" class="mf-toggle" id="mf-toggle" aria-expanded="true" aria-controls="mf-body">Hide</button>
+  </div>
+  <div class="mf-body" id="mf-body">
+    <p class="mf-verdict" id="mf-verdict" hidden></p>
+    <fieldset class="mf-options" id="mf-options" hidden></fieldset>
+    <textarea class="mf-note" id="mf-note" maxlength="1500" placeholder="Note for Claude (optional; required to request changes)" aria-label="Note for Claude"></textarea>
+    <div class="mf-actions" id="mf-actions"></div>
+    <p class="mf-channel" id="mf-channel" data-state="checking">
+      <span class="mf-dot" aria-hidden="true"></span>
+      <span id="mf-channel-text">Checking whether a Claude session is listening.</span>
+      <button type="button" class="mf-toggle" id="mf-recheck" hidden>Check again</button>
+    </p>
+    <p class="mf-result" id="mf-result" role="status" aria-live="polite" hidden></p>
+  </div>
+</aside>
+<script type="application/json" id="mf-config">{"set":"v6-s1","setLabel":"Main window and design language","mode":"review","options":[{"id":"overview","label":"Main window overview"}],"this":null,"status":"accepted","chosen":null}</script>
+<script>
+(function () {
+  var cfg;
+  try { cfg = JSON.parse(document.getElementById("mf-config").textContent); } catch (e) { return; }
+  if (!cfg || !cfg.options || !cfg.options.length) return;
+
+  var PREFIX = "Mockup feedback · ";
+  var CHANNEL = {
+    checking: "Checking whether a Claude session is listening.",
+    available: "A Claude session is listening. Sending wakes it.",
+    no_session: "No Claude session is listening. Reply in chat, or check again once the session is back.",
+    writers_only: "Only editors of this page can send to Claude. Reply in chat instead.",
+    off: "Sending to Claude is not offered here. Reply in chat instead.",
+    absent: "Sending works on the published page. Here, reply in chat instead.",
+    blocked: "Commenting from this page is turned off. Reply in chat instead."
+  };
+  var KNOWN = ["available", "writers_only", "no_session", "off"];
+
+  var bar = document.getElementById("mf-bar");
+  var titleEl = document.getElementById("mf-title");
+  var contextEl = document.getElementById("mf-context");
+  var toggleBtn = document.getElementById("mf-toggle");
+  var verdictEl = document.getElementById("mf-verdict");
+  var optionsEl = document.getElementById("mf-options");
+  var noteEl = document.getElementById("mf-note");
+  var actionsEl = document.getElementById("mf-actions");
+  var channelEl = document.getElementById("mf-channel");
+  var channelText = document.getElementById("mf-channel-text");
+  var recheckBtn = document.getElementById("mf-recheck");
+  var resultEl = document.getElementById("mf-result");
+
+  var comments = null;
+  var state = "checking";
+  var busy = false;
+  var sent = false;
+  var buttons = [];
+
+  function byId(list, id) {
+    for (var i = 0; i < list.length; i++) if (list[i].id === id) return list[i];
+    return null;
+  }
+  function label(id) { var o = byId(cfg.options, id); return o ? o.label : id; }
+  function root(id) { return document.querySelector('[data-mf-option="' + id + '"]'); }
+  function picked() {
+    if (cfg.mode !== "compare") return cfg.mode === "pick" ? cfg["this"] : cfg.options[0].id;
+    var r = optionsEl.querySelector("input:checked");
+    return r ? r.value : null;
+  }
+  function say(text, kind) {
+    resultEl.hidden = !text;
+    resultEl.textContent = text || "";
+    if (kind) resultEl.setAttribute("data-kind", kind);
+    else resultEl.removeAttribute("data-kind");
+  }
+  function clean(text) {
+    return text.replace(/[\u0000-\u0008\u000B-\u001F\u007F]/g, "").trim();
+  }
+
+  // Header: the set, and where this page sits in it.
+  titleEl.textContent = cfg.setLabel;
+  if (cfg.mode === "pick") {
+    var others = [];
+    var position = 0;
+    for (var i = 0; i < cfg.options.length; i++) {
+      if (cfg.options[i].id === cfg["this"]) position = i + 1;
+      else others.push(cfg.options[i].label);
+    }
+    contextEl.textContent = "Option " + position + " of " + cfg.options.length + ": " + label(cfg["this"]) +
+      ". The others are on their own pages: " + others.join(", ") + ". Choosing here rules them out.";
+  } else if (cfg.mode === "compare") {
+    contextEl.textContent = cfg.options.length + " options on this page. Pick one.";
+  } else {
+    contextEl.textContent = label(cfg.options[0].id);
+  }
+
+  toggleBtn.addEventListener("click", function () {
+    var collapsed = bar.classList.toggle("mf-collapsed");
+    toggleBtn.textContent = collapsed ? "Show" : "Hide";
+    toggleBtn.setAttribute("aria-expanded", collapsed ? "false" : "true");
+  });
+
+  // A settled page shows its verdict and nothing to act on.
+  if (cfg.status !== "open") {
+    var verdict = {
+      accepted: cfg.mode === "compare" ? "Accepted: " + label(cfg.chosen) + "." : "Accepted.",
+      "not-chosen": "Not chosen.",
+      closed: "Closed. Choices on this page are no longer read."
+    }[cfg.status] || "Closed.";
+    verdictEl.textContent = verdict;
+    verdictEl.hidden = false;
+    noteEl.hidden = true;
+    channelEl.hidden = true;
+    if (cfg.mode === "compare" && cfg.status === "accepted" && root(cfg.chosen)) root(cfg.chosen).classList.add("mf-selected");
+    bar.hidden = false;
+    return;
+  }
+
+  // Compare: one chip per option, outlining its section when picked.
+  if (cfg.mode === "compare") {
+    var legend = document.createElement("legend");
+    legend.className = "mf-tag";
+    legend.textContent = "Options";
+    optionsEl.appendChild(legend);
+    cfg.options.forEach(function (o) {
+      var chip = document.createElement("label");
+      chip.className = "mf-chip";
+      var input = document.createElement("input");
+      input.type = "radio";
+      input.name = "mf-option";
+      input.id = "mf-option-" + o.id;
+      input.value = o.id;
+      input.addEventListener("change", function () {
+        var all = document.querySelectorAll("[data-mf-option]");
+        for (var k = 0; k < all.length; k++) all[k].classList.remove("mf-selected");
+        var el = root(o.id);
+        if (el) {
+          el.classList.add("mf-selected");
+          var still = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+          el.scrollIntoView({ block: "nearest", behavior: still ? "auto" : "smooth" });
+        }
+        refresh();
+      });
+      chip.appendChild(input);
+      chip.appendChild(document.createTextNode(o.label));
+      optionsEl.appendChild(chip);
+    });
+    optionsEl.hidden = false;
+  }
+
+  // Actions per shape. needsNote: a change request must say what to change.
+  var ACTIONS = {
+    review: [
+      { action: "accept", text: "Looks right", primary: true },
+      { action: "revise", text: "Request changes", needsNote: true },
+      { action: "alternatives", text: "Show alternatives" }
+    ],
+    compare: [
+      { action: "choose", text: "Send choice", primary: true, needsPick: true },
+      { action: "none", text: "None of these", needsNote: true },
+      { action: "comment", text: "Comment on this option", needsPick: true }
+    ],
+    pick: [
+      { action: "choose", text: "Choose this one", primary: true },
+      { action: "revise", text: "Request changes", needsNote: true },
+      { action: "none", text: "None of these", needsNote: true }
+    ]
+  }[cfg.mode] || [];
+
+  ACTIONS.forEach(function (a) {
+    var b = document.createElement("button");
+    b.type = "button";
+    b.className = "mf-btn" + (a.primary ? " mf-primary" : "");
+    b.id = "mf-" + a.action;
+    b.textContent = a.text;
+    b.addEventListener("click", function () {
+      if (a.action === "comment") compose();
+      else send(a);
+    });
+    actionsEl.appendChild(b);
+    buttons.push({ el: b, spec: a });
+  });
+
+  function render() {
+    channelEl.setAttribute("data-state", state);
+    channelText.textContent = CHANNEL[state] || CHANNEL.off;
+    recheckBtn.hidden = !comments || state === "available" || state === "checking" || state === "blocked";
+    var pick = picked();
+    buttons.forEach(function (b) {
+      if (b.spec.action === "comment") {
+        b.el.disabled = !comments || !pick;
+        b.el.hidden = !comments;
+        return;
+      }
+      b.el.disabled = busy || sent || state !== "available" || (b.spec.needsPick && !pick);
+    });
+    noteEl.disabled = sent;
+  }
+
+  function refresh() {
+    if (!comments || state === "blocked") { render(); return; }
+    comments.canSendToClaude().then(function (v) {
+      return KNOWN.indexOf(v) === -1 ? "off" : v;
+    }, function () {
+      return "off";
+    }).then(function (v) {
+      if (comments && state !== "blocked") state = v;
+      render();
+    });
+  }
+
+  function fail(err) {
+    var code = err && err.code;
+    if (code === "consent_required") {
+      say("Not sent. The page was not allowed to comment as you. Your note is kept.", "err");
+    } else if (code === "forbidden") {
+      state = "blocked";
+      say("Not sent. Commenting from this page is turned off.", "err");
+    } else if (code === "claude_unavailable") {
+      say("Not sent. No Claude session could receive it. Nothing was posted.", "err");
+      refresh();
+    } else if (code === "rate_limited") {
+      say("Not sent. Too many sends in a row. Wait a moment.", "err");
+    } else if (code === "invalid" || code === "transform_error") {
+      say("Not sent. The note has characters a comment cannot carry.", "err");
+    } else if (code === "not_granted" || code === "capability_disabled" || code === "capability_removed") {
+      comments = null;
+      state = "absent";
+      say("Not sent. This view cannot post comments from the page.", "err");
+    } else {
+      say("Not sent. Comments are unavailable right now. Try once more.", "err");
+    }
+  }
+
+  function send(spec) {
+    if (!comments || busy || sent) return;
+    var option = spec.action === "choose" || spec.action === "accept" || spec.action === "revise" ? picked() : null;
+    if (spec.needsPick && !option) { say("Pick an option first.", "err"); return; }
+    var note = clean(noteEl.value);
+    if (spec.needsNote && !note) {
+      say("Add a note saying what to change.", "err");
+      noteEl.focus();
+      return;
+    }
+    var text = PREFIX + cfg.set + " · " + spec.action + (option ? " " + option : "") + (note ? "\nNote: " + note : "");
+    var target = root(option || picked() || cfg.options[0].id) || bar.parentNode;
+    busy = true;
+    say("", null);
+    render();
+    comments.anchorFor(target).then(function (anchor) {
+      return comments.sendToClaude({ anchor: anchor, text: text });
+    }).then(function () {
+      sent = true;
+      say("Sent to Claude: " + spec.text.toLowerCase() + (option ? " (" + label(option) + ")" : "") +
+        ". Claude replies in the comment thread and updates this page.", "ok");
+    }, fail).then(function () {
+      busy = false;
+      render();
+    });
+  }
+
+  function compose() {
+    var option = picked();
+    var el = option && root(option);
+    if (!comments || !el) return;
+    comments.openComposer({ element: el }).then(function (r) {
+      if (r && r.opened) say("Comment box opened on " + label(option) + ". Write your comment and press Send to Claude.", "ok");
+    }, function (err) {
+      say(err && err.code === "rate_limited" ? "Too many tries in a row. Wait a moment." : "The comment box is unavailable here.", "err");
+    });
+  }
+
+  recheckBtn.addEventListener("click", refresh);
+  window.addEventListener("focus", refresh);
+  bar.hidden = false;
+  render();
+
+  var ready = window.claude && typeof window.claude.use === "function"
+    ? window.claude.use("comments")
+    : Promise.resolve(null);
+  ready.then(function (ns) { return ns; }, function () { return null; }).then(function (ns) {
+    comments = ns;
+    if (!ns) { state = "absent"; render(); return; }
+    refresh();
+  });
+})();
+</script>
+<!-- mockup-feedback:end -->

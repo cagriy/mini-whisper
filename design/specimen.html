@@ -1,0 +1,668 @@
+<title>Mini Whisper — design language</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<!-- design-language-specimen-hash: cc17767b089d03d435f774f700d6ae218c87bc230392a793dfb8935331b9b1a1 -->
+<!--
+  =====================================================================
+  design-specimen template (dev-skills plugin)
+  ---------------------------------------------------------------------
+  The specimen page /design-language-update renders to
+  design/specimen.html from the managed region of DESIGN.md. The skill
+  never edits this file or its output; scripts/design_language.py
+  `render` substitutes four tokens in one pass (names WITHOUT braces
+  here, so the anchored occurrences are the only literal matches):
+
+    PROJECT_NAME   HTML-escaped project name; in the title and the h1
+    GENERATED_AT   UTC render time; in the footer
+    DATA_HASH      full data hash; in the marker comment above (read by
+                   `render` to skip an unchanged page) and on the page
+                   root, where the script derives the 7-character form
+    SPECIMEN_DATA  the region as escaped JSON; in the data block below
+
+  Written as artifact page content: no doctype, html, head or body.
+  Offline: no network requests, no fonts loaded. Every node is built
+  with createElement + textContent; data reaches `style` only through
+  style.setProperty, and only values the script validated (colours,
+  sizes, shadows, families, weights). Sample copy is fixed template
+  text, never project content. Layout follows the accepted mockup in
+  features/feature-v2-design-language-capture/mockups/.
+  =====================================================================
+-->
+<style>
+  /* Chrome reuses the feature-tracker tokens; the project's own values
+     live only on the swatches, samples and the .proj canvas. */
+  :root {
+    --bg: #f9fafb;
+    --surface: #ffffff;
+    --surface-muted: #f3f4f6;
+    --border: #e5e7eb;
+    --text: #0f172a;
+    --text-muted: #6b7280;
+    --text-subtle: #9ca3af;
+    --accent: #4f46e5;
+    --accent-soft: #eef2ff;
+    --warn: #b45309;
+    --warn-soft: #fef3c7;
+    --bad: #b91c1c;
+    --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04);
+    --radius: 14px;
+    --radius-sm: 8px;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, system-ui, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0b0b0d; --surface: #131316; --surface-muted: #1a1a1f; --border: #26262b;
+      --text: #f5f5f7; --text-muted: #a1a1aa; --text-subtle: #71717a;
+      --accent: #818cf8; --accent-soft: rgba(129, 140, 248, 0.12);
+      --warn: #fbbf24; --warn-soft: rgba(251, 191, 36, 0.12);
+      --bad: #f87171;
+      --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0b0b0d; --surface: #131316; --surface-muted: #1a1a1f; --border: #26262b;
+    --text: #f5f5f7; --text-muted: #a1a1aa; --text-subtle: #71717a;
+    --accent: #818cf8; --accent-soft: rgba(129, 140, 248, 0.12);
+    --warn: #fbbf24; --warn-soft: rgba(251, 191, 36, 0.12);
+    --bad: #f87171;
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+    color-scheme: dark;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 15px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap {
+    max-width: 1080px;
+    margin: 0 auto;
+    padding-block: 32px 64px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    display: grid;
+    gap: 16px;
+  }
+  code, .mono { font-family: var(--mono); font-size: 0.86em; }
+  a { color: var(--accent); }
+  a:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .empty { color: var(--text-muted); font-style: italic; }
+
+  /* Header -------------------------------------------------------- */
+  .hdr { padding: 8px 0 20px; border-bottom: 1px solid var(--border); display: grid; gap: 10px; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 11.5px; font-weight: 600;
+    letter-spacing: 0.06em; text-transform: uppercase;
+    background: var(--surface-muted); color: var(--text-muted);
+    border: 1px solid var(--border);
+    white-space: nowrap;
+  }
+  .chip.accent { background: var(--accent-soft); color: var(--accent); border-color: transparent; }
+  h1 { margin: 4px 0 0; font-size: 32px; line-height: 1.18; letter-spacing: -0.022em; text-wrap: balance; overflow-wrap: anywhere; }
+  .lede { margin: 0; color: var(--text-muted); }
+  .ts {
+    font-family: var(--mono); font-size: 11.5px; color: var(--text-muted);
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 999px; padding: 3px 11px; font-variant-numeric: tabular-nums;
+    text-decoration: none;
+  }
+  a.ts { color: var(--accent); }
+  .summary { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 13.5px; color: var(--text-muted); }
+  .summary b { color: var(--text); font-variant-numeric: tabular-nums; }
+  .summary .att b { color: var(--warn); }
+  .jump { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 13px; }
+  .jump a { text-decoration: none; }
+
+  /* Panels -------------------------------------------------------- */
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px clamp(16px, 3vw, 30px);
+    box-shadow: var(--shadow-sm);
+    min-width: 0;
+  }
+  .label {
+    margin: 0 0 14px;
+    font-size: 11.5px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.1em;
+    color: var(--text-subtle);
+    display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;
+  }
+  .label .note { text-transform: none; letter-spacing: 0; font-weight: 500; display: inline-flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .sub { margin: 18px 0 10px; font-size: 13px; font-weight: 600; color: var(--text-muted); }
+  .sub:first-child { margin-top: 0; }
+  p { margin: 0; max-width: 68ch; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+
+  /* Source tags --------------------------------------------------- */
+  .src {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-family: var(--mono); font-size: 11px; font-weight: 400;
+    text-transform: none; letter-spacing: 0;
+    padding: 1px 7px; border-radius: 5px;
+    border: 1px solid var(--border); color: var(--text-muted);
+    background: var(--surface-muted);
+    max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .src.user { background: var(--accent-soft); color: var(--accent); border-color: transparent; }
+  .src.skill { background: transparent; border-style: dashed; }
+  .src.pending { background: var(--warn-soft); color: var(--warn); border-color: transparent; }
+  .src::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; opacity: .7; flex: none; }
+
+  /* Theme and guardrails ------------------------------------------ */
+  .theme { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 24px; }
+  .dd { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .dd ul { margin: 6px 0 0; padding-left: 18px; font-size: 13.5px; color: var(--text-muted); display: grid; gap: 4px; }
+  .dd li .src { margin-left: 6px; vertical-align: middle; }
+  .dd h4 { margin: 0; font-size: 12px; text-transform: uppercase; letter-spacing: .08em; }
+  .dd .do h4 { color: var(--accent); }
+  .dd .dont h4 { color: var(--bad); }
+
+  /* Colour -------------------------------------------------------- */
+  .swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(176px, 1fr)); gap: 12px; }
+  .sw { border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; background: var(--surface); min-width: 0; }
+  .sw .chipblock { height: 64px; display: grid; grid-template-columns: 1fr 1fr; }
+  .sw .chipblock.single { grid-template-columns: 1fr; }
+  .sw .meta { padding: 9px 11px 11px; display: grid; gap: 3px; font-size: 12.5px; }
+  .sw .tok { font-family: var(--mono); font-size: 12px; font-weight: 600; color: var(--text); overflow-wrap: anywhere; }
+  .sw .val { font-family: var(--mono); font-size: 11.5px; color: var(--text-muted); }
+  .sw .role { color: var(--text-muted); }
+
+  /* Typography ---------------------------------------------------- */
+  .ty { display: grid; grid-template-columns: 210px minmax(0, 1fr); gap: 16px; align-items: baseline; padding: 10px 0; border-top: 1px solid var(--border); }
+  .ty:first-child { border-top: 0; }
+  .ty .tmeta { display: grid; gap: 2px; font-size: 12px; color: var(--text-muted); min-width: 0; }
+  .ty .tmeta .tok { font-family: var(--mono); font-weight: 600; color: var(--text); overflow-wrap: anywhere; }
+  .ty .sample { min-width: 0; overflow-wrap: anywhere; color: var(--text); }
+  .fallback { color: var(--warn); }
+
+  /* Layout scales ------------------------------------------------- */
+  .scales { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; }
+  .scales .span2 { grid-column: span 2; }
+  .bar { display: grid; grid-template-columns: minmax(70px, auto) 1fr; align-items: center; gap: 10px; font-size: 12px; }
+  .bar .b { height: 10px; max-width: 100%; background: var(--accent); border-radius: 2px; opacity: .8; }
+  .stack { display: grid; gap: 8px; }
+  .rad { display: flex; flex-wrap: wrap; gap: 12px; }
+  .rad div { min-width: 64px; max-width: 128px; display: grid; gap: 2px; justify-items: center; text-align: center; font-size: 11.5px; color: var(--text-muted); font-family: var(--mono); overflow-wrap: anywhere; }
+  .rad i { width: 56px; height: 40px; margin-bottom: 2px; border: 2px solid var(--accent); display: block; }
+  .elev { display: grid; gap: 12px; }
+  .elev div { padding: 10px 12px; border-radius: 8px; background: #ffffff; color: #1f2937; font-size: 12px; font-family: var(--mono); border: 1px solid #e5e7eb; overflow-wrap: anywhere; }
+
+  /* Project canvas: painted in the project's own tokens. --p-* come from
+     the palette, --c-* from one component's own token pairs; the values
+     here are neutral fallbacks for whatever the project has not recorded. */
+  .proj {
+    --p-canvas: #f4f5f7; --p-surface: #ffffff; --p-text: #111827; --p-muted: #6b7280;
+    --p-border: #d1d5db; --p-primary: #374151; --p-on-primary: #ffffff; --p-primary-soft: #e5e7eb;
+    --p-info: #2563eb; --p-success: #15803d; --p-warning: #b45309; --p-danger: #b91c1c;
+    --p-r-sm: 4px; --p-r-md: 6px; --p-r-lg: 8px; --p-shadow: none;
+    background: var(--p-canvas); color: var(--p-text);
+    font-family: var(--p-font, var(--sans));
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    padding: 18px;
+  }
+  .proj[data-mode="dark"] {
+    --p-canvas: #111315; --p-surface: #1b1e21; --p-text: #e5e7eb; --p-muted: #9ca3af;
+    --p-border: #33383d; --p-primary: #d1d5db; --p-on-primary: #111315; --p-primary-soft: #2a2f34;
+    --p-info: #60a5fa; --p-success: #4ade80; --p-warning: #fbbf24; --p-danger: #f87171;
+  }
+  .toggle { display: inline-flex; border: 1px solid var(--border); border-radius: 999px; padding: 2px; background: var(--surface-muted); }
+  .toggle button {
+    font: inherit; font-size: 12px; font-weight: 600; letter-spacing: 0; text-transform: none; border: 0; background: transparent;
+    color: var(--text-muted); padding: 3px 12px; border-radius: 999px; cursor: pointer;
+  }
+  .toggle button[aria-pressed="true"] { background: var(--surface); color: var(--text); box-shadow: var(--shadow-sm); }
+  .toggle button:disabled { cursor: not-allowed; opacity: .5; }
+  .comps { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+  .comp { background: var(--p-surface); border: 1px solid var(--p-border); border-radius: var(--p-r-lg); padding: 14px; display: grid; gap: 10px; min-width: 0; align-content: start; }
+  .comp.wide { grid-column: 1 / -1; }
+  .comp .ch { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; font-family: var(--mono); font-size: 11px; color: var(--p-muted); text-transform: uppercase; letter-spacing: .08em; }
+  .comp .pairs { font-family: var(--mono); font-size: 11px; color: var(--p-muted); overflow-wrap: anywhere; }
+  .comp .sample {
+    display: grid; gap: 8px; min-width: 0;
+    font-family: var(--c-font, var(--p-font, var(--sans)));
+    font-size: var(--c-size, 14px); line-height: var(--c-line, 1.45); font-weight: var(--c-weight, 400);
+  }
+  .btns { display: flex; flex-wrap: wrap; gap: 8px; }
+  .pbtn {
+    font: inherit; font-weight: var(--c-weight, 600);
+    padding: var(--c-pad, 8px) calc(2 * var(--c-pad, 8px));
+    border-radius: var(--c-radius, var(--p-r-md)); border: 1px solid transparent; cursor: default;
+    box-shadow: var(--c-shadow, none);
+  }
+  .pbtn.primary { background: var(--c-bg, var(--p-primary)); color: var(--c-fg, var(--p-on-primary)); }
+  .pbtn.secondary { background: var(--p-surface); color: var(--c-bg, var(--p-primary)); border-color: var(--c-border, var(--c-bg, var(--p-primary))); }
+  .pbtn.ghost { background: transparent; color: var(--p-text); }
+  .pbtn.danger { background: var(--p-danger); color: var(--p-on-primary); }
+  .pbtn[disabled] { opacity: .45; }
+  .pfield { display: grid; gap: 4px; font-size: 13px; }
+  .pfield span { font-weight: 600; }
+  .pfield input {
+    font: inherit; padding: var(--c-pad, 8px) 10px; width: 100%;
+    border-radius: var(--c-radius, var(--p-r-sm)); border: 1px solid var(--c-border, var(--p-border));
+    background: var(--c-bg, var(--p-surface)); color: var(--c-fg, var(--p-text));
+  }
+  .pfield.focus input { border-color: var(--p-primary); box-shadow: 0 0 0 3px var(--p-primary-soft); }
+  .pfield.err input { border-color: var(--p-danger); }
+  .pfield .help { font-size: 12px; font-weight: 400; color: var(--p-muted); }
+  .pfield.err .help { color: var(--p-danger); }
+  .pcard {
+    background: var(--c-bg, var(--p-surface)); color: var(--c-fg, var(--p-text));
+    border: 1px solid var(--c-border, var(--p-border)); border-radius: var(--c-radius, var(--p-r-lg));
+    padding: var(--c-pad, 12px 14px); box-shadow: var(--c-shadow, var(--p-shadow)); display: grid; gap: 4px;
+  }
+  .pcard .t { font-weight: 600; }
+  .pcard .s { font-size: 13px; color: var(--p-muted); }
+  .pcard .n { font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .ptable-wrap { overflow-x: auto; }
+  .ptable { border-collapse: collapse; width: 100%; font-size: 13px; font-variant-numeric: tabular-nums; }
+  .ptable th { text-align: left; font-size: 11.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--c-fg, var(--p-muted)); border-bottom: 1px solid var(--c-border, var(--p-border)); padding: 6px 8px; }
+  .ptable td { border-bottom: 1px solid var(--c-border, var(--p-border)); padding: 7px 8px; }
+  .ptable .num { text-align: right; }
+  .pill { display: inline-block; font-size: 11.5px; font-weight: 600; padding: 1px 8px; border-radius: 999px; background: var(--p-primary-soft); color: var(--p-primary); border: 1px solid transparent; }
+  .pill.warn { background: transparent; color: var(--p-warning); border-color: var(--p-warning); }
+  .pill.bad { background: transparent; color: var(--p-danger); border-color: var(--p-danger); }
+  .pnav {
+    display: flex; gap: 2px; align-items: center; padding: 4px; font-size: 13.5px; overflow-x: auto;
+    background: var(--c-bg, var(--p-surface)); border: 1px solid var(--c-border, var(--p-border)); border-radius: var(--c-radius, var(--p-r-md));
+  }
+  .pnav span { padding: 5px 12px; border-radius: var(--p-r-sm); color: var(--p-muted); white-space: nowrap; }
+  .pnav span.on { background: var(--p-primary-soft); color: var(--c-fg, var(--p-primary)); font-weight: 600; }
+  .palert { border-radius: var(--c-radius, var(--p-r-md)); padding: 8px 12px; font-size: 13px; border-left: 4px solid; background: var(--c-bg, var(--p-surface)); }
+  .palert.info { border-color: var(--p-info); }
+  .palert.success { border-color: var(--p-success); }
+  .palert.warning { border-color: var(--p-warning); }
+  .palert.danger { border-color: var(--p-danger); }
+  .palert b { margin-right: 6px; }
+  .other { margin: 0; padding-left: 18px; font-family: var(--mono); font-size: 12.5px; display: grid; gap: 2px; }
+
+  /* Decisions and drift ------------------------------------------- */
+  .drift { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+  .drift li { border: 1px solid var(--border); border-left: 4px solid var(--warn); border-radius: var(--radius-sm); padding: 10px 12px; display: grid; gap: 4px; justify-items: start; font-size: 13.5px; }
+  .drift li.pending { border-left-color: var(--accent); }
+  .drift .what { font-weight: 600; }
+  .drift .why { color: var(--text-muted); font-size: 13px; }
+  .tablewrap { overflow-x: auto; }
+  table.dec { border-collapse: collapse; width: 100%; font-size: 13px; }
+  table.dec th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--text-subtle); padding: 6px 8px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  table.dec td { padding: 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  table.dec td.n { font-family: var(--mono); color: var(--text-muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  table.dec tr.superseded td { color: var(--text-subtle); text-decoration: line-through; }
+  .foot { font-size: 12px; color: var(--text-subtle); font-family: var(--mono); text-align: center; max-width: none; }
+
+  @media (max-width: 760px) {
+    .theme, .scales, .comps, .dd { grid-template-columns: 1fr; }
+    .scales .span2, .comp.wide { grid-column: auto; }
+    .ty { grid-template-columns: 1fr; gap: 4px; }
+    h1 { font-size: 26px; }
+  }
+</style>
+
+<div class="wrap" id="specimen" data-hash="cc17767b089d03d435f774f700d6ae218c87bc230392a793dfb8935331b9b1a1">
+  <header class="hdr">
+    <div class="row" id="chips"></div>
+    <h1>Mini Whisper — design language</h1>
+    <p class="lede">Rendered from the managed region of <code>DESIGN.md</code>. Re-run <code>/design-language-update</code> after the code or <code>DESIGN.md</code> changes; this page follows.</p>
+    <div class="row" id="stamps"></div>
+    <div class="summary" id="summary"></div>
+    <nav class="jump" aria-label="Sections">
+      <a href="#theme">Theme</a><a href="#colour">Colour</a><a href="#type">Typography</a>
+      <a href="#layout">Layout</a><a href="#components">Components</a><a href="#decisions">Decisions &amp; drift</a>
+    </nav>
+  </header>
+
+  <section class="panel" id="theme">
+    <h2 class="label" id="theme-label">Visual theme &amp; atmosphere</h2>
+    <div class="theme"><div id="theme-text"></div><div id="theme-dd"></div></div>
+  </section>
+
+  <section class="panel" id="colour">
+    <h2 class="label">Colour palette &amp; roles <span class="note" id="colour-note"></span></h2>
+    <div id="colour-body"></div>
+  </section>
+
+  <section class="panel" id="type">
+    <h2 class="label">Typography rules <span class="note fallback" id="type-note"></span></h2>
+    <div id="type-body"></div>
+  </section>
+
+  <section class="panel" id="layout">
+    <h2 class="label">Layout principles · depth &amp; elevation <span class="note" id="layout-note"></span></h2>
+    <div class="scales" id="layout-body"></div>
+  </section>
+
+  <section class="panel" id="components">
+    <h2 class="label">Component stylings
+      <span class="toggle" role="group" aria-label="Project theme">
+        <button type="button" id="mode-light" aria-pressed="true">Light</button>
+        <button type="button" id="mode-dark" aria-pressed="false">Dark</button>
+      </span>
+    </h2>
+    <div class="proj" id="proj" data-mode="light"></div>
+  </section>
+
+  <section class="panel" id="decisions">
+    <h2 class="label">Decisions &amp; drift</h2>
+    <div id="decisions-body"></div>
+  </section>
+
+  <p class="foot">Generated by /design-language-update from DESIGN.md · data <span id="foot-hash"></span> · specimen template v1 · 2026-11-13 16:32 UTC</p>
+</div>
+
+<script type="application/json" id="specimen-data">{"project":"Mini Whisper","classification":"partial","platforms":["macOS"],"updated":"2026-11-13 16:32 UTC","specimen_url":"https://claude.ai/artifact/65QtsskqtXey1zqK4jwDkT","theme":{"text":"Warm neutral surfaces with a sky-blue accent taken from the app icon, serif display titles over SF Pro, pill controls, cards with hairline rows, and no shadow inside a window.","source":"user · pending v6"},"dos":[{"text":"one filled accent button per page or dialog, every other button outlined or quiet","source":"user · pending v6"},{"text":"running text in the 640px reading column","source":"user · pending v6"},{"text":"keep hover actions in the layout when hidden, so a row never rewraps","source":"code: App/History/HistoryView.swift:141"},{"text":"colour the label, not the button, for accent and destructive row actions","source":"code: App/History/HistoryView.swift:159"},{"text":"derive the language from the v6 reference screenshots without copying their branding, icons, names or copy","source":"user: 2026-11-13"}],"donts":[{"text":"shadows inside a window, only dialogs and menus lift","source":"user · pending v6"},{"text":"bundled fonts, display type is the system serif","source":"user · pending v6"},{"text":"restyle the dictation overlay; it keeps its own visual system","source":"user: 2026-11-13"},{"text":"make links in model-written text clickable","source":"code: App/Meeting/MeetingView.swift:303"}],"colours":[{"token":"color.accent","light":"#2A6FC9","dark":"#7DB8F0","role":"Primary button, links, switches, the user's speaker name","group":"brand","source":"user · pending v6"},{"token":"color.accent.on","light":"#FFFFFF","dark":"#10202F","role":"Text on the accent","group":"brand","source":"user · pending v6"},{"token":"color.accent.soft","light":"#E3EEFB","dark":"#2A3948","role":"Tinted tiles, focus ring, highlights","group":"brand","source":"user · pending v6"},{"token":"color.canvas","light":"#FBFAF7","dark":"#262522","role":"Content background","group":"surface","source":"user · pending v6"},{"token":"color.sidebar","light":"#F2F0EA","dark":"#1E1D1B","role":"Sidebar and side panes","group":"surface","source":"user · pending v6"},{"token":"color.card","light":"#FFFFFF","dark":"#2F2E2A","role":"Cards, dialogs and fields","group":"surface","source":"user · pending v6"},{"token":"color.hover","light":"#ECE9E2","dark":"#39372F","role":"Hovered and selected rows","group":"surface","source":"user · pending v6"},{"token":"color.line","light":"#E1DDD3","dark":"#46443D","role":"Borders and dividers","group":"surface","source":"user · pending v6"},{"token":"color.text","light":"#23221F","dark":"#F1EEE7","role":"Primary text","group":"text","source":"user · pending v6"},{"token":"color.text.secondary","light":"#6B675E","dark":"#B4AFA4","role":"Descriptions and secondary lines","group":"text","source":"user · pending v6"},{"token":"color.text.tertiary","light":"#969084","dark":"#878278","role":"Meta lines and day headers","group":"text","source":"user · pending v6"},{"token":"color.recording","light":"#D2452D","dark":"#F07A62","role":"Recording mark, Stop, destructive labels","group":"feedback","source":"user · pending v6"},{"token":"color.recording.soft","light":"#FBE9E5","dark":"#45261F","role":"Recording pill fill","group":"feedback","source":"user · pending v6"},{"token":"color.ok","light":"#2F8A5B","dark":"#7FC79E","role":"Granted and success","group":"feedback","source":"user · pending v6"},{"token":"color.warn","light":"#A56A00","dark":"#E2B45E","role":"Warnings and missing keys","group":"feedback","source":"user · pending v6"},{"token":"color.test.text","light":"#7A4FD0","dark":"#B79CF0","role":"TEST chip text","group":"feedback","source":"user · pending v6"},{"token":"color.test.fill","light":"#F1ECFB","dark":"#3A3150","role":"TEST chip fill","group":"feedback","source":"user · pending v6"},{"token":"color.test.border","light":"#DDD0F5","dark":null,"role":"TEST chip border","group":"feedback","source":"code: App/TestCall/TestTag.swift:7"},{"token":"color.error.text","light":"#A11717","dark":null,"role":"Error words in a test-call score","group":"feedback","source":"code: App/TestCall/ScorePane.swift:173"},{"token":"color.teal","light":"#1A808F","dark":"#6CC5D1","role":"In-room meeting tile mark","group":"other","source":"user · pending v6"},{"token":"color.teal.soft","light":"#DDF0F1","dark":"#1F3B3E","role":"In-room meeting tile fill","group":"other","source":"user · pending v6"},{"token":"color.speaker.1","light":"#7A4FD0","dark":"#B79CF0","role":"Speaker name, first of three in rotation","group":"other","source":"user · pending v6"},{"token":"color.speaker.2","light":"#1A808F","dark":"#6CC5D1","role":"Speaker name, second","group":"other","source":"user · pending v6"},{"token":"color.speaker.3","light":"#B3661C","dark":"#E0A565","role":"Speaker name, third","group":"other","source":"user · pending v6"},{"token":"color.glyph.1","light":"#3B70D9","dark":null,"role":"App tile; remote-meeting tile","group":"other","source":"code: App/History/AppGlyph.swift:17"},{"token":"color.glyph.2","light":"#4A9E5C","dark":null,"role":"App tile","group":"other","source":"code: App/History/AppGlyph.swift:18"},{"token":"color.glyph.3","light":"#D97033","dark":null,"role":"App tile","group":"other","source":"code: App/History/AppGlyph.swift:19"},{"token":"color.glyph.4","light":"#9E4DAD","dark":null,"role":"App tile","group":"other","source":"code: App/History/AppGlyph.swift:20"},{"token":"color.glyph.5","light":"#CC475C","dark":null,"role":"App tile","group":"other","source":"code: App/History/AppGlyph.swift:21"},{"token":"color.glyph.6","light":"#298799","dark":null,"role":"App tile; in-room meeting tile","group":"other","source":"code: App/History/AppGlyph.swift:22"},{"token":"color.glyph.7","light":"#736BB8","dark":null,"role":"App tile","group":"other","source":"code: App/History/AppGlyph.swift:23"},{"token":"color.glyph.8","light":"#5C5C66","dark":null,"role":"App tile","group":"other","source":"code: App/History/AppGlyph.swift:24"}],"type":[{"token":"type.display","family":"New York","weight":"500","size":"28px","line":"34px","treatment":"Page and meeting titles","source":"user · pending v6"},{"token":"type.title","family":"New York","weight":"500","size":"22px","line":"28px","treatment":"Small-window and empty-state titles","source":"user · pending v6"},{"token":"type.title.compact","family":"New York","weight":"500","size":"20px","line":"26px","treatment":"Live meeting title","source":"user · pending v6"},{"token":"type.title.dialog","family":"New York","weight":"500","size":"18px","line":"24px","treatment":"Dialog titles","source":"user · pending v6"},{"token":"type.heading","family":"SF Pro Text","weight":"600","size":"16px","line":"24px","treatment":"Summary topic headings","source":"user · pending v6"},{"token":"type.heading.2","family":"SF Pro Text","weight":"600","size":"15px","line":"22px","treatment":"Second-level summary headings","source":"user · pending v6"},{"token":"type.heading.3","family":"SF Pro Text","weight":"600","size":"14px","line":"20px","treatment":"Third-level summary headings","source":"user · pending v6"},{"token":"type.reading","family":"SF Pro Text","weight":"400","size":"15px","line":"24px","treatment":"Summary text","source":"user · pending v6"},{"token":"type.rowtitle","family":"SF Pro Text","weight":"500","size":"14px","line":"20px","treatment":"List row titles","source":"user · pending v6"},{"token":"type.body","family":"SF Pro Text","weight":"400","size":"13px","line":"18px","treatment":"Controls, settings rows, dictation text","source":"user · pending v6"},{"token":"type.meta","family":"SF Pro Text","weight":"400","size":"12px","line":"16px","treatment":"Meta lines and descriptions","source":"user · pending v6"},{"token":"type.mono","family":"SF Mono","weight":"400","size":"12px","line":"18px","treatment":"Commands to copy and prompt text","source":"user · pending v6"},{"token":"type.headline","family":"SF Pro Text","weight":"600","size":"13px","line":"16px","treatment":"Card and meeting titles","source":"code: App/Meeting/MeetingView.swift:96"},{"token":"type.callout","family":"SF Pro Text","weight":"400","size":"12px","line":"15px","treatment":"Notes, banners, secondary lines","source":"code: App/Meeting/MeetingView.swift:54"},{"token":"type.caption","family":"SF Pro Text","weight":"400","size":"10px","line":"13px","treatment":"Footnotes, in the secondary colour","source":"code: App/Settings/SettingsView.swift:60"},{"token":"type.label","family":"SF Pro Text","weight":"600","size":"11px","line":"14px","treatment":"Chips; uppercase pane and day headers","source":"code: App/Meeting/MeetingView.swift:701"}],"layout":[{"text":"Density: comfortable with 30px controls and 24px small controls","source":"user · pending v6"},{"text":"Grid: spacing in steps of 4","source":"user · pending v6"},{"text":"Max width: 736px page column and 640px reading column, centred","source":"user · pending v6"}],"spacing":[{"token":"space.1","value":"2px","source":"code: App/Meetings/MeetingsListView.swift:98"},{"token":"space.2","value":"4px","source":"code: App/Meetings/MeetingsListView.swift:131"},{"token":"space.3","value":"6px","source":"code: App/History/HistoryView.swift:27"},{"token":"space.4","value":"8px","source":"code: App/Meeting/MeetingView.swift:428"},{"token":"space.5","value":"10px","source":"code: App/Meeting/MeetingView.swift:164"},{"token":"space.6","value":"12px","source":"code: App/History/HistoryView.swift:125"},{"token":"space.7","value":"14px","source":"code: App/History/HistoryView.swift:45"},{"token":"space.8","value":"18px","source":"code: App/Meeting/MeetingView.swift:202"},{"token":"space.9","value":"24px","source":"code: App/Settings/SettingsView.swift:48"},{"token":"space.10","value":"28px","source":"code: App/Meeting/MeetingView.swift:85"}],"radius":[{"token":"radius.small","value":"6px","source":"code: App/Correction/CorrectionView.swift:72"},{"token":"radius.field","value":"8px","source":"user · pending v6"},{"token":"radius.tile","value":"8px","source":"code: App/History/HistoryView.swift:126"},{"token":"radius.row","value":"10px","source":"user · pending v6"},{"token":"radius.card","value":"14px","source":"user · pending v6"},{"token":"radius.large","value":"14px","source":"code: App/Meetings/MeetingsListView.swift:190"},{"token":"radius.pill","value":"999px","source":"code: App/Meeting/MeetingView.swift:705"}],"elevation":[{"token":"shadow.dialog","value":"0 14px 36px rgba(35,34,31,0.18)","use":"Dialogs and menus only","source":"user · pending v6"}],"components":[{"category":"button","canonical":"Pill button","variants":["Primary filled","Secondary outlined","Quiet","Small"],"tokens":{"radius":"radius.pill","bg":"color.accent","fg":"color.accent.on"},"source":"user · pending v6"},{"category":"input","canonical":"Rounded field","variants":["Search pill","Text area"],"tokens":{"radius":"radius.field","border":"color.line","bg":"color.card"},"source":"user · pending v6"},{"category":"card","canonical":"Settings card","variants":["Mode card","Dialog"],"tokens":{"radius":"radius.card","bg":"color.card","border":"color.line"},"source":"user · pending v6"},{"category":"table","canonical":"Day-grouped row list","variants":["Meeting row","Dictation row","Search result"],"tokens":{"radius":"radius.row"},"source":"user · pending v6"},{"category":"nav","canonical":"Sidebar","variants":["Settings sections"],"tokens":{"bg":"color.sidebar","border":"color.line"},"source":"user · pending v6"},{"category":"alert","canonical":"Status line","variants":["Warning line","Info note"],"tokens":{"radius":"radius.row","bg":"color.accent.soft"},"source":"user · pending v6"},{"category":"other","canonical":"Segmented pill switch","variants":[],"tokens":{"radius":"radius.pill","bg":"color.sidebar","border":"color.line"},"source":"user · pending v6"},{"category":"other","canonical":"Dialog","variants":[],"tokens":{"radius":"radius.card","bg":"color.card","shadow":"shadow.dialog"},"source":"user · pending v6"},{"category":"other","canonical":"Tile","variants":["Remote","In the room","App"],"tokens":{"radius":"radius.field","bg":"color.accent.soft","fg":"color.accent"},"source":"user · pending v6"},{"category":"other","canonical":"Chip","variants":["Dot","Test tag"],"tokens":{"radius":"radius.pill"},"source":"code: App/Meeting/MeetingView.swift:690"},{"category":"other","canonical":"App glyph tile","variants":[],"tokens":{"radius":"radius.tile"},"source":"code: App/History/AppGlyph.swift:5"},{"category":"other","canonical":"Pane header","variants":[],"tokens":{},"source":"code: App/Meeting/MeetingView.swift:672"}],"decisions":[{"n":1,"decision":"Visual theme summarised as stock macOS: system colours, system font, compact controls","by":"skill","date":"2026-11-13","status":"superseded by 8"},{"n":2,"decision":"System semantic colours (text background, separator, control background, accent) carry surfaces and text; they have no literal value and are not tokens","by":"skill","date":"2026-11-13","status":"superseded by 9"},{"n":3,"decision":"Canonical button and input come from the accepted v6 mockup","by":"user","date":"2026-11-13","status":"superseded by 43"},{"n":4,"decision":"Until then the most-used variants stand: system push button and system text field","by":"skill","date":"2026-11-13","status":"superseded by 43"},{"n":5,"decision":"Light and dark are both designed, with a Theme setting: System, Light, Dark","by":"user","date":"2026-11-13","status":"pending v6"},{"n":6,"decision":"The language is derived from the v6 reference screenshots, not copied; Mini Whisper keeps its own character","by":"user","date":"2026-11-13","status":"active"},{"n":7,"decision":"The dictation overlay keeps its own visual system and is outside this language","by":"user","date":"2026-11-13","status":"active"},{"n":8,"decision":"Theme: warm neutral surfaces, sky-blue accent from the app icon, serif display titles over SF Pro, pill controls, cards with hairline rows, no shadow inside a window","by":"user","date":"2026-11-13","status":"pending v6"},{"n":9,"decision":"color.canvas is #FBFAF7 light, #262522 dark","by":"user","date":"2026-11-13","status":"pending v6"},{"n":10,"decision":"color.sidebar is #F2F0EA light, #1E1D1B dark","by":"user","date":"2026-11-13","status":"pending v6"},{"n":11,"decision":"color.card is #FFFFFF light, #2F2E2A dark","by":"user","date":"2026-11-13","status":"pending v6"},{"n":12,"decision":"color.hover is #ECE9E2 light, #39372F dark","by":"user","date":"2026-11-13","status":"pending v6"},{"n":13,"decision":"color.line is #E1DDD3 light, #46443D dark","by":"user","date":"2026-11-13","status":"pending v6"},{"n":14,"decision":"color.text is #23221F light, #F1EEE7 dark","by":"user","date":"2026-11-13","status":"pending v6"},{"n":15,"decision":"color.text.secondary is #6B675E light, #B4AFA4 dark","by":"user","date":"2026-11-13","status":"pending v6"},{"n":16,"decision":"color.text.tertiary is #969084 light, #878278 dark","by":"user","date":"2026-11-13","status":"pending v6"},{"n":17,"decision":"color.accent is #2A6FC9 light, #7DB8F0 dark","by":"user","date":"2026-11-13","status":"pending v6"},{"n":18,"decision":"color.accent.on is #FFFFFF light, #10202F dark","by":"user","date":"2026-11-13","status":"pending v6"},{"n":19,"decision":"color.accent.soft is #E3EEFB light, #2A3948 dark","by":"user","date":"2026-11-13","status":"pending v6"},{"n":20,"decision":"color.recording is #D2452D light, #F07A62 dark","by":"user","date":"2026-11-13","status":"pending v6"},{"n":21,"decision":"color.recording.soft is #FBE9E5 light, #45261F dark","by":"user","date":"2026-11-13","status":"pending v6"},{"n":22,"decision":"color.ok is #2F8A5B light, #7FC79E dark","by":"user","date":"2026-11-13","status":"pending v6"},{"n":23,"decision":"color.warn is #A56A00 light, #E2B45E dark","by":"user","date":"2026-11-13","status":"pending v6"},{"n":24,"decision":"color.teal is #1A808F light, #6CC5D1 dark","by":"user","date":"2026-11-13","status":"pending v6"},{"n":25,"decision":"color.teal.soft is #DDF0F1 light, #1F3B3E dark","by":"user","date":"2026-11-13","status":"pending v6"},{"n":26,"decision":"color.test.text is #7A4FD0 light, #B79CF0 dark","by":"user","date":"2026-11-13","status":"pending v6"},{"n":27,"decision":"color.test.fill is #F1ECFB light, #3A3150 dark","by":"user","date":"2026-11-13","status":"pending v6"},{"n":28,"decision":"color.speaker.1 is #7A4FD0 light, #B79CF0 dark","by":"user","date":"2026-11-13","status":"pending v6"},{"n":29,"decision":"color.speaker.2 is #1A808F light, #6CC5D1 dark","by":"user","date":"2026-11-13","status":"pending v6"},{"n":30,"decision":"color.speaker.3 is #B3661C light, #E0A565 dark","by":"user","date":"2026-11-13","status":"pending v6"},{"n":31,"decision":"type.display is New York 500 at 28px / 34px","by":"user","date":"2026-11-13","status":"pending v6"},{"n":32,"decision":"type.title is New York 500 at 22px / 28px","by":"user","date":"2026-11-13","status":"pending v6"},{"n":33,"decision":"type.heading is SF Pro Text 600 at 16px / 24px","by":"user","date":"2026-11-13","status":"pending v6"},{"n":34,"decision":"type.reading is SF Pro Text 400 at 15px / 24px","by":"user","date":"2026-11-13","status":"pending v6"},{"n":35,"decision":"type.rowtitle is SF Pro Text 500 at 14px / 20px","by":"user","date":"2026-11-13","status":"pending v6"},{"n":36,"decision":"type.body is SF Pro Text 400 at 13px / 18px","by":"user","date":"2026-11-13","status":"pending v6"},{"n":37,"decision":"type.meta is SF Pro Text 400 at 12px / 16px","by":"user","date":"2026-11-13","status":"pending v6"},{"n":38,"decision":"type.mono is SF Mono 400 at 12px / 18px","by":"user","date":"2026-11-13","status":"pending v6"},{"n":39,"decision":"radius.field is 8px","by":"user","date":"2026-11-13","status":"pending v6"},{"n":40,"decision":"radius.row is 10px","by":"user","date":"2026-11-13","status":"pending v6"},{"n":41,"decision":"radius.card is 14px","by":"user","date":"2026-11-13","status":"pending v6"},{"n":42,"decision":"shadow.dialog is 0 14px 36px rgba(35,34,31,0.18), for dialogs and menus only","by":"user","date":"2026-11-13","status":"pending v6"},{"n":43,"decision":"Canonical button is the Pill button","by":"user","date":"2026-11-13","status":"pending v6"},{"n":44,"decision":"Canonical input is the Rounded field","by":"user","date":"2026-11-13","status":"pending v6"},{"n":45,"decision":"Canonical card is the Settings card","by":"user","date":"2026-11-13","status":"pending v6"},{"n":46,"decision":"Canonical table is the Day-grouped row list","by":"user","date":"2026-11-13","status":"pending v6"},{"n":47,"decision":"Canonical nav is the Sidebar","by":"user","date":"2026-11-13","status":"pending v6"},{"n":48,"decision":"Canonical alert is the Status line","by":"user","date":"2026-11-13","status":"pending v6"},{"n":49,"decision":"Density is comfortable with 30px controls and 24px small controls","by":"user","date":"2026-11-13","status":"pending v6"},{"n":50,"decision":"Spacing moves in steps of 4","by":"user","date":"2026-11-13","status":"pending v6"},{"n":51,"decision":"Max width is a 736px page column and a 640px reading column, centred","by":"user","date":"2026-11-13","status":"pending v6"},{"n":52,"decision":"The main window is resizable, 1080 by 720 by default, 900 by 600 at least","by":"user","date":"2026-11-13","status":"pending v6"},{"n":53,"decision":"Correction, Onboarding and About keep a standard title bar and a fixed size","by":"user","date":"2026-11-13","status":"pending v6"},{"n":54,"decision":"Icons are SF Symbols in outline, plus the cloud-and-pulse mark of the app icon for empty states and About","by":"user","date":"2026-11-13","status":"pending v6"},{"n":55,"decision":"The recording pill's four bars pulse while a meeting records and rest when it is paused or Reduce Motion is on","by":"user","date":"2026-11-13","status":"pending v6"},{"n":56,"decision":"Field labels and group headings are in sentence case, never small capitals","by":"user","date":"2026-11-13","status":"pending v6"},{"n":57,"decision":"One filled accent button per page or dialog; every other button outlined or quiet","by":"user","date":"2026-11-13","status":"pending v6"},{"n":58,"decision":"Running text sits in the 640px reading column","by":"user","date":"2026-11-13","status":"pending v6"},{"n":59,"decision":"No shadows inside a window; only dialogs and menus lift","by":"user","date":"2026-11-13","status":"pending v6"},{"n":60,"decision":"No bundled fonts; display type is the system serif","by":"user","date":"2026-11-13","status":"pending v6"},{"n":61,"decision":"type.title.compact is New York 500 at 20px / 26px","by":"user","date":"2026-11-13","status":"pending v6"},{"n":62,"decision":"type.title.dialog is New York 500 at 18px / 24px","by":"user","date":"2026-11-13","status":"pending v6"},{"n":63,"decision":"type.heading.2 is SF Pro Text 600 at 15px / 22px","by":"user","date":"2026-11-13","status":"pending v6"},{"n":64,"decision":"type.heading.3 is SF Pro Text 600 at 14px / 20px","by":"user","date":"2026-11-13","status":"pending v6"},{"n":65,"decision":"Segmented pill switch is a component","by":"user","date":"2026-11-13","status":"pending v6"},{"n":66,"decision":"Dialog is a component: a card over a scrim, for in-window confirmations","by":"user","date":"2026-11-13","status":"pending v6"},{"n":67,"decision":"Tile is a component: a rounded square carrying a symbol or initials","by":"user","date":"2026-11-13","status":"pending v6"}],"drift":[],"empty":{},"counts":{"colours":32,"type":16,"components":12,"decisions_user":64,"decisions_skill":3,"pending":61,"drift":0}}</script>
+<script>
+(() => {
+  const data = JSON.parse(document.getElementById("specimen-data").textContent);
+  const $ = (id) => document.getElementById(id);
+  const short = ($("specimen").getAttribute("data-hash") || "").slice(0, 7);
+
+  const el = (tag, cls, text) => {
+    const node = document.createElement(tag);
+    if (cls) node.className = cls;
+    if (text !== undefined) node.textContent = text;
+    return node;
+  };
+  const add = (parent, ...children) => {
+    children.forEach((child) => { if (child) parent.appendChild(child); });
+    return parent;
+  };
+  // The only way data reaches `style`; the script validated every value.
+  const setVar = (node, name, value) => {
+    if (value) node.style.setProperty(name, value);
+    else node.style.removeProperty(name);
+    return node;
+  };
+  const styled = (node, props) => {
+    Object.keys(props).forEach((name) => setVar(node, name, props[name]));
+    return node;
+  };
+  const cap = (text) => text.charAt(0).toUpperCase() + text.slice(1);
+  const plural = (n, one, many) => (n === 1 ? one : many);
+  const unique = (list) => list.filter((item, i) => list.indexOf(item) === i);
+
+  const tagKind = (tag) =>
+    /^(code|mockup):/.test(tag) ? "code" : tag.startsWith("user ·") ? "pending" : tag.startsWith("user:") ? "user" : "skill";
+  const tagChip = (tag) => el("span", "src " + tagKind(tag), tag);
+  const chipRow = (tags) => add(el("div", "chips"), ...unique(tags).map(tagChip));
+  const emptyState = (title) => (data.empty[title] ? el("p", "empty", data.empty[title]) : null);
+
+  // Header ------------------------------------------------------------
+  add($("chips"), el("span", "chip accent", cap(data.classification)), ...data.platforms.map((p) => el("span", "chip", p)));
+  const designMd = location.protocol === "file:" ? el("a", "ts", "Open DESIGN.md") : el("span", "ts", "DESIGN.md");
+  if (designMd.tagName === "A") designMd.setAttribute("href", "../DESIGN.md");
+  add($("stamps"), el("span", "ts", "Updated " + data.updated), el("span", "ts", "data " + short), designMd);
+  $("foot-hash").textContent = short;
+
+  const c = data.counts;
+  const count = (n, label, attention) => {
+    const span = el("span", attention && n ? "att" : "");
+    return add(span, el("b", "", String(n)), document.createTextNode(" " + label));
+  };
+  const decisions = c.decisions_user + c.decisions_skill;
+  add($("summary"),
+    count(c.colours, plural(c.colours, "colour", "colours")),
+    count(c.type, plural(c.type, "type style", "type styles")),
+    count(c.components, plural(c.components, "component", "components")),
+    count(decisions, plural(decisions, "decision", "decisions") + " (" + c.decisions_user + " by you, " + c.decisions_skill + " by the skill)"),
+    count(c.pending, "pending", true),
+    count(c.drift, "drift", true));
+
+  // 1. Visual theme & atmosphere --------------------------------------
+  if (data.theme) {
+    add($("theme-text"), el("p", "", data.theme.text));
+    add($("theme-label"), tagChip(data.theme.source));
+  } else {
+    add($("theme-text"), emptyState("Visual Theme & Atmosphere"));
+  }
+  if (data.dos.length || data.donts.length) {
+    const rules = (cls, heading, items) =>
+      add(el("div", cls), el("h4", "", heading), add(el("ul"), ...items.map((item) => add(el("li", "", item.text), tagChip(item.source)))));
+    add($("theme-dd"), add(el("div", "dd"), rules("do", "Do", data.dos), rules("dont", "Don't", data.donts)));
+  } else {
+    add($("theme-dd"), emptyState("Do's and Don'ts"));
+  }
+
+  // 2. Colour palette & roles -----------------------------------------
+  const GROUPS = [["Brand", ["brand"]], ["Surfaces & text", ["surface", "text"]], ["Feedback", ["feedback"]], ["Other", ["other"]]];
+  if (data.colours.some((col) => col.dark)) $("colour-note").textContent = "Left half light · right half dark";
+  if (!data.colours.length) add($("colour-body"), emptyState("Color Palette & Roles"));
+  GROUPS.forEach(([heading, groups]) => {
+    const members = data.colours.filter((col) => groups.includes(col.group));
+    if (!members.length) return;
+    add($("colour-body"), el("h3", "sub", heading), add(el("div", "swatches"), ...members.map((col) => {
+      const block = add(el("div", col.dark ? "chipblock" : "chipblock single"),
+        styled(el("span"), { background: col.light }), col.dark && styled(el("span"), { background: col.dark }));
+      return add(el("div", "sw"), block, add(el("div", "meta"),
+        el("span", "tok", col.token),
+        el("span", "val", col.dark ? col.light + " · " + col.dark : col.light),
+        el("span", "role", col.role),
+        tagChip(col.source)));
+    })));
+  });
+
+  // 3. Typography rules -----------------------------------------------
+  const GENERIC = ["serif", "sans-serif", "monospace", "cursive", "fantasy", "system-ui", "ui-serif", "ui-sans-serif",
+    "ui-monospace", "ui-rounded", "math", "emoji", "fangsong", "-apple-system", "blinkmacsystemfont"];
+  const firstFamily = (stack) => stack.split(",")[0].trim().replace(/^["']|["']$/g, "");
+  const canvas = document.createElement("canvas").getContext("2d");
+  const width = (font) => { canvas.font = "40px " + font; return canvas.measureText("mmmmmmmmmmlli1WQ@#").width; };
+  // A family the browser lacks measures exactly like each bare fallback.
+  const installed = (name) => !canvas || GENERIC.includes(name.toLowerCase()) ||
+    ["monospace", "serif"].some((generic) => width('"' + name + '", ' + generic) !== width(generic));
+  if (!data.type.length) add($("type-body"), emptyState("Typography Rules"));
+  add($("type-body"), ...data.type.map((t) => {
+    const detail = firstFamily(t.family) + " " + t.weight + " · " + t.size + " / " + t.line + (t.treatment ? " · " + t.treatment : "");
+    return add(el("div", "ty"),
+      add(el("div", "tmeta"), el("span", "tok", t.token), el("span", "", detail), tagChip(t.source)),
+      styled(el("div", "sample", "Sphinx of black quartz, judge my vow 0123456789"),
+        { "font-family": t.family, "font-weight": t.weight, "font-size": t.size, "line-height": t.line }));
+  }));
+  const missing = unique(data.type.map((t) => firstFamily(t.family))).filter((name) => !installed(name));
+  if (missing.length) {
+    $("type-note").textContent = missing.join(", ") + (missing.length === 1 ? " is" : " are") +
+      " not installed here; samples use the fallback stack";
+  }
+
+  // 4. Layout principles · depth & elevation --------------------------
+  if (data.layout.length) {
+    add($("layout-note"), document.createTextNode(data.layout.map((rule) => rule.text).join(" · ")),
+      ...unique(data.layout.map((rule) => rule.source)).map(tagChip));
+  }
+  const scale = (heading, body, entries) =>
+    add(el("div"), el("h3", "sub", heading), body, entries.length ? chipRow(entries.map((entry) => entry.source)) : null);
+  const layoutEmpty = emptyState("Layout Principles");
+  if (layoutEmpty) {
+    add($("layout-body"), add(el("div", "span2"), layoutEmpty));
+  } else {
+    add($("layout-body"),
+      scale("Spacing", add(el("div", "stack"), ...data.spacing.map((s) =>
+        add(el("div", "bar"), el("span", "mono", s.token + " " + s.value), styled(el("span", "b"), { width: s.value })))), data.spacing),
+      scale("Radius", add(el("div", "rad"), ...data.radius.map((r) =>
+        add(el("div"), styled(el("i"), { "border-radius": r.value }), el("span", "", r.token), el("span", "", r.value)))), data.radius));
+  }
+  add($("layout-body"), scale("Elevation", emptyState("Depth & Elevation") || add(el("div", "elev"), ...data.elevation.map((e) =>
+    styled(el("div", "", e.token + " · " + e.use), { "box-shadow": e.value }))), data.elevation));
+
+  // 5. Component stylings ---------------------------------------------
+  const lookup = (list) => {
+    const map = {};
+    list.forEach((entry) => { map[entry.token] = entry; });
+    return map;
+  };
+  const colours = lookup(data.colours), radii = lookup(data.radius), spaces = lookup(data.spacing);
+  const shadows = lookup(data.elevation), styles = lookup(data.type);
+  const tone = (col, mode) => col && (mode === "dark" && col.dark ? col.dark : col.light);
+  const words = (col) => col.token + " " + col.role;
+  const pick = (pattern, groups, unless) => data.colours.find((col) =>
+    (!groups || groups.includes(col.group)) && pattern.test(words(col)) && !(unless && unless.test(words(col))));
+  const surfaces = data.colours.filter((col) => col.group === "surface");
+  const canvasColour = pick(/canvas|background|page|app/i, ["surface"]) || surfaces[0];
+  const text = pick(/./, ["text"], /muted|subtle|secondary|help|placeholder/i);
+  // Canvas roles: the colour whose token or role names the job, in its group.
+  const roles = {
+    "--p-canvas": canvasColour,
+    "--p-surface": pick(/surface|card|panel|raised/i, ["surface"], /canvas|background|page/i) ||
+      surfaces.find((col) => col !== canvasColour) || canvasColour,
+    "--p-text": text,
+    "--p-muted": pick(/muted|subtle|secondary|help/i, ["text"]) || text,
+    "--p-border": pick(/border|divider|line|stroke|outline/i),
+    "--p-primary": pick(/primary|brand|accent/i, ["brand"], /soft|tint|on[-_. ]/i) || data.colours.find((col) => col.group === "brand"),
+    "--p-on-primary": pick(/on[-_. ]?(primary|brand|accent)/i),
+    "--p-primary-soft": pick(/soft|tint|selected|focus/i, ["brand"]),
+    "--p-info": pick(/info|notice/i),
+    "--p-success": pick(/success|positive/i),
+    "--p-warning": pick(/warn|caution/i),
+    "--p-danger": pick(/danger|error|critical|destructive|negative/i),
+  };
+  const radiusNamed = (pattern) => (data.radius.find((r) => pattern.test(r.token)) || {}).value;
+  const body = data.type.find((t) => /body|base|default/i.test(t.token)) || data.type[0];
+  const fixed = {
+    "--p-r-sm": radiusNamed(/sm|small|xs/i),
+    "--p-r-md": radiusNamed(/md|medium|base|default/i),
+    "--p-r-lg": radiusNamed(/lg|large|xl|card/i),
+    "--p-shadow": (data.elevation.find((e) => e.value !== "none") || {}).value,
+    "--p-font": body && body.family,
+  };
+
+  // A component's own token pairs override the canvas inside its block.
+  const KEYS = [
+    [/^(bg|background|fill|surface)$/i, "colour", "--c-bg"],
+    [/^(fg|text|color|colour|label|ink)$/i, "colour", "--c-fg"],
+    [/^(border|outline|stroke)$/i, "colour", "--c-border"],
+    [/^(radius|corner|corners|shape)$/i, "radius", "--c-radius"],
+    [/^(shadow|elevation|depth)$/i, "shadow", "--c-shadow"],
+    [/^(padding|pad|space|spacing|gap)$/i, "space", "--c-pad"],
+    [/^(font|type|typography)$/i, "type", null],
+  ];
+  const resolve = (kind, token, mode) => {
+    if (kind === "colour") return tone(colours[token], mode);
+    if (kind === "radius") return (radii[token] || spaces[token] || {}).value;
+    if (kind === "shadow") return (shadows[token] || {}).value;
+    if (kind === "space") return (spaces[token] || radii[token] || {}).value;
+    const style = styles[token] || {};
+    return { "--c-font": style.family, "--c-weight": style.weight, "--c-size": style.size, "--c-line": style.line };
+  };
+  const overrides = (component, mode) => {
+    const props = {};
+    Object.keys(component.tokens).forEach((key) => {
+      const rule = KEYS.find(([pattern]) => pattern.test(key));
+      if (!rule) return;
+      const value = resolve(rule[1], component.tokens[key], mode);
+      if (rule[2]) props[rule[2]] = value;
+      else Object.assign(props, value);
+    });
+    return props;
+  };
+
+  const button = (label, kind, disabled) => {
+    const node = el("button", "pbtn " + kind, label);
+    node.type = "button";
+    node.tabIndex = -1;
+    node.disabled = Boolean(disabled);
+    return node;
+  };
+  const variantKind = (name) => /second|outline|border/i.test(name) ? "secondary" :
+    /ghost|text|link|tertiary|plain|subtle|quiet/i.test(name) ? "ghost" :
+    /danger|destructive|delete/i.test(name) ? "danger" : "primary";
+  const field = (cls, value, help) => {
+    const input = el("input");
+    input.value = value;
+    input.readOnly = true;
+    input.tabIndex = -1;
+    return add(el("label", "pfield " + cls), el("span", "", "Label"), input, help && el("span", "help", help));
+  };
+  const row = (cells) => add(el("tr"), ...cells);
+  const SAMPLES = {
+    button: (component) => add(el("div", "btns"),
+      ...(component.variants.length ? component.variants : ["primary"]).map((name) => button(cap(name), variantKind(name))),
+      button("Disabled", "primary", true)),
+    input: () => add(el("div", "sample"), field("focus", "Focused field"), field("err", "Invalid value", "The error message says how to fix it.")),
+    card: () => add(el("div", "pcard"), el("span", "s", "Card title"), el("span", "n", "1,234"), el("span", "s", "Supporting text")),
+    nav: () => add(el("div", "pnav"), el("span", "on", "Overview"), el("span", "", "Activity"), el("span", "", "Settings"), el("span", "", "Help")),
+    table: () => add(el("div", "ptable-wrap"), add(el("table", "ptable"),
+      add(el("thead"), row([el("th", "", "Name"), el("th", "", "Status"), el("th", "num", "Amount")])),
+      add(el("tbody"),
+        row([el("td", "", "Item one"), add(el("td"), el("span", "pill", "Active")), el("td", "num", "1,200.00")]),
+        row([el("td", "", "Item two"), add(el("td"), el("span", "pill warn", "Pending")), el("td", "num", "84.50")]),
+        row([el("td", "", "Item three"), add(el("td"), el("span", "pill bad", "Overdue")), el("td", "num", "12,480.00")])))),
+    alert: () => add(el("div", "sample"),
+      ...[["info", "Info", "A neutral notice."], ["success", "Success", "The action completed."],
+        ["warning", "Warning", "Something needs attention soon."], ["danger", "Danger", "Something failed."]]
+        .map(([kind, title, message]) => add(el("div", "palert " + kind), el("b", "", title), document.createTextNode(message)))),
+    other: (component) => Object.keys(component.tokens).length
+      ? add(el("ul", "other"), ...Object.keys(component.tokens).map((key) => el("li", "", key + " = " + component.tokens[key])))
+      : el("p", "empty", "No token pairs recorded."),
+  };
+  const CATEGORY = { button: "Button", input: "Input", card: "Card", table: "Table", nav: "Navigation", alert: "Alert", other: "Other" };
+
+  const blocks = data.components.map((component) => {
+    const pairs = Object.keys(component.tokens).map((key) => key + " = " + component.tokens[key]);
+    const notes = [component.category === "button" || !component.variants.length ? "" : "Variants: " + component.variants.join(", "),
+      component.category === "other" ? "" : pairs.join(" · ")].filter(Boolean);
+    const node = add(el("div", ["table", "alert"].includes(component.category) ? "comp wide" : "comp"),
+      add(el("div", "ch"), el("span", "", CATEGORY[component.category] + " · canonical: " + component.canonical), tagChip(component.source)),
+      add(el("div", "sample"), SAMPLES[component.category](component)),
+      notes.length ? el("div", "pairs", notes.join(" · ")) : null);
+    return [node, component];
+  });
+  const proj = $("proj");
+  if (blocks.length) add(proj, add(el("div", "comps"), ...blocks.map(([node]) => node)));
+  else add(proj, emptyState("Component Stylings"));
+
+  const light = $("mode-light"), dark = $("mode-dark");
+  const paint = (mode) => {
+    proj.setAttribute("data-mode", mode);
+    Object.keys(roles).forEach((name) => setVar(proj, name, tone(roles[name], mode)));
+    styled(proj, fixed);
+    blocks.forEach(([node, component]) => styled(node, overrides(component, mode)));
+    light.setAttribute("aria-pressed", String(mode === "light"));
+    dark.setAttribute("aria-pressed", String(mode === "dark"));
+  };
+  if (!data.colours.some((col) => col.dark)) {
+    dark.disabled = true;
+    dark.title = "No dark values recorded";
+  }
+  light.addEventListener("click", () => paint("light"));
+  dark.addEventListener("click", () => paint("dark"));
+  paint("light");
+
+  // 6. Decisions & drift ----------------------------------------------
+  const out = $("decisions-body");
+  const attention = data.drift.map((entry) => {
+    const cut = entry.lastIndexOf(" — ");
+    const tag = cut > 0 ? entry.slice(cut + 3) : "";
+    const tagged = /^(code|mockup|user|skill)[: ·]/.test(tag);
+    return add(el("li"), el("span", "what", tagged ? entry.slice(0, cut) : entry), tagged ? tagChip(tag) : null);
+  }).concat(data.decisions.filter((d) => /^pending v\d+$/.test(d.status)).map((d) =>
+    add(el("li", "pending"), el("span", "what", cap(d.status) + ": " + d.decision),
+      el("span", "why", "Recorded by " + (d.by === "user" ? "you" : "the skill") + " on " + d.date + "; clears once the code matches it."))));
+  if (attention.length) add(out, el("h3", "sub", "Needs attention"), add(el("ul", "drift"), ...attention));
+  if (!data.decisions.length) {
+    add(out, emptyState("Decisions"));
+  } else {
+    const byChip = (d) => {
+      const pending = /^pending v(\d+)$/.exec(d.status);
+      return el("span", "src " + (pending ? "pending" : d.by), pending ? d.by + " · v" + pending[1] : d.by);
+    };
+    add(out, el("h3", "sub", "Decisions"), add(el("div", "tablewrap"), add(el("table", "dec"),
+      add(el("thead"), row(["#", "Decision", "By", "Date", "Status"].map((h) => el("th", "", h)))),
+      add(el("tbody"), ...data.decisions.map((d) => {
+        const tr = row([el("td", "n", String(d.n)), el("td", "", d.decision), add(el("td"), byChip(d)), el("td", "n", d.date), el("td", "", cap(d.status))]);
+        if (d.status.startsWith("superseded")) tr.className = "superseded";
+        return tr;
+      })))));
+  }
+})();
+</script>
