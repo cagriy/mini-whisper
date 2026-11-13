@@ -533,6 +533,9 @@ None — plan matches design v6 exactly.
 - Stage 6: `DSFieldStyle` is a `ViewModifier` applied with `.dsField()`, not a `TextFieldStyle`, so it also dresses a `TextEditor` (`.area`). `SearchPill` lives in `DSFieldStyle.swift` and `PulseBars` in `StatusLine.swift`, each a view of its own. `DSToggleStyle` draws the switch only; the label reaches assistive technology through an accessibility representation.
 - Stage 6: a setting's description uses `type.meta` (12/16); the mockup's `.set .d` is 12/17, so a row is a point shorter per description line.
 - Stage 6: the components were also rendered to bitmaps, light and dark, by a temporary test that is not in the commit, and compared with the mockups. The hand check in the running app is still due.
+- Stage 7: one rule beyond §5.7. Clearing the query on a meeting page opened from results sets `origin` to `beforeSearch`; otherwise Back would lead to a results page with no query. `clearingTheQueryOnAMeetingOpenedFromResultsMovesTheOriginToThePageBefore` covers it.
+- Stage 7: `go` to the current destination calls `entered` again, which is how showing the window reloads its page (§5.7); the leaving hooks fire only when the destination changes, and `showMeeting` applies them too, so opening a meeting from Settings calls `settingsLeft`. Hooks run after the state is set. A query counts as empty only when it has no characters.
+- Stage 7: `WindowFramePolicy.frame` takes `Screens(visible:main:)`, `main` optional as `NSScreen.main` is; without one the default sits at the origin. A frame across two screens goes to the one showing more of it, and clamping moves the frame onto that screen as well as limiting its size. Tests beyond the named ones cover these, the exact 100×100 boundary and a raised frame pushed back on screen.
 
 ## Execution schedule
 
