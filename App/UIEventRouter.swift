@@ -74,8 +74,8 @@ final class UIEventRouter {
         case .idle:
             overlay.hide()
             caption.hide()
-        case .usage(let today, let month):
-            statusItem.setUsage(today: today, month: month)
+        case .usage(let totals):
+            statusItem.setUsage(totals)
         }
     }
 

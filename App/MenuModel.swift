@@ -1,4 +1,3 @@
-import MWConfig
 import MWPipeline
 import MWUsage
 
@@ -39,7 +38,7 @@ struct MenuModel {
     private static let maxLastLength = 50
 
     init() {
-        let rows = Pricing.formatUsageRows(today: DayUsage(), monthCost: 0)
+        let rows = Pricing.formatUsageRows(UsageTotals())
         items = [
             MenuItem(title: rows.today, action: nil),
             MenuItem(title: rows.month, action: nil),
@@ -66,14 +65,10 @@ struct MenuModel {
         items.insert(contentsOf: rows, at: items.firstIndex { $0.action == .meetings } ?? items.endIndex)
     }
 
-    mutating func setUsage(today: String, month: String) {
-        items[0].title = today
-        items[1].title = month
-    }
-
-    mutating func setUsage(today: DayEntry, monthCost: Double) {
-        let rows = Pricing.formatUsageRows(today: today, monthCost: monthCost)
-        setUsage(today: rows.today, month: rows.month)
+    mutating func setUsage(_ totals: UsageTotals) {
+        let rows = Pricing.formatUsageRows(totals)
+        items[0].title = rows.today
+        items[1].title = rows.month
     }
 
     mutating func setLast(_ dictation: DeliveredDictation) {

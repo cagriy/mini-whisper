@@ -45,8 +45,9 @@ import MWUsage
         var billing = MeetingBilling(engine: .assemblyaiStreaming, overrides: [:])
         billing.add(seconds: 2400)
         try await store.add(billing.finalUsage())
-        let (today, month) = await store.totals()
-        #expect(Pricing.formatUsageRows(today: today, monthCost: month).today == "Today: 0/0 tok · 40m · $0.18")
+        let rows = Pricing.formatUsageRows(await store.totals())
+        #expect(rows.today == "Today: 0/0 tok · 40m · $0.18")
+        #expect(rows.month == "Month: 0/0 tok · 40m · $0.18")
     }
 
     @Test func summaryUsageCostsAtSonnetRates() {

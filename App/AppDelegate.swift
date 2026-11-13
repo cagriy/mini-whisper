@@ -174,8 +174,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             router.start(controller.uiEvents)
             self.router = router
 
-            let totals = await usage.totals()
-            statusItem.setUsage(today: totals.today, monthCost: totals.monthCost)
+            statusItem.setUsage(await usage.totals())
         }
 
         let listener = GlobalKeyListener(
@@ -375,7 +374,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if let list = meetingsWindow, list.isVisible { Task { await list.model.reload() } }
         Task { [weak self] in
             let totals = await usage.totals()
-            self?.statusItem?.setUsage(today: totals.today, monthCost: totals.monthCost)
+            self?.statusItem?.setUsage(totals)
         }
     }
 

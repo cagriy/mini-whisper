@@ -2,8 +2,9 @@ import Foundation
 import MWConfig
 import MWSupport
 
-/// Dictation and meeting cost maths and the two menu rows (F35, F31, R18), a port of
-/// `../mini-whisper-py/src/mini_whisper/pricing.py` with the added `speech_analyzer` rate.
+/// Dictation and meeting cost maths, the usage table and the two menu rows (F35, F31, R18,
+/// R21), a port of `../mini-whisper-py/src/mini_whisper/pricing.py` with the added
+/// `speech_analyzer` rate.
 /// Every constant is overridable through `config.json`'s `pricing_overrides`.
 public enum Pricing {
     public static let perMinute: [String: Double] = [
@@ -100,15 +101,29 @@ public enum Pricing {
         (amount * 1_000_000).rounded() / 1_000_000
     }
 
-    /// The two menu rows (F31): `Today: 1.2k/340 tok · 3m · $0.12` and `Month: $1.50`.
-    public static func formatUsageRows(
-        today: DayEntry,
-        monthCost: Double
-    ) -> (today: String, month: String) {
-        let minutes = Int((today.streamedSeconds.values.reduce(0, +) / 60).rounded(.down))
-        let todayRow = "Today: \(tokens(today.inputTokens))/\(tokens(today.outputTokens)) tok"
-            + " · \(minutes)m · \(dollars(today.costUSD))"
-        return (todayRow, "Month: \(dollars(monthCost))")
+    /// The usage table's cells (R21): tokens `1.2k/340`, audio in whole minutes as `59m` or
+    /// `2h 14m`, cost in dollars.
+    public static func usageTable(_ totals: UsageTotals) -> UsageTable {
+        UsageTable(today: usageRow(totals.today), month: usageRow(totals.month))
+    }
+
+    /// The two menu rows (F31), from the table's cells: `Today: 1.2k/340 tok · 3m · $0.12` and
+    /// `Month: 48.6k/9.1k tok · 2h 14m · $1.50`.
+    public static func formatUsageRows(_ totals: UsageTotals) -> (today: String, month: String) {
+        let table = usageTable(totals)
+        func row(_ label: String, _ cells: UsageTable.Row) -> String {
+            "\(label): \(cells.tokens) tok · \(cells.audio) · \(cells.cost)"
+        }
+        return (row("Today", table.today), row("Month", table.month))
+    }
+
+    private static func usageRow(_ entry: DayEntry) -> UsageTable.Row {
+        let minutes = Int((entry.streamedSeconds.values.reduce(0, +) / 60).rounded(.down))
+        return UsageTable.Row(
+            tokens: "\(tokens(entry.inputTokens))/\(tokens(entry.outputTokens))",
+            audio: minutes < 60 ? "\(minutes)m" : "\(minutes / 60)h \(minutes % 60)m",
+            cost: dollars(entry.costUSD)
+        )
     }
 
     private static func tokens(_ count: Int) -> String {

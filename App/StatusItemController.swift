@@ -50,13 +50,8 @@ final class StatusItemController: NSObject {
         rebuild()
     }
 
-    func setUsage(today: String, month: String) {
-        model.setUsage(today: today, month: month)
-        rebuild()
-    }
-
-    func setUsage(today: DayEntry, monthCost: Double) {
-        model.setUsage(today: today, monthCost: monthCost)
+    func setUsage(_ totals: UsageTotals) {
+        model.setUsage(totals)
         rebuild()
     }
 

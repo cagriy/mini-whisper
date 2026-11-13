@@ -7,7 +7,7 @@ import Testing
 
 @Suite struct MenuModelTests {
     private let emptyToday = "Today: 0/0 tok · 0m · $0.00"
-    private let emptyMonth = "Month: $0.00"
+    private let emptyMonth = "Month: 0/0 tok · 0m · $0.00"
 
     private static func dictation(_ text: String) -> DeliveredDictation {
         DeliveredDictation(
@@ -123,21 +123,23 @@ import Testing
         #expect(model.items[2].title == "Last: \"\(String(repeating: "b", count: 50))\"")
     }
 
-    @Test func usageRowsUseFormatUsageRows() {
+    @Test func setUsageFormatsTheTotals() {
         var model = MenuModel()
-        let today = DayUsage(
-            inputTokens: 1234,
-            outputTokens: 340,
-            streamedSeconds: ["on_device": 200],
-            costUSD: 0.12
+        let totals = UsageTotals(
+            today: DayUsage(inputTokens: 1234, outputTokens: 340, streamedSeconds: ["on_device": 200], costUSD: 0.12),
+            month: DayUsage(
+                inputTokens: 48_600, outputTokens: 9100, streamedSeconds: ["speechmatics": 7800, "on_device": 240],
+                costUSD: 1.5
+            )
         )
-        model.setUsage(today: today, monthCost: 1.5)
-        let expected = Pricing.formatUsageRows(today: today, monthCost: 1.5)
-        #expect(model.items[0].title == expected.today)
-        #expect(model.items[1].title == expected.month)
 
-        model.setUsage(today: "Today: x", month: "Month: y")
-        #expect(model.items[0].title == "Today: x")
-        #expect(model.items[1].title == "Month: y")
+        model.setUsage(totals)
+
+        #expect(model.items[0].title == "Today: 1.2k/340 tok · 3m · $0.12")
+        #expect(model.items[1].title == "Month: 48.6k/9.1k tok · 2h 14m · $1.50")
+        #expect(model.items.map(\.title)[0...1] == [Pricing.formatUsageRows(totals).today, Pricing.formatUsageRows(totals).month])
+
+        model.setUsage(UsageTotals())
+        #expect(model.items.map(\.title)[0...1] == [emptyToday, emptyMonth])
     }
 }

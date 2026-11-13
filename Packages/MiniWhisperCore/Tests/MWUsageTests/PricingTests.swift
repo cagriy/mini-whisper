@@ -179,7 +179,67 @@ private func close(_ lhs: Double, _ rhs: Double, tolerance: Double = 1e-9) -> Bo
         #expect(Pricing.perHour(.assemblyaiPro, overrides: [:]) == 0.57)
     }
 
-    // MARK: - Menu rows (F31 formats)
+    // MARK: - Usage table and menu rows (F31, R21)
+
+    /// `minutes` of audio over two engines.
+    private static func audio(minutes: Double) -> DayEntry {
+        DayEntry(streamedSeconds: ["speechmatics": minutes * 40, "on_device": minutes * 20])
+    }
+
+    @Test func usageTableAt0_59And134Minutes() {
+        let today = DayEntry(
+            inputTokens: 1200, outputTokens: 340, streamedSeconds: ["on_device": 3540, "elevenlabs": 59], costUSD: 0.12
+        )
+        let month = DayEntry(
+            inputTokens: 48_600, outputTokens: 9100, streamedSeconds: ["speechmatics": 7800, "on_device": 240],
+            costUSD: 1.5
+        )
+
+        let table = Pricing.usageTable(UsageTotals(today: today, month: month))
+
+        #expect(table.today == UsageTable.Row(tokens: "1.2k/340", audio: "59m", cost: Pricing.dollars(0.12)))
+        #expect(table.month == UsageTable.Row(tokens: "48.6k/9.1k", audio: "2h 14m", cost: "$1.50"))
+        let audio = [0, 0.99, 59, 59.99, 60, 134, 600].map {
+            Pricing.usageTable(UsageTotals(today: Self.audio(minutes: $0))).today.audio
+        }
+        #expect(audio == ["0m", "0m", "59m", "59m", "1h 0m", "2h 14m", "10h 0m"])
+    }
+
+    @Test func menuRowsShowTheSameThreeFiguresForTodayAndMonth() {
+        let totals = UsageTotals(
+            today: DayEntry(
+                inputTokens: 1200, outputTokens: 340, streamedSeconds: ["on_device": 200, "elevenlabs": 20], costUSD: 0.12
+            ),
+            month: DayEntry(
+                inputTokens: 48_600, outputTokens: 9100, streamedSeconds: ["speechmatics": 7800, "on_device": 240],
+                costUSD: 1.5
+            )
+        )
+
+        let rows = Pricing.formatUsageRows(totals)
+
+        #expect(rows.today == "Today: 1.2k/340 tok · 3m · $0.12")
+        #expect(rows.month == "Month: 48.6k/9.1k tok · 2h 14m · $1.50")
+        let table = Pricing.usageTable(totals)
+        #expect(rows.today == "Today: \(table.today.tokens) tok · \(table.today.audio) · \(table.today.cost)")
+        #expect(rows.month == "Month: \(table.month.tokens) tok · \(table.month.audio) · \(table.month.cost)")
+
+        for (minutes, audio) in [(0.0, "0m"), (59, "59m"), (134, "2h 14m")] {
+            let entry = Self.audio(minutes: minutes)
+            let rows = Pricing.formatUsageRows(UsageTotals(today: entry, month: entry))
+            #expect(rows.today == "Today: 0/0 tok · \(audio) · $0.00")
+            #expect(rows.month == "Month: 0/0 tok · \(audio) · $0.00")
+        }
+    }
+
+    @Test func emptyMonthReads0Over0() {
+        let today = DayEntry(inputTokens: 500, outputTokens: 40, streamedSeconds: ["on_device": 61], costUSD: 0.02)
+
+        let totals = UsageTotals(today: today)
+
+        #expect(Pricing.usageTable(totals).month == UsageTable.Row(tokens: "0/0", audio: "0m", cost: "$0.00"))
+        #expect(Pricing.formatUsageRows(totals).month == "Month: 0/0 tok · 0m · $0.00")
+    }
 
     @Test func formatUsageRows() {
         let today = DayEntry(
@@ -188,34 +248,35 @@ private func close(_ lhs: Double, _ rhs: Double, tolerance: Double = 1e-9) -> Bo
             streamedSeconds: ["on_device": 200, "elevenlabs": 20],
             costUSD: 0.12
         )
+        let month = DayEntry(inputTokens: 5200, outputTokens: 900, streamedSeconds: ["on_device": 3000], costUSD: 1.5)
 
-        let rows = Pricing.formatUsageRows(today: today, monthCost: 1.5)
+        let rows = Pricing.formatUsageRows(UsageTotals(today: today, month: month))
 
         #expect(rows.today == "Today: 1.2k/340 tok · 3m · $0.12")
-        #expect(rows.month == "Month: $1.50")
+        #expect(rows.month == "Month: 5.2k/900 tok · 50m · $1.50")
     }
 
     /// Fractions of a cent are marked, not rounded away — only a genuine zero is `$0.00`.
     @Test func formatSmallValues() {
         let today = DayEntry(inputTokens: 500, outputTokens: 40, costUSD: 0.004)
 
-        let rows = Pricing.formatUsageRows(today: today, monthCost: 0.004)
+        let rows = Pricing.formatUsageRows(UsageTotals(today: today, month: today))
 
         #expect(rows.today == "Today: 500/40 tok · 0m · <$0.01")
-        #expect(rows.month == "Month: <$0.01")
+        #expect(rows.month == "Month: 500/40 tok · 0m · <$0.01")
     }
 
     @Test func formatZero() {
-        let rows = Pricing.formatUsageRows(today: DayEntry(), monthCost: 0)
+        let rows = Pricing.formatUsageRows(UsageTotals())
 
         #expect(rows.today == "Today: 0/0 tok · 0m · $0.00")
-        #expect(rows.month == "Month: $0.00")
+        #expect(rows.month == "Month: 0/0 tok · 0m · $0.00")
     }
 
     @Test func partialMinutesFloor() {
         let today = DayEntry(streamedSeconds: ["on_device": 119])
 
-        let rows = Pricing.formatUsageRows(today: today, monthCost: 0)
+        let rows = Pricing.formatUsageRows(UsageTotals(today: today))
 
         #expect(rows.today.contains(" 1m "))
     }
@@ -223,9 +284,10 @@ private func close(_ lhs: Double, _ rhs: Double, tolerance: Double = 1e-9) -> Bo
     @Test func thousandsAreAbbreviated() {
         let today = DayEntry(inputTokens: 3400, outputTokens: 1000)
 
-        let rows = Pricing.formatUsageRows(today: today, monthCost: 0)
+        let rows = Pricing.formatUsageRows(UsageTotals(today: today, month: today))
 
         #expect(rows.today.hasPrefix("Today: 3.4k/1.0k tok"))
+        #expect(rows.month.hasPrefix("Month: 3.4k/1.0k tok"))
     }
 
     /// A cleanup call costs about $0.00004, so rounding it to `$0.000` reads as free
@@ -239,12 +301,12 @@ private func close(_ lhs: Double, _ rhs: Double, tolerance: Double = 1e-9) -> Bo
     }
 
     @Test func menuRowsMarkASubCentDay() {
-        let rows = Pricing.formatUsageRows(
+        let rows = Pricing.formatUsageRows(UsageTotals(
             today: DayEntry(inputTokens: 1059, outputTokens: 103, costUSD: 0.000221),
-            monthCost: 0.0018
-        )
+            month: DayEntry(inputTokens: 8300, outputTokens: 912, costUSD: 0.0018)
+        ))
 
         #expect(rows.today == "Today: 1.1k/103 tok · 0m · <$0.01")
-        #expect(rows.month == "Month: <$0.01")
+        #expect(rows.month == "Month: 8.3k/912 tok · 0m · <$0.01")
     }
 }

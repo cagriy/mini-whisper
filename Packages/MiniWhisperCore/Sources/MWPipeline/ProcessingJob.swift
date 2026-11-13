@@ -185,9 +185,7 @@ public struct ProcessingJob: Sendable {
             engine: engineName,
             deliveredAt: Date()
         )))
-        let totals = await deps.usage.totals()
-        let rows = Pricing.formatUsageRows(today: totals.today, monthCost: totals.monthCost)
-        emit(.usage(today: rows.today, month: rows.month))
+        emit(.usage(await deps.usage.totals()))
     }
 
     // MARK: - Terminus paths

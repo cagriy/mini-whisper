@@ -104,7 +104,42 @@ import MWUsage
         let totals = await store.totals()
 
         #expect(totals.today == today)
-        #expect(abs(totals.monthCost - 0.15) < 1e-9)
+        #expect(totals.month.inputTokens == 25)
+        #expect(totals.month.outputTokens == 35)
+        #expect(totals.month.streamedSeconds == ["on_device": 60])
+        #expect(abs(totals.month.costUSD - 0.15) < 1e-9)
+    }
+
+    @Test func totalsSumTheMonthPerEngine() async throws {
+        let directory = try TempDirectory()
+        let config = ConfigStore(directory: directory.url)
+        let today = DayEntry(
+            inputTokens: 1200, outputTokens: 340, streamedSeconds: ["speechmatics": 1800, "on_device": 90], costUSD: 0.25
+        )
+        try await config.update {
+            $0.usage = [
+                "2026-09-02": DayEntry(
+                    inputTokens: 47_400, outputTokens: 8760, streamedSeconds: ["speechmatics": 6000, "elevenlabs": 150],
+                    costUSD: 1.25
+                ),
+                "2026-09-15": today,
+                "2026-08-31": DayEntry(
+                    inputTokens: 9000, outputTokens: 9000, streamedSeconds: ["speechmatics": 3600], costUSD: 9.99
+                ),
+            ]
+        }
+        let fixed = try date("2026-09-15")
+        let store = UsageStore(config: config, today: { fixed })
+
+        let totals = await store.totals()
+
+        #expect(totals == UsageTotals(
+            today: today,
+            month: DayEntry(
+                inputTokens: 48_600, outputTokens: 9100,
+                streamedSeconds: ["speechmatics": 7800, "elevenlabs": 150, "on_device": 90], costUSD: 1.5
+            )
+        ))
     }
 
     @Test func totalsEmpty() async throws {
@@ -112,8 +147,8 @@ import MWUsage
 
         let totals = await (try store(directory)).totals()
 
-        #expect(totals.today == DayEntry())
-        #expect(totals.monthCost == 0)
+        #expect(totals == UsageTotals(today: DayEntry(), month: DayEntry()))
+        #expect(totals == UsageTotals())
     }
 
     @Test func concurrentAddsSerialise() async throws {

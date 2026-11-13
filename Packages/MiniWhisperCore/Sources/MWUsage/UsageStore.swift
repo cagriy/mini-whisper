@@ -5,7 +5,7 @@ import MWConfig
 public protocol UsageRecording: Sendable {
     @discardableResult
     func add(_ usage: ProviderUsage) async throws -> DayEntry
-    func totals() async -> (today: DayEntry, monthCost: Double)
+    func totals() async -> UsageTotals
 }
 
 /// Accumulates one dictation's usage into today's entry in `config.json`, pruning days
@@ -26,27 +26,23 @@ public actor UsageStore: UsageRecording {
         let month = Self.monthKey(day)
         try await config.update { config in
             var entry = config.usage[day] ?? DayEntry()
-            entry.inputTokens += usage.inputTokens
-            entry.outputTokens += usage.outputTokens
-            entry.costUSD += usage.costUSD
-            for (engine, seconds) in usage.streamedSeconds {
-                entry.streamedSeconds[engine, default: 0] += seconds
-            }
+            entry.add(usage)
             config.usage = config.usage.filter { Self.monthKey($0.key) == month }
             config.usage[day] = entry
         }
         return await config.load().usage[day] ?? DayEntry()
     }
 
-    public func totals() async -> (today: DayEntry, monthCost: Double) {
+    public func totals() async -> UsageTotals {
         let day = Self.dayKey(today())
         let month = Self.monthKey(day)
         let usage = await config.load().usage
-        let monthCost = usage
-            .filter { Self.monthKey($0.key) == month }
-            .values
-            .reduce(0) { $0 + $1.costUSD }
-        return (usage[day] ?? DayEntry(), monthCost)
+        var total = DayEntry()
+        // Sorted so the floating-point sums do not depend on dictionary order.
+        for (key, entry) in usage.sorted(by: { $0.key < $1.key }) where Self.monthKey(key) == month {
+            total.add(entry)
+        }
+        return UsageTotals(today: usage[day] ?? DayEntry(), month: total)
     }
 
     private nonisolated static let dayFormatter: DateFormatter = {

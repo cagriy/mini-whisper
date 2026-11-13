@@ -650,25 +650,29 @@ import MWPipeline
 
     // MARK: - Usage rows (F31, F35)
 
-    @Test func usageEventCarriesFormattedRows() async {
+    @Test func usageEventCarriesTheTotals() async {
+        let totals = UsageTotals(
+            today: DayEntry(
+                inputTokens: 1200,
+                outputTokens: 3400,
+                streamedSeconds: ["on_device": 720],
+                costUSD: 0.08
+            ),
+            month: DayEntry(
+                inputTokens: 48_600,
+                outputTokens: 9100,
+                streamedSeconds: ["on_device": 8040],
+                costUSD: 1.42
+            )
+        )
         let harness = Harness(
             transcriber: FakeTranscriber(text: "hello world"),
-            usage: FakeUsageStore(
-                today: DayEntry(
-                    inputTokens: 1200,
-                    outputTokens: 3400,
-                    streamedSeconds: ["on_device": 720],
-                    costUSD: 0.08
-                ),
-                monthCost: 1.42
-            )
+            usage: FakeUsageStore(today: totals.today, month: totals.month)
         )
 
         await harness.run(config: Self.config(cleanupEnabled: false))
 
         #expect(harness.recorder.results.map(\.text) == ["hello world"])
-        #expect(harness.recorder.events.last == .usage(
-            today: "Today: 1.2k/3.4k tok · 12m · $0.08", month: "Month: $1.42"
-        ))
+        #expect(harness.recorder.events.last == .usage(totals))
     }
 }

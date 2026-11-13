@@ -1,3 +1,5 @@
+import MWUsage
+
 /// Everything the pipeline tells the UI, on the main actor (design §5.4).
 public enum UIEvent: Sendable, Equatable {
     case starting
@@ -11,5 +13,5 @@ public enum UIEvent: Sendable, Equatable {
     case result(DeliveredDictation)
     case error(String)
     case idle
-    case usage(today: String, month: String)
+    case usage(UsageTotals)
 }

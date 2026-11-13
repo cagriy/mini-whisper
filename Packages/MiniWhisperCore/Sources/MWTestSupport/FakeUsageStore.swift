@@ -8,11 +8,11 @@ public final class FakeUsageStore: UsageRecording, @unchecked Sendable {
     private let lock = NSLock()
     private var recorded: [ProviderUsage] = []
     private var entry: DayEntry
-    private var month: Double
+    private var month: DayEntry
 
-    public init(today: DayEntry = DayEntry(), monthCost: Double = 0) {
+    public init(today: DayEntry = DayEntry(), month: DayEntry = DayEntry()) {
         entry = today
-        month = monthCost
+        self.month = month
     }
 
     public var added: [ProviderUsage] { lock.withLock { recorded } }
@@ -21,18 +21,13 @@ public final class FakeUsageStore: UsageRecording, @unchecked Sendable {
     public func add(_ usage: ProviderUsage) async throws -> DayEntry {
         lock.withLock {
             recorded.append(usage)
-            entry.inputTokens += usage.inputTokens
-            entry.outputTokens += usage.outputTokens
-            entry.costUSD += usage.costUSD
-            for (engine, seconds) in usage.streamedSeconds {
-                entry.streamedSeconds[engine, default: 0] += seconds
-            }
-            month += usage.costUSD
+            entry.add(usage)
+            month.add(usage)
             return entry
         }
     }
 
-    public func totals() async -> (today: DayEntry, monthCost: Double) {
-        lock.withLock { (entry, month) }
+    public func totals() async -> UsageTotals {
+        lock.withLock { UsageTotals(today: entry, month: month) }
     }
 }
