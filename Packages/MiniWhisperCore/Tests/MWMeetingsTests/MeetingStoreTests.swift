@@ -116,6 +116,30 @@ import MWMeetings
         #expect(entries.map(\.id) == [northwind.meeting.id, plain.id])
     }
 
+    @Test func indexExcerptOfATopicSummaryJoinsItsTopics() async throws {
+        let fixture = try Fixture()
+        let meeting = MeetingFixtures.make(summary: MeetingFixtures.topicSummary()).meeting
+        try await fixture.store.create(meeting)
+        try await fixture.store.append(segment("Morning everyone, let's start.", at: 4), to: meeting.id)
+        try await fixture.store.update(meeting)
+
+        let entry = try #require(try fixture.store.index().first)
+        #expect(entry.excerpt == "Northwind rollout · Enterprise pricing · Demo date")
+        #expect(entry.hasSummary)
+    }
+
+    @Test func indexCostIncludesReplacedSummaries() async throws {
+        let fixture = try Fixture()
+        var meeting = MeetingFixtures.northwind().meeting
+        meeting.billing.replacedSummaryCostUSD = 0.03106
+        meeting.summary = MeetingFixtures.topicSummary()
+        try await fixture.store.create(meeting)
+
+        let entry = try #require(try fixture.store.index().first)
+        #expect(abs(entry.costUSD - (0.3665 + 0.03106 + 0.03036)) < 1e-9)
+        #expect(try fixture.store.load(meeting.id).meeting.billing.replacedSummaryCostUSD == 0.03106)
+    }
+
     @Test func rewriteSegmentsReplacesAtomically() async throws {
         let fixture = try Fixture()
         let meeting = MeetingFixtures.make().meeting

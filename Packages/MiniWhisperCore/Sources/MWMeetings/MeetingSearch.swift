@@ -53,7 +53,7 @@ public struct MeetingSearch: Sendable {
         var found: [SearchSnippet] = []
         func scan(_ source: SearchSnippet.Source, _ entries: [(time: Double?, text: String)]) {
             for entry in entries where found.count < Self.snippetsPerMeeting {
-                if let text = excerpt(entry.text, around: needle) {
+                if let text = SearchExcerpt.around(needle, in: entry.text, context: Self.context) {
                     found.append(SearchSnippet(source: source, time: entry.time, text: text))
                 }
             }
@@ -70,22 +70,5 @@ public struct MeetingSearch: Sendable {
         var text = line.replacingOccurrences(of: "**", with: "")
         if text.hasPrefix("- ") { text.removeFirst(2) }
         return text
-    }
-
-    /// About `context` characters either side of the first match, cut at word boundaries, on one line.
-    private func excerpt(_ text: String, around needle: String) -> String? {
-        guard let match = text.range(of: needle, options: .caseInsensitive) else { return nil }
-        var lower = text.index(match.lowerBound, offsetBy: -Self.context, limitedBy: text.startIndex) ?? text.startIndex
-        var upper = text.index(match.upperBound, offsetBy: Self.context, limitedBy: text.endIndex) ?? text.endIndex
-        if lower > text.startIndex, !text[text.index(before: lower)].isWhitespace,
-           let space = text[lower..<match.lowerBound].firstIndex(where: \.isWhitespace) {
-            lower = text.index(after: space)
-        }
-        if upper < text.endIndex, !text[upper].isWhitespace,
-           let space = text[match.upperBound..<upper].lastIndex(where: \.isWhitespace) {
-            upper = space
-        }
-        let cut = text[lower..<upper].split(whereSeparator: \.isWhitespace).joined(separator: " ")
-        return (lower > text.startIndex ? "…" : "") + cut + (upper < text.endIndex ? "…" : "")
     }
 }

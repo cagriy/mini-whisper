@@ -100,6 +100,41 @@ public enum MeetingFixtures {
         return LoadedMeeting(meeting: meeting, segments: segments, notes: notes)
     }
 
+    /// The Northwind meeting summarised by topic: three topics with nested bullets, then
+    /// `Next Steps`. `northwind()` carries the four-section form.
+    public static func topicSummary() -> Summary {
+        Summary(
+            text: """
+                ## Northwind rollout
+
+                - The rollout slips a week unless the migration script is signed off.
+                  - Sign-off moves from Thursday to Wednesday, leaving a day of slack.
+                - **Priya** refreshes staging data tonight: the last snapshot is from October.
+
+                ## Enterprise pricing
+
+                - The enterprise tier needs the per-seat cap before the demo.
+                  - The cap defaults to 25 seats.
+                  - Whether it applies to trial accounts was not settled.
+
+                ## Demo date
+
+                - The demo is on the 18th, not the 20th.
+
+                ## Next Steps
+
+                - **Priya**: refresh staging data tonight.
+                - **Marta**: migration script ready for review by Wednesday.
+                - **Alex**: ask ops for a Wednesday maintenance window.
+                """,
+            model: "claude-sonnet-5-5",
+            createdAt: Date(timeIntervalSince1970: 1_794_237_700),  // 2026-11-09T15:21:40Z
+            inputTokens: 12480,
+            outputTokens: 540,
+            costUSD: 0.03036
+        )
+    }
+
     /// A small meeting: the user alone, no summary.
     public static func make(
         id: UUID = UUID(),

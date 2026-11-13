@@ -230,10 +230,11 @@ public actor MeetingStore: MeetingReading {
             app: meeting.app,
             engine: meeting.engine,
             speakerCount: meeting.speakers.count,
-            costUSD: meeting.billing.costUSD + (meeting.summary?.costUSD ?? 0),
+            costUSD: meeting.totalCostUSD,
             hasSummary: meeting.summary != nil,
             audioBytes: (attributes?[.size] as? Int) ?? 0,
-            excerpt: meeting.summary.map { Self.firstSentence(of: $0.text) } ?? firstSegment(of: meeting.id)?.text ?? "",
+            excerpt: meeting.summary.map { SummaryDocument.excerpt(ofSummary: $0.text) }
+                ?? firstSegment(of: meeting.id)?.text ?? "",
             test: meeting.test
         )
     }
@@ -251,15 +252,6 @@ public actor MeetingStore: MeetingReading {
             line.append(chunk)
         }
         return try? MeetingCoding.decoder().decode(Segment.self, from: line)
-    }
-
-    /// The first sentence of the summary's first paragraph, below its heading.
-    private static func firstSentence(of summary: String) -> String {
-        let paragraph = summary.split(separator: "\n")
-            .map { $0.trimmingCharacters(in: .whitespaces) }
-            .first { !$0.isEmpty && !$0.hasPrefix("#") } ?? ""
-        guard let end = paragraph.firstMatch(of: /[.!?](?=\s)/) else { return paragraph }
-        return String(paragraph[..<end.range.upperBound])
     }
 
     private static func newestFirst(_ entries: [IndexEntry]) -> [IndexEntry] {

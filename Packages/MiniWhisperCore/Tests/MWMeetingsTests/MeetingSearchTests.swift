@@ -91,4 +91,19 @@ import MWMeetings
 
         #expect(snippet == "…six seven eight nine ten eleven twelve Northwind thirteen fourteen fifteen sixteen…")
     }
+
+    @Test func excerptKeeps90CharactersOfContext() {
+        let before = (1...30).map { String(format: "w%02d", $0) }
+        let after = (1...30).map { String(format: "x%02d", $0) }
+        let text = (before + ["Northwind"] + after).joined(separator: " ")
+        func cut(dropping leading: Int, keeping trailing: Int) -> String {
+            let words: [String] = before.dropFirst(leading) + ["Northwind"] + after.prefix(trailing)
+            return "…" + words.joined(separator: " ") + "…"
+        }
+
+        #expect(SearchExcerpt.around("northwind", in: text, context: 90) == cut(dropping: 8, keeping: 22))
+        #expect(SearchExcerpt.around("northwind", in: text, context: 40) == cut(dropping: 20, keeping: 10))
+        #expect(SearchExcerpt.around("W01", in: "w01  w02\nw03", context: 90) == "w01 w02 w03")
+        #expect(SearchExcerpt.around("absent", in: text, context: 90) == nil)
+    }
 }

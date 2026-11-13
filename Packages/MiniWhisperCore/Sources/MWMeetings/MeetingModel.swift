@@ -108,7 +108,8 @@ public struct Marker: Codable, Sendable, Equatable {
 }
 
 public struct Summary: Codable, Sendable, Equatable {
-    /// The model's Markdown: four `##` sections.
+    /// The model's Markdown, read through `SummaryDocument`: a `##` section per topic, or the
+    /// four fixed sections of older summaries.
     public var text: String
     public var model: String
     public var createdAt: Date
@@ -146,11 +147,28 @@ public struct Billing: Codable, Sendable, Equatable {
     public var engineSeconds: Double
     public var diarizationSeconds: Double
     public var costUSD: Double
+    /// The summed cost of the summaries a regenerate replaced.
+    public var replacedSummaryCostUSD: Double
 
-    public init(engineSeconds: Double = 0, diarizationSeconds: Double = 0, costUSD: Double = 0) {
+    public init(
+        engineSeconds: Double = 0,
+        diarizationSeconds: Double = 0,
+        costUSD: Double = 0,
+        replacedSummaryCostUSD: Double = 0
+    ) {
         self.engineSeconds = engineSeconds
         self.diarizationSeconds = diarizationSeconds
         self.costUSD = costUSD
+        self.replacedSummaryCostUSD = replacedSummaryCostUSD
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        engineSeconds = try container.decode(Double.self, forKey: .engineSeconds)
+        diarizationSeconds = try container.decode(Double.self, forKey: .diarizationSeconds)
+        costUSD = try container.decode(Double.self, forKey: .costUSD)
+        // Absent from files written before summaries could be regenerated.
+        replacedSummaryCostUSD = try container.decodeIfPresent(Double.self, forKey: .replacedSummaryCostUSD) ?? 0
     }
 }
 
@@ -208,6 +226,11 @@ public struct Meeting: Codable, Sendable, Equatable, Identifiable {
         schema = Self.currentSchema
         self.test = test
     }
+
+    /// Transcription, the current summary and every summary it replaced.
+    public var totalCostUSD: Double {
+        billing.costUSD + billing.replacedSummaryCostUSD + (summary?.costUSD ?? 0)
+    }
 }
 
 /// A meeting with its transcript and notes, as read from its folder.
@@ -234,11 +257,11 @@ public struct IndexEntry: Codable, Sendable, Equatable, Identifiable {
     public var app: String?
     public var engine: MeetingEngine
     public var speakerCount: Int
-    /// Transcription plus summary.
+    /// `Meeting.totalCostUSD`.
     public var costUSD: Double
     public var hasSummary: Bool
     public var audioBytes: Int
-    /// The summary's first sentence, or else the first segment's text.
+    /// `SummaryDocument.excerpt(ofSummary:)`, or else the first segment's text.
     public var excerpt: String
     public var test: TestCallTag?
 

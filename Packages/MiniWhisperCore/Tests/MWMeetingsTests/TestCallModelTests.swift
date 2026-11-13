@@ -30,8 +30,11 @@ import MWMeetings
         #expect(meeting.test == nil)
         #expect(index.map(\.id) == [Self.legacyID])
         #expect(index.first?.test == nil)
-        // Rewritten untouched, both files keep their pre-feature bytes.
-        #expect(try MeetingCoding.encoder().encode(meeting) == meetingData)
+        // Rewritten untouched, the index keeps its bytes and the meeting gains only the replaced-cost key.
+        let rewritten = String(decoding: meetingData, as: UTF8.self).replacingOccurrences(
+            of: #""engineSeconds":0}"#, with: #""engineSeconds":0,"replacedSummaryCostUSD":0}"#
+        )
+        #expect(try MeetingCoding.encoder().encode(meeting) == Data(rewritten.utf8))
         #expect(try MeetingCoding.encoder().encode(index) == indexData)
     }
 

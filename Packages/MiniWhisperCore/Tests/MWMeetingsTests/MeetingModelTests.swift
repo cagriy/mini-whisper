@@ -48,4 +48,33 @@ import MWMeetings
         #expect(try MeetingCoding.decoder().decode(SpeakerLabel.self, from: data) == label)
         #expect(try object(data)["providerKeys"] as? [String] == ["1:S1", "2:S2"])
     }
+
+    @Test func billingWithoutReplacedCostDecodesAsZero() throws {
+        let data = Data(#"{"engineSeconds":1,"diarizationSeconds":0,"costUSD":0.4}"#.utf8)
+        let billing = try MeetingCoding.decoder().decode(Billing.self, from: data)
+
+        #expect(billing == Billing(engineSeconds: 1, diarizationSeconds: 0, costUSD: 0.4))
+        #expect(billing.replacedSummaryCostUSD == 0)
+        #expect(throws: DecodingError.self) {
+            try MeetingCoding.decoder().decode(Billing.self, from: Data(#"{"replacedSummaryCostUSD":0.1}"#.utf8))
+        }
+    }
+
+    @Test func billingAlwaysEncodesReplacedCost() throws {
+        #expect(try object(MeetingCoding.encoder().encode(Billing()))["replacedSummaryCostUSD"] as? Double == 0)
+
+        let billing = Billing(engineSeconds: 60, costUSD: 0.4, replacedSummaryCostUSD: 0.03106)
+        let data = try MeetingCoding.encoder().encode(billing)
+        #expect(try object(data)["replacedSummaryCostUSD"] as? Double == 0.03106)
+        #expect(try MeetingCoding.decoder().decode(Billing.self, from: data) == billing)
+    }
+
+    @Test func totalCostAddsBillingReplacedAndSummary() {
+        var meeting = MeetingFixtures.northwind().meeting
+        meeting.billing.replacedSummaryCostUSD = 0.02
+
+        #expect(abs(meeting.totalCostUSD - (0.3665 + 0.02 + 0.03106)) < 1e-9)
+        meeting.summary = nil
+        #expect(abs(meeting.totalCostUSD - (0.3665 + 0.02)) < 1e-9)
+    }
 }
