@@ -229,14 +229,16 @@ import Testing
         #expect(harness.sounds.played == [.on])
     }
 
-    @Test func tickPlaysWhenNotLiveWithin100ms() async throws {
+    /// The tick task resumes on the clock's executor and hops back to the main actor, so
+    /// the test waits for the sound itself: under load the hop outlasts any number of yields.
+    @Test(.timeLimit(.minutes(1))) func tickPlaysWhenNotLiveWithin100ms() async throws {
         let harness = try await Harness()
         harness.controller.hotkeyPressed(.paste)
         await harness.controller.settle()
 
         await harness.clock.waitUntilSleeping()
         harness.clock.advance(by: 0.1)
-        await harness.drainTimers()
+        await harness.sounds.waitUntilPlayed()
         #expect(harness.sounds.played == [.tick])
 
         harness.audio.send(.live)
