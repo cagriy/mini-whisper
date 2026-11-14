@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-11-14
+
 ### Added
 
 - One main window. Its sidebar holds search, Start Meeting, Meetings, Dictations, Settings and
