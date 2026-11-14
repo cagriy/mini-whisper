@@ -582,6 +582,10 @@ None — plan matches design v6 exactly.
 - Stage 14: a session presented between the meeting hotkey's start and the main window's creation at launch is not shown; the next *Start Meeting…* or *Show Meeting…* shows it.
 - Stage 14: Meetings' engine footnote, outside the stage's *Touches*, reads "a live meeting's running cost" instead of naming the meeting window.
 - Stage 14: the window with the chooser, the setup step, a live meeting with the recording pill, a paused one, a live test call, a just-stopped meeting writing its summary, the finished Summary, Transcript and Notes tabs, a scored test call and the Regenerate dialog were rendered offscreen, light and dark, by a temporary test that is not in the commit, and compared with `mockup-v6-recording.html`. The same test hit-tested a titled, full-size-content window: points 6 to 36 points below the top of the page land in the hosting view, so the top bar's pills take clicks under the transparent title bar.
+- Stage 15: `SettingsModel.theme` reads `config`, as `selectedOverlayStyle` does, so `refresh(from:)` needed no change; `refreshReadsTheTheme` and `themeStartsFromTheConfig` passed once they compiled, and only `setThemeWritesTheKey` went red on its assertion (`model.theme → .system`).
+- Stage 15: `AppDelegate.applyTheme(_:)` calls `ThemeApplier` only when the value differs from the one last applied, since the config is rewritten after every dictation and each new appearance redraws every window; `ThemeApplier` logs `Theme applied: <value>`. Loading the config is async, so `applicationDidFinishLaunching` applies the theme and then starts onboarding or `startNormal(configStore:)` inside one `Task`, as `startNormal` already ran; the permissions-missing log moved into it.
+- Stage 15: the Theme row's description is the mockup's: "Follow macOS, or keep Mini Whisper light or dark. The dictation overlay is unaffected."
+- Stage 15: General was rendered offscreen with `ThemeApplier` setting the app's appearance, light and dark, in a window carrying none of its own, by a temporary test that is not in the commit, and compared with `mockup-v6-overview.html`.
 
 ## Execution schedule
 
