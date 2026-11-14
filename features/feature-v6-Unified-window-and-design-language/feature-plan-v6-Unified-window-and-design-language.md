@@ -593,6 +593,7 @@ None — plan matches design v6 exactly.
 - Stage 16: `OnboardingPermission.symbolName`, in `App/Onboarding/OnboardingModel.swift` outside the stage's *Touches*, uses the outline `mic` and `keyboard`, as `DESIGN.md`'s icon rule asks. The status line turns the ok colour once both are granted, as today.
 - Stage 16: the weak-capture warning in `CorrectionWindowController.show(source:)` is gone: the `Task` captures `self` weakly.
 - Stage 16: Correction (editing, no bundle ID, saved), Onboarding (one and both granted) and About were rendered offscreen, light and dark, with `ThemeApplier` setting the app's appearance, by a temporary test that is not in the commit, and compared with `mockup-v6-windows.html`.
+- Stage 17: `CLAUDE.md` also lists `DESIGN.md` and `design/` in the layout, and notes that app suites use `AppTests/ManualClock.swift` (planning decision 6). `DESIGN.md` is left to `/design-language-update` (design §9); the tokens and components it does not yet describe were reported instead. The `Package.swift`/`project.yml` check ran against `5456c80` as well as the working tree; both are empty.
 
 ## Execution schedule
 
