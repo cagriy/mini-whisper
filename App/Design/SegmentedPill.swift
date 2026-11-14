@@ -7,6 +7,8 @@ struct SegmentedPill<Value: Hashable>: View {
     /// Fills the width on offer, the segments sharing it equally.
     var fillsWidth = false
 
+    @Environment(\.isEnabled) private var isEnabled
+
     var body: some View {
         HStack(spacing: 0) {
             ForEach(options, id: \.value) { option in
@@ -36,6 +38,7 @@ struct SegmentedPill<Value: Hashable>: View {
         .padding(DS.Space.s1 + DS.Size.hairline)
         .background(Capsule().fill(DS.Colors.sidebar))
         .overlay(Capsule().strokeBorder(DS.Colors.line))
+        .opacity(isEnabled ? 1 : 0.45)
         .fixedSize(horizontal: !fillsWidth, vertical: true)
     }
 }

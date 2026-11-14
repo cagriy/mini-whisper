@@ -15,8 +15,8 @@ enum OnboardingPermission: String, CaseIterable, Hashable {
 
     var symbolName: String {
         switch self {
-        case .microphone: "mic.fill"
-        case .accessibility: "keyboard.fill"
+        case .microphone: "mic"
+        case .accessibility: "keyboard"
         }
     }
 

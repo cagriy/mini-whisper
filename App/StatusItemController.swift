@@ -15,6 +15,7 @@ final class StatusItemController: NSObject {
     private let onMeetings: () -> Void
     private let onDictations: () -> Void
     private let onSettings: () -> Void
+    private let onAbout: () -> Void
     private let onQuit: () -> Void
     private var model = MenuModel()
 
@@ -27,6 +28,7 @@ final class StatusItemController: NSObject {
         onMeetings: @escaping () -> Void,
         onDictations: @escaping () -> Void,
         onSettings: @escaping () -> Void,
+        onAbout: @escaping () -> Void,
         onQuit: @escaping () -> Void
     ) {
         self.sounds = sounds
@@ -37,6 +39,7 @@ final class StatusItemController: NSObject {
         self.onMeetings = onMeetings
         self.onDictations = onDictations
         self.onSettings = onSettings
+        self.onAbout = onAbout
         self.onQuit = onQuit
         super.init()
 
@@ -98,7 +101,7 @@ final class StatusItemController: NSObject {
         case .dictations: onDictations()
         case .settings: onSettings()
         case .checkForUpdates: AppUpdater.checkForUpdates()
-        case .about: AboutPanel.show()
+        case .about: onAbout()
         case .quit: onQuit()
         }
     }

@@ -34,6 +34,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var main: MainWindowController?
     private var correctionWindow: CorrectionWindowController?
     private var correctionDependencies: CorrectionModel.Dependencies?
+    private lazy var about = AboutWindowController()
     private var appliedBindings: [BindingName: HotkeyCombo] = [:]
     private var meetings: MeetingCoordinator?
     /// The config as last loaded or changed, for the meeting chooser.
@@ -61,6 +62,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             onMeetings: { [weak self] in self?.main?.show(.meetings) },
             onDictations: { [weak self] in self?.main?.show(.dictations) },
             onSettings: { [weak self] in self?.openSettings() },
+            onAbout: { [weak self] in self?.about.show() },
             onQuit: { [weak self] in self?.quit() }
         )
 

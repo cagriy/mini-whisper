@@ -7,37 +7,30 @@ import SwiftUI
 @MainActor
 final class CorrectionWindowController: NSObject, NSWindowDelegate {
     private let deps: CorrectionModel.Dependencies
-    private let window: NSWindow
+    private let window = NSWindow.small(
+        title: "Correct Dictation", size: CGSize(width: CorrectionView.width, height: 600)
+    )
 
     init(deps: CorrectionModel.Dependencies) {
         self.deps = deps
-        window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 560, height: 520),
-            styleMask: [.titled, .closable],
-            backing: .buffered,
-            defer: false
-        )
         super.init()
-
-        window.title = "Correct Dictation"
-        window.isReleasedWhenClosed = false
-        window.center()
         window.delegate = self
     }
 
     func show(source: CorrectionSource) {
-        Task {
-            let model = CorrectionModel(
-                source: source, config: await deps.store.load(), deps: deps
-            )
-            // The hosting view owns the model; it lives exactly as long as the window shows it.
-            window.contentView = NSHostingView(
-                rootView: CorrectionView(model: model, onClose: { [weak self] in self?.hide() })
-            )
-            // An LSUIElement app has no menu bar, so ⌘C/⌘V in the fields need one.
-            EditMenu.ensure()
-            WindowActivation.shown(window)
+        Task { [weak self, deps] in
+            let model = CorrectionModel(source: source, config: await deps.store.load(), deps: deps)
+            self?.present(model)
         }
+    }
+
+    /// The hosting view owns the model; it lives exactly as long as the window shows it.
+    /// The window is as tall as the content (R24).
+    private func present(_ model: CorrectionModel) {
+        window.host(CorrectionView(model: model, onClose: { [weak self] in self?.hide() }), fit: true)
+        // An LSUIElement app has no menu bar, so ⌘C/⌘V in the fields need one.
+        EditMenu.ensure()
+        WindowActivation.shown(window)
     }
 
     func hide() {

@@ -52,6 +52,8 @@ enum DS {
         static let row: CGFloat = 10
         /// Cards and dialogs.
         static let card: CGFloat = 14
+        /// The app mark's tile in About.
+        static let mark: CGFloat = 16
     }
 
     /// `space.1` to `space.10`.
