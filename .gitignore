@@ -28,3 +28,6 @@ xcuserdata/
 __pycache__/
 .pytest_cache/
 .codex/.last
+
+# Third-party reference screenshots used for design work; never published
+features/*/references/
