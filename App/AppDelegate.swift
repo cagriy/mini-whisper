@@ -287,6 +287,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         export: @escaping @MainActor (MeetingExporter.Kind, UUID) -> Void
     ) -> MeetingCoordinator {
         let summarizer = KeyedAnthropicClient(secrets: secrets)
+        let window = MeetingWindowController()
+        window.onClose = { [weak self] in self?.meetings?.pageLeft() }
         return MeetingCoordinator(deps: MeetingCoordinator.Dependencies(
             makeController: { frontApp in
                 MeetingController(
@@ -319,12 +321,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     hasKey: { (try? secrets.secret(for: $0))?.isEmpty == false }
                 )
             },
-            makeWindow: { model, actions in MeetingWindowController(model: model, actions: actions) },
+            present: { model, actions in window.show(model: model, actions: actions) },
+            dismiss: { window.close() },
             now: { Date() },
             endDictation: { [weak self] in await self?.controller?.abort() },
-            openSettings: { [weak self] in self?.openSettings() },
-            openMeetings: { [weak self] in self?.main?.show(.meetings) },
+            openSettings: { [weak self] section in
+                self?.main?.model.settings.selection = section
+                self?.openSettings()
+            },
             export: export,
+            copy: { RichPasteboardWriting.write(markdown: $0.markdown, html: $0.html, rtf: $0.rtf) },
             changed: { [weak self] in self?.meetingChanged(usage: usage) },
             testCalls: TestCallDependencies(
                 makeConductor: { scenario, casting, overlap, player, sensor in

@@ -163,7 +163,7 @@ private struct MeetingRecordingView: View {
     private var header: some View {
         HStack(spacing: 10) {
             if model.state == .stopped {
-                Button(action: actions.backToMeetings) {
+                Button(action: actions.back) {
                     Label("Meetings", systemImage: "chevron.left")
                 }
                 .help("Back to the Meetings list")

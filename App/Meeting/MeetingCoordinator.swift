@@ -5,7 +5,7 @@ import MWMeetings
 import MWSupport
 import MWTestCall
 
-/// What the coordinator and window need of a meeting. One conformer: `MeetingController`.
+/// What the coordinator and the meeting page need of a meeting. One conformer: `MeetingController`.
 @MainActor
 protocol MeetingControlling: AnyObject {
     var events: AsyncStream<MeetingEvent> { get }
@@ -26,20 +26,12 @@ protocol MeetingControlling: AnyObject {
     func edit(segment: UUID, text: String) async
     func reassign(segment: UUID, to speaker: Int) async
     func retitle(_ title: String) async
+    func regenerateSummary() async
 }
 
 extension MeetingController: MeetingControlling {}
 
-/// The meeting window as the coordinator drives it. One conformer: `MeetingWindowController`.
-@MainActor
-protocol MeetingWindowPresenting: AnyObject {
-    var isVisible: Bool { get }
-    func show()
-    func close()
-    func setTitle(_ title: String)
-}
-
-/// What the meeting window's buttons do.
+/// What the meeting page's buttons do.
 struct MeetingActions {
     var start: @MainActor () -> Void
     /// The setup page's Start Test Call.
@@ -57,16 +49,17 @@ struct MeetingActions {
     /// The header's title field, as typed.
     var retitle: @MainActor (_ draft: String) -> Void
     var export: @MainActor (MeetingExporter.Kind) -> Void
+    /// The chooser's engine link: Settings at its Meetings section.
     var openSettings: @MainActor () -> Void
-    /// A stopped meeting's *Meetings* button: this window closes and the list comes up.
-    var backToMeetings: @MainActor () -> Void
-    /// The window was closed: a chooser or an ended meeting goes away, a live one only hides.
-    var closed: @MainActor () -> Void
+    /// The finished page's back pill: the page it was opened from.
+    var back: @MainActor () -> Void
+    var copySummary: @MainActor () -> Void
+    var regenerate: @MainActor () -> Void
 }
 
-/// Meeting mode's entry points (design §5.6 Start, Second hotkey press; §5.7 window closed,
-/// quit): the hotkey and menu open a chooser, Start runs a meeting in that window, and a second
-/// press stops it. One `MeetingController` per window.
+/// Meeting mode's entry points (design §5.5): the hotkey and menu open a chooser, Start runs a
+/// meeting from it, and a second press stops it. One `MeetingController` per session; one
+/// session is on the meeting page at a time, and the others live only as long as they must.
 @MainActor
 final class MeetingCoordinator {
     struct Dependencies {
@@ -74,15 +67,21 @@ final class MeetingCoordinator {
         var makeController: @MainActor (_ frontApp: String?) -> any MeetingControlling
         var frontApp: @MainActor () -> String?
         var chooser: @MainActor () -> MeetingWindowModel.Chooser
-        var makeWindow: @MainActor (MeetingWindowModel, MeetingActions) -> any MeetingWindowPresenting
+        /// Shows the meeting page with this session and brings the window forward.
+        var present: @MainActor (MeetingWindowModel, MeetingActions) -> Void
+        /// Returns to the page the meeting page was opened from; leaving it calls `pageLeft()`.
+        var dismiss: @MainActor () -> Void
         var now: () -> Date
+        /// The models' clock, for Copy summary's `Copied`.
+        var clock: any MWSupport.Clock = SystemClock()
         /// Discards a dictation still running (a toggle waits for its second press, which R19
         /// now routes to the notice), so it neither shares the microphone nor pastes mid-meeting.
         var endDictation: @MainActor () async -> Void
-        var openSettings: @MainActor () -> Void
-        var openMeetings: @MainActor () -> Void
+        var openSettings: @MainActor (SettingsModel.Section) -> Void
         /// Asks where to write the stored meeting's Markdown, then writes it (R17).
         var export: @MainActor (MeetingExporter.Kind, UUID) -> Void
+        /// Puts Copy summary's three forms on the pasteboard.
+        var copy: @MainActor (MeetingWindowModel.CopyPayload) -> Void
         /// A meeting changed state, title or summary: the menu, usage rows and list follow.
         var changed: @MainActor () -> Void
         var testCalls: TestCallDependencies
@@ -93,8 +92,9 @@ final class MeetingCoordinator {
         let controller: any MeetingControlling
         let model: MeetingWindowModel
         let frontApp: String?
-        var window: (any MeetingWindowPresenting)?
         var isStarting = false
+        /// The coordinator's `stop()` has not returned: the summary may not have begun yet.
+        var isStopping = false
         /// Set once a test call's meeting has started.
         var test: TestCallSession?
 
@@ -105,19 +105,36 @@ final class MeetingCoordinator {
         }
 
         var state: MeetingState { controller.state }
+
+        var isWritingSummary: Bool {
+            switch model.summary {
+            case .writing?, .rewriting?: true
+            default: false
+            }
+        }
     }
 
     private let deps: Dependencies
-    /// The chooser, or the meeting it started.
+    /// The chooser, or the meeting it started, until released.
     private var current: Session?
-    /// Ended meetings whose windows are still open.
-    private var ended: [Session] = []
+    /// A stored meeting opened from the list or search.
+    private var opened: Session?
+    /// Stopped sessions kept off screen while their summary is written.
+    private var finishing: [Session] = []
+    /// Which of `current` and `opened` is on the meeting page.
+    private var shown: Session?
 
     init(deps: Dependencies) {
         self.deps = deps
     }
 
     var isActive: Bool { current?.state.isActive ?? false }
+
+    /// The recording pill's meeting: `current` while it is active.
+    var liveModel: MeetingWindowModel? {
+        guard let current, current.state.isActive else { return nil }
+        return current.model
+    }
 
     /// Recording or paused: the states Stop acts on (§5.7 Quit while recording).
     var needsQuitConfirmation: Bool {
@@ -135,23 +152,20 @@ final class MeetingCoordinator {
         }
     }
 
-    /// *Start Meeting…*: like the hotkey, but an open chooser comes to the front.
+    /// *Start Meeting…* and ⌘N: the live page while a meeting is active, else the chooser.
     func openChooser() {
         if let current {
-            switch current.state {
-            case .idle:
-                current.window?.show()
-                return
-            case .stopped: end(current)
-            case .starting, .recording, .paused, .stopping: return
-            }
+            if current.state.isActive { return show() }
+            if current.state == .idle { return present(current) }
+            release(current)
         }
+        if let opened { release(opened) }
         // Read before the window takes focus; the default title names this app.
         let frontApp = deps.frontApp()
         let session = Session(controller: deps.makeController(frontApp), model: makeModel(), frontApp: frontApp)
         current = session
         forwardEvents(of: session)
-        present(session, title: "New Meeting")
+        present(session)
         fillTestCallSetup(session.model.setup)
     }
 
@@ -171,11 +185,11 @@ final class MeetingCoordinator {
         }
     }
 
-    /// A window's model, whose test-call score reads earlier runs off the main actor (design §5.8).
+    /// A session's model, whose test-call score reads earlier runs off the main actor (design §5.8).
     private func makeModel() -> MeetingWindowModel {
         let index = deps.testCalls.index
         let read = deps.testCalls.readRecord
-        return MeetingWindowModel(chooser: deps.chooser(), now: deps.now) { tag in
+        return MeetingWindowModel(chooser: deps.chooser(), now: deps.now, clock: deps.clock) { tag in
             await Task.detached {
                 guard let entries = try? index() else { return [] }
                 return TestRunHistory.runs(of: tag, in: entries, load: read)
@@ -183,50 +197,58 @@ final class MeetingCoordinator {
         }
     }
 
-    private func present(_ session: Session, title: String) {
-        let window = deps.makeWindow(session.model, actions(for: session))
-        window.setTitle(title)
-        session.window = window
-        window.show()
-    }
-
-    /// The list's *Open*: a stored meeting in its own window, stopped (§5.3). Its window
-    /// appears once the controller's events have filled it; an open one comes to the front.
+    /// The list's or the results' *Open*: a session already holding the meeting, or a new one
+    /// once the stored meeting has loaded. A load that throws changes nothing.
     func open(_ id: UUID) async throws {
-        if let session = session(showing: id) {
-            session.window?.show()
-            return
+        if let session = session(holding: id) {
+            if finishing.contains(where: { $0 === session }) {
+                if let opened, opened !== session { release(opened) }
+                finishing.removeAll { $0 === session }
+                opened = session
+            }
+            return present(session)
         }
         let session = Session(controller: deps.makeController(nil), model: makeModel(), frontApp: nil)
         forwardEvents(of: session)
         try await session.controller.open(id)
         if let meeting = session.controller.meeting { session.model.show(meeting) }
-        ended.append(session)
+        if let opened { release(opened) }
+        if let current, current.state == .idle, !current.isStarting { drop(current) }
+        opened = session
+        present(session)
     }
 
-    /// The meeting has a window: the chooser's, a live one or an ended one still open.
+    /// A session holds the meeting: it is recording, on the page, or its summary is being written.
     func isOpen(_ id: UUID) -> Bool {
-        session(showing: id) != nil
+        session(holding: id) != nil
     }
 
-    /// The list's rename of a meeting with a window goes through its controller, whose next
-    /// save would otherwise put the old title back. False when no window shows it.
+    /// The list's rename of a meeting a session holds goes through its controller, whose next
+    /// save would otherwise put the old title back. False when no session holds it.
     func retitle(_ id: UUID, to title: String) async -> Bool {
-        guard let session = session(showing: id) else { return false }
+        guard let session = session(holding: id) else { return false }
         if let title = session.model.commitTitle(title) { await session.controller.retitle(title) }
         return true
     }
 
-    private func session(showing id: UUID) -> Session? {
-        ([current].compactMap { $0 } + ended).first { $0.controller.meeting?.id == id }
+    private func session(holding id: UUID) -> Session? {
+        ([current, opened].compactMap { $0 } + finishing).first { $0.controller.meeting?.id == id }
     }
 
-    /// *Show Meeting…*
+    /// *Show Meeting…* and the recording pill.
     func show() {
-        current?.window?.show()
+        guard let current, current.state.isActive else { return }
+        present(current)
     }
 
-    /// The window's Start button.
+    /// The window stopped showing the meeting page.
+    func pageLeft() {
+        guard let session = shown else { return }
+        shown = nil
+        leave(session)
+    }
+
+    /// The page's Start button.
     func start() async {
         guard let session = current, session.model.canStart else { return }
         let title = MeetingTitle.default(app: session.frontApp, date: deps.now())
@@ -257,7 +279,7 @@ final class MeetingCoordinator {
     }
 
     /// Starts `session`'s meeting once, after any dictation has ended. False when it did not
-    /// start; the window shows why.
+    /// start; the page shows why.
     @discardableResult
     private func begin(
         _ session: Session, _ start: @MainActor (any MeetingControlling) async throws -> Void
@@ -277,14 +299,18 @@ final class MeetingCoordinator {
     }
 
     /// `summarise: false` is the quit path; the summary can be asked for later. A test call
-    /// stops through its session, which scores it (design §5.5 Stop, Quit).
+    /// stops through its session, which scores it (design §5.5 Stop, Quit). Never presents (R4).
     func stop(summarise: Bool = true) async {
         guard let session = current, Self.isStoppable(session.state) else { return }
+        session.isStopping = true
         if let test = session.test {
             await test.finish(summarise: summarise)
         } else {
             await session.controller.stop(summarise: summarise)
         }
+        session.isStopping = false
+        // Stopped off the page with no summary under way, as at quit.
+        if finishing.contains(where: { $0 === session }), !session.isWritingSummary { drop(session) }
     }
 
     private static func isStoppable(_ state: MeetingState) -> Bool {
@@ -292,23 +318,55 @@ final class MeetingCoordinator {
         return state == .recording
     }
 
-    /// An ended meeting keeps its window until the user closes it.
-    private func end(_ session: Session) {
-        if session.window?.isVisible == true { ended.append(session) }
-        if current === session { current = nil }
+    // MARK: - Session lifetime
+
+    /// Shows `session`; the session shown before leaves the page.
+    private func present(_ session: Session) {
+        if let previous = shown, previous !== session {
+            shown = nil
+            leave(previous)
+        }
+        shown = session
+        deps.present(session.model, actions(for: session))
     }
 
-    private func closed(_ session: Session) {
-        guard !session.state.isActive, !session.isStarting else { return }
+    /// The page-left rule: a chooser goes unless its start is under way, a live meeting stays
+    /// current, a stopped one is released.
+    private func leave(_ session: Session) {
+        switch session.state {
+        case .idle where !session.isStarting: drop(session)
+        case .stopped: release(session)
+        default: break
+        }
+    }
+
+    /// A stopped session leaves its slot, and is kept off screen while its summary is being
+    /// written or its Stop has not returned (`.summary(.writing)` follows `.state(.stopped)`).
+    private func release(_ session: Session) {
+        drop(session)
+        if session.isWritingSummary || session.isStopping { finishing.append(session) }
+    }
+
+    private func drop(_ session: Session) {
         if current === session { current = nil }
-        ended.removeAll { $0 === session }
+        if opened === session { opened = nil }
+        if shown === session { shown = nil }
+        finishing.removeAll { $0 === session }
+    }
+
+    private func stopped(_ session: Session) {
+        if current === session, shown !== session { release(session) }
+    }
+
+    private func summaryChanged(_ session: Session) {
+        if finishing.contains(where: { $0 === session }), !session.isWritingSummary { drop(session) }
     }
 
     private func actions(for session: Session) -> MeetingActions {
         MeetingActions(
             start: { [weak self] in Task { await self?.start() } },
             startTestCall: { [weak self] setup in Task { await self?.startTestCall(setup) } },
-            cancel: { [weak session] in session?.window?.close() },
+            cancel: deps.dismiss,
             pauseOrResume: { [weak session] in
                 guard let controller = session?.controller else { return }
                 Task {
@@ -352,15 +410,16 @@ final class MeetingCoordinator {
                 guard let id = session?.controller.meeting?.id else { return }
                 self?.deps.export(kind, id)
             },
-            openSettings: deps.openSettings,
-            // Closed first: closing makes the app an accessory, and the list makes it regular again.
-            backToMeetings: { [weak session, openMeetings = deps.openMeetings] in
-                session?.window?.close()
-                openMeetings()
+            openSettings: { [openSettings = deps.openSettings] in openSettings(.meetings) },
+            back: deps.dismiss,
+            copySummary: { [weak session, copy = deps.copy] in
+                guard let model = session?.model, let payload = model.copyPayload else { return }
+                copy(payload)
+                model.didCopySummary()
             },
-            closed: { [weak self, weak session] in
-                guard let session else { return }
-                self?.closed(session)
+            regenerate: { [weak session] in
+                guard let controller = session?.controller else { return }
+                Task { await controller.regenerateSummary() }
             }
         )
     }
@@ -375,15 +434,14 @@ final class MeetingCoordinator {
                 switch event {
                 case .state(let state):
                     if state == .paused(.sleep) { session.test?.macSlept() }
-                    // The header's end time, duration and engine cost.
-                    if state == .stopped, let meeting = session.controller.meeting { session.model.show(meeting) }
-                    if session.window == nil {
-                        self?.present(session, title: "Meeting")
-                    } else {
-                        session.window?.setTitle(state == .idle ? "New Meeting" : "Meeting")
+                    if state == .stopped {
+                        // The header's end time, duration and engine cost.
+                        if let meeting = session.controller.meeting { session.model.show(meeting) }
+                        self?.stopped(session)
                     }
                     self?.deps.changed()
                 case .summary:
+                    self?.summaryChanged(session)
                     self?.deps.changed()
                 default:
                     break
