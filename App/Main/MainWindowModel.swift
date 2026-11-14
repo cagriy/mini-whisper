@@ -11,6 +11,16 @@ final class MainWindowModel {
     struct Dependencies {
         /// Opens a stored meeting from the results.
         var openMeeting: @MainActor (UUID) async throws -> Void
+        /// The recording pill: the live meeting's page.
+        var showLiveMeeting: @MainActor () -> Void = {}
+        /// The window stopped showing the meeting page.
+        var meetingPageLeft: @MainActor () -> Void = {}
+    }
+
+    /// The session on the meeting page, as last presented.
+    struct PresentedMeeting {
+        let model: MeetingWindowModel
+        let actions: MeetingActions
     }
 
     let navigation = MainNavigationModel()
@@ -19,6 +29,10 @@ final class MainWindowModel {
     let search: SearchModel
     let settings: SettingsModel
     var usage = UsageTotals()
+    /// What the meeting page shows; nil once the page is left.
+    private(set) var presented: PresentedMeeting?
+    /// The recording pill's meeting, while one is active.
+    var liveMeeting: MeetingWindowModel?
     /// Why a meeting result did not open; cleared by the next keystroke.
     private(set) var openError: String?
     /// The page load or reveal under way.
@@ -38,6 +52,10 @@ final class MainWindowModel {
         self.settings = settings
         self.deps = deps
         navigation.hooks.entered = { [weak self] in self?.entered($0) }
+        navigation.hooks.meetingPageLeft = { [weak self] in
+            self?.presented = nil
+            deps.meetingPageLeft()
+        }
         // R22: leaving Settings gives a hotkey capture back to the previous combo.
         navigation.hooks.settingsLeft = { [weak settings] in settings?.cancelCapture() }
         navigation.hooks.reveal = { [weak self] id in
@@ -71,6 +89,16 @@ final class MainWindowModel {
 
     func startMeeting() {
         meetings.startMeeting()
+    }
+
+    /// Shows `model` as the meeting page (design §5.5 `present`).
+    func showMeeting(_ model: MeetingWindowModel, actions: MeetingActions) {
+        presented = PresentedMeeting(model: model, actions: actions)
+        navigation.showMeeting()
+    }
+
+    func showLiveMeeting() {
+        deps.showLiveMeeting()
     }
 
     /// Every navigation lands here, including one that clears the query.

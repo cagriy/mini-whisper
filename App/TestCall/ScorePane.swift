@@ -1,8 +1,8 @@
 import MWMeetings
 import SwiftUI
 
-/// Design §5.4 After Stop and on reopen (mockup `mockup-v5-pane-score.html`): the score in place
-/// of the script, a badge per line, and a clicked line's script and heard text.
+/// Design §5.9 *Finished meeting*: a test call's score beside its transcript, a badge per line,
+/// and a clicked line's script and heard text.
 struct ScorePane: View {
     let model: TestCallPaneModel
     let loadRuns: @MainActor () async -> Void
@@ -11,77 +11,63 @@ struct ScorePane: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             PaneHeader(title: "Score", trailing: model.scoreTitle)
-            Divider()
-            head
-            Divider()
             ScrollView {
-                VStack(alignment: .leading, spacing: 2) {
-                    ForEach(model.scoreRows) { row in
-                        ScoreLineRow(row: row, expanded: model.expanded == row.number) { model.toggle(row.number) }
-                        if model.expanded == row.number, let detail = model.detail {
-                            LineDetailCard(detail: detail, color: SpeakerColor.of(row.role))
+                VStack(alignment: .leading, spacing: DS.Space.s5) {
+                    head
+                    VStack(alignment: .leading, spacing: DS.Space.s1) {
+                        ForEach(model.scoreRows) { row in
+                            ScoreLineRow(row: row, expanded: model.expanded == row.number) { model.toggle(row.number) }
+                            if model.expanded == row.number, let detail = model.detail {
+                                LineDetailCard(detail: detail, color: SpeakerColor.of(row.role))
+                            }
                         }
                     }
                 }
-                .padding(.horizontal, 10)
-                .padding(.vertical, 8)
+                .padding(.horizontal, DS.Space.s7)
+                .padding(.vertical, DS.Space.s6)
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            Divider()
-            HStack(spacing: 10) {
-                Button("Earlier runs…") { showsRuns = true }
-                    .controlSize(.small)
-                    .disabled(model.runRows.isEmpty)
+            HStack(spacing: DS.Space.s5) {
                 if let footer = model.runsFooter {
-                    Text(footer).font(.system(size: 11.5)).foregroundStyle(.secondary)
+                    Text(footer).textStyle(.meta).foregroundStyle(DS.Colors.textTertiary)
                 }
                 Spacer(minLength: 0)
+                Button("Earlier runs…") { showsRuns = true }
+                    .buttonStyle(.pill(size: .small))
+                    .disabled(model.runRows.isEmpty)
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 10)
+            .padding(.horizontal, DS.Space.s7)
+            .padding(.top, DS.Space.s6 + DS.Size.hairline)
+            .padding(.bottom, DS.Space.s6)
+            .hairline(.top)
         }
-        .background(Color(nsColor: .underPageBackgroundColor))
+        .sidePane()
         .task { await loadRuns() }
         .sheet(isPresented: $showsRuns) { EarlierRunsSheet(model: model) }
     }
 
-    private var head: some View {
-        VStack(alignment: .leading, spacing: 7) {
-            if let message = model.scoreMessage {
-                Text(message).font(.callout).foregroundStyle(.orange)
-            } else {
-                HStack(alignment: .firstTextBaseline, spacing: 10) {
-                    Text(model.overallWER).font(.system(size: 30, weight: .semibold)).monospacedDigit()
-                    Text(model.overallDetail).font(.system(size: 11.5)).foregroundStyle(.secondary)
+    @ViewBuilder private var head: some View {
+        if let message = model.scoreMessage {
+            Text(message).textStyle(.body).foregroundStyle(DS.Colors.warn).fixedSize(horizontal: false, vertical: true)
+        } else {
+            VStack(alignment: .leading, spacing: DS.Space.s5) {
+                VStack(alignment: .leading, spacing: 0) {
+                    Text(model.overallWER).textStyle(.score).monospacedDigit().foregroundStyle(DS.Colors.text)
+                    Text(model.overallDetail).textStyle(.meta).foregroundStyle(DS.Colors.textSecondary)
                 }
-                Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 3) {
+                // Each role's rate; its engine label and purity in the help text.
+                FlowLayout {
                     ForEach(model.roleRows, id: \.role) { row in
-                        GridRow(alignment: .firstTextBaseline) {
-                            HStack(spacing: 6) {
-                                Circle().fill(SpeakerColor.of(row.role)).frame(width: 8, height: 8)
-                                Text(row.name) + Text(" · \(row.detail)").foregroundColor(.secondary)
-                            }
-                            .lineLimit(1)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            Text(row.wer).monospacedDigit().gridColumnAlignment(.trailing)
-                            (Text(row.label ?? "") + Text(" ")
-                                + Text(row.purity ?? "").foregroundColor(row.clean ? .secondary : .orange))
-                                .monospacedDigit()
-                                .lineLimit(1)
-                        }
+                        Chip("\(row.name) \(row.wer)", row.clean ? .plain : .warning)
+                            .help(([row.detail] + [row.label, row.purity].compactMap { $0 }).joined(separator: " · "))
                     }
                 }
-                .font(.system(size: 12))
                 Text(model.latencyLine)
-                    .font(.system(size: 11.5))
-                    .foregroundStyle(.secondary)
+                    .textStyle(.meta)
+                    .foregroundStyle(DS.Colors.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(DS.Colors.testFill.opacity(0.45))
-        .background(Color(nsColor: .textBackgroundColor))
     }
 }
 
@@ -94,27 +80,29 @@ private struct ScoreLineRow: View {
 
     var body: some View {
         Button(action: toggle) {
-            HStack(spacing: 6) {
+            HStack(alignment: .firstTextBaseline, spacing: DS.Space.s4) {
                 Text("\(row.number)")
-                    .font(.system(size: 10.5))
+                    .textStyle(.body.weight(.medium))
                     .monospacedDigit()
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(DS.Colors.textTertiary)
                     .frame(width: 18, alignment: .leading)
-                (Text(row.speaker).font(.system(size: 11, weight: .semibold)).foregroundColor(color)
-                    + Text(" ") + Text(row.text))
-                    .font(.system(size: 12))
+                (Text(row.speaker).fontWeight(.semibold).foregroundStyle(color) + Text(" ") + Text(row.text))
+                    .textStyle(.body)
+                    .foregroundStyle(expanded ? DS.Colors.text : DS.Colors.textSecondary)
                     .lineLimit(1)
                     .truncationMode(.tail)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                HStack(spacing: 4) {
+                HStack(spacing: DS.Space.s2) {
                     ForEach(row.badges, id: \.text) { badge in
                         LineBadge(text: badge.text, color: Self.color(of: badge.kind)).help(badge.help ?? "")
                     }
                 }
             }
-            .padding(.horizontal, 8)
-            .padding(.vertical, 5)
-            .background { if expanded { LineRing(color: color) } }
+            .padding(.horizontal, DS.Space.s4)
+            .padding(.vertical, DS.Space.s3)
+            .background {
+                if expanded { RoundedRectangle(cornerRadius: DS.Radius.row).fill(DS.Colors.accentSoft) }
+            }
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -122,48 +110,46 @@ private struct ScoreLineRow: View {
 
     private static func color(of kind: TestCallPaneModel.Badge.Kind) -> Color {
         switch kind {
-        case .ok: .green
-        case .errors: .red
-        case .neutral: .secondary
-        case .label: .orange
+        case .ok: DS.Colors.ok
+        case .errors: DS.Colors.recording
+        case .neutral: DS.Colors.textSecondary
+        case .label: DS.Colors.warn
         }
     }
 }
 
 /// An expanded score line: the script with the missed words emphasised, then what the engine
-/// heard, its errors on a red tint under the script words they replaced.
+/// heard, its errors on a tint under the script words they replaced.
 private struct LineDetailCard: View {
     let detail: TestCallPaneModel.LineDetail
     let color: Color
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 3) {
+        VStack(alignment: .leading, spacing: DS.Space.s2) {
             caption(detail.scriptTitle)
             detail.script.enumerated().reduce(Text("")) { text, item in
                 let word = Text((item.offset == 0 ? "" : " ") + item.element.text)
                 return text + (item.element.emphasised ? word.bold() : word)
             }
             .fixedSize(horizontal: false, vertical: true)
-            caption(detail.heardTitle).padding(.top, 2)
+            caption(detail.heardTitle).padding(.top, DS.Space.s1)
             WordFlow {
                 ForEach(Array(detail.heard.enumerated()), id: \.offset) { _, heard in HeardWord(heard: heard) }
             }
-            Text(detail.summary).font(.system(size: 10.5)).foregroundStyle(.secondary).padding(.top, 2)
+            Text(detail.summary).textStyle(.meta).foregroundStyle(DS.Colors.textSecondary).padding(.top, DS.Space.s1)
         }
-        .font(.system(size: 12))
-        .padding(.horizontal, 10)
-        .padding(.vertical, 8)
+        .textStyle(.body)
+        .foregroundStyle(DS.Colors.text)
+        .padding(.horizontal, DS.Space.s5 + DS.Size.hairline)
+        .padding(.vertical, DS.Space.s4 + DS.Size.hairline)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: 8).fill(Color(nsColor: .textBackgroundColor)))
-        .overlay(RoundedRectangle(cornerRadius: 8).stroke(color))
-        .padding(.bottom, 4)
+        .background(RoundedRectangle(cornerRadius: DS.Radius.field).fill(DS.Colors.card))
+        .overlay(RoundedRectangle(cornerRadius: DS.Radius.field).strokeBorder(color))
+        .padding(.bottom, DS.Space.s2)
     }
 
     private func caption(_ text: String) -> some View {
-        Text(text.uppercased())
-            .font(.system(size: 10.5, weight: .semibold))
-            .tracking(0.4)
-            .foregroundStyle(.secondary)
+        Text(text).textStyle(.label).foregroundStyle(DS.Colors.textSecondary)
     }
 }
 
@@ -179,12 +165,12 @@ private struct HeardWord: View {
         case .error:
             VStack(spacing: 0) {
                 if let script = heard.script, !script.isEmpty {
-                    Text(script).font(.system(size: 9.5)).foregroundStyle(.secondary)
+                    Text(script).font(.system(size: 9.5)).foregroundStyle(DS.Colors.textSecondary)
                 }
                 Text(heard.text ?? "")
                     .foregroundStyle(Self.errorText)
                     .padding(.horizontal, 2)
-                    .background(RoundedRectangle(cornerRadius: 3).fill(Color.red.opacity(0.1)))
+                    .background(RoundedRectangle(cornerRadius: 3).fill(DS.Colors.recordingSoft))
             }
         case .missed:
             Text(heard.script ?? "").strikethrough(color: Self.errorText).foregroundStyle(Self.errorText)

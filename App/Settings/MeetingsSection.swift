@@ -37,7 +37,7 @@ struct MeetingsSection: View {
                 }
                 SettingsFootnote(
                     "Meetings are English only. The second AssemblyAI figure is its speaker-labels add-on."
-                        + " These list prices drive the running cost in the meeting window and the Today/Month totals."
+                        + " These list prices drive a live meeting's running cost and the Today/Month totals."
                 )
             }
         }

@@ -95,6 +95,10 @@ enum DS {
         static let heading2 = TextStyle(size: 15, lineHeight: 22, weight: .semibold)
         static let heading3 = TextStyle(size: 14, lineHeight: 20, weight: .semibold)
         static let reading = TextStyle(size: 15, lineHeight: 24)
+        /// Transcript paragraphs and notes.
+        static let transcript = TextStyle(size: 14, lineHeight: 22)
+        /// A test call's word error rate.
+        static let score = TextStyle(size: 34, lineHeight: 40, weight: .medium, design: .serif)
         static let rowTitle = TextStyle(size: 14, lineHeight: 20, weight: .medium)
         static let body = TextStyle(size: 13, lineHeight: 18)
         static let meta = TextStyle(size: 12, lineHeight: 16)
@@ -157,6 +161,17 @@ extension View {
     /// `shadow.dialog`: dialogs and menus only.
     func dialogShadow() -> some View {
         shadow(color: DS.Colors.dialogShadow, radius: 18, y: 14)
+    }
+
+    /// A hairline along one edge, drawn over the view.
+    func hairline(_ edge: Alignment) -> some View {
+        overlay(alignment: edge) {
+            if edge == .leading || edge == .trailing {
+                Rectangle().fill(DS.Colors.line).frame(width: DS.Size.hairline)
+            } else {
+                Rectangle().fill(DS.Colors.line).frame(height: DS.Size.hairline)
+            }
+        }
     }
 }
 

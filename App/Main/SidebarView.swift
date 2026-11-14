@@ -1,8 +1,9 @@
 import AppKit
 import SwiftUI
 
-/// The sidebar (design §5.8, §5.9, R2, R5): search, Start Meeting, the destinations with
-/// Settings' sections while Settings shows, and the usage table, with the window's shortcuts.
+/// The sidebar (design §5.8, §5.9, R2, R3, R5): search, Start Meeting or the recording pill, the
+/// destinations with Settings' sections while Settings shows, and the usage table, with the
+/// window's shortcuts.
 struct SidebarView: View {
     @Bindable var model: MainWindowModel
 
@@ -13,10 +14,16 @@ struct SidebarView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: DS.Space.s5) {
             SearchPill(text: $model.query, focused: $searchFocused, hint: "⌘F")
-            Button(action: model.startMeeting) {
-                Label("Start Meeting", systemImage: "waveform").frame(maxWidth: .infinity)
+            Group {
+                if let live = model.liveMeeting {
+                    RecordingPill(model: live, action: model.showLiveMeeting)
+                } else {
+                    Button(action: model.startMeeting) {
+                        Label("Start Meeting", systemImage: "waveform").frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.pill(.primary))
+                }
             }
-            .buttonStyle(.pill(.primary))
             .keyboardShortcut("n")
             VStack(spacing: DS.Space.s1) {
                 NavRow(title: "Meetings", symbol: "waveform", selected: destination == .meetings) {

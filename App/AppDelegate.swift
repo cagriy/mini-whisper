@@ -275,8 +275,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         await promptForSpeechModelIfNeeded(configStore: configStore)
     }
 
-    /// Design §5.3: one `MeetingController` per meeting window, sharing the dictation capture
-    /// engine, which is free while a meeting holds it because dictation is locked out (R19).
+    /// Design §5.5: one `MeetingController` per meeting session, shown as the main window's meeting
+    /// page. They share the dictation capture engine, which is free while a meeting holds it because
+    /// dictation is locked out (R19).
     private func makeMeetings(
         audio: AudioCaptureEngine,
         secrets: KeychainStore,
@@ -287,8 +288,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         export: @escaping @MainActor (MeetingExporter.Kind, UUID) -> Void
     ) -> MeetingCoordinator {
         let summarizer = KeyedAnthropicClient(secrets: secrets)
-        let window = MeetingWindowController()
-        window.onClose = { [weak self] in self?.meetings?.pageLeft() }
         return MeetingCoordinator(deps: MeetingCoordinator.Dependencies(
             makeController: { frontApp in
                 MeetingController(
@@ -321,8 +320,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     hasKey: { (try? secrets.secret(for: $0))?.isEmpty == false }
                 )
             },
-            present: { model, actions in window.show(model: model, actions: actions) },
-            dismiss: { window.close() },
+            present: { [weak self] model, actions in self?.main?.showMeeting(model, actions: actions) },
+            dismiss: { [weak self] in self?.main?.model.navigation.back() },
             now: { Date() },
             endDictation: { [weak self] in await self?.controller?.abort() },
             openSettings: { [weak self] section in
@@ -363,13 +362,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             search: search,
             settings: settings,
             deps: MainWindowModel.Dependencies(
-                openMeeting: { [weak self] in try await self?.meetings?.open($0) }
+                openMeeting: { [weak self] in try await self?.meetings?.open($0) },
+                showLiveMeeting: { [weak self] in self?.meetings?.show() },
+                meetingPageLeft: { [weak self] in self?.meetings?.pageLeft() }
             )
         )
         return MainWindowController(model: model, store: configStore, savedFrame: config.mainWindowFrame)
     }
 
-    /// R16: the Meetings page, over the same store as the meeting windows.
+    /// R16: the Meetings page, over the same store as the meeting sessions.
     private func makeMeetingsList(
         store: MeetingStore, export: @escaping @MainActor (MeetingExporter.Kind, UUID) -> Void
     ) -> MeetingsListModel.Dependencies {
@@ -396,11 +397,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSWorkspace.shared.activateFileViewerSelecting([folder])
     }
 
-    /// The menu follows the meeting; Stop and the summary add usage (R18). The Meetings page
-    /// and the results follow titles, summaries and new rows.
+    /// The menu and the recording pill follow the meeting; Stop and the summary add usage (R18).
+    /// The Meetings page and the results follow titles, summaries and new rows.
     private func meetingChanged(usage: UsageStore) {
         statusItem?.setMeetingActive(meetings?.isActive ?? false)
         if let main {
+            main.model.liveMeeting = meetings?.liveModel
             Task { await main.model.meetings.reload() }
             main.model.search.invalidate()
         }

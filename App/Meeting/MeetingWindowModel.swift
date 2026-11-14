@@ -270,7 +270,7 @@ final class MeetingWindowModel {
     /// Whether the ready summary read a truncated transcript (*Planning decisions taken* #26).
     private var summaryTruncated = false
     private var partialText: String?
-    private var partialSpeaker: Int?
+    private(set) var partialSpeaker: Int?
 
     // The transcript's sources, each sorted by time. Views observe them through `version`.
     @ObservationIgnored private var segments: [Segment] = []

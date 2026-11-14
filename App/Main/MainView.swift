@@ -7,6 +7,7 @@ struct MainView: View {
 
     @State private var confirmingClear = false
     @State private var confirmingSettingsClear = false
+    @State private var meetingDialog: PageDialog?
 
     var body: some View {
         HStack(spacing: 0) {
@@ -18,6 +19,9 @@ struct MainView: View {
         .background(DS.Colors.canvas)
         .ignoresSafeArea()
         .overlay { dialog }
+        // A confirmation belongs to the meeting page it was asked on.
+        .onChange(of: model.navigation.destination) { meetingDialog = nil }
+        .onChange(of: model.presented.map { ObjectIdentifier($0.model) }) { meetingDialog = nil }
     }
 
     @ViewBuilder private var page: some View {
@@ -26,8 +30,17 @@ struct MainView: View {
         case .dictations: DictationsPage(model: model.dictations, confirmingClear: $confirmingClear)
         case .search: SearchPage(model: model)
         case .settings: SettingsPage(model: model.settings, confirmingClear: $confirmingSettingsClear)
-        // A meeting still opens its own window.
-        case .meeting: DS.Colors.canvas
+        case .meeting:
+            if let meeting = model.presented {
+                MeetingPage(
+                    model: meeting.model, actions: meeting.actions, backLabel: model.navigation.backLabel,
+                    dialog: $meetingDialog
+                )
+                // Each session's page starts with its own editing and popover state.
+                .id(ObjectIdentifier(meeting.model))
+            } else {
+                DS.Colors.canvas
+            }
         }
     }
 
@@ -49,6 +62,17 @@ struct MainView: View {
                     Task { await model.dictations.clear() }
                 },
                 cancel: { confirmingClear = false }
+            )
+        } else if let meetingDialog {
+            DSDialog(
+                title: meetingDialog.title,
+                message: meetingDialog.message,
+                confirmTitle: meetingDialog.confirmTitle,
+                confirm: {
+                    self.meetingDialog = nil
+                    meetingDialog.confirm()
+                },
+                cancel: { self.meetingDialog = nil }
             )
         } else if confirmingSettingsClear {
             DSDialog(

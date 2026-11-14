@@ -39,6 +39,8 @@ import Testing
         let hotkeys = FakeHotkeys()
         var opened: [UUID] = []
         var openFails = false
+        var pagesLeft = 0
+        var liveShown = 0
         lazy var model: MainWindowModel = {
             var calendar = Calendar(identifier: .gregorian)
             calendar.timeZone = TimeZone(identifier: "UTC")!
@@ -101,7 +103,9 @@ import Testing
                     openMeeting: { [unowned self] id in
                         if openFails { throw OpenFailed() }
                         opened.append(id)
-                    }
+                    },
+                    showLiveMeeting: { [unowned self] in liveShown += 1 },
+                    meetingPageLeft: { [unowned self] in pagesLeft += 1 }
                 )
             )
         }()
@@ -261,5 +265,63 @@ import Testing
         #expect(harness.hotkeys.cancelled == 1)
         #expect(settings.capturing == nil)
         #expect(settings.display(.paste) == previous)
+    }
+
+    private static func meeting() -> MeetingWindowModel {
+        MeetingWindowModel(chooser: MeetingWindowModel.Chooser(
+            config: Config(), platform: PlatformInfo(osMajor: 26, osMinor: 0), accountName: "Alex", hasKey: { _ in true }
+        ))
+    }
+
+    private static var noActions: MeetingActions {
+        MeetingActions(
+            start: {}, startTestCall: { _ in }, cancel: {}, pauseOrResume: {}, stop: {}, skipLine: {},
+            rename: { _, _ in }, addNote: { _ in }, summarise: {}, edit: { _, _ in }, reassign: { _, _ in },
+            retitle: { _ in }, export: { _ in }, openSettings: {}, back: {}, copySummary: {}, regenerate: {}
+        )
+    }
+
+    @Test func showMeetingPresentsTheSessionAndLeavingThePageClearsIt() {
+        let harness = Harness()
+        defer { harness.cleanUp() }
+        let meeting = Self.meeting()
+        harness.model.navigation.go(.dictations)
+
+        harness.model.showMeeting(meeting, actions: Self.noActions)
+
+        #expect(harness.model.navigation.destination == .meeting)
+        #expect(harness.model.navigation.origin == .dictations)
+        #expect(harness.model.presented?.model === meeting)
+
+        harness.model.navigation.back()
+
+        #expect(harness.model.navigation.destination == .dictations)
+        #expect(harness.model.presented == nil)
+        #expect(harness.pagesLeft == 1)
+    }
+
+    @Test func presentingAnotherSessionOnTheMeetingPageDoesNotLeaveIt() {
+        let harness = Harness()
+        defer { harness.cleanUp() }
+        let next = Self.meeting()
+        harness.model.showMeeting(Self.meeting(), actions: Self.noActions)
+
+        harness.model.showMeeting(next, actions: Self.noActions)
+
+        #expect(harness.model.presented?.model === next)
+        #expect(harness.model.navigation.origin == .meetings)
+        #expect(harness.pagesLeft == 0)
+    }
+
+    @Test func recordingPillShowsTheLiveMeeting() {
+        let harness = Harness()
+        defer { harness.cleanUp() }
+        let live = Self.meeting()
+
+        harness.model.liveMeeting = live
+        harness.model.showLiveMeeting()
+
+        #expect(harness.model.liveMeeting === live)
+        #expect(harness.liveShown == 1)
     }
 }

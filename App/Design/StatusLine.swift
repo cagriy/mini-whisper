@@ -9,6 +9,8 @@ struct StatusLine<Trailing: View>: View {
         case info
         /// Something to put right, in the warning colour across the width on offer.
         case warning
+        /// Something that failed, as `warning` but in the recording colour.
+        case error
     }
 
     private let text: String
@@ -35,12 +37,12 @@ struct StatusLine<Trailing: View>: View {
                     .font(DS.TextStyle.body.font)
                     .foregroundStyle(DS.Colors.accent)
                     .padding(.top, 2)
-            case .warning:
+            case .warning, .error:
                 EmptyView()
             }
             Text(text)
                 .textStyle(.body)
-                .foregroundStyle(kind == .warning ? DS.Colors.warn : DS.Colors.text)
+                .foregroundStyle(foreground)
                 .frame(maxWidth: .infinity, alignment: .leading)
             trailing
         }
@@ -53,12 +55,20 @@ struct StatusLine<Trailing: View>: View {
         switch kind {
         case .progress: CGSize(width: DS.Space.s6, height: DS.Space.s4)
         case .info: CGSize(width: DS.Space.s7, height: DS.Space.s6)
-        case .warning: CGSize(width: 20, height: DS.Space.s4)
+        case .warning, .error: CGSize(width: 20, height: DS.Space.s4)
+        }
+    }
+
+    private var foreground: Color {
+        switch kind {
+        case .progress, .info: DS.Colors.text
+        case .warning: DS.Colors.warn
+        case .error: DS.Colors.recording
         }
     }
 
     @ViewBuilder private var background: some View {
-        if kind == .warning {
+        if kind == .warning || kind == .error {
             DS.Colors.hover
         } else {
             RoundedRectangle(cornerRadius: DS.Radius.row).fill(DS.Colors.accentSoft)

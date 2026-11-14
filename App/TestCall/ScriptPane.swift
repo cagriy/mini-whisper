@@ -1,8 +1,8 @@
 import MWMeetings
 import SwiftUI
 
-/// Design §5.4 During the call (mockup `mockup-v5-script-pane.html`): the script in place of the
-/// notes, the current line ringed in its speaker's colour.
+/// Design §5.9 *Live meeting*: the script in place of the notes, the current line on an
+/// accent-soft card.
 struct ScriptPane: View {
     let model: TestCallPaneModel
     let skip: @MainActor () -> Void
@@ -10,55 +10,42 @@ struct ScriptPane: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             PaneHeader(title: model.title, trailing: model.progress)
-            Divider()
             ScrollView {
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: DS.Space.s5) {
                     ForEach(model.earlier) { ScriptLineRow(line: $0, place: .earlier) }
                     if let current = model.current, let tag = model.turnTag {
                         ScriptLineRow(line: current, place: .current(tag))
                     }
                     ForEach(model.upcoming) { ScriptLineRow(line: $0, place: .upcoming) }
                     if let more = model.moreLines {
-                        Text(more)
-                            .font(.system(size: 11.5))
-                            .foregroundStyle(.secondary)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 2)
+                        Text(more).textStyle(.meta).foregroundStyle(DS.Colors.textSecondary)
                     }
                 }
-                .padding(.horizontal, 10)
-                .padding(.vertical, 8)
+                .padding(.horizontal, DS.Space.s7)
+                .padding(.vertical, DS.Space.s6)
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
             ForEach(model.notices, id: \.self) { notice in
-                Label(notice, systemImage: "exclamationmark.triangle")
-                    .font(.system(size: 11.5))
-                    .foregroundStyle(.orange)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 8)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    // As the window's banners, on the text background the pane's grey would wash out.
-                    .background(Color.orange.opacity(0.08))
-                    .background(Color(nsColor: .textBackgroundColor))
+                StatusLine(notice, .warning)
             }
-            Divider()
-            HStack(spacing: 10) {
+            HStack(spacing: DS.Space.s5) {
                 if let hint = model.hint {
                     Text(hint)
-                        .font(.system(size: 11.5))
-                        .foregroundStyle(.secondary)
+                        .textStyle(.meta)
+                        .foregroundStyle(DS.Colors.textTertiary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer(minLength: 0)
                 Button("Skip line", action: skip)
-                    .controlSize(.small)
+                    .buttonStyle(.pill(size: .small))
                     .disabled(!model.canSkip)
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 10)
+            .padding(.horizontal, DS.Space.s7)
+            .padding(.top, DS.Space.s6 + DS.Size.hairline)
+            .padding(.bottom, DS.Space.s6)
+            .hairline(.top)
         }
-        .background(Color(nsColor: .underPageBackgroundColor))
+        .sidePane()
     }
 }
 
@@ -74,65 +61,48 @@ private struct ScriptLineRow: View {
 
     private var color: Color { SpeakerColor.of(line.role) }
 
+    private var isCurrent: Bool {
+        if case .current = place { true } else { false }
+    }
+
     var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 6) {
+        HStack(alignment: .firstTextBaseline, spacing: DS.Space.s4) {
             Text("\(line.number)")
-                .font(.system(size: 10.5))
+                .textStyle(.body.weight(.medium))
                 .monospacedDigit()
-                .foregroundStyle(.secondary)
                 .frame(width: 18, alignment: .leading)
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: DS.Space.s1) {
                 label
                 Text(line.text)
-                    .font(.system(size: place == .earlier || place == .upcoming ? 12 : 13))
-                    .foregroundStyle(place == .earlier ? .secondary : .primary)
+                    .textStyle(.body)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 6)
+        .foregroundStyle(place == .earlier ? DS.Colors.textTertiary : isCurrent ? DS.Colors.text : DS.Colors.textSecondary)
+        .padding(isCurrent ? DS.Space.s5 : 0)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background {
-            if case .current = place { LineRing(color: color, tinted: line.role == .you) }
+            if isCurrent { RoundedRectangle(cornerRadius: DS.Radius.row).fill(DS.Colors.accentSoft) }
         }
     }
 
     @ViewBuilder private var label: some View {
         switch place {
-        case .current(let tag):
-            HStack(spacing: 0) {
-                if tag.isVoice { LevelBars(color: color).padding(.trailing, 4) }
-                Text(tag.name.uppercased())
-                    .font(.system(size: 10.5, weight: .bold))
-                    .tracking(0.6)
-                    .foregroundStyle(color)
-                Text(" " + tag.detail)
-                    .font(.system(size: 10.5, weight: .medium))
-                    .foregroundStyle(.secondary)
+        case .current(let tag) where tag.isVoice:
+            HStack(spacing: DS.Space.s2) {
+                LevelBars(color: color)
+                Text(tag.text).textStyle(.label).foregroundStyle(color)
             }
+        case .current:
+            Text("Your line — read it aloud").textStyle(.label).foregroundStyle(DS.Colors.accent)
         case .earlier:
-            HStack(spacing: 6) {
-                Text(line.speaker).font(.system(size: 11, weight: .semibold)).foregroundStyle(.secondary)
-                if line.skipped { LineBadge(text: "Skipped", color: .secondary) }
+            HStack(spacing: DS.Space.s3) {
+                Text(line.speaker).textStyle(.label)
+                if line.skipped { LineBadge(text: "Skipped", color: DS.Colors.textSecondary) }
             }
         case .upcoming:
-            Text(line.speaker).font(.system(size: 11, weight: .semibold)).foregroundStyle(color)
+            Text(line.speaker).textStyle(.label).foregroundStyle(color)
         }
-    }
-}
-
-/// A line's card in the speaker's colour: the current script line, or an open score line.
-struct LineRing: View {
-    let color: Color
-    /// The user's line sits on a blue tint.
-    var tinted = false
-
-    var body: some View {
-        RoundedRectangle(cornerRadius: 7)
-            .fill(Color(nsColor: .textBackgroundColor))
-            .overlay(RoundedRectangle(cornerRadius: 7).fill(tinted ? Color.accentColor.opacity(0.06) : .clear))
-            .overlay(RoundedRectangle(cornerRadius: 7).stroke(color))
-            .background(RoundedRectangle(cornerRadius: 9).strokeBorder(color.opacity(0.18), lineWidth: 2).padding(-2))
     }
 }
 
@@ -167,21 +137,19 @@ private struct LevelBars: View {
     }
 }
 
-/// A small capsule label on a script or score line, tinted in `color`.
+/// A small capsule label on a script or score line, in `color`.
 struct LineBadge: View {
     let text: String
     let color: Color
 
     var body: some View {
         Text(text)
-            .font(.system(size: 10.5, weight: .semibold))
+            .textStyle(.label)
             .monospacedDigit()
             .foregroundStyle(color)
-            .padding(.horizontal, 7)
-            .padding(.vertical, 1)
-            .background(Capsule().fill(color.opacity(0.08)))
-            .background(Capsule().fill(Color(nsColor: .textBackgroundColor)))
-            .overlay(Capsule().stroke(color.opacity(0.3)))
+            .padding(.horizontal, DS.Space.s3 + DS.Size.hairline)
+            .background(Capsule().fill(DS.Colors.card))
+            .overlay(Capsule().strokeBorder(DS.Colors.line))
             .fixedSize()
     }
 }

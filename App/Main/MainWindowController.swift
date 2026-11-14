@@ -43,9 +43,19 @@ final class MainWindowController: NSObject, NSWindowDelegate {
     var isVisible: Bool { window.isVisible }
 
     func show(_ destination: MainNavigationModel.Destination) {
+        model.navigation.go(destination)
+        bringForward(destination)
+    }
+
+    /// The meeting page with `meeting` on it (design §5.5 `present`).
+    func showMeeting(_ meeting: MeetingWindowModel, actions: MeetingActions) {
+        model.showMeeting(meeting, actions: actions)
+        bringForward(.meeting)
+    }
+
+    private func bringForward(_ destination: MainNavigationModel.Destination) {
         // An LSUIElement app has no menu bar, so ⌘C/⌘V in the fields need one.
         EditMenu.ensure()
-        model.navigation.go(destination)
         if !placed { place() }
         Log.ui.info("main window shown: \(destination)")
         WindowActivation.shown(window)
