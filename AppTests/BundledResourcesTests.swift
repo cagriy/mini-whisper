@@ -1,7 +1,6 @@
 import Foundation
 import MWConfig
 import Testing
-@testable import MiniWhisper
 
 @Suite struct BundledResourcesTests {
     private static let topicPrompt = """

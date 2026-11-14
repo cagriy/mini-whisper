@@ -440,6 +440,13 @@ Read the `✔/✘ Test run with …` line, not the XCTest line. A stage's step 4
 
 **Risks specific to this stage:** None.
 
+### Stage 18 — Dead-code cleanup
+**Goal:** remove the orphans the final periphery sweep found that this feature introduced.
+**Category:** non-TDD (removal only) — no behaviour changes; both suites and the build stay green.
+**Touches:** `App/Main/MainWindowController.swift` (unused `isVisible`, Stage 10), `AppTests/MeetingsListModelTests.swift` (unused `import MWSupport`, left when Stage 10 dropped the list's clock), `AppTests/BundledResourcesTests.swift` (unused `@testable import MiniWhisper`, Stage 3).
+
+**Definition of done:** periphery reports none of the three; core and app suites green.
+
 ## Cross-cutting concerns
 
 - **Security** — Summaries are model output over untrusted speech. `SummaryDocument.inline` strips links and images (Stage 1) before any view renders it (Stage 12); `html(title:)` escapes every text node and emits a fixed tag set with no attribute (Stage 1, tested), and `SummaryRichText` carries text, fonts and indents only (Stage 12, tested), before Copy is wired (Stages 13–14). `main_window_frame` is rejected when malformed or non-finite (Stage 2) and clamped to a screen (Stage 7) before Stage 10 hands it to AppKit. The summariser's data rule and escaping are untouched. No secret is read or written by any stage; key handling stays in Settings → Keys.
@@ -617,5 +624,6 @@ Batches run in order; a batch starts only when the previous one has fully landed
 | 14 | Stage 15 | serial | Edits `GeneralSection`, `SettingsModel`, `AppDelegate` |
 | 15 | Stage 16 | serial | Edits `StatusItemController`, `AppDelegate` |
 | 16 | Stage 17 | serial | Documents names introduced by every earlier stage |
+| 17 | Stage 18 | serial | Added by the final dead-code sweep; runs after every stage has landed |
 
 **Critical path:** Stage 1 → Stage 3 → Stage 4 → Stage 5 → Stage 6 → Stage 7 → Stage 8 → Stage 9 → Stage 10 → Stage 11 → Stage 12 → Stage 13 → Stage 14 → Stage 15 → Stage 16 → Stage 17 (16 of 17 stages).

@@ -40,8 +40,6 @@ final class MainWindowController: NSObject, NSWindowDelegate {
         window.onCancel = { [weak model] in model?.settings.cancelCapture() }
     }
 
-    var isVisible: Bool { window.isVisible }
-
     func show(_ destination: MainNavigationModel.Destination) {
         model.navigation.go(destination)
         bringForward(destination)

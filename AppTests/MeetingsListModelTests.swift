@@ -1,7 +1,6 @@
 import Foundation
 import MWConfig
 import MWMeetings
-import MWSupport
 import Testing
 @testable import MiniWhisper
 
