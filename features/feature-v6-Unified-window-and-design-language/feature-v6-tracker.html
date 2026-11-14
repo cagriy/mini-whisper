@@ -966,7 +966,7 @@
         </span>
         <span class="step-label">Plan</span>
       </li>
-      <li class="step" data-stage="implement" data-state="pending">
+      <li class="step" data-stage="implement" data-state="complete">
         <span class="step-indicator" aria-hidden="true">
           <span class="step-check">&#10003;</span>
           <span class="step-number">4</span>
@@ -1408,16 +1408,111 @@
 
     <section class="panel" role="tabpanel"
              id="panel-implementation" aria-labelledby="tab-implementation" hidden>
-      <p class="section-timestamp">Awaiting /feature-implement</p>
+      <p class="section-timestamp">Updated 2026-11-14 06:36 UTC</p>
       <!-- usage:IMPLEMENTATION_USAGE_CHIP --><!-- /usage:IMPLEMENTATION_USAGE_CHIP -->
       <article class="panel-section">
         <h2 class="section-label">Highlights</h2>
-        <div class="bullets"><p class="empty">Not yet filled — pending /feature-implement.</p></div>
+        <div class="bullets"><ul>
+          <li>Stages completed: 18/18 (17 planned, plus Stage 18 dead-code cleanup)</li>
+          <li>Tests: core 1006/1006 (17 runs), app 438/438 (44 suites)</li>
+          <li>Design coverage: 24/28 requirements verified by tests; R2's sidebar rule and R7 hand-checked by plan; R25, R28 checked by command</li>
+          <li>Pre-existing failures excluded: None</li>
+          <li>Dead-code orphans removed: 3 (Stage 18)</li>
+          <li>Deviations from plan: 81 recorded, mostly added tests and offscreen-render notes</li>
+          <li>Two intermittent existing tests fixed: RepeatingTimerTests, DictationControllerTests</li>
+          <li>Built app never launched: 10 stage integration checks await a hand check</li>
+          <li>No version bump (0.6.2), no dependency added, nothing pushed</li>
+          <li>Final code commit: 86db238</li>
+        </ul></div>
         <!-- usage:IMPLEMENTATION_USAGE --><!-- /usage:IMPLEMENTATION_USAGE -->
       </article>
       <article class="panel-section">
         <h2 class="section-label">Detail</h2>
-        <div class="prose"><p class="empty">Not yet filled — pending /feature-implement.</p></div>
+        <div class="prose">
+          <h3>Stages completed</h3>
+          <ol>
+            <li>Summary document, search excerpt and meeting total cost — 30c77c0 (left parallel batch 1; finished serially)</li>
+            <li>Theme and main-window-frame config keys — 1943307 (parallel, batch 1)</li>
+            <li>Topic-based summary prompt and its migration — c4957f2</li>
+            <li>Regenerate in the meeting controller — 90eeda1</li>
+            <li>Usage totals, the usage table and the menu's Month row — 186a33b</li>
+            <li>Design tokens and components — 63ffa80</li>
+            <li>Navigation and window-frame models — 06ae763</li>
+            <li>Search model — c1080c4</li>
+            <li>Window activation and the paste target — f348765</li>
+            <li>Main window with Meetings, Dictations and Search pages — d81f55b</li>
+            <li>Settings in the main window — 5bc909c</li>
+            <li>Finished-meeting model and summary rendering — 1d06f59</li>
+            <li>Meeting sessions behind present and dismiss — a0225d8</li>
+            <li>Meeting pages, recording pill, Regenerate and Copy — e72d20b</li>
+            <li>Theme setting — 3f9dba8</li>
+            <li>Correction, Onboarding and About — 49bc4e7</li>
+            <li>Documentation — a11cb58</li>
+            <li>Dead-code cleanup — 86db238 (added by the final sweep)</li>
+          </ol>
+
+          <h3>Tests &amp; lint</h3>
+          <ul>
+            <li>Baseline at 736827b: core 935 tests, app 307 tests in 34 suites, all green.</li>
+            <li>Final: core 1006 tests in 17 runs, app 438 tests in 44 suites, all green; app build green.</li>
+            <li>No lint, format or type-check tool is configured. Dead code: periphery 3.8.0 against the run's baseline.</li>
+            <li>Fixed outside the stages: <code>RepeatingTimerTests.firesRepeatedlyUntilStopped</code> (8f1b8a7) and <code>DictationControllerTests.tickPlaysWhenNotLiveWithin100ms</code> (4b3e449), both intermittent before v6.</li>
+          </ul>
+
+          <h3>Design coverage</h3>
+          <table>
+            <thead><tr><th>Req</th><th>Verified by</th></tr></thead>
+            <tbody>
+              <tr><td>R1</td><td>WindowFramePolicyTests (default, minimum, disconnected display)</td></tr>
+              <tr><td>R2</td><td>SettingsModelTests (nine sections); sidebar order and section rows hand-checked (Stages 10, 11)</td></tr>
+              <tr><td>R3</td><td>MainWindowModelTests.recordingPillShowsTheLiveMeeting; MeetingWindowModelTests (pill title and detail)</td></tr>
+              <tr><td>R4</td><td>MeetingCoordinatorTests.stopNeverPresents; MenuModelTests</td></tr>
+              <tr><td>R5</td><td>MainNavigationModelTests (back, query, origin); key bindings hand-checked</td></tr>
+              <tr><td>R6</td><td>WindowFramePolicyTests; ConfigCodingTests; MeetingCoordinatorTests.pageLeftKeepsAnActiveMeeting</td></tr>
+              <tr><td>R7</td><td>Hand check (WindowActivation is a thin AppKit adapter by plan)</td></tr>
+              <tr><td>R8</td><td>SettingsModelTests.setThemeWritesTheKey, refreshReadsTheTheme, themeStartsFromTheConfig</td></tr>
+              <tr><td>R9, R10, R12</td><td>MeetingCoordinatorTests (one test per §5.5 row, 51 tests); MeetingsListModelTests.deleteIsBlockedWithHelpWhileOpen</td></tr>
+              <tr><td>R11, R13</td><td>MeetingWindowModelTests.opensOnSummaryOrOnTranscriptForATestCall and the carried-over suite</td></tr>
+              <tr><td>R14</td><td>PromptFiles migration tests; BundledResourcesTests</td></tr>
+              <tr><td>R15</td><td>SummaryDocumentTests; MeetingWindowModelTests.fourSectionSummaryRendersAsHeadedBlocks</td></tr>
+              <tr><td>R16</td><td>MeetingControllerRegenerateTests; MeetingCoordinatorTests.regenerateActionCallsTheController</td></tr>
+              <tr><td>R17</td><td>SummaryRichTextTests; MeetingCoordinatorTests.copyActionHandsThePayloadToCopy</td></tr>
+              <tr><td>R18</td><td>SummaryDocument excerpt tests; MeetingsListModelTests (sub line)</td></tr>
+              <tr><td>R19</td><td>SearchModelTests; MeetingSearchTests (SearchExcerpt); MainNavigationModelTests</td></tr>
+              <tr><td>R20</td><td>HistoryListModelTests (previous app); FrontAppTrackerTests</td></tr>
+              <tr><td>R21</td><td>UsageTotals and Pricing usage-table tests; MenuModelTests</td></tr>
+              <tr><td>R22</td><td>SettingsModelTests.historySectionIsTitledDictations and capture-cancel tests</td></tr>
+              <tr><td>R23</td><td>DSTests (colours, radii, type scale); components hand-checked</td></tr>
+              <tr><td>R24</td><td>SmallWindowsTests (About 300×300, Onboarding 460×330, Correction fit)</td></tr>
+              <tr><td>R25</td><td><code>git diff --stat 5456c80 HEAD -- Package.swift project.yml</code> empty</td></tr>
+              <tr><td>R26</td><td>Every model suite above runs on ManualClock / VirtualClock</td></tr>
+              <tr><td>R27</td><td>MeetingControllerRegenerateTests (no summary text logged); SearchModelTests (no query text logged)</td></tr>
+              <tr><td>R28</td><td><code>project.yml</code> versions still 0.6.2</td></tr>
+            </tbody>
+          </table>
+
+          <h3>Deviations from plan</h3>
+          <p>81 bullets under <em>Deviations from plan</em> in the plan file. Most record added tests or offscreen-render notes. Behavioural ones:</p>
+          <ul>
+            <li>Settings is built at launch, so the five Keychain accounts are read at launch.</li>
+            <li>The model never writes the pasteboard; the coordinator's <code>copy</code> dependency does.</li>
+            <li>A meeting presented between the hotkey's start and the main window's creation at launch is not shown until the next Show Meeting….</li>
+            <li>Copy summary and Regenerate also show on test calls.</li>
+            <li>The theme is applied only when it changes.</li>
+            <li>Correction's saved state keeps its footer (Copy stays available after Save).</li>
+          </ul>
+
+          <h3>Pending human verification</h3>
+          <p>The built app was never launched (it reads the real config and Keychain). Each stage's integration check in the plan awaits a hand check: Stages 3, 6, 9, 10, 11, 12, 13, 14, 15, 16.</p>
+
+          <h3>Notes</h3>
+          <ul>
+            <li><code>references/</code> left untracked: it holds screenshots of another product showing real names, and the repo is public.</li>
+            <li><code>DESIGN.md</code> does not yet describe about 30 tokens and components the code defines, and cites deleted files; refresh it with /design-language-update.</li>
+            <li>Pre-existing, unchanged: <code>try</code>/<code>await</code> order warnings at <code>MeetingCoordinatorTests.swift:924,1052</code>; the unused <code>SecretStore.removeSecret(for:)</code> protocol member.</li>
+            <li>Branch <code>main</code> is ahead of origin; nothing pushed.</li>
+          </ul>
+        </div>
       </article>
     </section>
 
