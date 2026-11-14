@@ -2,6 +2,45 @@
 
 ## [Unreleased]
 
+### Added
+
+- One main window. Its sidebar holds search, Start Meeting, Meetings, Dictations, Settings and
+  a usage table of today's and this month's tokens, audio time and cost. ⌘1, ⌘2, ⌘, and ⌘N go
+  to a page, ⌘F searches, ⌘[ leaves a finished meeting, ⌘W hides the window. Closing it never
+  stops a recording; its size and place are kept in `config.json` (`main_window_frame`).
+- One search over meeting titles, transcripts, notes and summaries and stored dictations.
+- Theme: Settings → General → Appearance → System, Light or Dark (`theme` in `config.json`).
+  The dictation overlay is unchanged.
+- **Regenerate** on a finished meeting, after confirming the current summary's cost. That
+  summary stays until the new one arrives, and stays if the request fails; its cost stays in
+  the meeting's total (`replacedSummaryCostUSD` in `meeting.json`).
+- **Copy summary**: the title and summary as Markdown, HTML and RTF.
+
+### Changed
+
+- A new look for every window but the overlay, light and dark, recorded in `DESIGN.md`.
+- Meetings, Dictations (formerly History) and Settings are pages of the main window; the menu's
+  *History...* is *Dictations…*. A meeting is a page too: the chooser, the live meeting, then
+  the finished meeting with Summary, Transcript and Notes tabs. While a meeting runs, a
+  recording pill in the sidebar leads back to it.
+- Summaries are written by topic and end with Next Steps; they display as headings and lists.
+  A `summary_prompt.txt` still holding the previous default is replaced at launch; an edited
+  one is kept. Four-section summaries still display.
+- A Meetings row shows the summary's topics under its title, else its first sentence, else the
+  transcript's first line.
+- The menu's Month row shows tokens and audio time, as Today does. Audio time of an hour or
+  more reads `2h 14m`.
+- The Dock icon stays while any Mini Whisper window is open.
+- Correction, Onboarding and About follow the new look; About is a window, not an alert.
+
+### Removed
+
+- The Meetings, History, Settings and Meeting windows.
+- The search fields of the meetings and history lists.
+- Settings' *Open History…* and *Open Meetings…* buttons.
+- The finished meeting's **Meetings** button; its back button (⌘[) returns to the page it was
+  opened from.
+
 ## [0.6.2] - 2026-11-13
 
 ### Added

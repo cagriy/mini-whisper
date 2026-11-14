@@ -18,8 +18,8 @@ Homebrew refuses to load casks from a third-party tap until you trust it, so the
 Requires macOS 14 (Sonoma) or newer, on Apple silicon.
 
 Mini Whisper updates itself: it checks once a day, shows what changed, and installs only
-after you approve. `Check for Updates…` in the menu bar checks on demand, and the General
-tab of Settings turns the daily check off. Homebrew leaves the app alone once installed, so
+after you approve. `Check for Updates…` in the menu bar checks on demand, and Settings →
+General turns the daily check off. Homebrew leaves the app alone once installed, so
 there is no need to `brew upgrade` it.
 
 ## Permissions
@@ -34,10 +34,26 @@ On first launch Mini Whisper asks for:
   the other participants. Without it a remote call transcribes only you; Settings → Meetings →
   **Open Privacy Settings…** opens the pane.
 
+## The window
+
+**Meetings…**, **Dictations…** and **Settings...** in the menu bar open one window at that page.
+Its sidebar holds search (⌘F), Start Meeting (⌘N), Meetings (⌘1), Dictations (⌘2), Settings (⌘,)
+and a usage table: tokens, audio time and cost for today and this month. ⌘W or the close button
+hides the window; a recording carries on. The window reopens at the size and place you left it.
+
+- **Search** covers meeting titles, transcripts, notes and summaries, and stored dictations, in
+  one list. A meeting result opens the meeting, a dictation result its Dictations row. Esc
+  clears it.
+- **Dictations** lists stored dictations by day. Each row offers **Paste into *app*** (the app
+  you used last; the window hides first), **Correct…**, **Copy** and **Delete**. **Clear…**
+  deletes them all.
+- **Theme**: Settings → General → Appearance → System, Light or Dark. The dictation overlay looks
+  the same in each.
+
 ## Corrections and vocabulary
 
 Correct a misheard phrase once and Mini Whisper remembers it: **Correct Last Dictation…**
-in the menu bar, or **Correct…** on a History row, opens a window where you select the
+in the menu bar, or **Correct…** on a Dictations row, opens a window where you select the
 phrase, type the spelling you want, and save it. A rule scoped to **This app** only changes
 dictations delivered to that app; **All apps** changes them everywhere. Rules and the plain
 vocabulary list are edited under Settings → Vocabulary, where a rule can be disabled or
@@ -69,8 +85,8 @@ skipped.
 
 ## Meetings
 
-Press **⌃⌥⌘M** (Settings → Hotkeys → Meeting) or choose **Start Meeting…** in the menu bar,
-then pick:
+Press **⌃⌥⌘M** (Settings → Hotkeys → Meeting), choose **Start Meeting…** in the menu bar or
+**Start Meeting** in the window, then pick:
 
 - **Remote call** — the microphone plus the audio other apps play (Zoom, Teams, Meet), mixed
   into one stream. Words spoken while your microphone hears you are labelled with your name
@@ -79,7 +95,9 @@ then pick:
 - **In the room** — the microphone only. Every voice becomes Speaker 1, 2…; rename yourself
   once your first words appear.
 
-The window shows the live transcript, your notes, the elapsed time and the running cost.
+The meeting page shows the live transcript, your notes, the elapsed time and the running cost.
+Leaving the page or closing the window does not stop the recording; the sidebar's recording
+pill leads back.
 Click a speaker's name to rename them everywhere; a name already in use merges the two. Enter
 adds a note stamped with the meeting time, Shift+Enter a new line. **Pause** stops streaming
 until **Resume**; the Mac going to sleep pauses too. A dropped connection never ends a
@@ -88,15 +106,22 @@ Dictation hotkeys are off while a meeting records or is paused, and starting a m
 a dictation in progress. Your **All apps** correction rules and vocabulary reach the engine as
 hints; rules do not rewrite meeting transcripts.
 
-**Stop** sends the transcript and notes to Claude Sonnet 5.5 for a summary — Summary,
-Decisions, Action items, Open questions — under the prompt in Settings → Meetings
-(`summary_prompt.txt`). Without an Anthropic key (Settings → Keys), after a failed request, or
-when quitting stopped the meeting, **Summarise** writes it later; a meeting holds one summary.
+**Stop** turns the page into the finished meeting, with Summary, Transcript and Notes tabs, and
+sends the transcript and notes to Claude Sonnet 5.5 for a summary: a section per topic, then
+Next Steps, under the prompt in Settings → Meetings (`summary_prompt.txt`). A prompt file still
+holding the previous default is replaced by the new one at launch; an edited one is kept.
+Without an Anthropic key (Settings → Keys), after a failed request, or when quitting stopped the
+meeting, **Summarise** writes it later.
+
+**Regenerate** writes a new summary after confirming the current one's cost. The current summary
+stays until the new one arrives, and stays if the request fails; both costs count toward the
+meeting's total. **Copy summary** copies the title and summary as Markdown, HTML and RTF.
+
 After Stop, double-click a paragraph to edit it, or right-click to move a segment to another
 speaker. **Export** writes `<title> - transcript.md` and `<title> - summary.md`.
 
-**Meetings…** in the menu bar lists meetings by day with their cost and searches titles,
-transcripts, notes and summaries.
+The Meetings page lists meetings by day. Under each title: the summary's topics, else its first
+sentence, else the transcript's first line.
 
 ### Engines and prices
 
@@ -111,7 +136,7 @@ engine below whose key is under Settings → Keys is used. Meetings are English 
 | AssemblyAI Universal 3.6 Pro | AssemblyAI | $0.57, including $0.12 for speaker labels |
 
 The summary costs $2.00 per million input tokens and $10.00 per million output tokens — a few
-cents for an hour's meeting. Costs join the menu bar's Today/Month rows when a meeting stops;
+cents for an hour's meeting. Costs join the Today and Month usage when a meeting stops;
 every rate can be overridden in `config.json`'s `pricing_overrides`.
 
 ### Storage and consent
@@ -128,7 +153,7 @@ every rate can be overridden in `config.json`'s `pricing_overrides`.
 ```
 
 Folders are 0700, files 0600, and nothing is deleted automatically. Turn off **Keep meeting
-audio** (Settings → Meetings) to record no audio file. **Meetings…** deletes a meeting, or
+audio** (Settings → Meetings) to record no audio file. The Meetings page deletes a meeting, or
 only its audio with **Export → Delete audio**.
 
 **You are responsible for getting consent to record.** Mini Whisper does not tell the other
@@ -176,7 +201,7 @@ path until the tool is installed.
 
 ### Test call
 
-**Test Call…**, at the bottom left of the New Meeting window, runs a scripted remote call that
+**Test Call…**, at the bottom left of the Start a meeting page, runs a scripted remote call that
 measures how well meetings transcribe on this Mac. Pick a scenario (Random, or one of eight), an
 engine and Overlap, then **Start Test Call**. Two macOS voices speak their lines through the
 speakers; you read yours from the script pane, which hands over after a 1.2 s pause. **Skip
@@ -186,7 +211,7 @@ Stop scores the transcript against the script: word error rate per speaker and o
 speaker label each voice got and how consistently, and how late the final text arrived. The
 score is kept with the meeting (`testcall.json`), and **Earlier runs…** compares runs of the
 same scenario on this Mac. A run takes about 2 minutes and costs about $0.02; it is billed and
-summarised like any meeting and marked TEST in **Meetings…**.
+summarised like any meeting and marked TEST on the Meetings page.
 
 - The score is a relative benchmark across engines, settings and builds: synthetic voices
   diarise differently from people.

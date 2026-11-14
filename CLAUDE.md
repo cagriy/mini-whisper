@@ -16,11 +16,15 @@ Read it freely for behaviour, constants and test cases.
 
 ```
 project.yml                  xcodegen: app target, local package dep, plist, entitlements
-App/                         app target sources (AppKit shell, SwiftUI windows, layers)
+App/                         app target sources (AppKit shell, SwiftUI windows and pages, layers)
+App/Design/                  `DS` tokens and components, the code side of DESIGN.md
+App/Main/                    the main window: sidebar, navigation, frame
+App/Search/                  one search over meetings and dictations
 App/Resources/               AppIcon.icns, on.mp3, off.mp3, mini-whisper.png, default prompts
 App/Info.plist, App/MiniWhisper.entitlements
 Packages/MiniWhisperCore/    SwiftPM package, all non-UI logic
 AppTests/                    xcodebuild-run tests for app-only pieces
+DESIGN.md, design/           the design language and its specimen
 .github/workflows/build.yml
 ```
 
@@ -55,13 +59,13 @@ empty XCTest bundle, not the result. Read the `✔/✘ Test run with N tests in 
 | `MWAudio` | `PCMConverter`, `WAVEncoder`, `AudioCaptureEngine` | MWSupport |
 | `MWStreaming` | Engine seam, `TranscriptAssembler`, WebSocket/SF/SpeechAnalyzer engines, `EngineFactory` | MWAudio, MWConfig, MWSupport |
 | `MWTranscription` | `OpenAIClient`, `APIError` | MWSupport |
-| `MWUsage` | `Pricing`, `UsageStore` | MWConfig |
+| `MWUsage` | `Pricing`, `UsageStore`, `UsageTotals` | MWConfig |
 | `MWHistory` | `HistoryStore` | MWSupport |
 | `MWProfiles` | `ProfileResolver`, `PromptComposer` | MWConfig |
 | `MWPaste` | `Paster` | MWSupport |
 | `MWOverlaySim` | `ConstellationSimulation`, `CaptionModel`, `OverlayStyle` | — |
 | `MWPipeline` | `StreamSink`, `ProcessingJob`, `DictationController` | all of the above |
-| `MWMeetings` | Meeting model, `MeetingStore`, `MeetingMarkdown`, `MeetingSearch`, `TitleSanitizer` | MWConfig, MWSupport |
+| `MWMeetings` | Meeting model, `MeetingStore`, `MeetingMarkdown`, `MeetingSearch`, `SummaryDocument`, `SearchExcerpt`, `TitleSanitizer` | MWConfig, MWSupport |
 | `MWMeetingPipeline` | `SpeechGate`, `AudioMixer`, `SystemAudioRing`, `SystemAudioLeveller`, `SpeakerAttributor`, `SpeakerRegistry`, `SessionSupervisor`, `MeetingRecorder`, `MeetingBilling`, `Summariser`, `MeetingController` | MWMeetings, MWStreaming, MWAudio, MWConfig, MWCorrections, MWUsage, MWTranscription, MWSupport, MWTestCall |
 | `MWAgentAccess` | `MeetingsCLI`, `MCPServer`, `MeetingID` | MWMeetings, MWSupport |
 | `MWTestCall` | `TestScenario`, `ScenarioLibrary`, `VoiceCatalog`, `TranscriptNormalizer`, `WordAligner`, `TestCallConductor`, `TestCallScorer`, `TestRunHistory` | MWMeetings, MWConfig, MWSupport |
@@ -87,7 +91,8 @@ Dependencies flow downwards only; nothing depends on `MWPipeline` or `MWMeetingP
   `.enabled(if: ProcessInfo.processInfo.environment["MW_INTEGRATION"] == "1")` and, for OpenAI,
   `OPENAI_API_KEY` in the environment. They never run in CI's unit-test job.
 - Every duration (hold threshold, tick, finish timeout, drain, idle stop, restore window, toggle cap)
-  is tested on `VirtualClock`. A real sleep in a test is a defect.
+  is tested on `VirtualClock`; app suites, which cannot import `MWTestSupport`, use
+  `AppTests/ManualClock.swift`. A real sleep in a test is a defect.
 
 ## Releases and auto-updates
 
