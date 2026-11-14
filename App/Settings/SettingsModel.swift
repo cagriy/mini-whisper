@@ -526,6 +526,15 @@ final class SettingsModel {
             : "\(max(1, Int((Double(bytes) / 1e6).rounded()))) MB"
     }
 
+    // MARK: - Appearance (R8)
+
+    var theme: AppTheme { config.theme }
+
+    /// Applied app-wide by `AppDelegate`'s config-change consumer.
+    func setTheme(_ theme: AppTheme) async {
+        await write { $0.theme = theme }
+    }
+
     // MARK: - Overlay (design v3 §5.4)
 
     var overlayStyleRows: [OverlayStyleRow] { OverlayStyleCatalog.rows }

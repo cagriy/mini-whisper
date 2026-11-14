@@ -40,6 +40,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var config = Config()
     private var overlay: OverlayPanelController?
     private var appliedOverlayStyle: OverlayStyle?
+    private var appliedTheme: AppTheme?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // The AppTests bundle is hosted by this app; starting normally there would
@@ -63,23 +64,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             onQuit: { [weak self] in self?.quit() }
         )
 
-        if permitted {
-            Task { await startNormal() }
-        } else {
-            Log.ui.info(
-                "Permissions missing (microphone \(PermissionMonitor.microphoneGranted),"
-                    + " accessibility \(PermissionMonitor.accessibilityGranted)); onboarding"
-            )
-            showOnboarding()
+        // R8: the theme is in place before the first window, onboarding's included.
+        let configStore = ConfigStore(directory: Self.configDirectory)
+        Task {
+            applyTheme(await configStore.load().theme)
+            if permitted {
+                await startNormal(configStore: configStore)
+            } else {
+                Log.ui.info(
+                    "Permissions missing (microphone \(PermissionMonitor.microphoneGranted),"
+                        + " accessibility \(PermissionMonitor.accessibilityGranted)); onboarding"
+                )
+                showOnboarding(configStore: configStore)
+            }
         }
     }
 
     /// F33: the wizard owns the launch until every permission is granted, then
     /// Continue starts normal operation in this process.
-    private func showOnboarding() {
+    private func showOnboarding(configStore: ConfigStore) {
         let onboarding = OnboardingWindowController { [weak self] in
             self?.onboarding = nil
-            Task { await self?.startNormal() }
+            Task { await self?.startNormal(configStore: configStore) }
         }
         self.onboarding = onboarding
         onboarding.show()
@@ -87,8 +93,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     // MARK: - Composition root
 
-    private func startNormal() async {
-        let configStore = ConfigStore(directory: Self.configDirectory)
+    private func startNormal(configStore: ConfigStore) async {
         let config = await configStore.load()
         apply(config)
 
@@ -474,6 +479,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // R36: the one config-change consumer there is, so Settings sees a rule the
         // correction window just saved (N4).
         main?.model.settings.refresh(from: config)
+        applyTheme(config.theme)
         sounds.setVolume(Float(config.soundVolume))
         // R3: stored now, honoured at the card's next show.
         overlay?.setStyle(config.overlayStyle)
@@ -489,6 +495,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             listener?.update(binding: name, combo: combo)
         }
         appliedBindings = bindings
+    }
+
+    /// Only on a change: the config is rewritten after every dictation, and each new appearance
+    /// redraws every window.
+    private func applyTheme(_ theme: AppTheme) {
+        guard appliedTheme != theme else { return }
+        appliedTheme = theme
+        ThemeApplier.apply(theme)
     }
 
     /// F8's two bindings and the meeting toggle, falling back to the shipped defaults

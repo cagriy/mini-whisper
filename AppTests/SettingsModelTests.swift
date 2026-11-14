@@ -603,6 +603,40 @@ import Testing
         #expect(model.overlayStyleRows.count == OverlayStyle.allCases.count)
     }
 
+    // MARK: - Theme (design §3 R8)
+
+    @Test func setThemeWritesTheKey() async {
+        let harness = Harness()
+        defer { harness.cleanUp() }
+        let model = await harness.model()
+
+        await model.setTheme(.dark)
+
+        #expect(model.theme == .dark)
+        #expect(await harness.store.load().theme == .dark)
+    }
+
+    @Test func refreshReadsTheTheme() async throws {
+        let harness = Harness()
+        defer { harness.cleanUp() }
+        let model = await harness.model()
+
+        try await harness.store.update { @Sendable in $0.theme = .light }
+        model.refresh(from: await harness.store.load())
+
+        #expect(model.theme == .light)
+    }
+
+    @Test func themeStartsFromTheConfig() async throws {
+        let harness = Harness()
+        defer { harness.cleanUp() }
+        try harness.writeConfig(#"{"theme": "dark"}"#)
+
+        let model = await harness.model()
+
+        #expect(model.theme == .dark)
+    }
+
     // MARK: - Meetings (design §3 R4, R20, R22)
 
     @Test func meetingsSectionTitleAndSymbol() {

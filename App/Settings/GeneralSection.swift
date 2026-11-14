@@ -2,7 +2,7 @@ import MWConfig
 import SwiftUI
 
 /// Live transcript, the engine list with its gating (F23, F24), the two engine-lifetime
-/// steppers, and updates.
+/// steppers, the theme (R8), and updates.
 struct GeneralSection: View {
     let model: SettingsModel
 
@@ -44,6 +44,18 @@ struct GeneralSection: View {
                         range: SettingsModel.toggleCapMinutesRange,
                         step: 1,
                         label: model.toggleCapLabel
+                    )
+                }
+            }
+
+            Card("Appearance") {
+                SettingRow(
+                    "Theme",
+                    description: "Follow macOS, or keep Mini Whisper light or dark. The dictation overlay is unaffected."
+                ) {
+                    SegmentedPill(
+                        selection: settingsBinding(model.theme) { await model.setTheme($0) },
+                        options: [(.system, "System"), (.light, "Light"), (.dark, "Dark")]
                     )
                 }
             }
