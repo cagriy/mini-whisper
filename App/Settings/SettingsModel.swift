@@ -432,6 +432,16 @@ final class SettingsModel {
         await write { $0.meetingKeepAudio = keep }
     }
 
+    func setMeetingSilenceStop(_ seconds: Int) async {
+        await write { $0.meetingSilenceStopSeconds = seconds }
+    }
+
+    static func silenceStopDescription(_ seconds: Int) -> String {
+        guard seconds > 0 else { return "Off: a meeting records until you stop it." }
+        return "When no one has spoken for \(seconds / 60) min, asks whether to keep recording and stops a minute"
+            + " later. Never in a meeting's first 3 minutes."
+    }
+
     var summaryPromptDraft = ""
     var summaryPromptURL: URL { deps.prompts.summaryPromptURL }
 

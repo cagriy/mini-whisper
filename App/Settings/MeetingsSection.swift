@@ -84,6 +84,17 @@ struct MeetingsSection: View {
                 .toggleStyle(.ds)
             }
             SettingRow(
+                "Stop after silence",
+                description: SettingsModel.silenceStopDescription(model.config.meetingSilenceStopSeconds)
+            ) {
+                SegmentedPill(
+                    selection: settingsBinding(model.config.meetingSilenceStopSeconds) {
+                        await model.setMeetingSilenceStop($0)
+                    },
+                    options: [(0, "Off"), (60, "1 min"), (120, "2 min"), (300, "5 min")]
+                )
+            }
+            SettingRow(
                 "System Audio Recording",
                 description: "macOS asks for this permission at the first remote meeting. If a remote call's transcript"
                     + " shows only your side, allow Mini Whisper under Privacy & Security → Screen & System"

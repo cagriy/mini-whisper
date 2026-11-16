@@ -737,6 +737,29 @@ import Testing
         #expect(await harness.store.load().meetingKeepAudio == false)
     }
 
+    @Test func silenceStopWritesConfig() async throws {
+        let harness = Harness()
+        defer { harness.cleanUp() }
+        let model = await harness.model()
+        #expect(model.config.meetingSilenceStopSeconds == 60)
+
+        await model.setMeetingSilenceStop(120)
+        #expect(model.config.meetingSilenceStopSeconds == 120)
+        #expect(await harness.store.load().meetingSilenceStopSeconds == 120)
+
+        await model.setMeetingSilenceStop(0)
+        #expect(model.config.meetingSilenceStopSeconds == 0)
+        #expect(await harness.store.load().meetingSilenceStopSeconds == 0)
+    }
+
+    @Test func silenceStopDescriptionFollowsTheValue() {
+        #expect(SettingsModel.silenceStopDescription(0) == "Off: a meeting records until you stop it.")
+        #expect(SettingsModel.silenceStopDescription(60) == "When no one has spoken for 1 min, asks whether to keep"
+            + " recording and stops a minute later. Never in a meeting's first 3 minutes.")
+        #expect(SettingsModel.silenceStopDescription(300) == "When no one has spoken for 5 min, asks whether to keep"
+            + " recording and stops a minute later. Never in a meeting's first 3 minutes.")
+    }
+
     @Test func privacySettingsURLIsTheAudioCaptureAnchor() {
         #expect(SettingsModel.privacySettingsURL.absoluteString
             == "x-apple.systempreferences:com.apple.preference.security?Privacy_AudioCapture")
