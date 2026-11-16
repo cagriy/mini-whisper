@@ -21,6 +21,31 @@ import MWMeetings
         #expect(json["startedAt"] as? String == "2026-11-09T14:30:00Z")
     }
 
+    @Test func silenceStopAbsentDecodesAsNil() throws {
+        let data = try MeetingCoding.encoder().encode(MeetingFixtures.northwind().meeting)
+        #expect(try MeetingCoding.decoder().decode(Meeting.self, from: data).silenceStopSeconds == nil)
+    }
+
+    @Test func silenceStopRoundTrips() throws {
+        let meeting = Meeting(
+            title: "Zoom · 9 Nov 2026 11:00", startedAt: Date(timeIntervalSince1970: 1_794_222_000),
+            mode: .remote, engine: .speechmaticsStandard, userName: "Alex", silenceStopSeconds: 120
+        )
+        let data = try MeetingCoding.encoder().encode(meeting)
+        let decoded = try MeetingCoding.decoder().decode(Meeting.self, from: data)
+
+        #expect(try object(data)["silenceStopSeconds"] as? Int == 120)
+        #expect(decoded.silenceStopSeconds == 120)
+        #expect(decoded == meeting)
+    }
+
+    @Test func silenceStopIsOmittedWhenUnset() throws {
+        let json = try object(MeetingCoding.encoder().encode(MeetingFixtures.make().meeting))
+
+        #expect(json.keys.contains("silenceStopSeconds") == false)
+        #expect(json["schema"] as? Int == 1)
+    }
+
     @Test func inRoomModeIsHyphenated() throws {
         let meeting = MeetingFixtures.make(mode: .inRoom).meeting
         #expect(try object(MeetingCoding.encoder().encode(meeting))["mode"] as? String == "in-room")

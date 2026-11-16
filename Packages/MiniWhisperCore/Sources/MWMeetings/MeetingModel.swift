@@ -193,6 +193,8 @@ public struct Meeting: Codable, Sendable, Equatable, Identifiable {
     public var schema: Int
     /// Set only on a test call.
     public var test: TestCallTag?
+    /// Set when the meeting stopped itself after this many seconds without speech.
+    public var silenceStopSeconds: Int?
 
     public init(
         id: UUID = UUID(),
@@ -208,7 +210,8 @@ public struct Meeting: Codable, Sendable, Equatable, Identifiable {
         markers: [Marker] = [],
         summary: Summary? = nil,
         billing: Billing = Billing(),
-        test: TestCallTag? = nil
+        test: TestCallTag? = nil,
+        silenceStopSeconds: Int? = nil
     ) {
         self.id = id
         self.title = title
@@ -225,6 +228,7 @@ public struct Meeting: Codable, Sendable, Equatable, Identifiable {
         self.billing = billing
         schema = Self.currentSchema
         self.test = test
+        self.silenceStopSeconds = silenceStopSeconds
     }
 
     /// Transcription, the current summary and every summary it replaced.

@@ -33,6 +33,14 @@ import MWMeetings
         #expect(text == (try golden("northwind-summary")))
     }
 
+    @Test func silenceStopLeavesTheMarkdownUnchanged() throws {
+        var loaded = MeetingFixtures.northwind()
+        loaded.meeting.silenceStopSeconds = 60
+
+        #expect(MeetingMarkdown.transcript(loaded, generator: generator, timeZone: utc) == (try golden("northwind-transcript")))
+        #expect(try MeetingMarkdown.summary(loaded, generator: generator, timeZone: utc) == (try golden("northwind-summary")))
+    }
+
     @Test func summaryWithoutASummaryThrows() {
         #expect(throws: MeetingMarkdownError.noSummary) {
             try MeetingMarkdown.summary(MeetingFixtures.make(), generator: generator, timeZone: utc)
