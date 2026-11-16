@@ -10,7 +10,7 @@ Notes outside the marked region are yours: /design-language-update reads them as
 |---|---|
 | Classification | established |
 | Platforms | macOS |
-| Updated | 2026-11-14 14:50 UTC |
+| Updated | 2026-11-16 16:09 UTC |
 | Specimen | https://claude.ai/artifact/3iQhWG4jNhvrqA4EXTwHGh |
 
 ### Visual Theme & Atmosphere
@@ -126,8 +126,9 @@ Source: user: 2026-11-13
 | alert | Status line | Progress, Info, Warning, Error | radius=radius.row; bg=color.accent.soft | user: 2026-11-13 |
 | other | Segmented pill switch | — | radius=radius.pill; bg=color.sidebar; border=color.line | user: 2026-11-13 |
 | other | Dialog | — | radius=radius.card; bg=color.card; shadow=shadow.dialog; scrim=color.scrim | user: 2026-11-13 |
+| other | Floating prompt | — | radius=radius.card; bg=color.card; border=color.line; shadow=shadow.dialog | user · pending v7 |
 | other | Tile | Remote, In the room, App, App mark | radius=radius.field; bg=color.accent.soft; fg=color.accent | user: 2026-11-13 |
-| other | Chip | Plain, Active, Inactive, Warning, Test | radius=radius.pill; border=color.line; fg=color.text.secondary | code: App/Design/Chip.swift:5 |
+| other | Chip | Plain, Active, Inactive, Warning, Test, Flag | radius=radius.pill; border=color.line; fg=color.text.secondary; flag=color.sidebar; flaglabel=color.text | user · pending v7 |
 | other | Switch | — | radius=radius.pill; on=color.accent; off=color.line; knob=color.white; shadow=shadow.knob | code: App/Design/DSToggleStyle.swift:5 |
 | other | Radio row | — | ring=color.accent; idle=color.text.tertiary | code: App/Design/RadioRow.swift:6 |
 | other | Stepper pill | — | radius=radius.pill; border=color.line; fg=color.text.secondary | code: App/Design/StepperPill.swift:5 |
@@ -248,6 +249,8 @@ Source: user: 2026-11-13
 | 69 | Decisions 8, 43 and 56 stand over the test call's Earlier runs sheet; the sheet is drift to fix | user | 2026-11-14 | active |
 | 70 | The switch knob's 1px shadow belongs to the control, as in the accepted v6 mockup; decision 59 governs surfaces, not it | skill | 2026-11-14 | active |
 | 71 | The Rounded field fills with color.canvas and the Search pill with color.card, as the accepted v6 mockup and the code do; the earlier record gave color.card | skill | 2026-11-14 | active |
+| 72 | Floating prompt is a component: the Dialog card as a borderless, non-activating floating panel with no scrim, above every window and full-screen Space | user | 2026-11-16 | pending v7 |
+| 73 | Chip gains a Flag variant: color.sidebar fill, color.text label, leading SF Symbol in color.text.secondary | user | 2026-11-16 | pending v7 |
 
 ### Drift
 
