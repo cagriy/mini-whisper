@@ -557,6 +557,13 @@ final class MeetingHarness {
         await waitFor { if case .partial = $0 { true } else { false } }.last
     }
 
+    /// Moves the clock to meeting second `second` and waits for the tick there.
+    func tick(to second: Double) async -> [MeetingEvent] {
+        await clock.waitUntilSleeping()
+        clock.advance(by: second - clock.now)
+        return await waitFor(.elapsed(second))
+    }
+
     /// 16 kHz speech-level tone the microphone gate opens on.
     static func loud(_ seconds: Double) -> [Float] {
         SignalFixtures.sine(count: Int(seconds * 16_000), sampleRate: 16_000, amplitude: 0.3, noise: 0)

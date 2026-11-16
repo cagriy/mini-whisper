@@ -392,11 +392,4 @@ private extension MeetingHarness {
     func testCallURL(_ id: UUID) -> URL {
         store.directory.appendingPathComponent(id.uuidString).appendingPathComponent("testcall.json")
     }
-
-    /// Moves the clock to meeting second `second` and waits for the tick there.
-    func tick(to second: Double) async -> [MeetingEvent] {
-        await clock.waitUntilSleeping()
-        clock.advance(by: second - clock.now)
-        return await waitFor(.elapsed(second))
-    }
 }

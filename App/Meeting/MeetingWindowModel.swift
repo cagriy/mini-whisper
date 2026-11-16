@@ -649,6 +649,9 @@ final class MeetingWindowModel {
         case .testScore(let score):
             testScore = score
             testCall?.score = score
+        case .silence:
+            // The prompt lives outside the window.
+            break
         case .error(let message):
             errorMessage = message
         }

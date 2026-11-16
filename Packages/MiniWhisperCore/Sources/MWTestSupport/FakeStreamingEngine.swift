@@ -18,15 +18,18 @@ public final class FakeStreamingEngine: StreamingEngine, @unchecked Sendable {
     private let lock = NSLock()
     private var storage = Storage()
     private let result: StreamResult
+    private let onStart: @Sendable () -> Void
 
     public init(
         name: EngineName = .onDevice,
         result: StreamResult = StreamResult(
             text: "streamed text", ok: true, usage: StreamUsage(seconds: 3)
-        )
+        ),
+        onStart: @escaping @Sendable () -> Void = {}
     ) {
         self.name = name
         self.result = result
+        self.onStart = onStart
     }
 
     public var sink: (any TranscriptSink)? { lock.withLock { storage.sink } }
@@ -35,6 +38,7 @@ public final class FakeStreamingEngine: StreamingEngine, @unchecked Sendable {
 
     public func start(sink: any TranscriptSink) {
         lock.withLock { storage.sink = sink }
+        onStart()
     }
 
     public func feed(_ buffer: AVAudioPCMBuffer) {

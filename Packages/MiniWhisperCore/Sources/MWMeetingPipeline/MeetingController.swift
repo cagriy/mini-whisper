@@ -66,6 +66,10 @@ public final class MeetingController {
     private var closing: Task<Void, Never>?
     private var ticker: Task<Void, Never>?
     private var summarising = false
+    /// Nil for a test call: its conductor stops it.
+    private var silence: SilenceWatch?
+    /// A `.silence(.open)` was emitted since the last close or expiry.
+    private var promptShown = false
 
     public init(deps: MeetingDependencies, config: ConfigStore) {
         self.deps = deps
@@ -142,6 +146,7 @@ public final class MeetingController {
 
         self.meeting = meeting
         self.supervisor = supervisor
+        silence = test == nil ? SilenceWatch(threshold: config.meetingSilenceStopSeconds) : nil
         sessionEvents = Task { [weak self, events = supervisor.events] in
             for await event in events { await self?.handle(event) }
         }
@@ -190,12 +195,23 @@ public final class MeetingController {
         switch event {
         case .partial(let text):
             emit(.partial(text, speaker: audioPath?.isSpeakingNow == true ? SpeakerRegistry.userID : nil))
+            report(silence?.partial(text, at: meetingTime), reason: "speech")
         case .segment(let segment, let session, let origin):
             await add(segment, session: session, origin: origin)
+            report(silence?.segment(segment.text, at: meetingTime), reason: "speech")
         case .revision(let revisions, let session):
             await revise(revisions, session: session)
         case .connection(let connection):
             emit(.connection(connection))
+            switch connection {
+            case .reconnecting:
+                report(silence?.suspend(), reason: "reconnecting")
+            // A session draining after Pause or Stop may deliver for the first time.
+            case .connected where silence?.isSuspended == true && state == .recording:
+                silence?.restart(at: meetingTime)
+            case .connected, .rolledOver:
+                break
+            }
         case .gap(let marker):
             addMarker(marker)
         }
@@ -340,6 +356,7 @@ public final class MeetingController {
                 checkSystemAudio()
                 emit(.elapsed(meetingTime))
                 emit(.cost(audioPath?.billing.liveCost ?? 0))
+                await checkSilence()
             }
         }
     }
@@ -360,6 +377,51 @@ public final class MeetingController {
         }
     }
 
+    // MARK: - Silence
+
+    /// Design v7 R7: the threshold is read every tick, so Off closes an open prompt.
+    private func checkSilence() async {
+        guard state == .recording, silence != nil else { return }
+        let threshold = await configStore.load().meetingSilenceStopSeconds
+        // A partial, Pause or Stop may have run during the load.
+        guard state == .recording else { return }
+        report(silence?.setThreshold(threshold), reason: "setting")
+        report(silence?.tick(at: meetingTime), reason: "setting")
+    }
+
+    /// Keep recording: closes the prompt; silence counts from now.
+    public func keepRecording() {
+        report(silence?.keep(at: meetingTime), reason: "kept")
+    }
+
+    /// Design v7 R4: stops with a summary and records the threshold, only after the countdown
+    /// expired. The coordinator calls it so the stop goes through its own bookkeeping.
+    public func stopAfterSilence() async {
+        guard let silence, silence.isExpired, state == .recording else { return }
+        let seconds = silence.promptMinutes * 60
+        meeting?.silenceStopSeconds = seconds
+        log.info("meeting stopped after silence (\(seconds) s)")
+        await stop(summarise: true)
+    }
+
+    /// Emits a prompt change. The log carries times and the close `reason`, never transcript text.
+    private func report(_ change: SilencePrompt?, reason: String) {
+        guard let change, let silence else { return }
+        switch change {
+        case .open where !promptShown:
+            promptShown = true
+            log.info("silence prompt shown after \(Int(meetingTime - silence.lastSpeech)) s")
+        case .open:
+            break
+        case .closed:
+            promptShown = false
+            log.info("silence prompt closed (\(reason))")
+        case .expired:
+            promptShown = false
+        }
+        emit(.silence(change))
+    }
+
     // MARK: - Pause
 
     /// A test meeting cannot pause (R11); a sleep still pauses it.
@@ -371,6 +433,7 @@ public final class MeetingController {
     /// Design §5.6 Pause: the session closes; capture and the tap keep running.
     private func pause(_ reason: PauseReason) async {
         guard state == .recording, let audioPath else { return }
+        report(silence?.suspend(), reason: "paused")
         let time = audioPath.pause()
         setState(.paused(reason))
         openPause = meeting?.markers.count
@@ -389,6 +452,7 @@ public final class MeetingController {
         guard state.isPaused, let audioPath, let supervisor else { return }
         audioPath.catchUp(to: meetingTime)
         let time = audioPath.resume()
+        silence?.restart(at: time)
         closePause(at: time)
         supervisor.open(at: time)
         setState(.recording)
@@ -414,6 +478,7 @@ public final class MeetingController {
     /// Design §5.6 Stop. `summarise: false` is the quit path; the summary can be asked for later.
     public func stop(summarise: Bool = true) async {
         guard state == .recording || state.isPaused, let audioPath else { return }
+        report(silence?.suspend(), reason: "stopped")
         setState(.stopping)
         for task in [ticker, captureEvents, tapEvents] { task?.cancel() }
         ticker = nil

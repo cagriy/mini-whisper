@@ -76,6 +76,7 @@ public enum MeetingEvent: Sendable, Equatable {
     case systemAudio(SystemAudioState)
     /// A test meeting's score: on open, and once scored at Stop.
     case testScore(TestScoreState)
+    case silence(SilencePrompt)
     /// A failure the meeting survives, such as a transcript write error.
     case error(String)
 }
