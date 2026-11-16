@@ -66,7 +66,7 @@ empty XCTest bundle, not the result. Read the `✔/✘ Test run with N tests in 
 | `MWOverlaySim` | `ConstellationSimulation`, `CaptionModel`, `OverlayStyle` | — |
 | `MWPipeline` | `StreamSink`, `ProcessingJob`, `DictationController` | all of the above |
 | `MWMeetings` | Meeting model, `MeetingStore`, `MeetingMarkdown`, `MeetingSearch`, `SummaryDocument`, `SearchExcerpt`, `TitleSanitizer` | MWConfig, MWSupport |
-| `MWMeetingPipeline` | `SpeechGate`, `AudioMixer`, `SystemAudioRing`, `SystemAudioLeveller`, `SpeakerAttributor`, `SpeakerRegistry`, `SessionSupervisor`, `MeetingRecorder`, `MeetingBilling`, `Summariser`, `MeetingController` | MWMeetings, MWStreaming, MWAudio, MWConfig, MWCorrections, MWUsage, MWTranscription, MWSupport, MWTestCall |
+| `MWMeetingPipeline` | `SpeechGate`, `AudioMixer`, `SystemAudioRing`, `SystemAudioLeveller`, `SpeakerAttributor`, `SpeakerRegistry`, `SessionSupervisor`, `MeetingRecorder`, `MeetingBilling`, `Summariser`, `SilenceWatch`, `MeetingController` | MWMeetings, MWStreaming, MWAudio, MWConfig, MWCorrections, MWUsage, MWTranscription, MWSupport, MWTestCall |
 | `MWAgentAccess` | `MeetingsCLI`, `MCPServer`, `MeetingID` | MWMeetings, MWSupport |
 | `MWTestCall` | `TestScenario`, `ScenarioLibrary`, `VoiceCatalog`, `TranscriptNormalizer`, `WordAligner`, `TestCallConductor`, `TestCallScorer`, `TestRunHistory` | MWMeetings, MWConfig, MWSupport |
 | `MWTestSupport` | Fakes and helpers shared across test targets | all except MWPipeline, MWMeetings included |

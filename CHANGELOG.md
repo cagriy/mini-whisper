@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### Added
+
+- Meetings stop after silence: with no speech for a minute (never in the first 3), a prompt
+  offers to keep recording and stops the meeting a minute later. Settings → Meetings →
+  Stop after silence takes Off, 1, 2 or 5 min (`meeting_silence_stop_seconds` in `config.json`).
+  On by default; Off records until you stop, as before. A meeting stopped this way says so on
+  its finished page.
+
 ## [0.7.0] - 2026-11-14
 
 ### Added

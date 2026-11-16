@@ -113,6 +113,15 @@ holding the previous default is replaced by the new one at launch; an edited one
 Without an Anthropic key (Settings → Keys), after a failed request, or when quitting stopped the
 meeting, **Summarise** writes it later.
 
+**Stop after silence** (Settings → Meetings, 1 min by default) ends a forgotten recording. When
+no one has spoken for that long, never in a meeting's first 3 minutes, a prompt floats over every
+app, full-screen calls included, without taking the keyboard, and counts down one minute.
+**Keep recording** counts the silence again from the click; **Stop now** is Stop. Speech, Pause
+or the Mac sleeping close it. Unanswered, the meeting stops and is summarised, and its finished
+page reads *Stopped after N min without speech*. The setting takes Off, 1, 2 or 5 min
+(`meeting_silence_stop_seconds` in `config.json`); Off records until you stop. Test calls never
+prompt.
+
 **Regenerate** writes a new summary after confirming the current one's cost. The current summary
 stays until the new one arrives, and stays if the request fails; both costs count toward the
 meeting's total. **Copy summary** copies the title and summary as Markdown, HTML and RTF.
