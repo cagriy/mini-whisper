@@ -5,6 +5,16 @@
     <link>https://raw.githubusercontent.com/cagriy/mini-whisper/main/appcast.xml</link>
     <language>en</language>
     <item>
+      <title>Mini Whisper 0.7.1</title>
+      <sparkle:version>0.7.1</sparkle:version>
+      <sparkle:shortVersionString>0.7.1</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <description>&lt;h3&gt;Added&lt;/h3&gt;
+&lt;ul&gt;&lt;li&gt;Meetings stop after silence: with no speech for a minute (never in the first 3), a prompt offers to keep recording and stops the meeting a minute later. Settings → Meetings → Stop after silence takes Off, 1, 2 or 5 min (&lt;code&gt;meeting_silence_stop_seconds&lt;/code&gt; in &lt;code&gt;config.json&lt;/code&gt;). On by default; Off records until you stop, as before. A meeting stopped this way says so on its finished page.&lt;/li&gt;&lt;/ul&gt;</description>
+      <pubDate>Mon, 16 Nov 2026 18:13:21 +0000</pubDate>
+      <enclosure url="https://github.com/cagriy/mini-whisper/releases/download/v0.7.1/MiniWhisper-0.7.1-arm64.dmg" sparkle:edSignature="iNvKfq7l8Y9rtUXZpqfYewFUfBwPqPJwSaWFRPcxzQQIUM4dGUikPkFXJmNL+cNQYCc+WKQTYVdj51w1vKQSAg==" length="8439632" type="application/octet-stream" />
+    </item>
+    <item>
       <title>Mini Whisper 0.7.0</title>
       <sparkle:version>0.7.0</sparkle:version>
       <sparkle:shortVersionString>0.7.0</sparkle:shortVersionString>
