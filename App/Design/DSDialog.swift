@@ -39,13 +39,20 @@ struct DSDialog: View {
                 }
                 .padding(.top, DS.Space.s5)
             }
-            .padding(22 + DS.Size.hairline)
-            .frame(width: 380)
-            .background(RoundedRectangle(cornerRadius: DS.Radius.card).fill(DS.Colors.card).dialogShadow())
-            .overlay(RoundedRectangle(cornerRadius: DS.Radius.card).strokeBorder(DS.Colors.line))
+            .dialogCard()
             .accessibilityElement(children: .contain)
             .accessibilityLabel(title)
             .accessibilityAddTraits(.isModal)
         }
+    }
+}
+
+extension View {
+    /// The Dialog card around the content, lifted by `shadow.dialog`.
+    func dialogCard() -> some View {
+        padding(22 + DS.Size.hairline)
+            .frame(width: 380)
+            .background(RoundedRectangle(cornerRadius: DS.Radius.card).fill(DS.Colors.card).dialogShadow())
+            .overlay(RoundedRectangle(cornerRadius: DS.Radius.card).strokeBorder(DS.Colors.line))
     }
 }
