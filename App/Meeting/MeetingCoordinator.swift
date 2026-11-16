@@ -16,6 +16,8 @@ protocol MeetingControlling: AnyObject {
     var lastAudibleSystemAudio: Double? { get }
     func start(mode: MeetingMode, title: String, engine: MeetingEngine?, test: TestCallTag?) async throws
     func stop(summarise: Bool) async
+    func keepRecording()
+    func stopAfterSilence() async
     func finishTest(_ run: TestCallRun, scenario: TestScenario) async
     func pause() async
     func resume() async
@@ -84,6 +86,7 @@ final class MeetingCoordinator {
         var copy: @MainActor (MeetingWindowModel.CopyPayload) -> Void
         /// A meeting changed state, title or summary: the menu, usage rows and list follow.
         var changed: @MainActor () -> Void
+        var silencePrompt: any SilencePrompting
         var testCalls: TestCallDependencies
     }
 
@@ -123,6 +126,8 @@ final class MeetingCoordinator {
     private var finishing: [Session] = []
     /// Which of `current` and `opened` is on the meeting page.
     private var shown: Session?
+    /// The session whose silence prompt is showing.
+    private weak var promptOwner: Session?
 
     init(deps: Dependencies) {
         self.deps = deps
@@ -301,13 +306,28 @@ final class MeetingCoordinator {
     /// `summarise: false` is the quit path; the summary can be asked for later. A test call
     /// stops through its session, which scores it (design §5.5 Stop, Quit). Never presents (R4).
     func stop(summarise: Bool = true) async {
-        guard let session = current, Self.isStoppable(session.state) else { return }
-        session.isStopping = true
-        if let test = session.test {
-            await test.finish(summarise: summarise)
-        } else {
-            await session.controller.stop(summarise: summarise)
+        guard let session = current else { return }
+        await stop(session) { session in
+            if let test = session.test {
+                await test.finish(summarise: summarise)
+            } else {
+                await session.controller.stop(summarise: summarise)
+            }
         }
+    }
+
+    /// Design v7 R4: the silence prompt ran out. A test call has none; its conductor stops it.
+    private func stopAfterSilence() async {
+        guard let session = current, session.test == nil else { return }
+        await stop(session) { await $0.controller.stopAfterSilence() }
+    }
+
+    /// A stop the coordinator did not track would drop a session stopped off the page before
+    /// its summary began (design v7 §6), so every stop runs through here.
+    private func stop(_ session: Session, using call: @MainActor (Session) async -> Void) async {
+        guard Self.isStoppable(session.state) else { return }
+        session.isStopping = true
+        await call(session)
         session.isStopping = false
         // Stopped off the page with no summary under way, as at quit.
         if finishing.contains(where: { $0 === session }), !session.isWritingSummary { drop(session) }
@@ -434,6 +454,8 @@ final class MeetingCoordinator {
                 switch event {
                 case .state(let state):
                     if state == .paused(.sleep) { session.test?.macSlept() }
+                    // A backstop for its own prompt only: a stored meeting opening emits `.stopped`.
+                    if state != .recording, self?.promptOwner === session { self?.hidePrompt() }
                     if state == .stopped {
                         // The header's end time, duration and engine cost.
                         if let meeting = session.controller.meeting { session.model.show(meeting) }
@@ -443,10 +465,36 @@ final class MeetingCoordinator {
                 case .summary:
                     self?.summaryChanged(session)
                     self?.deps.changed()
+                case .silence(let prompt):
+                    self?.silence(prompt, of: session)
                 default:
                     break
                 }
             }
         }
+    }
+
+    // MARK: - Silence prompt
+
+    private func silence(_ prompt: SilencePrompt, of session: Session) {
+        switch prompt {
+        case .open(let minutes, let secondsLeft):
+            promptOwner = session
+            deps.silencePrompt.show(
+                meetingTitle: session.model.title, minutes: minutes, secondsLeft: secondsLeft,
+                keep: { [weak session] in session?.controller.keepRecording() },
+                stop: { [weak self] in Task { await self?.stop() } }
+            )
+        case .closed:
+            hidePrompt()
+        case .expired:
+            hidePrompt()
+            Task { [weak self] in await self?.stopAfterSilence() }
+        }
+    }
+
+    private func hidePrompt() {
+        promptOwner = nil
+        deps.silencePrompt.hide()
     }
 }

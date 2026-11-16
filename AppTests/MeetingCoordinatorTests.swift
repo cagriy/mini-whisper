@@ -40,6 +40,8 @@ struct MeetingCoordinatorTests {
         var meeting: Meeting?
         var starts: [(mode: MeetingMode, title: String, engine: MeetingEngine?, test: TestCallTag?)] = []
         var stops: [Bool] = []
+        var stopAfterSilences = 0
+        var keepRecordings = 0
         var finishTests = 0
         var summarises = 0
         /// Every event sent, in order.
@@ -74,6 +76,18 @@ struct MeetingCoordinatorTests {
 
         func stop(summarise: Bool) async {
             stops.append(summarise)
+            await end(summarise: summarise)
+        }
+
+        /// Stops as `stop(summarise: true)` does, counted apart from `stops`.
+        func stopAfterSilence() async {
+            stopAfterSilences += 1
+            await end(summarise: true)
+        }
+
+        func keepRecording() { keepRecordings += 1 }
+
+        private func end(summarise: Bool) async {
             state = .stopped
             meeting?.endedAt = MeetingCoordinatorTests.now.addingTimeInterval(2932)
             meeting?.durationSeconds = 2932
@@ -111,6 +125,42 @@ struct MeetingCoordinatorTests {
         func edit(segment: UUID, text: String) async { request.yield("edit \(text)") }
         func reassign(segment: UUID, to speaker: Int) async { request.yield("reassign \(speaker)") }
         func retitle(_ title: String) async { request.yield("retitle \(title)") }
+    }
+
+    /// Records the prompt's calls and yields each on `calls`: `.silence` does not call `changed()`.
+    @MainActor
+    private final class FakeSilencePrompt: SilencePrompting {
+        struct Shown {
+            let meetingTitle: String
+            let minutes: Int
+            let secondsLeft: Int
+            let keep: @MainActor () -> Void
+            let stop: @MainActor () -> Void
+        }
+
+        private(set) var shows: [Shown] = []
+        private(set) var hides = 0
+        let calls: AsyncStream<Void>
+        private let call: AsyncStream<Void>.Continuation
+
+        init() {
+            (calls, call) = AsyncStream.makeStream()
+        }
+
+        func show(
+            meetingTitle: String, minutes: Int, secondsLeft: Int,
+            keep: @escaping @MainActor () -> Void, stop: @escaping @MainActor () -> Void
+        ) {
+            shows.append(Shown(
+                meetingTitle: meetingTitle, minutes: minutes, secondsLeft: secondsLeft, keep: keep, stop: stop
+            ))
+            call.yield()
+        }
+
+        func hide() {
+            hides += 1
+            call.yield()
+        }
     }
 
     /// The stored meetings and `say -v ?` listing the test-call readers see, and how they were read.
@@ -168,6 +218,7 @@ struct MeetingCoordinatorTests {
         /// The conductors' calls.
         let conductorLog = CallLog()
         let store = Store()
+        let prompt = FakeSilencePrompt()
         let clock = ManualClock()
         /// What each test call's conductor was built for.
         var made: [(scenario: TestScenario, casting: [TestCallRole: CastVoice], overlap: Bool)] = []
@@ -220,6 +271,7 @@ struct MeetingCoordinatorTests {
                 changeCount += 1
                 change.yield()
             },
+            silencePrompt: prompt,
             testCalls: TestCallDependencies(
                 makeConductor: { [unowned self] scenario, casting, overlap, _, _ in
                     made.append((scenario, casting, overlap))
@@ -289,6 +341,12 @@ struct MeetingCoordinatorTests {
         func until(_ condition: @MainActor () -> Bool) async {
             guard !condition() else { return }
             for await _ in changes where condition() { break }
+        }
+
+        /// Waits until the prompt's calls have made `condition` true.
+        func untilPrompt(_ condition: @MainActor () -> Bool) async {
+            guard !condition() else { return }
+            for await _ in prompt.calls where condition() { break }
         }
     }
 
@@ -899,6 +957,150 @@ struct MeetingCoordinatorTests {
 
         await harness.coordinator.stop()
         #expect(harness.coordinator.liveModel == nil)
+    }
+
+    // MARK: - Silence prompt
+
+    @Test func openShowsThePromptWithTheMeetingTitle() async {
+        let harness = Harness()
+        let controller = await harness.recording()
+        let prompt = harness.prompt
+
+        controller.send(.silence(.open(minutes: 1, secondsLeft: 60)))
+        await harness.untilPrompt { prompt.shows.count == 1 }
+        controller.send(.silence(.open(minutes: 1, secondsLeft: 59)))
+        await harness.untilPrompt { prompt.shows.count == 2 }
+
+        let title = MeetingTitle.default(app: "Zoom", date: Self.now)
+        #expect(prompt.shows.map(\.meetingTitle) == [title, title])
+        #expect(prompt.shows.map(\.minutes) == [1, 1])
+        #expect(prompt.shows.map(\.secondsLeft) == [60, 59])
+        #expect(prompt.hides == 0)
+    }
+
+    @Test func closedHidesThePrompt() async {
+        let harness = Harness()
+        let controller = await harness.recording()
+        let prompt = harness.prompt
+
+        controller.send(.silence(.open(minutes: 1, secondsLeft: 60)))
+        controller.send(.silence(.closed))
+        await harness.untilPrompt { prompt.hides == 1 }
+
+        #expect(prompt.shows.count == 1)
+    }
+
+    @Test func aNonRecordingStateOfThePromptingSessionHidesIt() async {
+        let harness = Harness()
+        let controller = await harness.recording()
+        let prompt = harness.prompt
+        controller.send(.silence(.open(minutes: 1, secondsLeft: 60)))
+        await harness.untilPrompt { prompt.shows.count == 1 }
+
+        controller.state = .paused(.user)
+        controller.send(.state(.paused(.user)))
+        await harness.untilPrompt { prompt.hides == 1 }
+
+        #expect(prompt.shows.count == 1)
+    }
+
+    @Test func anotherSessionsStateLeavesThePrompt() async throws {
+        let harness = Harness()
+        let live = await harness.recording()
+        let prompt = harness.prompt
+        live.send(.silence(.open(minutes: 1, secondsLeft: 60)))
+        await harness.untilPrompt { prompt.shows.count == 1 }
+
+        // Its controller sends `.state(.stopped)` once the stored meeting has loaded.
+        try await harness.open(UUID())
+        #expect(prompt.hides == 0)
+
+        live.state = .paused(.user)
+        live.send(.state(.paused(.user)))
+        await harness.untilPrompt { prompt.hides == 1 }
+    }
+
+    @Test func expiryHidesAndStopsOnceThroughTheController() async {
+        let harness = Harness()
+        let controller = await harness.recording()
+        let prompt = harness.prompt
+        controller.send(.silence(.open(minutes: 1, secondsLeft: 1)))
+        await harness.untilPrompt { prompt.shows.count == 1 }
+
+        controller.send(.silence(.expired))
+        await harness.until { harness.models[0].state == .stopped }
+
+        #expect(prompt.hides == 1)
+        #expect(controller.stopAfterSilences == 1)
+        #expect(controller.stops.isEmpty)
+        #expect(harness.presented.count == 1)
+    }
+
+    @Test func expiryOnATestCallStopsNothing() async {
+        let harness = Harness()
+        let controller = await harness.testCall()
+        let prompt = harness.prompt
+
+        controller.send(.silence(.expired))
+        await harness.untilPrompt { prompt.hides == 1 }
+        await until { controller.stopAfterSilences > 0 }
+
+        #expect(controller.stopAfterSilences == 0)
+        #expect(controller.stops.isEmpty)
+        #expect(controller.state == .recording)
+    }
+
+    @Test func thePromptsStopIsTheManualStop() async throws {
+        let harness = Harness()
+        let controller = await harness.recording()
+        let prompt = harness.prompt
+        controller.send(.silence(.open(minutes: 1, secondsLeft: 30)))
+        await harness.untilPrompt { prompt.shows.count == 1 }
+
+        try #require(prompt.shows.first).stop()
+        await harness.until { harness.models[0].state == .stopped }
+
+        #expect(controller.stops == [true])
+        #expect(controller.stopAfterSilences == 0)
+    }
+
+    @Test func thePromptsKeepKeepsRecording() async throws {
+        let harness = Harness()
+        let controller = await harness.recording()
+        let prompt = harness.prompt
+        controller.send(.silence(.open(minutes: 1, secondsLeft: 30)))
+        await harness.untilPrompt { prompt.shows.count == 1 }
+
+        try #require(prompt.shows.first).keep()
+
+        #expect(controller.keepRecordings == 1)
+        #expect(controller.stops.isEmpty)
+        #expect(controller.stopAfterSilences == 0)
+    }
+
+    @Test func aSilenceStopOffThePageKeepsItsSummary() async throws {
+        let harness = Harness()
+        let controller = await harness.recording()
+        let id = try #require(controller.meeting?.id)
+        let model = harness.models[0]
+        harness.coordinator.pageLeft()
+        let gate = Gate()
+        controller.stopGate = gate
+        controller.summaryOnStop = .writing
+
+        controller.send(.silence(.expired))
+        await harness.until { model.summary == .writing }
+
+        // `.summary(.writing)` follows `.state(.stopped)`; only the coordinator's stop bookkeeping keeps it.
+        #expect(controller.emitted == [.silence(.expired), .state(.stopped), .summary(.writing)])
+        #expect(controller.stopAfterSilences == 1)
+        #expect(harness.coordinator.isOpen(id))
+        #expect(harness.coordinator.isActive == false)
+        controller.send(.summary(.ready(Self.summary)))
+        gate.open()
+        await harness.until { model.summary == .ready(Self.summary) }
+        #expect(harness.coordinator.isOpen(id) == false)
+        #expect(harness.presented.count == 1)
     }
 
     // MARK: - Test calls

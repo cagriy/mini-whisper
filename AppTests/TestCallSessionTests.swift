@@ -98,6 +98,8 @@ private final class StubController: MeetingControlling {
     }
 
     func summarise() async { log.append("summarise") }
+    func keepRecording() {}
+    func stopAfterSilence() async {}
     func regenerateSummary() async {}
     func pause() async {}
     func resume() async {}

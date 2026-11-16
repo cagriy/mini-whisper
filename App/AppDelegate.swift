@@ -149,9 +149,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let export: @MainActor (MeetingExporter.Kind, UUID) -> Void = { kind, id in
             ExportPanels.export(kind, of: id, from: store, exporter: exporter)
         }
+        let placement = DisplayPlacement(focused: AXFocusedWindow(), pointer: NSEventPointer(), screens: NSScreenList())
         meetings = makeMeetings(
             audio: audio, secrets: secrets, configStore: configStore, usage: usage, prompts: prompts,
-            store: store, export: export
+            store: store, placement: placement, export: export
         )
 
         if let statusItem {
@@ -166,11 +167,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 statusItem: statusItem,
                 overlay: overlay,
                 caption: caption,
-                placement: DisplayPlacement(
-                    focused: AXFocusedWindow(),
-                    pointer: NSEventPointer(),
-                    screens: NSScreenList()
-                ),
+                placement: placement,
                 frontmost: NSWorkspaceFrontmostApp(),
                 usage: { [weak self] in self?.main?.model.usage = $0 }
             )
@@ -292,6 +289,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         usage: UsageStore,
         prompts: PromptFiles,
         store: MeetingStore,
+        placement: DisplayPlacement,
         export: @escaping @MainActor (MeetingExporter.Kind, UUID) -> Void
     ) -> MeetingCoordinator {
         let summarizer = KeyedAnthropicClient(secrets: secrets)
@@ -338,6 +336,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             export: export,
             copy: { RichPasteboardWriting.write(markdown: $0.markdown, html: $0.html, rtf: $0.rtf) },
             changed: { [weak self] in self?.meetingChanged(usage: usage) },
+            silencePrompt: SilencePromptController(screen: {
+                placement.screenFrame(forPID: NSWorkspaceFrontmostApp().frontmost()?.pid)
+            }),
             testCalls: TestCallDependencies(
                 makeConductor: { scenario, casting, overlap, player, sensor in
                     var random = SystemRandomNumberGenerator()
