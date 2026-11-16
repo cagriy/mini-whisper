@@ -48,6 +48,15 @@ public enum TestScoreState: Sendable, Equatable {
     case unreadable
 }
 
+/// The prompt asking whether a meeting with no speech keeps recording.
+public enum SilencePrompt: Sendable, Equatable {
+    /// Open, re-sent every tick with the seconds left.
+    case open(minutes: Int, secondsLeft: Int)
+    case closed
+    /// The countdown ran out; the coordinator stops the meeting.
+    case expired
+}
+
 /// Everything the meeting window renders, in order (design §5.3).
 public enum MeetingEvent: Sendable, Equatable {
     case state(MeetingState)
