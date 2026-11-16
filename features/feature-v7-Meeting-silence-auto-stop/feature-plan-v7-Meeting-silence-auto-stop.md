@@ -608,6 +608,20 @@ Once Stage 9 has landed:
 
 None — plan matches design v7 exactly.
 
+## Deviations from plan
+
+Recorded during implementation.
+
+1. **Stage 4, panel sizing.** `SilencePromptPanel` is built at its hosting view's `fittingSize`, as
+   `OverlayPanel` is built at its size. Built at `.zero`, the hosting view resized the window lazily on first
+   measurement, an extra `setFrame` before the controller's own. `cardSize` still lays out before measuring.
+2. **Stage 4, `hide()`** calls `panel?.orderOut(nil)` with no `isShown` guard; harmless when hidden or not yet made.
+3. **Stage 4, countdown colour.** The countdown is `DS.Colors.text` inside the `color.text.secondary` body, as the
+   accepted mockup draws it (`.count { color: var(--ink) }`).
+4. **Stage 4, card spacing** follows the mockup: `DS.Space.s5` between rows, `s3` above the buttons, `s4` in the
+   eyebrow; the meter is `s2` (4 pt) high. Padding comes from `.dialogCard()` (22 + hairline), not the mockup's
+   20/22/18.
+
 ## Execution schedule
 
 Batches run in order; a batch starts only when the previous one has fully landed. Stages inside a *parallel* batch are independent and may be built concurrently; a *serial* batch holds one stage. `/feature-implement` follows this table and demotes any batch it cannot verify to serial.
