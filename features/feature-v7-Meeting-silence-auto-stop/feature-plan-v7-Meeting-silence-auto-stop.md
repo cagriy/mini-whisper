@@ -621,6 +621,14 @@ Recorded during implementation.
 4. **Stage 4, card spacing** follows the mockup: `DS.Space.s5` between rows, `s3` above the buttons, `s4` in the
    eyebrow; the meter is `s2` (4 pt) high. Padding comes from `.dialogCard()` (22 + hairline), not the mockup's
    20/22/18.
+5. **Stage 5, awaiting the reopened session.** The supervisor reopens a lost session from a timer task off the
+   main actor, so `reconnectingClosesAndConnectedCountsFromThere` could reach `sink(2)` before session 2 exists.
+   `FakeMeetingEngineProvider.waitUntilStarted(_:)` (with an `onStart` hook on `FakeStreamingEngine`, both in
+   `MWTestSupport`) lets the test await it instead of polling.
+6. **Stage 5, settling each tick.** The silence check awaits the config load after `.elapsed`, so the suite's
+   private `settle(at:)` follows `tick(to:)` with `clock.waitUntilSleeping()`; anything the test does next lands
+   after that tick's check. The two stop tests `#require` `.stopped` after `stopAfterSilence()` so a missing stop
+   fails at once instead of at the time limit.
 
 ## Execution schedule
 
