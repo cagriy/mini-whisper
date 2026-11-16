@@ -966,7 +966,7 @@
         </span>
         <span class="step-label">Plan</span>
       </li>
-      <li class="step" data-stage="implement" data-state="pending">
+      <li class="step" data-stage="implement" data-state="complete">
         <span class="step-indicator" aria-hidden="true">
           <span class="step-check">&#10003;</span>
           <span class="step-number">4</span>
@@ -1322,16 +1322,70 @@
 
     <section class="panel" role="tabpanel"
              id="panel-implementation" aria-labelledby="tab-implementation" hidden>
-      <p class="section-timestamp">Awaiting /feature-implement</p>
+      <p class="section-timestamp">Updated 2026-11-16 17:35 UTC</p>
       <!-- usage:IMPLEMENTATION_USAGE_CHIP --><!-- /usage:IMPLEMENTATION_USAGE_CHIP -->
       <article class="panel-section">
         <h2 class="section-label">Highlights</h2>
-        <div class="bullets"><p class="empty">Not yet filled — pending /feature-implement.</p></div>
+        <div class="bullets"><ul>
+          <li>Stages completed: 9/9</li>
+          <li>Tests: core 1049 in 17 runs, app 462 in 46 suites, all green</li>
+          <li>Design coverage: 11/11</li>
+          <li>Pre-existing failures excluded: None</li>
+          <li>Dead-code orphans removed: None (periphery 3.8.0 found none in v7 code)</li>
+          <li>Deviations from plan: 7 (Stages 4, 5, 8)</li>
+          <li>Parallelism: Stages 1–4 built concurrently in worktrees, landed with no reconciliation</li>
+          <li>Pending human check: Stage 8 manual acceptance, light and dark</li>
+          <li>Final stage commit: caa3a99</li>
+        </ul></div>
         <!-- usage:IMPLEMENTATION_USAGE --><!-- /usage:IMPLEMENTATION_USAGE -->
       </article>
       <article class="panel-section">
         <h2 class="section-label">Detail</h2>
-        <div class="prose"><p class="empty">Not yet filled — pending /feature-implement.</p></div>
+        <div class="prose">
+          <h3>Stages completed</h3>
+          <ul>
+            <li>Stage 1 — The <code>meeting_silence_stop_seconds</code> key — acd7b48 (parallel, batch 1)</li>
+            <li>Stage 2 — <code>Meeting.silenceStopSeconds</code> — 066de7e (parallel, batch 1)</li>
+            <li>Stage 3 — <code>SilenceWatch</code> and <code>SilencePrompt</code> — 6f62359 (parallel, batch 1)</li>
+            <li>Stage 4 — The floating prompt — d71a1f5 (parallel, batch 1)</li>
+            <li>Stage 5 — The controller feeds the watch and emits <code>.silence</code> — 48ef203</li>
+            <li>Stage 6 — The "Stop after silence" setting — df78761</li>
+            <li>Stage 7 — The Flag chip — 43963ae</li>
+            <li>Stage 8 — The coordinator routes <code>.silence</code> to the prompt and the stop — 4ca636a</li>
+            <li>Stage 9 — Documentation — caa3a99</li>
+          </ul>
+          <h3>Tests &amp; lint</h3>
+          <p>Baseline at ae3fca9: core 1006 tests in 17 runs, app 438 tests in 44 suites, all green. Final: core 1049 tests in 17 runs, app 462 tests in 46 suites, all green; app build green. No lint, format or type-check tool is configured. Dead code: periphery 3.8.0 against the run's baseline; none in v7 code.</p>
+          <h3>Design coverage</h3>
+          <table>
+            <thead><tr><th>Req</th><th>Verified by</th></tr></thead>
+            <tbody>
+              <tr><td>R1</td><td>ConfigCodingTests (silenceStop*), ConfigStoreTests.silenceStopLoadsAChoiceAndReadsAnythingElseAsSixty</td></tr>
+              <tr><td>R2</td><td>SilenceWatchTests (partials, segments); MeetingControllerSilenceTests.emptyPartialsDoNotDelayThePrompt, aSegmentDelaysThePrompt</td></tr>
+              <tr><td>R3</td><td>SilenceWatchTests (grace, threshold); MeetingControllerSilenceTests.promptOpensAtThreeMinutesWithoutSpeech, aTestCallNeverPrompts, offNeverPrompts</td></tr>
+              <tr><td>R4</td><td>SilenceWatchTests.countdownRunsSixtyToOneThenExpiresOnce; MeetingControllerSilenceTests.stopAfterSilenceAfterExpiryStopsSummarisesAndRecordsTheThreshold; MeetingCoordinatorTests.expiryHidesAndStopsOnceThroughTheController</td></tr>
+              <tr><td>R5</td><td>SilenceWatchTests (keep, speech, suspend, Off); MeetingControllerSilenceTests (pause, sleep, reconnecting, any stop); MeetingCoordinatorTests (closed, owner state, prompt's Stop and Keep)</td></tr>
+              <tr><td>R6</td><td>MeetingControllerSilenceTests.pauseClosesAndResumeCountsFromResume, reconnectingClosesAndConnectedCountsFromThere</td></tr>
+              <tr><td>R7</td><td>SilenceWatchTests.anotherThresholdKeepsTheOpenCountdownAndMinutes; MeetingControllerSilenceTests.theExpiredPromptsThresholdIsRecorded, offDuringTheCountdownClosesOnTheNextTick</td></tr>
+              <tr><td>R8</td><td>SilencePromptControllerTests (panel attributes, placement, show/update/hide); look and focus pending the manual check</td></tr>
+              <tr><td>R9</td><td>SettingsModelTests.silenceStopWritesConfig, silenceStopDescriptionFollowsTheValue; row look pending the manual check</td></tr>
+              <tr><td>R10</td><td>MeetingModelTests (silenceStop*), MeetingMarkdownTests.silenceStopLeavesTheMarkdownUnchanged, MeetingWindowModelTests.silenceStopChipFollowsTheDuration, noSilenceStopChipWithoutTheField</td></tr>
+              <tr><td>R11</td><td>All durations on VirtualClock or as arguments; no real sleeps in the new suites</td></tr>
+            </tbody>
+          </table>
+          <h3>Deviations from plan</h3>
+          <ul>
+            <li>Stage 4: panel built at its hosting view's size; <code>hide()</code> unguarded; countdown in <code>color.text</code> and card spacing per the mockup.</li>
+            <li>Stage 5: <code>FakeMeetingEngineProvider.waitUntilStarted</code> for the reconnect test; the suite's <code>settle(at:)</code> after each tick.</li>
+            <li>Stage 8: one <code>DisplayPlacement</code> shared by <code>UIEventRouter</code> and <code>makeMeetings</code>.</li>
+          </ul>
+          <h3>Notes</h3>
+          <ul>
+            <li>Pending human check (Stage 8 step 5): the prompt over a full-screen app, focus kept, first click acts, the stop after one more minute, the Flag chip, the Settings row; light and dark.</li>
+            <li><code>/design-language-update</code> (record mode) still has to turn decisions 72 and 73 from pending v7 to active.</li>
+            <li><code>main</code> is ahead of <code>origin/main</code>; nothing pushed.</li>
+          </ul>
+        </div>
       </article>
     </section>
 
