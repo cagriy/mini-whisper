@@ -1323,7 +1323,7 @@
     <section class="panel" role="tabpanel"
              id="panel-implementation" aria-labelledby="tab-implementation" hidden>
       <p class="section-timestamp">Updated 2026-11-16 17:35 UTC</p>
-      <!-- usage:IMPLEMENTATION_USAGE_CHIP --><!-- /usage:IMPLEMENTATION_USAGE_CHIP -->
+      <!-- usage:IMPLEMENTATION_USAGE_CHIP --><span class="chip usage">58m 25s · 280,802 out · 152.3 tok/s · $19.79</span><!-- /usage:IMPLEMENTATION_USAGE_CHIP -->
       <article class="panel-section">
         <h2 class="section-label">Highlights</h2>
         <div class="bullets"><ul>
@@ -1337,7 +1337,35 @@
           <li>Pending human check: Stage 8 manual acceptance, light and dark</li>
           <li>Final stage commit: caa3a99</li>
         </ul></div>
-        <!-- usage:IMPLEMENTATION_USAGE --><!-- /usage:IMPLEMENTATION_USAGE -->
+        <!-- usage:IMPLEMENTATION_USAGE --><div class="usage-pair">
+<table class="usage">
+<thead><tr><th>Metric</th><th>Main</th><th>Subagents</th><th>Total</th></tr></thead>
+<tbody>
+<tr class="grp"><td colspan="4">Time</td></tr>
+<tr><td>elapsed</td><td>—</td><td>—</td><td>58m 25s</td></tr>
+<tr><td>run time</td><td>—</td><td>—</td><td>54m 14s</td></tr>
+<tr class="grp"><td colspan="4">Requests</td></tr>
+<tr><td>model</td><td>49</td><td>208</td><td>257</td></tr>
+<tr><td>web_search</td><td>0</td><td>0</td><td>0</td></tr>
+<tr><td>web_fetch</td><td>0</td><td>0</td><td>0</td></tr>
+<tr class="grp"><td colspan="4">Throughput</td></tr>
+<tr class="tp"><td>output tok/s</td><td>—</td><td>—</td><td>152.3</td></tr>
+</tbody>
+</table>
+<table class="usage">
+<thead><tr><th>Metric</th><th>Main</th><th>Subagents</th><th>Total</th></tr></thead>
+<tbody>
+<tr class="grp"><td colspan="4">Tokens</td></tr>
+<tr><td>input_tokens</td><td>114</td><td>418</td><td>532</td></tr>
+<tr><td>output_tokens</td><td>47,546</td><td>233,256</td><td>280,802</td></tr>
+<tr class="sub"><td>thinking_tokens</td><td>9,430</td><td>116,537</td><td>125,967</td></tr>
+<tr><td>cache_write</td><td>163,747</td><td>937,169</td><td>1,100,916</td></tr>
+<tr class="sub"><td>ephemeral_1h</td><td>163,747</td><td>0</td><td>163,747</td></tr>
+<tr class="sub"><td>ephemeral_5m</td><td>0</td><td>937,169</td><td>937,169</td></tr>
+<tr><td>cache_read</td><td>10,954,404</td><td>29,930,297</td><td>40,884,701</td></tr>
+</tbody>
+</table>
+</div><!-- /usage:IMPLEMENTATION_USAGE -->
       </article>
       <article class="panel-section">
         <h2 class="section-label">Detail</h2>
@@ -1391,7 +1419,30 @@
 
     <section class="panel" role="tabpanel"
              id="panel-usage" aria-labelledby="tab-usage" hidden>
-      <!-- usage:CYCLE_USAGE --><!-- /usage:CYCLE_USAGE -->
+      <!-- usage:CYCLE_USAGE --><p class="section-timestamp">2 of 4 stages · 2 runs</p>
+<span class="chip usage">$17.52 · 46m 58s · 231,369 out</span>
+<article class="panel-section">
+<h2 class="section-label">Cycle usage</h2>
+<div class="usage-scroll"><table class="usage">
+<thead><tr><th>Metric</th><th>Storm</th><th>Design</th><th>Plan</th><th>Implement</th><th>Total</th><th>Cost</th></tr></thead>
+<tbody>
+<tr class="grp"><td colspan="7">Tokens</td></tr>
+<tr><td>input</td><td>—</td><td>196</td><td>230</td><td>—</td><td>426</td><td>$0.00</td></tr>
+<tr><td>cache write 1h</td><td>—</td><td>400,706</td><td>25,821</td><td>—</td><td>426,527</td><td>$3.41</td></tr>
+<tr><td>cache write 5m</td><td>—</td><td>0</td><td>368,697</td><td>—</td><td>368,697</td><td>$1.84</td></tr>
+<tr><td>cache read</td><td>—</td><td>18,782,487</td><td>19,407,512</td><td>—</td><td>38,189,999</td><td>$7.64</td></tr>
+<tr><td>output</td><td>—</td><td>95,513</td><td>135,856</td><td>—</td><td>231,369</td><td>$4.63</td></tr>
+<tr class="sub"><td>thinking</td><td>—</td><td>43,829</td><td>60,431</td><td>—</td><td>104,260</td><td>—</td></tr>
+<tr><td>web searches</td><td>—</td><td>0</td><td>0</td><td>—</td><td>0</td><td>$0.00</td></tr>
+<tr class="tp"><td>cost</td><td>—</td><td>$8.87</td><td>$8.65</td><td>—</td><td></td><td>$17.52</td></tr>
+<tr class="grp"><td colspan="7">Run</td></tr>
+<tr><td>model</td><td>—</td><td>opus-5-5</td><td>opus-5-5</td><td>—</td><td></td><td></td></tr>
+<tr><td>runs</td><td>—</td><td>1</td><td>1</td><td>—</td><td>2</td><td></td></tr>
+<tr><td>elapsed</td><td>—</td><td>25m 06s</td><td>21m 52s</td><td>—</td><td>46m 58s</td><td></td></tr>
+</tbody>
+</table></div>
+<p class="usage-note">API list prices as of 2026-11-10, not subscription billing</p>
+</article><!-- /usage:CYCLE_USAGE -->
     </section>
 
     <section class="panel" role="tabpanel"
