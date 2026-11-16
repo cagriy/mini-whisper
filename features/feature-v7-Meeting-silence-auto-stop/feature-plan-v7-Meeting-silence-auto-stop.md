@@ -629,6 +629,9 @@ Recorded during implementation.
    private `settle(at:)` follows `tick(to:)` with `clock.waitUntilSleeping()`; anything the test does next lands
    after that tick's check. The two stop tests `#require` `.stopped` after `stopAfterSilence()` so a missing stop
    fails at once instead of at the time limit.
+7. **Stage 8, one `DisplayPlacement`.** `AppDelegate` builds the placement once and hands it to both
+   `UIEventRouter` and `makeMeetings` (a new `placement:` parameter), instead of a second identical value inside
+   `makeMeetings`.
 
 ## Execution schedule
 
