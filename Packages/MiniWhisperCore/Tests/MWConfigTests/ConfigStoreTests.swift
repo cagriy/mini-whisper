@@ -100,6 +100,18 @@ private final class FakeFileWatcher: FileWatcher, @unchecked Sendable {
         #expect(usage["output_tokens"] as? Int == 9)
     }
 
+    @Test func silenceStopLoadsAChoiceAndReadsAnythingElseAsSixty() async throws {
+        for (stored, loaded) in [(300, 300), (45, 60)] {
+            let directory = try TempDirectory()
+            try #"{"meeting_silence_stop_seconds": \#(stored)}"#
+                .write(to: directory.file("config.json"), atomically: true, encoding: .utf8)
+
+            let config = await makeStore(directory.url).load()
+
+            #expect(config.meetingSilenceStopSeconds == loaded, "\(stored)")
+        }
+    }
+
     @Test func dropsStaleDailyUsage() async throws {
         let directory = try TempDirectory()
         let json = """

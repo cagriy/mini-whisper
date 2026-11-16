@@ -128,6 +128,9 @@ public struct Config: Equatable, Sendable {
     /// Absent means the macOS account's full name, resolved at use.
     public var meetingUserName: String?
     public var meetingSystemAudioExplained = false
+    /// Seconds without speech before a recording meeting asks whether to stop; 0 is Off.
+    public var meetingSilenceStopSeconds = 60
+    public static let meetingSilenceStopChoices = [0, 60, 120, 300]
     public var pricingOverrides: [String: Double] = [:]
     public var usage: [String: DayUsage] = [:]
     public var historyRetentionDays = 7
@@ -148,6 +151,9 @@ public struct Config: Equatable, Sendable {
         validated.historyRetentionDays = historyRetentionDays.clamped(to: 0...30)
         validated.idleStopSeconds = idleStopSeconds.clamped(to: 10...600)
         validated.toggleMaxSeconds = toggleMaxSeconds.clamped(to: 60...1800)
+        if !Self.meetingSilenceStopChoices.contains(meetingSilenceStopSeconds) {
+            validated.meetingSilenceStopSeconds = 60
+        }
         var claimed: Set<String> = []
         validated.profiles = profiles.map { profile in
             var profile = profile
@@ -208,13 +214,14 @@ extension Config: Codable {
         static let meetingKeepAudio = "meeting_keep_audio"
         static let meetingUserName = "meeting_user_name"
         static let meetingSystemAudioExplained = "meeting_system_audio_explained"
+        static let meetingSilenceStopSeconds = "meeting_silence_stop_seconds"
 
         static let all: Set<String> = [
             hotkey, submitHotkey, cleanupEnabled, soundVolume, streamingEnabled, streamingEngine,
             pricingOverrides, usage, historyRetentionDays, idleStopSeconds, toggleMaxSeconds,
             speechModelPrompted, vocabulary, profiles, corrections, correctionTally,
             overlayStyle, meetingHotkey, meetingEngine, meetingKeepAudio, meetingUserName,
-            meetingSystemAudioExplained, theme, mainWindowFrame,
+            meetingSystemAudioExplained, meetingSilenceStopSeconds, theme, mainWindowFrame,
         ]
     }
 
@@ -268,6 +275,8 @@ extension Config: Codable {
         // `try?`: a throw here would have `ConfigStore` back the whole file up as corrupt
         // over a value that only places a window.
         mainWindowFrame = try? value(Key.mainWindowFrame)
+        // `try?` for the same reason: a wrong-typed threshold reads as the default.
+        if let value: Int = try? value(Key.meetingSilenceStopSeconds) { meetingSilenceStopSeconds = value }
 
         for key in container.allKeys where !Key.all.contains(key.stringValue) {
             extra[key.stringValue] = try container.decode(JSONValue.self, forKey: key)
@@ -313,6 +322,7 @@ extension Config: Codable {
         try container.encode(
             meetingSystemAudioExplained, forKey: AnyCodingKey(Key.meetingSystemAudioExplained)
         )
+        try container.encode(meetingSilenceStopSeconds, forKey: AnyCodingKey(Key.meetingSilenceStopSeconds))
 
         for (key, value) in extra where !Key.all.contains(key) {
             try container.encode(value, forKey: AnyCodingKey(key))

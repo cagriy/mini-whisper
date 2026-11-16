@@ -173,6 +173,38 @@ import Testing
         #expect(object["meeting_system_audio_explained"] as? Bool == false)
     }
 
+    @Test func silenceStopAbsentTakesSixty() throws {
+        #expect(try decode("{}").meetingSilenceStopSeconds == 60)
+    }
+
+    @Test(arguments: [0, 60, 120, 300])
+    func silenceStopRoundTripsEachChoice(seconds: Int) throws {
+        let config = try decode(#"{"meeting_silence_stop_seconds": \#(seconds)}"#)
+
+        #expect(config.meetingSilenceStopSeconds == seconds)
+        #expect(try saved(config)["meeting_silence_stop_seconds"] as? Int == seconds)
+        #expect(Config.meetingSilenceStopChoices == [0, 60, 120, 300])
+    }
+
+    @Test func silenceStopOutsideTheChoicesValidatesToSixty() throws {
+        for seconds in [45, -1, 61, 600] {
+            var config = Config()
+            config.meetingSilenceStopSeconds = seconds
+
+            #expect(config.validated().meetingSilenceStopSeconds == 60, "\(seconds)")
+        }
+
+        #expect(try decode(#"{"meeting_silence_stop_seconds": "5"}"#).meetingSilenceStopSeconds == 60)
+    }
+
+    @Test func silenceStopIsWrittenForANewConfig() throws {
+        #expect(try saved(Config())["meeting_silence_stop_seconds"] as? Int == 60)
+    }
+
+    @Test func silenceStopNeverLandsInExtra() throws {
+        #expect(try decode(#"{"meeting_silence_stop_seconds": 120}"#).extra.isEmpty)
+    }
+
     @Test func overlayStyleAbsentIsSoftMeter() throws {
         #expect(try decode("{}").overlayStyle == .softMeter)
     }
