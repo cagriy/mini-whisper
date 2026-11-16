@@ -676,17 +676,45 @@ import Testing
 
         model.apply(.state(.stopped))
         model.show(Self.meeting(ended: true))
-        #expect(model.chips == ["Mon 9 Nov · 14:30–15:19", "48 min", "Remote call", "Alex, Marta, Priya", "$0.37 total"])
+        #expect(model.chips.map(\.text) == [
+            "Mon 9 Nov · 14:30–15:19", "48 min", "Remote call", "Alex, Marta, Priya", "$0.37 total",
+        ])
 
         model.apply(.speakers([
             Self.alex, SpeakerLabel(id: 1, name: "Marta"), SpeakerLabel(id: 2, name: "Priya"),
             SpeakerLabel(id: 3, name: "Speaker 3"), SpeakerLabel(id: 4, name: "Speaker 4"),
         ]))
         model.apply(.summary(.ready(Self.summary)))
-        #expect(model.chips == ["Mon 9 Nov · 14:30–15:19", "48 min", "Remote call", "Alex, Marta, Priya +2", "$0.40 total"])
+        #expect(model.chips.map(\.text) == [
+            "Mon 9 Nov · 14:30–15:19", "48 min", "Remote call", "Alex, Marta, Priya +2", "$0.40 total",
+        ])
 
         model.apply(.speakers([]))
-        #expect(model.chips == ["Mon 9 Nov · 14:30–15:19", "48 min", "Remote call", "$0.40 total"])
+        #expect(model.chips.map(\.text) == ["Mon 9 Nov · 14:30–15:19", "48 min", "Remote call", "$0.40 total"])
+    }
+
+    @Test func silenceStopChipFollowsTheDuration() {
+        for (seconds, text) in [(60, "Stopped after 1 min without speech"), (300, "Stopped after 5 min without speech")] {
+            let model = model()
+            model.apply(.state(.stopped))
+            var meeting = Self.meeting(ended: true)
+            meeting.silenceStopSeconds = seconds
+            model.show(meeting)
+
+            #expect(model.chips[1].text == "48 min")
+            #expect(model.chips[2] == HeaderChip(text: text, kind: .flag, symbol: "pause.circle"))
+        }
+    }
+
+    @Test func noSilenceStopChipWithoutTheField() {
+        let model = model()
+        model.apply(.speakers([Self.alex, SpeakerLabel(id: 1, name: "Marta"), SpeakerLabel(id: 2, name: "Priya")]))
+        model.apply(.state(.stopped))
+        model.show(Self.meeting(ended: true))
+
+        #expect(model.chips == [
+            "Mon 9 Nov · 14:30–15:19", "48 min", "Remote call", "Alex, Marta, Priya", "$0.37 total",
+        ].map { HeaderChip(text: $0, kind: .plain, symbol: nil) })
     }
 
     @Test func pillTextIsMinutesSecondsUnderAnHourThenHours() {

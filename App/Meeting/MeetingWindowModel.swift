@@ -396,21 +396,26 @@ final class MeetingWindowModel {
         notes.isEmpty ? "Notes" : "Notes · \(notes.count)"
     }
 
-    /// The finished page's chips: "Mon 9 Nov · 14:30–15:19", "48 min", the mode, up to three
-    /// speakers then "+N", and the total cost.
-    var chips: [String] {
+    /// The finished page's chips: "Mon 9 Nov · 14:30–15:19", "48 min", the Flag chip of a meeting
+    /// that stopped after silence, the mode, up to three speakers then "+N", and the total cost.
+    var chips: [HeaderChip] {
         guard state == .stopped, let meeting else { return [] }
         let start = formatted(meeting.startedAt, "EEE d MMM · HH:mm")
         var chips = [
-            endedAt.map { "\(start)–\(timeOfDay($0))" } ?? start,
-            MeetingsListModel.duration(elapsed),
-            Self.title(of: mode),
+            HeaderChip(text: endedAt.map { "\(start)–\(timeOfDay($0))" } ?? start),
+            HeaderChip(text: MeetingsListModel.duration(elapsed)),
         ]
+        if let seconds = meeting.silenceStopSeconds {
+            chips.append(HeaderChip(
+                text: "Stopped after \(seconds / 60) min without speech", kind: .flag, symbol: "pause.circle"
+            ))
+        }
+        chips.append(HeaderChip(text: Self.title(of: mode)))
         if !speakers.isEmpty {
             let names = speakers.prefix(3).map(\.name).joined(separator: ", ")
-            chips.append(speakers.count > 3 ? "\(names) +\(speakers.count - 3)" : names)
+            chips.append(HeaderChip(text: speakers.count > 3 ? "\(names) +\(speakers.count - 3)" : names))
         }
-        chips.append("\(costText) total")
+        chips.append(HeaderChip(text: "\(costText) total"))
         return chips
     }
 
@@ -832,4 +837,12 @@ final class MeetingWindowModel {
         place(.marker(marker))
         markers.insert(marker, at: markers.firstIndex { $0.start > marker.start } ?? markers.count)
     }
+}
+
+/// One chip under a finished meeting's title.
+struct HeaderChip: Equatable {
+    var text: String
+    var kind: Chip.Kind = .plain
+    /// An SF Symbol drawn before the text.
+    var symbol: String?
 }

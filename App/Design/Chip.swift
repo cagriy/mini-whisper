@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// A small outlined label, with a dot when it reports a state, or a remove mark when it is one of a
-/// list the user edits.
+/// A small outlined label, with a dot when it reports a state, a leading symbol, or a remove mark
+/// when it is one of a list the user edits.
 struct Chip: View {
     enum Kind {
         case plain
@@ -13,21 +13,25 @@ struct Chip: View {
         case warning
         /// The filled TEST chip of a test call.
         case test
+        /// Filled and in the primary text colour: how a meeting ended.
+        case flag
     }
 
     private let text: String
     private let kind: Kind
+    private let symbol: String?
     private let remove: (() -> Void)?
 
-    init(_ text: String, _ kind: Kind = .plain, remove: (() -> Void)? = nil) {
+    init(_ text: String, _ kind: Kind = .plain, symbol: String? = nil, remove: (() -> Void)? = nil) {
         self.text = text
         self.kind = kind
+        self.symbol = symbol
         self.remove = remove
     }
 
     private var dot: Color? {
         switch kind {
-        case .plain, .test: nil
+        case .plain, .test, .flag: nil
         case .active: DS.Colors.ok
         case .inactive: DS.Colors.textTertiary
         case .warning: DS.Colors.warn
@@ -39,6 +43,15 @@ struct Chip: View {
         case .plain, .active, .inactive: DS.Colors.textSecondary
         case .warning: DS.Colors.warn
         case .test: DS.Colors.testText
+        case .flag: DS.Colors.text
+        }
+    }
+
+    private var fill: Color? {
+        switch kind {
+        case .plain, .active, .inactive, .warning: nil
+        case .test: DS.Colors.testFill
+        case .flag: DS.Colors.sidebar
         }
     }
 
@@ -46,6 +59,11 @@ struct Chip: View {
         HStack(spacing: DS.Space.s3) {
             if let dot {
                 Circle().fill(dot).frame(width: 6, height: 6)
+            }
+            if let symbol {
+                Image(systemName: symbol)
+                    .foregroundStyle(DS.Colors.textSecondary)
+                    .accessibilityHidden(true)
             }
             Text(text)
             if let remove {
@@ -60,11 +78,8 @@ struct Chip: View {
         .padding(.horizontal, 9 + DS.Size.hairline)
         .frame(height: 22)
         .background {
-            if kind == .test {
-                Capsule().fill(DS.Colors.testFill)
-            } else {
-                Capsule().strokeBorder(DS.Colors.line)
-            }
+            if let fill { Capsule().fill(fill) }
+            if kind != .test { Capsule().strokeBorder(DS.Colors.line) }
         }
         .fixedSize()
     }

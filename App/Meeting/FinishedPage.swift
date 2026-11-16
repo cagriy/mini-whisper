@@ -66,7 +66,9 @@ struct FinishedPage: View {
                 if model.isTest { TestTag() }
             }
             FlowLayout {
-                ForEach(Array(model.chips.enumerated()), id: \.offset) { _, chip in Chip(chip) }
+                ForEach(Array(model.chips.enumerated()), id: \.offset) { _, chip in
+                    Chip(chip.text, chip.kind, symbol: chip.symbol)
+                }
             }
             SegmentedPill(selection: $model.selectedTab, options: [
                 (.summary, "Summary"), (.transcript, "Transcript"), (.notes, model.notesTabTitle),
