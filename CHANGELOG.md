@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-11-16
+
 ### Added
 
 - Meetings stop after silence: with no speech for a minute (never in the first 3), a prompt
