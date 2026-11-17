@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.7.2] - 2026-11-17
+
+### Fixed
+
+- Renaming a meeting, while it records or after, could crash the app.
+
 ## [0.7.1] - 2026-11-16
 
 ### Added
