@@ -54,20 +54,19 @@ struct TitleField: View {
     var lineLimit: Int? = 1
     let retitle: @MainActor (String) -> Void
 
-    /// Non-nil while editing.
-    @State private var draft: String?
+    @State private var draft = TitleDraft()
     @FocusState private var focused: Bool
 
     var body: some View {
-        if let text = Binding($draft) {
-            TextField("Title", text: text)
+        if draft.isEditing {
+            TextField("Title", text: $draft.text)
                 .textFieldStyle(.plain)
                 .textStyle(style)
                 .foregroundStyle(DS.Colors.text)
                 .focused($focused)
                 .onAppear { focused = true }
                 .onSubmit(commit)
-                .onExitCommand { draft = nil }
+                .onExitCommand { draft.cancel() }
                 .onChange(of: focused) { if !focused { commit() } }
         } else {
             HStack(alignment: .firstTextBaseline, spacing: DS.Space.s3) {
@@ -78,7 +77,7 @@ struct TitleField: View {
                     .accessibilityAddTraits(.isHeader)
                 if !model.title.isEmpty {
                     Button {
-                        draft = model.title
+                        draft.begin(model.title)
                     } label: {
                         Image(systemName: "pencil")
                     }
@@ -92,7 +91,29 @@ struct TitleField: View {
     }
 
     private func commit() {
-        if let draft { retitle(draft) }
-        draft = nil
+        if let title = draft.commit() { retitle(title) }
+    }
+}
+
+/// A title being renamed in place. `text` is not optional: a binding that force-unwraps an
+/// optional traps when the field reads it after the edit ends, before SwiftUI removes the field.
+struct TitleDraft {
+    private(set) var isEditing = false
+    var text = ""
+
+    mutating func begin(_ title: String) {
+        text = title
+        isEditing = true
+    }
+
+    /// The edited title, once; the focus loss that follows Return finds nothing to commit.
+    mutating func commit() -> String? {
+        guard isEditing else { return nil }
+        isEditing = false
+        return text
+    }
+
+    mutating func cancel() {
+        isEditing = false
     }
 }
