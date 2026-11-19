@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.7.3] - 2026-11-19
+
 ### Added
 
 - A meeting is named after its summary's subject: `Meeting · 19 Nov 2026 10:01` becomes
