@@ -5,6 +5,16 @@
     <link>https://raw.githubusercontent.com/cagriy/mini-whisper/main/appcast.xml</link>
     <language>en</language>
     <item>
+      <title>Mini Whisper 0.7.3</title>
+      <sparkle:version>0.7.3</sparkle:version>
+      <sparkle:shortVersionString>0.7.3</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <description>&lt;h3&gt;Added&lt;/h3&gt;
+&lt;ul&gt;&lt;li&gt;A meeting is named after its summary's subject: &lt;code&gt;Meeting · 19 Nov 2026 10:01&lt;/code&gt; becomes &lt;code&gt;API Platform Options · 19 Nov 2026 10:01&lt;/code&gt;. Regenerate names it again. A title you gave is kept, as is a test call's.&lt;/li&gt;&lt;/ul&gt;</description>
+      <pubDate>Thu, 19 Nov 2026 10:54:10 +0000</pubDate>
+      <enclosure url="https://github.com/cagriy/mini-whisper/releases/download/v0.7.3/MiniWhisper-0.7.3-arm64.dmg" sparkle:edSignature="lrIbPFY1xdyGbVOEOIDWVrTnQktAEvr9mJ7JcYT54LirvQX2PWPAs3GI3wSsY8W+/tBVapyrhTsdl9zqOvShCQ==" length="8454800" type="application/octet-stream" />
+    </item>
+    <item>
       <title>Mini Whisper 0.7.2</title>
       <sparkle:version>0.7.2</sparkle:version>
       <sparkle:shortVersionString>0.7.2</sparkle:shortVersionString>
