@@ -6,6 +6,7 @@ import MWConfig
 import MWMeetings
 import MWStreaming
 import MWTestSupport
+import MWTranscription
 
 /// Rename, notes, speaker revisions, edits after Stop, open, retitle and summarise later
 /// (design §5.6, §5.7).
@@ -218,6 +219,83 @@ import MWTestSupport
 
         #expect(harness.summarizer.calls.isEmpty)
         #expect(try harness.stored() == stored)
+    }
+
+    // MARK: - Title from the summary
+
+    private static let titled = SummaryResult(text: "# API Platform Options\n\n## Rollout\n\n- Ships on Friday.")
+
+    private static func isReady(_ event: MeetingEvent) -> Bool {
+        if case .summary(.ready) = event { true } else { false }
+    }
+
+    @Test func stopNamesTheMeetingAfterTheSummarysSubject() async throws {
+        let harness = try await MeetingHarness(secrets: Self.withAnthropic, summarizer: FakeSummarizer(result: Self.titled))
+        try await harness.start(.remote)
+        #expect(try harness.stored().meeting.titleByUser == false)
+        try await harness.deliverSegment()
+
+        await harness.controller.stop()
+
+        let title = "API Platform Options · 9 Nov 2026 14:30"
+        let events = await harness.waitFor(Self.isReady)
+        #expect(events.contains(.title(title)))
+        let stored = try harness.stored().meeting
+        #expect(stored.title == title)
+        #expect(stored.summary?.text == "## Rollout\n\n- Ships on Friday.")
+        #expect(stored.titleByUser == false)
+        #expect(stored == harness.controller.meeting)
+        #expect(try harness.store.index().map(\.title) == [title])
+    }
+
+    @Test func aTitleTheUserGaveSurvivesTheSummary() async throws {
+        let harness = try await MeetingHarness(secrets: Self.withAnthropic, summarizer: FakeSummarizer(result: Self.titled))
+        try await harness.start(.remote)
+        try await harness.deliverSegment()
+        await harness.controller.retitle("Northwind sync")
+
+        await harness.controller.stop()
+
+        let events = await harness.waitFor(Self.isReady)
+        #expect(!events.contains { if case .title = $0 { true } else { false } })
+        let stored = try harness.stored().meeting
+        #expect(stored.title == "Northwind sync")
+        #expect(stored.titleByUser == true)
+        #expect(stored.summary?.text == "## Rollout\n\n- Ships on Friday.")
+    }
+
+    @Test func regenerateNamesAnOlderMeetingStillOnItsDefaultTitle() async throws {
+        let harness = try await MeetingHarness(secrets: Self.withAnthropic, summarizer: FakeSummarizer(queue: [
+            Self.titled, SummaryResult(text: "# Pricing\n\n## Seats\n\n- The cap is 25."),
+        ]))
+        var older = MeetingFixtures.make(segments: MeetingFixtures.northwind().segments, summary: MeetingFixtures.topicSummary())
+        older.meeting.titleByUser = nil
+        try await harness.controller.open(harness.seed(older))
+        await harness.waitFor(.state(.stopped))
+
+        await harness.controller.regenerateSummary()
+        #expect(await harness.waitFor(Self.isReady).contains(.title("API Platform Options · 9 Nov 2026 11:00")))
+        await harness.controller.regenerateSummary()
+        #expect(await harness.waitFor(Self.isReady).contains(.title("Pricing · 9 Nov 2026 11:00")))
+
+        let stored = try harness.stored().meeting
+        #expect(stored.title == "Pricing · 9 Nov 2026 11:00")
+        #expect(stored.titleByUser == false)
+    }
+
+    @Test func regenerateLeavesAnOlderMeetingTheUserRenamed() async throws {
+        let harness = try await MeetingHarness(secrets: Self.withAnthropic, summarizer: FakeSummarizer(result: Self.titled))
+        try await harness.controller.open(harness.seed(MeetingFixtures.northwind()))
+        await harness.waitFor(.state(.stopped))
+
+        await harness.controller.regenerateSummary()
+
+        let events = await harness.waitFor(Self.isReady)
+        #expect(events.contains(.summary(.rewriting(MeetingFixtures.northwind().meeting.summary!))))
+        #expect(!events.contains { if case .title = $0 { true } else { false } })
+        let stored = try harness.stored().meeting
+        #expect(stored.title == "Northwind rollout sync")
+        #expect(stored.summary?.text == "## Rollout\n\n- Ships on Friday.")
     }
 }
 

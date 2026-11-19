@@ -649,6 +649,8 @@ final class MeetingWindowModel {
             self.summary = summary
             document = shownSummary.map { SummaryDocument(markdown: $0.text) }
             if case .ready = summary { summaryTruncated = isTruncated }
+        case .title(let title):
+            self.title = title
         case .systemAudio(let state):
             systemAudio = state
         case .testScore(let score):

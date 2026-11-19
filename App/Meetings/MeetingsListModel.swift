@@ -14,13 +14,7 @@ protocol MeetingLibrary: MeetingReading {
     func retitle(_ id: UUID, to title: String) async throws
 }
 
-extension MeetingStore: MeetingLibrary {
-    func retitle(_ id: UUID, to title: String) throws {
-        var meeting = try load(id).meeting
-        meeting.title = title
-        try update(meeting)
-    }
-}
+extension MeetingStore: MeetingLibrary {}
 
 /// Everything the Meetings page decides (design v6 §3 R18, §5.9; mockup
 /// `mockup-v6-overview.html`): day groups, row and count texts, and the open, export, delete

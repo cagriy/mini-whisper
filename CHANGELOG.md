@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### Added
+
+- A meeting is named after its summary's subject: `Meeting · 19 Nov 2026 10:01` becomes
+  `API Platform Options · 19 Nov 2026 10:01`. Regenerate names it again. A title you gave is
+  kept, as is a test call's.
+
 ## [0.7.2] - 2026-11-17
 
 ### Fixed

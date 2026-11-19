@@ -37,4 +37,27 @@ import MWMeetings
         #expect(MeetingTitle.default(app: nil, date: date, timeZone: utc) == "Meeting · 9 Nov 2026 14:00")
         #expect(MeetingTitle.default(app: " ", date: date, timeZone: utc) == "Meeting · 9 Nov 2026 14:00")
     }
+
+    @Test func isDefaultMatchesTheAppAndADate() {
+        #expect(MeetingTitle.isDefault("Zoom · 9 Nov 2026 14:00", app: "Zoom"))
+        #expect(MeetingTitle.isDefault("Meeting · 19 Nov 2026 10:01", app: nil))
+        #expect(MeetingTitle.isDefault("Meeting · 19 Nov 2026 10:01", app: " "))
+        #expect(!MeetingTitle.isDefault("Teams · 9 Nov 2026 14:00", app: "Zoom"))
+        #expect(!MeetingTitle.isDefault("Zoom · next week", app: "Zoom"))
+        #expect(!MeetingTitle.isDefault("Northwind sync", app: "Zoom"))
+        #expect(!MeetingTitle.isDefault("API Platform Options · 19 Nov 2026 10:01", app: nil))
+    }
+
+    @Test func namedReplacesTheNameAndKeepsTheDate() {
+        #expect(MeetingTitle.named("API Platform Options", from: "Meeting · 19 Nov 2026 10:01")
+            == "API Platform Options · 19 Nov 2026 10:01")
+        #expect(MeetingTitle.named("Pricing", from: "API Platform Options · 19 Nov 2026 10:01")
+            == "Pricing · 19 Nov 2026 10:01")
+        #expect(MeetingTitle.named("Pricing", from: "Q3 · Q4 plans · 19 Nov 2026 10:01")
+            == "Pricing · 19 Nov 2026 10:01")
+    }
+
+    @Test func namedWithoutADateIsTheSubject() {
+        #expect(MeetingTitle.named("Pricing", from: "Northwind sync") == "Pricing")
+    }
 }

@@ -101,7 +101,7 @@ public final class MeetingController {
         registry = SpeakerRegistry(userName: userName)
         let meeting = Meeting(
             title: title, startedAt: deps.now(), mode: mode, app: deps.frontAppName(), engine: engine,
-            userName: userName, speakers: registry.labels, test: test
+            userName: userName, speakers: registry.labels, test: test, titleByUser: false
         )
         let supervisor = SessionSupervisor(
             provider: deps.engines,
@@ -602,7 +602,7 @@ public final class MeetingController {
     public func retitle(_ title: String) async {
         let title = title.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !title.isEmpty, meeting != nil, meeting?.title != title else { return }
-        meeting?.title = title
+        meeting?.rename(title)
         await saveMeeting()
     }
 
@@ -677,8 +677,8 @@ public final class MeetingController {
         defer { summarising = false }
         emit(.summary(.writing))
         switch await requestSummary(of: meeting) {
-        case .ready(let summary):
-            await adopt(summary)
+        case .ready(let summary, let subject):
+            await adopt(summary, subject: subject)
             emit(.summary(.ready(summary)))
         case .failed(let reason):
             emit(.summary(.failed(reason)))
@@ -697,9 +697,9 @@ public final class MeetingController {
         log.info("summary regenerate started")
         emit(.summary(.rewriting(current)))
         switch await requestSummary(of: meeting) {
-        case .ready(let summary):
+        case .ready(let summary, let subject):
             self.meeting?.billing.replacedSummaryCostUSD += current.costUSD
-            await adopt(summary)
+            await adopt(summary, subject: subject)
             log.info("summary regenerate: ready")
             emit(.summary(.ready(summary)))
         case .failed(let reason):
@@ -710,7 +710,7 @@ public final class MeetingController {
     }
 
     private enum SummaryAttempt {
-        case ready(Summary)
+        case ready(Summary, subject: String?)
         /// Declined, or the request's error.
         case failed(String)
         case empty
@@ -732,7 +732,7 @@ public final class MeetingController {
         )
         do {
             switch try await summariser.run(LoadedMeeting(meeting: meeting, segments: segments, notes: notes)) {
-            case .ready(let summary): return .ready(summary)
+            case .ready(let summary, let subject): return .ready(summary, subject: subject)
             case .declined(let category): return .failed("Summary declined (\(category))")
             case .empty: return .empty
             }
@@ -743,9 +743,11 @@ public final class MeetingController {
         }
     }
 
-    /// Stores the summary and bills its tokens.
-    private func adopt(_ summary: Summary) async {
+    /// Stores the summary, names the meeting after its subject where the title is the app's, and
+    /// bills its tokens.
+    private func adopt(_ summary: Summary, subject: String?) async {
         meeting?.summary = summary
+        if let subject, meeting?.name(after: subject) == true, let title = meeting?.title { emit(.title(title)) }
         await saveMeeting()
         await addUsage(ProviderUsage(
             inputTokens: summary.inputTokens, outputTokens: summary.outputTokens, costUSD: summary.costUSD

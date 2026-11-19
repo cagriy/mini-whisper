@@ -493,6 +493,16 @@ import Testing
         #expect(model.title == "Northwind rollout sync")
     }
 
+    @Test func aSummarysTitleReplacesTheHeaderTitle() {
+        let model = model()
+        model.show(Self.meeting())
+
+        model.apply(.title("API Platform Options · 9 Nov 2026 14:30"))
+
+        #expect(model.title == "API Platform Options · 9 Nov 2026 14:30")
+        #expect(model.commitTitle("API Platform Options · 9 Nov 2026 14:30") == nil)
+    }
+
     @Test func stoppedHeaderShowsDurationTotalAndEndTime() {
         let model = model()
         model.show(Self.meeting())

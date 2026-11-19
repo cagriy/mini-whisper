@@ -102,4 +102,75 @@ import MWMeetings
         meeting.summary = nil
         #expect(abs(meeting.totalCostUSD - (0.3665 + 0.02)) < 1e-9)
     }
+
+    // MARK: - Title
+
+    private func meeting(title: String = "Zoom · 9 Nov 2026 11:00", byUser: Bool? = nil) -> Meeting {
+        var meeting = MeetingFixtures.make(title: title).meeting
+        meeting.titleByUser = byUser
+        return meeting
+    }
+
+    @Test func aSummaryNamesAMeetingWhoseTitleIsTheApps() {
+        var meeting = meeting(byUser: false)
+        let named = meeting.name(after: "API Platform Options")
+        #expect(named)
+        #expect(meeting.title == "API Platform Options · 9 Nov 2026 11:00")
+        #expect(meeting.titleByUser == false)
+
+        // A regenerated summary names it again.
+        let renamed = meeting.name(after: "Pricing")
+        #expect(renamed)
+        #expect(meeting.title == "Pricing · 9 Nov 2026 11:00")
+    }
+
+    @Test func aSummaryLeavesATitleTheUserGave() {
+        var meeting = meeting(byUser: false)
+        meeting.rename("Northwind sync")
+        #expect(meeting.titleByUser == true)
+
+        let named = meeting.name(after: "Pricing")
+        #expect(!named)
+        #expect(meeting.title == "Northwind sync")
+    }
+
+    @Test func aSummaryLeavesATestCallsTitle() {
+        var meeting = meeting(title: "Test call · Standup", byUser: false)
+        meeting.test = TestCallTag(scenarioID: "standup", revision: 1, scenarioTitle: "Standup")
+        let named = meeting.name(after: "Pricing")
+        #expect(!named)
+        #expect(meeting.title == "Test call · Standup")
+    }
+
+    @Test func anOlderFileFollowsItsSummaryOnlyWhileItsTitleIsTheDefault() {
+        var unnamed = meeting()
+        let named = unnamed.name(after: "Pricing")
+        #expect(named)
+        #expect(unnamed.title == "Pricing · 9 Nov 2026 11:00")
+        #expect(unnamed.titleByUser == false)
+
+        var renamed = meeting(title: "Northwind sync")
+        let changed = renamed.name(after: "Pricing")
+        #expect(!changed)
+        #expect(renamed.title == "Northwind sync")
+    }
+
+    @Test func aBlankSubjectChangesNothing() {
+        var meeting = meeting(byUser: false)
+        let named = meeting.name(after: "  ")
+        #expect(!named)
+        #expect(meeting.title == "Zoom · 9 Nov 2026 11:00")
+    }
+
+    @Test func titleByUserRoundTripsAndIsOmittedWhenUnset() throws {
+        let unset = meeting()
+        let unsetData = try MeetingCoding.encoder().encode(unset)
+        #expect(try object(unsetData)["titleByUser"] == nil)
+        #expect(try MeetingCoding.decoder().decode(Meeting.self, from: unsetData).titleByUser == nil)
+
+        let set = meeting(byUser: true)
+        let data = try MeetingCoding.encoder().encode(set)
+        #expect(try object(data)["titleByUser"] as? Bool == true)
+        #expect(try MeetingCoding.decoder().decode(Meeting.self, from: data) == set)
+    }
 }

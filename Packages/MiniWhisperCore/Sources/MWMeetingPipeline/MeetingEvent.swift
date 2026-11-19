@@ -73,6 +73,8 @@ public enum MeetingEvent: Sendable, Equatable {
     /// The live transcription estimate in dollars.
     case cost(Double)
     case summary(SummaryState)
+    /// A summary named the meeting; sent before its `.summary(.ready)`.
+    case title(String)
     case systemAudio(SystemAudioState)
     /// A test meeting's score: on open, and once scored at Stop.
     case testScore(TestScoreState)

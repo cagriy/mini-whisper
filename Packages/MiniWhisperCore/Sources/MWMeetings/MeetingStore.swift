@@ -58,6 +58,13 @@ public actor MeetingStore: MeetingReading {
         try updateIndexEntry(for: meeting)
     }
 
+    /// The user's rename of a meeting no controller holds.
+    public func retitle(_ id: UUID, to title: String) throws {
+        var meeting = try load(id).meeting
+        meeting.rename(title)
+        try update(meeting)
+    }
+
     public func rewriteSegments(_ segments: [Segment], of id: UUID) throws {
         let encoder = MeetingCoding.encoder()
         var data = Data()

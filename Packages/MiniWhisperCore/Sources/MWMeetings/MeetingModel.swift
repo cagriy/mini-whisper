@@ -195,6 +195,9 @@ public struct Meeting: Codable, Sendable, Equatable, Identifiable {
     public var test: TestCallTag?
     /// Set when the meeting stopped itself after this many seconds without speech.
     public var silenceStopSeconds: Int?
+    /// True once the user has named the meeting; false while the title is the app's, the default
+    /// or a summary's subject. Nil in files written before titles followed summaries.
+    public var titleByUser: Bool?
 
     public init(
         id: UUID = UUID(),
@@ -211,7 +214,8 @@ public struct Meeting: Codable, Sendable, Equatable, Identifiable {
         summary: Summary? = nil,
         billing: Billing = Billing(),
         test: TestCallTag? = nil,
-        silenceStopSeconds: Int? = nil
+        silenceStopSeconds: Int? = nil,
+        titleByUser: Bool? = nil
     ) {
         self.id = id
         self.title = title
@@ -229,6 +233,29 @@ public struct Meeting: Codable, Sendable, Equatable, Identifiable {
         schema = Self.currentSchema
         self.test = test
         self.silenceStopSeconds = silenceStopSeconds
+        self.titleByUser = titleByUser
+    }
+
+    /// The user's rename: a later summary leaves the title alone.
+    public mutating func rename(_ title: String) {
+        self.title = title
+        titleByUser = true
+    }
+
+    /// Puts a summary's subject in the title's name, keeping its date, unless the title is the
+    /// user's or a test call's; an older file only while its title is still the default.
+    /// Returns whether the title changed.
+    @discardableResult
+    public mutating func name(after subject: String) -> Bool {
+        let subject = subject.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard test == nil, !subject.isEmpty,
+              titleByUser.map({ !$0 }) ?? MeetingTitle.isDefault(title, app: app)
+        else { return false }
+        let named = MeetingTitle.named(subject, from: title)
+        titleByUser = false
+        guard named != title else { return false }
+        title = named
+        return true
     }
 
     /// Transcription, the current summary and every summary it replaced.

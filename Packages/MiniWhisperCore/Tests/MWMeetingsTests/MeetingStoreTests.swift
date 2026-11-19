@@ -89,6 +89,19 @@ import MWMeetings
         #expect(try fixture.store.index().count == 1)
     }
 
+    @Test func retitleStoresTheUsersTitle() async throws {
+        let fixture = try Fixture()
+        let meeting = MeetingFixtures.make().meeting
+        try await fixture.store.create(meeting)
+
+        try await fixture.store.retitle(meeting.id, to: "Northwind sync")
+
+        let stored = try fixture.store.load(meeting.id).meeting
+        #expect(stored.title == "Northwind sync")
+        #expect(stored.titleByUser == true)
+        #expect(try fixture.store.index().map(\.title) == ["Northwind sync"])
+    }
+
     @Test func indexExcerptIsTheSummaryOpeningOrTheFirstSegment() async throws {
         let fixture = try Fixture()
         let plain = MeetingFixtures.make().meeting
