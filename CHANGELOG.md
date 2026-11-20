@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- Turning a Remember voices switch off and on again during a meeting resumed recognising and
+  learning in that meeting; it now stays off until the next one.
+- `voices.json` was written through a temporary file that other users on the Mac could briefly
+  read; it is now owner-only from the start.
+
 ## [0.8.0] - 2026-11-20
 
 ### Added

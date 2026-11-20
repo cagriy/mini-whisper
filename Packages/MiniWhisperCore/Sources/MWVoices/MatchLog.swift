@@ -56,7 +56,7 @@ public actor MatchLog {
         var line = try MeetingCoding.encoder().encode(entry)
         line.append(0x0A)
         try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
-        let handle = try Self.openForWriting(url, O_APPEND)
+        let handle = try PrivateFile.open(url, flags: O_APPEND)
         defer { try? handle.close() }
         try handle.write(contentsOf: line)
         guard Int(try handle.seekToEnd()) > limit else { return }
@@ -88,31 +88,12 @@ public actor MatchLog {
         return try Data(contentsOf: url).split(separator: 0x0A)
     }
 
-    /// A temp file in the same folder, created 0600, renamed over the target.
     private static func write(_ lines: some Sequence<Data>, to url: URL) throws {
         var data = Data()
         for line in lines {
             data.append(line)
             data.append(0x0A)
         }
-        let temp = url.deletingLastPathComponent().appendingPathComponent(".\(UUID().uuidString).tmp")
-        do {
-            let handle = try openForWriting(temp, O_EXCL)
-            defer { try? handle.close() }
-            try handle.write(contentsOf: data)
-            guard rename(temp.path, url.path) == 0 else {
-                throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO)
-            }
-        } catch {
-            try? FileManager.default.removeItem(at: temp)
-            throw error
-        }
-    }
-
-    /// Created 0600 when absent, so no line is ever readable by others.
-    private static func openForWriting(_ url: URL, _ flags: Int32) throws -> FileHandle {
-        let descriptor = open(url.path, O_WRONLY | O_CREAT | O_CLOEXEC | flags, 0o600)
-        guard descriptor >= 0 else { throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO) }
-        return FileHandle(fileDescriptor: descriptor, closeOnDealloc: true)
+        try PrivateFile.replace(url, with: data)
     }
 }

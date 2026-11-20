@@ -206,20 +206,9 @@ public actor VoiceStore {
         }
     }
 
-    /// As `MeetingStore` writes: a 0600 temp file in the same folder, renamed over the target.
     private func save(_ people: [Person]) throws {
         let data = try MeetingCoding.encoder().encode(File(schema: Self.schema, people: people))
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        let temp = directory.appendingPathComponent(".\(UUID().uuidString).tmp")
-        do {
-            try data.write(to: temp, options: .withoutOverwriting)
-            try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: temp.path)
-            guard Darwin.rename(temp.path, fileURL.path) == 0 else {
-                throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO)
-            }
-        } catch {
-            try? FileManager.default.removeItem(at: temp)
-            throw error
-        }
+        try PrivateFile.replace(fileURL, with: data)
     }
 }
