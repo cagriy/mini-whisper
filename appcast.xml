@@ -5,6 +5,16 @@
     <link>https://raw.githubusercontent.com/cagriy/mini-whisper/main/appcast.xml</link>
     <language>en</language>
     <item>
+      <title>Mini Whisper 0.8.0</title>
+      <sparkle:version>0.8.0</sparkle:version>
+      <sparkle:shortVersionString>0.8.0</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <description>&lt;h3&gt;Added&lt;/h3&gt;
+&lt;ul&gt;&lt;li&gt;Remember voices. A speaker you name is named, or offered as a provisional name to Accept, Edit or Dismiss, in later meetings; only names you confirm are learned. Two switches under Settings → Meetings, both off by default:&lt;/li&gt;&lt;li&gt;&lt;strong&gt;Remember voices on this Mac&lt;/strong&gt; (AssemblyAI engines) keeps a voiceprint per person from a bundled voice model (WeSpeaker, Core ML). Nothing leaves the Mac. Unverified on macOS 14.&lt;/li&gt;&lt;li&gt;&lt;strong&gt;Remember voices with Speechmatics&lt;/strong&gt; (Speechmatics engines) keeps the voice identifier Speechmatics returns and sends it back in later meetings, labelled by an opaque id, never a name. With this switch on, Speechmatics may split speakers differently. Voiceprints and identifiers, never audio, are kept in &lt;code&gt;~/.config/mini-whisper/voices.json&lt;/code&gt;, each meeting's &lt;code&gt;voices.json&lt;/code&gt; and &lt;code&gt;voice-matches.jsonl&lt;/code&gt; (all 0600). A slider sets how readily names are applied; &lt;code&gt;config.json&lt;/code&gt; gains &lt;code&gt;voice_local_enabled&lt;/code&gt;, &lt;code&gt;voice_speechmatics_enabled&lt;/code&gt; and six &lt;code&gt;voice_*&lt;/code&gt; tuning keys.&lt;/li&gt;&lt;li&gt;Settings → People lists everyone remembered, with Rename, Merge into…, Forget and Forget everyone. Forget removes their voice data from every meeting; names in transcripts stay.&lt;/li&gt;&lt;li&gt;About → &lt;strong&gt;Credits…&lt;/strong&gt; credits the WeSpeaker voice model (CC BY 4.0) and Sparkle.&lt;/li&gt;&lt;/ul&gt;</description>
+      <pubDate>Fri, 20 Nov 2026 14:48:37 +0000</pubDate>
+      <enclosure url="https://github.com/cagriy/mini-whisper/releases/download/v0.8.0/MiniWhisper-0.8.0-arm64.dmg" sparkle:edSignature="afd/JmlPOuOUnAY7zaimeShFfQwD4Oi3wd1cigwEoRadS3fBFRWKgd+71IfG4iWjg7O8kNWtsI+B3W63Aw5OCg==" length="16034114" type="application/octet-stream" />
+    </item>
+    <item>
       <title>Mini Whisper 0.7.3</title>
       <sparkle:version>0.7.3</sparkle:version>
       <sparkle:shortVersionString>0.7.3</sparkle:shortVersionString>
