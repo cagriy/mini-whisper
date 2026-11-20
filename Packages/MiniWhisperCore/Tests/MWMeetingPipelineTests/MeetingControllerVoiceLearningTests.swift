@@ -183,7 +183,7 @@ import MWVoices
 
         await harness.controller.rename(speaker: 1, to: "Speaker 7")
 
-        let label = try #require(await harness.controller.meeting?.speakers.named("Speaker 7"))
+        let label = try #require(harness.controller.meeting?.speakers.named("Speaker 7"))
         #expect(label.person == nil)
         #expect(try harness.stored().meeting.speakers.named("Speaker 7") == label)
         #expect(await harness.person(named: "Speaker 7") == nil)

@@ -1,13 +1,16 @@
 import Foundation
 import MWConfig
 import MWMeetings
+import MWStreaming
 import MWSupport
 import MWVoices
+import os
 
-/// The voice-recognition side of one meeting (design v8 §5 Control flow): its buffers, recogniser
-/// and per-key voices, and what a link teaches the people store. The controller keeps the
-/// registry, persistence and events, and calls in at Start, on each segment, revision and link,
-/// and at Stop. A stored meeting's route holds only its sidecar.
+/// The voice-recognition side of one meeting (design v8 §5 Control flow): the local route's
+/// buffers and recogniser, the Speechmatics route's enrolment, identifiers and speech per key,
+/// and what a link teaches the people store. The controller keeps the registry, persistence and
+/// events, and calls in at Start, on each segment, revision, link and session message, and at
+/// Stop. A stored meeting's route holds only its sidecar.
 @MainActor
 final class MeetingVoiceRoute {
     /// The bundled model, named in the local sidecar.
@@ -26,10 +29,14 @@ final class MeetingVoiceRoute {
     }
 
     let route: VoiceRoute
+    /// `wespeaker_v2` on the local route, the Speechmatics tier (`standard`, `enhanced`) otherwise.
+    private let model: String
     private let deps: VoiceDependencies
     private let meeting: UUID
     private let mode: MeetingMode
     private let now: @Sendable () -> Date
+    /// As the ticker last read them; nothing is fed or enrolled while the route's switch is off.
+    private var settings: VoiceSettings
     /// What the capture tick fills.
     let buffers: VoiceBuffers?
     private let recogniser: VoiceRecogniser?
@@ -39,31 +46,49 @@ final class MeetingVoiceRoute {
     private var consuming: Task<Void, Never>?
     /// False for good once the model failed to load.
     private(set) var isActive = true
-    /// The switch as the ticker last read it; segments are not fed while it is off.
-    private var isOn = true
+
+    /// Who the next Speechmatics session enrols, read by the supervisor at every session open (R10).
+    private nonisolated let enrolment = OSAllocatedUnfairLock<VoiceSessionConfig?>(initialState: nil)
+    /// The people store as of its latest change, for the enrolment and `mw:` labels.
+    private var people: [Person] = []
+    /// Per Speechmatics key: the first identifier its label was given, and its words' speech.
+    private var identifiers: [String: String] = [:]
+    private var seconds: [String: Double] = [:]
+    private var seen: Set<String> = []
+    private var noticed = false
 
     /// The route of a meeting about to start, or nil when R2 leaves it inactive: no voice
-    /// dependencies, a test call, the engine's switch off, or not an engine of the local route.
+    /// dependencies, a test call, or the engine's switch off.
     static func live(
         _ deps: VoiceDependencies?, engine: MeetingEngine, mode: MeetingMode, meeting: UUID, isTest: Bool,
         settings: VoiceSettings, now: @escaping @Sendable () -> Date,
         current: @escaping @Sendable () async -> VoiceSettings
-    ) -> MeetingVoiceRoute? {
-        guard let deps, !isTest, settings.isEnabled(engine.voiceRoute), engine.voiceRoute == .local else { return nil }
-        return MeetingVoiceRoute(
-            local: deps, meeting: meeting, mode: mode, settings: settings, now: now, current: current
+    ) async -> MeetingVoiceRoute? {
+        guard let deps, !isTest, settings.isEnabled(engine.voiceRoute) else { return nil }
+        let route = MeetingVoiceRoute(
+            live: deps, engine: engine, meeting: meeting, mode: mode, settings: settings, now: now, current: current
         )
+        await route.reloadPeople()
+        return route
     }
 
     private init(
-        local deps: VoiceDependencies, meeting: UUID, mode: MeetingMode, settings: VoiceSettings,
-        now: @escaping @Sendable () -> Date, current: @escaping @Sendable () async -> VoiceSettings
+        live deps: VoiceDependencies, engine: MeetingEngine, meeting: UUID, mode: MeetingMode,
+        settings: VoiceSettings, now: @escaping @Sendable () -> Date,
+        current: @escaping @Sendable () async -> VoiceSettings
     ) {
-        route = .local
+        route = engine.voiceRoute
+        model = route == .local ? Self.localModel : engine.providerModel
         self.deps = deps
         self.meeting = meeting
         self.mode = mode
         self.now = now
+        self.settings = settings
+        guard route == .local else {
+            buffers = nil
+            recogniser = nil
+            return
+        }
         buffers = VoiceBuffers(
             microphone: VoiceAudioBuffer(seconds: settings.bufferSeconds),
             system: mode == .remote ? VoiceAudioBuffer(seconds: settings.bufferSeconds) : nil
@@ -79,13 +104,21 @@ final class MeetingVoiceRoute {
         now: @escaping @Sendable () -> Date
     ) {
         route = sidecar.route
+        model = sidecar.model
         self.deps = deps
         self.meeting = meeting
         self.mode = mode
         self.now = now
+        // Read only by a live meeting's segments and enrolment.
+        settings = VoiceSettings()
         buffers = nil
         recogniser = nil
         stored = sidecar
+    }
+
+    /// What `SessionSupervisor` reads at every session open: nil on the local route.
+    nonisolated var sessionVoices: @Sendable () -> VoiceSessionConfig? {
+        { [enrolment] in enrolment.withLock { $0 } }
     }
 
     /// The sidecar's keys.
@@ -131,13 +164,30 @@ final class MeetingVoiceRoute {
         }
     }
 
+    /// The ticker's reading of the settings (R3): with the switch off nothing is fed, and the
+    /// next Speechmatics session enrols no one; a new sensitivity applies at the next one.
     func refresh(_ settings: VoiceSettings) {
-        isOn = settings.isEnabled(route)
+        guard settings != self.settings else { return }
+        self.settings = settings
+        rebuildEnrolment()
     }
 
-    /// Feeds each labelled segment to the recogniser under its key, with its speaker's state.
-    func heard(_ segments: [Segment], speakers: [SpeakerLabel]) {
-        guard let recogniser, let buffers, isActive, isOn else { return }
+    /// Final segments, with the speakers as they stand. The local route feeds each labelled one to
+    /// the recogniser, whose decisions arrive later; the Speechmatics route returns its matches.
+    func heard(_ segments: [Segment], speakers: [SpeakerLabel]) -> [Match] {
+        guard isActive, settings.isEnabled(route) else { return [] }
+        switch route {
+        case .local:
+            ingest(segments, speakers)
+            return []
+        case .speechmatics:
+            return labelled(segments)
+        }
+    }
+
+    /// Each labelled segment goes to the recogniser under its key, with its speaker's state.
+    private func ingest(_ segments: [Segment], _ speakers: [SpeakerLabel]) {
+        guard let recogniser, let buffers else { return }
         for segment in segments where segment.providerLabel != nil {
             let key = key(of: segment)
             let audio = (mode == .remote && key != MeetingVoices.userKey ? buffers.system : nil) ?? buffers.microphone
@@ -163,15 +213,81 @@ final class MeetingVoiceRoute {
         await preparing?.value
         await recogniser?.finish()
         await consuming?.value
-        let sidecar = MeetingVoices(route: route, model: Self.localModel, keys: await voices())
+        let sidecar = MeetingVoices(route: route, model: model, keys: await voices())
         stored = sidecar
         return sidecar
     }
 
-    /// Each key's voice data: the sidecar's once the meeting has stopped, else the recogniser's.
+    /// Each key's voice data: the sidecar's once the meeting has stopped, else the recogniser's
+    /// vectors or the keys Speechmatics gave an identifier.
     private func voices() async -> [String: MeetingVoices.Entry] {
         if let stored { return stored.keys }
-        return await recogniser?.voices().mapValues { .init(seconds: $0.seconds, vector: $0.vector) } ?? [:]
+        if let recogniser {
+            return await recogniser.voices().mapValues { .init(seconds: $0.seconds, vector: $0.vector) }
+        }
+        return identifiers.reduce(into: [:]) { entries, held in
+            entries[held.key] = .init(seconds: seconds[held.key] ?? 0, identifier: held.value)
+        }
+    }
+
+    // MARK: - Speechmatics
+
+    /// R11: each key's speech is counted, and an `mw:` label of a known person matches its key on
+    /// first sight: applied once the person was confirmed under Speechmatics, suggested before.
+    /// The user is offered only in the room (R8).
+    private func labelled(_ segments: [Segment]) -> [Match] {
+        var matches: [Match] = []
+        for segment in segments {
+            guard let label = segment.providerLabel else { continue }
+            let key = SpeakerRegistry.key(session: segment.session, label: label)
+            seconds[key, default: 0] += VoiceWindow.speechSeconds(of: segment.words)
+            guard seen.insert(key).inserted, let person = SpeechmaticsEnrolment.person(forLabel: label, among: people),
+                  mode == .inRoom || !person.isUser
+            else { continue }
+            matches.append(Match(key: key, sure: person.speechmaticsTrusted, person: person))
+        }
+        return matches
+    }
+
+    /// R12: a session's `SpeakersResult`, kept per key, the first identifier of each label.
+    func identified(_ speakers: [ProviderSpeaker], session: Int) {
+        for speaker in speakers {
+            guard let identifier = speaker.identifiers.first else { continue }
+            identifiers[SpeakerRegistry.key(session: session, label: speaker.label)] = identifier
+        }
+    }
+
+    /// R13: Speechmatics ignored an enrolled identifier, which leaves its person. True the first
+    /// time in the meeting, when the notice is due.
+    func ignored(identifier: String?) async -> Bool {
+        if let identifier {
+            let holder = await updatePeople { try await $0.dropIdentifier(identifier) } ?? nil
+            if holder != nil { Log.voice.info("speechmatics dropped 1 identifier (\(model))") }
+        }
+        let first = !noticed
+        noticed = true
+        return first
+    }
+
+    /// "Not <name>" on a Speechmatics match: the person's label is suggested again until confirmed.
+    func distrust(_ person: UUID) async {
+        await updatePeople { try await $0.setTrusted(false, for: person) }
+    }
+
+    private func reloadPeople() async {
+        guard route == .speechmatics, stored == nil else { return }
+        people = await deps.store.people()
+        rebuildEnrolment()
+    }
+
+    private func rebuildEnrolment() {
+        guard route == .speechmatics else { return }
+        let speakers = SpeechmaticsEnrolment.entries(people: people, tier: model).map {
+            VoiceSessionConfig.Speaker(label: $0.label, identifier: $0.identifier)
+        }
+        let config = settings.isEnabled(route)
+            ? VoiceSessionConfig(speakers: speakers, sensitivity: settings.speechmaticsSensitivity) : nil
+        enrolment.withLock { $0 = config }
     }
 
     // MARK: - Learning
@@ -235,7 +351,16 @@ final class MeetingVoiceRoute {
                 await updatePeople { try await $0.removeLocalSample(meeting: meeting, from: person) }
             }
         case .speechmatics:
-            return
+            // The identifier of the linked key with the most speech, and the person is trusted.
+            guard let identifier = keys.compactMap({ voices[$0] }).filter({ $0.identifier != nil })
+                .max(by: { $0.seconds < $1.seconds })?.identifier
+            else { return }
+            let held = SpeechmaticsIdentifier(meeting: meeting, at: now(), identifier: identifier)
+            let tier = model
+            await updatePeople { store in
+                try await store.setIdentifier(held, tier: tier, for: person)
+                try await store.setTrusted(true, for: person)
+            }
         }
     }
 
@@ -254,22 +379,25 @@ final class MeetingVoiceRoute {
         route == .local && mode == .remote && label.isUser ? [MeetingVoices.userKey] : label.providerKeys
     }
 
-    /// A people-store change; a failed write is logged and the change kept for the next one.
+    /// A people-store change; a failed write is logged and the change kept for the next one. The
+    /// Speechmatics enrolment is rebuilt after it.
     @discardableResult
     private func updatePeople<T: Sendable>(_ change: @Sendable (VoiceStore) async throws -> T) async -> T? {
+        var result: T?
         do {
-            return try await change(deps.store)
+            result = try await change(deps.store)
         } catch {
             Log.voice.warning("voices.json not written: \(AnyError(error).description)")
-            return nil
         }
+        await reloadPeople()
+        return result
     }
 
     // MARK: - Match log
 
     /// R23: a user's action on a match.
     func logAction(_ event: MatchLog.Event, key: String, person: UUID?) async {
-        Log.voice.info("\(event.rawValue) \(key)\(person.map { ", person \(Self.short($0))" } ?? "")")
+        Log.voice.info("\(event.rawValue) \(Self.logged(key))\(person.map { ", person \(Self.short($0))" } ?? "")")
         await append(MatchLog.Entry(at: now(), meeting: meeting, key: key, route: route, event: event, person: person))
     }
 
@@ -278,7 +406,8 @@ final class MeetingVoiceRoute {
         let score = match.score.map { String(format: " %.2f (next %.2f)", $0, match.runnerUp ?? 0) } ?? ""
         let seconds = match.seconds.map { " after \(Int($0.rounded())) s" } ?? ""
         let outcome = match.sure ? "sure" : "suggestion"
-        Log.voice.info("match \(match.key) \(outcome)\(score)\(seconds), person \(Self.short(match.person.id))")
+        let person = Self.short(match.person.id)
+        Log.voice.info("match \(Self.logged(match.key)) \(outcome)\(score)\(seconds), person \(person)")
         await append(MatchLog.Entry(
             at: now(), meeting: meeting, key: match.key, route: route, event: match.sure ? .applied : .suggested,
             person: match.person.id, score: match.score, runnerUp: match.runnerUp, seconds: match.seconds
@@ -296,6 +425,12 @@ final class MeetingVoiceRoute {
     /// The first 8 characters of a person id, all a log line may carry.
     static func short(_ id: UUID) -> String {
         String(id.uuidString.prefix(8)).lowercased()
+    }
+
+    /// A key as a log line may carry it: an `mw:` label keeps 8 characters of its person id.
+    static func logged(_ key: String) -> String {
+        guard let label = key.range(of: ":mw:") else { return key }
+        return String(key[..<label.upperBound] + key[label.upperBound...].prefix(8))
     }
 
     // MARK: - Keys

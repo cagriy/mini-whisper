@@ -106,17 +106,21 @@ public final class MeetingController {
             title: title, startedAt: deps.now(), mode: mode, app: deps.frontAppName(), engine: engine,
             userName: userName, speakers: registry.labels, test: test, titleByUser: false
         )
-        let voice = MeetingVoiceRoute.live(
+        let voice = await MeetingVoiceRoute.live(
             deps.voices, engine: engine, mode: mode, meeting: meeting.id, isTest: test != nil, settings: config.voice,
             now: deps.now
         ) { [configStore] in await configStore.load().voice }
+        // Typed apart: a closure literal beside `??` here crashes the type checker.
+        let noEnrolment: @Sendable () -> VoiceSessionConfig? = { nil }
+        let enrolment = voice?.sessionVoices ?? noEnrolment
         let supervisor = SessionSupervisor(
             provider: deps.engines,
             engine: engine,
             key: key,
             hints: HintResolver.resolve(CorrectionSnapshot(config: config), bundleID: nil),
             clock: deps.clock,
-            now: deps.now
+            now: deps.now,
+            voices: enrolment
         )
         var created = false
         var held = false
@@ -230,8 +234,12 @@ public final class MeetingController {
             }
         case .gap(let marker):
             addMarker(marker)
-        case .speakers, .identifierIgnored:
-            break
+        case .speakers(let speakers, let session):
+            await identified(speakers, session: session)
+        case .identifierIgnored(_, let identifier):
+            if await voice?.ignored(identifier: identifier) == true {
+                emit(.notice("Speechmatics ignored some remembered voices. Rename those speakers to learn them again."))
+            }
         }
     }
 
@@ -259,7 +267,7 @@ public final class MeetingController {
         }
         await persistSegments()
         for segment in attribution.segments { emit(.segmentAdded(segment)) }
-        voice?.heard(attribution.segments, speakers: registry.labels)
+        for match in voice?.heard(attribution.segments, speakers: registry.labels) ?? [] { await matched(match) }
     }
 
     /// A session's time in meeting seconds: its origin, plus every input device change it did
@@ -656,11 +664,29 @@ public final class MeetingController {
     }
 
     /// With the switch on, a user's action on a match is logged, and the people whose links it
-    /// changed since `before` relearn this meeting's voice (R17, R23).
+    /// changed since `before` relearn this meeting's voice (R17, R23). "Not <name>" on a
+    /// Speechmatics match costs the person their trust.
     private func learn(_ event: MatchLog.Event, key: String, person: UUID?, since before: [SpeakerLabel]? = nil) async {
         guard let voice, await voiceSettings() != nil else { return }
         await voice.logAction(event, key: key, person: person)
-        if let before { await voice.relearn(from: before, to: registry.labels) }
+        if event == .rejected, voice.route == .speechmatics, let person { await voice.distrust(person) }
+        if let before { await relearn(voice, since: before, linked: event == .accepted && person != nil) }
+    }
+
+    /// Design v8 §5 Link: live on Speechmatics a new link first asks the session for its speakers,
+    /// whose identifiers teach again when they arrive (R12).
+    private func relearn(_ voice: MeetingVoiceRoute, since before: [SpeakerLabel], linked: Bool) async {
+        if linked, voice.route == .speechmatics { supervisor?.requestSpeakers() }
+        await voice.relearn(from: before, to: registry.labels)
+    }
+
+    /// Design v8 §5 SpeakersResult (R12): the identifiers are kept per key, and with the switch on
+    /// every linked person relearns theirs.
+    private func identified(_ speakers: [ProviderSpeaker], session: Int) async {
+        guard let voice else { return }
+        voice.identified(speakers, session: session)
+        guard await voiceSettings() != nil else { return }
+        await voice.relearn(from: registry.labels, to: registry.labels, everyone: true)
     }
 
     /// Design v8 §5 Rename: with the switch on, the speaker the user named is that person, found or
@@ -679,7 +705,7 @@ public final class MeetingController {
         if registry.labels != labels { await applyMerge(nil) }
         guard learning else { return }
         for match in standing { await voice.logAction(.renamed, key: match.key, person: match.person) }
-        await voice.relearn(from: before, to: registry.labels)
+        await relearn(voice, since: before, linked: person != nil)
     }
 
     // MARK: - Speakers, notes and edits
