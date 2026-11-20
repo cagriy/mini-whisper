@@ -25,6 +25,7 @@ public final class WebSocketEngine<Adapter: EngineAdapter>: StreamingEngine, @un
 
     private enum QueueItem: Sendable {
         case chunk([Float], Double)
+        case command(EngineCommand)
         case end
     }
 
@@ -118,6 +119,12 @@ public final class WebSocketEngine<Adapter: EngineAdapter>: StreamingEngine, @un
                 engine: name, seconds: Self.maxPreconnectSeconds
             ))
         }
+    }
+
+    /// Queued behind the audio fed so far; dropped once the session failed or is finishing.
+    public func send(_ command: EngineCommand) {
+        guard state.withLock({ !$0.failed && !$0.finishing }) else { return }
+        queueContinuation.yield(.command(command))
     }
 
     public func finish(timeout: Duration) async -> StreamResult {
@@ -220,14 +227,22 @@ public final class WebSocketEngine<Adapter: EngineAdapter>: StreamingEngine, @un
                 guard !pending.isEmpty, pending.count >= minimumBytes else { continue }
                 guard await send(pending, on: connection) else { return }
                 pending = Data()
+            case .command(let command):
+                guard let message = state.withLock({ $0.adapter.encode(command) }) else { continue }
+                guard await send(message, on: connection) else { return }
             }
         }
     }
 
     /// Sends one audio chunk; on failure reports it and returns `false`.
     private func send(_ pcm: Data, on connection: any WebSocketConnection) async -> Bool {
+        await send(state.withLock { $0.adapter.encodeChunk(pcm) }, on: connection)
+    }
+
+    /// Sends one message; on failure reports it and returns `false`.
+    private func send(_ message: WebSocketMessage, on connection: any WebSocketConnection) async -> Bool {
         do {
-            try await connection.send(state.withLock { $0.adapter.encodeChunk(pcm) })
+            try await connection.send(message)
             return true
         } catch {
             fail(error)
@@ -299,7 +314,7 @@ public final class WebSocketEngine<Adapter: EngineAdapter>: StreamingEngine, @un
                 switch emission {
                 case .partial(let text): state.assembler.addPartial(text)
                 case .final(let text): state.assembler.addFinal(text)
-                case .segment, .speakerRevision, .sessionLimit: break
+                case .segment, .speakerRevision, .sessionLimit, .speakers, .identifierIgnored: break
                 }
             }
             return (complete, state.sink, emitter.emissions)
@@ -311,6 +326,9 @@ public final class WebSocketEngine<Adapter: EngineAdapter>: StreamingEngine, @un
             case .segment(let segment): applied.sink?.onSegment(segment)
             case .speakerRevision(let revisions): applied.sink?.onSpeakerRevision(revisions)
             case .sessionLimit(let limit): applied.sink?.onSessionLimit(limit)
+            case .speakers(let speakers): applied.sink?.onSpeakers(speakers)
+            case .identifierIgnored(let label, let identifier):
+                applied.sink?.onIdentifierIgnored(label: label, identifier: identifier)
             }
         }
         return applied.complete

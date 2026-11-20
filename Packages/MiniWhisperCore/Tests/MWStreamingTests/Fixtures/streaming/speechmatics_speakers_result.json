@@ -1,0 +1,4 @@
+{"message": "SpeakersResult",
+ "speakers": [
+   {"label": "S1", "speaker_identifiers": ["placeholder-identifier-s1"]},
+   {"label": "mw:00000000-0000-4000-8000-000000000002", "speaker_identifiers": ["placeholder-identifier-mw"]}]}

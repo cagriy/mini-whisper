@@ -19,17 +19,21 @@ public struct SpeechmaticsAdapter: EngineAdapter {
     private let diarization: Bool
     /// `standard` or `enhanced`; `operating_point` is its deprecated alias.
     private let model: String
+    /// R10, diarized sessions only: who to enrol. Nil leaves `StartRecognition` as it was (R2).
+    private let voices: VoiceSessionConfig?
 
     public init(
         apiKey: String,
         hints: RecognitionHints = .none,
         diarization: Bool = false,
-        model: String = "standard"
+        model: String = "standard",
+        voices: VoiceSessionConfig? = nil
     ) {
         headers = ["Authorization": "Bearer \(apiKey)"]
         vocabulary = HintSerializer.speechmaticsVocab(hints).sent
         self.diarization = diarization
         self.model = model
+        self.voices = voices
     }
 
     public func openMessages() -> [WebSocketMessage] {
@@ -42,7 +46,7 @@ public struct SpeechmaticsAdapter: EngineAdapter {
         }
         if diarization {
             transcriptionConfig["diarization"] = .string("speaker")
-            transcriptionConfig["speaker_diarization_config"] = .object(["max_speakers": .number(10)])
+            transcriptionConfig["speaker_diarization_config"] = .object(diarizationConfig())
             transcriptionConfig["model"] = .string(model)
         }
         return [AdapterJSON.text([
@@ -69,6 +73,14 @@ public struct SpeechmaticsAdapter: EngineAdapter {
         ])]
     }
 
+    /// R12: a mid-session `GetSpeakers`, answered at once with a `SpeakersResult`.
+    public func encode(_ command: EngineCommand) -> WebSocketMessage? {
+        switch command {
+        case .requestSpeakers:
+            AdapterJSON.text(["message": .string("GetSpeakers"), "final": .bool(false)])
+        }
+    }
+
     public func handle(_ message: WebSocketMessage, emit: inout AdapterEmitter) throws -> Bool {
         // Binary server frames carry no transcript and are ignored.
         guard let event = AdapterJSON.fields(message) else { return false }
@@ -82,9 +94,20 @@ public struct SpeechmaticsAdapter: EngineAdapter {
             }
         case "EndOfTranscript":
             return true
+        case "SpeakersResult":
+            emit.speakers(Self.speakers(event["speakers"]))
         case "Warning":
-            // Sent ahead of the 48 h session cap; other warnings need no action.
-            if event["type"]?.stringValue == "session_timeout" { emit.sessionLimit(.warning) }
+            // R27: a warning's text is never logged or passed on.
+            switch event["type"]?.stringValue {
+            case "session_timeout":
+                // Sent ahead of the 48 h session cap.
+                emit.sessionLimit(.warning)
+            case "speaker_id":
+                let enrolled = ignoredSpeaker(event["reason"]?.stringValue)
+                emit.identifierIgnored(label: enrolled?.label, identifier: enrolled?.identifier)
+            default:
+                break
+            }
         case "Error":
             let type = event["type"]?.stringValue ?? "unknown"
             let reason = event["reason"]?.stringValue ?? ""
@@ -93,6 +116,48 @@ public struct SpeechmaticsAdapter: EngineAdapter {
             break
         }
         return false
+    }
+
+    private func diarizationConfig() -> [String: JSONValue] {
+        var config: [String: JSONValue] = ["max_speakers": .number(10)]
+        guard let voices else { return config }
+        config["get_speakers"] = .bool(true)
+        config["speaker_sensitivity"] = .number(voices.sensitivity)
+        if !voices.speakers.isEmpty {
+            config["speakers"] = .array(voices.speakers.map { speaker in
+                .object([
+                    "label": .string(speaker.label),
+                    "speaker_identifiers": .array([.string(speaker.identifier)]),
+                ])
+            })
+        }
+        return config
+    }
+
+    /// The enrolled speaker a `speaker_id` warning names; nil unless its reason starts with
+    /// 1-based indices of an identifier this session sent (one per speaker). Nothing else of the
+    /// text is read.
+    private func ignoredSpeaker(_ reason: String?) -> VoiceSessionConfig.Speaker? {
+        let indices = /identifier '(\d+)', speaker '(\d+)'/.asciiOnlyDigits()
+        guard let reason, let speakers = voices?.speakers,
+              let match = reason.prefixMatch(of: indices),
+              Int(match.output.1) == 1,
+              let index = Int(match.output.2), speakers.indices.contains(index - 1)
+        else { return nil }
+        return speakers[index - 1]
+    }
+
+    /// Labels and identifiers are opaque provider strings; anything else is skipped.
+    private static func speakers(_ value: JSONValue?) -> [ProviderSpeaker] {
+        guard case .array(let entries)? = value else { return [] }
+        return entries.compactMap { entry in
+            guard let fields = entry.objectValue,
+                  let label = fields["label"]?.stringValue,
+                  case .array(let values)? = fields["speaker_identifiers"]
+            else { return nil }
+            let identifiers = values.compactMap(\.stringValue)
+            return identifiers.isEmpty ? nil : ProviderSpeaker(label: label, identifiers: identifiers)
+        }
     }
 
     private static func entry(_ entry: HintSerializer.VocabEntry) -> JSONValue {

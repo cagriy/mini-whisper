@@ -375,6 +375,97 @@ private enum TestConnectError: Error { case refused }
         #expect(connection.binaryPayloads.map(\.count) == [640, 640, 640])
     }
 
+    // MARK: - Commands and the voice emissions (R12, R13)
+
+    @Test func aCommandIsSentBetweenAudioChunks() async {
+        let clock = VirtualClock()
+        let connection = FakeWebSocketConnection(script: speechmaticsScript(), clock: clock)
+        let engine = speechmaticsEngine(clock: clock) { connection }
+        engine.start(sink: RecordingSink())
+
+        engine.feed(buffer(SignalFixtures.sine(count: 960, sampleRate: 48000)))
+        engine.send(.requestSpeakers)
+        engine.feed(buffer(SignalFixtures.sine(count: 960, sampleRate: 48000)))
+        let result = await engine.finish(timeout: .seconds(5))
+
+        #expect(result.ok)
+        #expect(connection.sentTypes == ["StartRecognition", "__binary__", "GetSpeakers", "__binary__", "EndOfStream"])
+    }
+
+    @Test func aCommandTheAdapterCannotEncodeIsDropped() async {
+        let clock = VirtualClock()
+        let connection = FakeWebSocketConnection(script: completingScript(), clock: clock)
+        let engine = engine(clock: clock) { connection }
+        engine.start(sink: RecordingSink())
+
+        engine.feed(buffer(SignalFixtures.sine(count: 960, sampleRate: 48000)))
+        engine.send(.requestSpeakers)
+        engine.feed(buffer(SignalFixtures.sine(count: 960, sampleRate: 48000)))
+        let result = await engine.finish(timeout: .seconds(5))
+
+        #expect(result.ok)
+        #expect(connection.sentTypes == ["open", "__binary__", "__binary__", "end"])
+    }
+
+    @Test func aCommandAfterFinishIsDropped() async {
+        let clock = VirtualClock()
+        let connection = FakeWebSocketConnection(script: speechmaticsScript(), clock: clock)
+        let engine = speechmaticsEngine(clock: clock) { connection }
+        engine.start(sink: RecordingSink())
+
+        engine.feed(buffer(SignalFixtures.sine(count: 960, sampleRate: 48000)))
+        let result = await engine.finish(timeout: .seconds(5))
+        engine.send(.requestSpeakers)
+
+        #expect(result.ok)
+        #expect(connection.sentTypes == ["StartRecognition", "__binary__", "EndOfStream"])
+    }
+
+    @Test func speakersAndIgnoredIdentifiersReachTheSink() async {
+        let clock = VirtualClock()
+        let connection = FakeWebSocketConnection(
+            script: speechmaticsScript(serving: [
+                #"{"message": "SpeakersResult", "speakers": [{"label": "S1", "speaker_identifiers": ["placeholder-s1"]}]}"#,
+                #"{"message": "Warning", "type": "speaker_id", "reason": "identifier '1', speaker '1' - reason: x"}"#,
+            ]),
+            clock: clock
+        )
+        let voices = VoiceSessionConfig(
+            speakers: [VoiceSessionConfig.Speaker(label: "mw:placeholder", identifier: "placeholder-enrolled")],
+            sensitivity: 0.8
+        )
+        let engine = speechmaticsEngine(voices: voices, clock: clock) { connection }
+        let sink = RecordingSink()
+        engine.start(sink: sink)
+
+        let result = await engine.finish(timeout: .seconds(5))
+
+        #expect(result.ok)
+        #expect(result.text == "")
+        #expect(sink.speakers == [[ProviderSpeaker(label: "S1", identifiers: ["placeholder-s1"])]])
+        #expect(sink.ignored == [RecordingSink.Ignored(label: "mw:placeholder", identifier: "placeholder-enrolled")])
+    }
+
+    private func speechmaticsEngine(
+        voices: VoiceSessionConfig? = nil,
+        clock: VirtualClock,
+        connect: @escaping @Sendable () async throws -> any WebSocketConnection
+    ) -> WebSocketEngine<SpeechmaticsAdapter> {
+        let adapter = SpeechmaticsAdapter(
+            apiKey: "placeholder-not-a-real-key", diarization: true, model: "standard", voices: voices
+        )
+        return WebSocketEngine(adapter: adapter, clock: clock, connect: connect)
+    }
+
+    /// `StartRecognition`, `EndOfStream`, the given server events, then `EndOfTranscript`.
+    private func speechmaticsScript(serving events: [String] = []) -> FixtureScript {
+        FixtureScript(
+            steps: [.awaitClient(.type("StartRecognition")), .awaitClient(.type("EndOfStream"))]
+                + events.map(FixtureScript.Step.server)
+                + [.server(#"{"message": "EndOfTranscript"}"#)]
+        )
+    }
+
     /// Open, end of audio, the given server events, then the terminal event.
     private func completingScript(serving events: [String] = []) -> FixtureScript {
         FixtureScript(

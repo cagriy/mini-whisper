@@ -11,6 +11,7 @@ public final class FakeStreamingEngine: StreamingEngine, @unchecked Sendable {
         var sink: (any TranscriptSink)?
         var finishTimeout: Duration?
         var fedBuffers = 0
+        var commands: [EngineCommand] = []
     }
 
     public let name: EngineName
@@ -35,6 +36,8 @@ public final class FakeStreamingEngine: StreamingEngine, @unchecked Sendable {
     public var sink: (any TranscriptSink)? { lock.withLock { storage.sink } }
     public var finishTimeout: Duration? { lock.withLock { storage.finishTimeout } }
     public var fedBuffers: Int { lock.withLock { storage.fedBuffers } }
+    /// Every command sent, oldest first.
+    public var commands: [EngineCommand] { lock.withLock { storage.commands } }
 
     public func start(sink: any TranscriptSink) {
         lock.withLock { storage.sink = sink }
@@ -43,6 +46,10 @@ public final class FakeStreamingEngine: StreamingEngine, @unchecked Sendable {
 
     public func feed(_ buffer: AVAudioPCMBuffer) {
         lock.withLock { storage.fedBuffers += 1 }
+    }
+
+    public func send(_ command: EngineCommand) {
+        lock.withLock { storage.commands.append(command) }
     }
 
     public func finish(timeout: Duration) async -> StreamResult {

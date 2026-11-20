@@ -10,4 +10,10 @@ public protocol StreamingEngine: AnyObject, Sendable {
     func feed(_ buffer: AVAudioPCMBuffer)
     /// Flushes, closes and returns the compound result.
     func finish(timeout: Duration) async -> StreamResult
+    /// Sends `command` between audio chunks; dropped by engines and providers without it.
+    func send(_ command: EngineCommand)
+}
+
+extension StreamingEngine {
+    public func send(_ command: EngineCommand) {}
 }

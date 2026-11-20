@@ -10,6 +10,9 @@ public struct AdapterEmitter: Sendable, Equatable {
         case segment(TranscriptSegment)
         case speakerRevision([SpeakerRevision])
         case sessionLimit(SessionLimit)
+        case speakers([ProviderSpeaker])
+        /// The enrolled label and identifier a `speaker_id` warning names; nil when it cannot be read.
+        case identifierIgnored(label: String?, identifier: String?)
     }
 
     public private(set) var emissions: [Emission] = []
@@ -25,6 +28,10 @@ public struct AdapterEmitter: Sendable, Equatable {
         emissions.append(.speakerRevision(revisions))
     }
     public mutating func sessionLimit(_ limit: SessionLimit) { emissions.append(.sessionLimit(limit)) }
+    public mutating func speakers(_ speakers: [ProviderSpeaker]) { emissions.append(.speakers(speakers)) }
+    public mutating func identifierIgnored(label: String?, identifier: String?) {
+        emissions.append(.identifierIgnored(label: label, identifier: identifier))
+    }
 
     public mutating func addTokens(input: Int?, output: Int?) {
         inputTokens += input ?? 0
@@ -53,8 +60,11 @@ public protocol EngineAdapter: Sendable {
     mutating func endMessages() -> [WebSocketMessage]
     /// Parses one server message; returns `true` when the stream is complete.
     mutating func handle(_ message: WebSocketMessage, emit: inout AdapterEmitter) throws -> Bool
+    /// The message for `command`; nil when the provider has none, and the engine drops it.
+    func encode(_ command: EngineCommand) -> WebSocketMessage?
 }
 
 extension EngineAdapter {
     public var minimumChunkSeconds: Double? { nil }
+    public func encode(_ command: EngineCommand) -> WebSocketMessage? { nil }
 }

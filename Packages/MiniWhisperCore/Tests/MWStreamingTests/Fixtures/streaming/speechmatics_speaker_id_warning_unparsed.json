@@ -1,0 +1,2 @@
+{"message": "Warning", "type": "speaker_id",
+ "reason": "some speaker identifiers were ignored - reason: identifier from an incompatible model"}

@@ -8,10 +8,15 @@ public protocol TranscriptSink: AnyObject, Sendable {
     func onSegment(_ segment: TranscriptSegment)
     func onSpeakerRevision(_ revisions: [SpeakerRevision])
     func onSessionLimit(_ limit: SessionLimit)
+    func onSpeakers(_ speakers: [ProviderSpeaker])
+    /// A remembered voice the provider refused; nils when it did not say which.
+    func onIdentifierIgnored(label: String?, identifier: String?)
 }
 
 extension TranscriptSink {
     public func onSegment(_ segment: TranscriptSegment) {}
     public func onSpeakerRevision(_ revisions: [SpeakerRevision]) {}
     public func onSessionLimit(_ limit: SessionLimit) {}
+    public func onSpeakers(_ speakers: [ProviderSpeaker]) {}
+    public func onIdentifierIgnored(label: String?, identifier: String?) {}
 }

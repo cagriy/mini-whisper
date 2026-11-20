@@ -3,6 +3,17 @@ import MWStreaming
 
 /// Collects everything an engine reports so tests can assert on the sequence.
 public final class RecordingSink: TranscriptSink, @unchecked Sendable {
+    /// One `onIdentifierIgnored` call.
+    public struct Ignored: Sendable, Equatable {
+        public var label: String?
+        public var identifier: String?
+
+        public init(label: String?, identifier: String?) {
+            self.label = label
+            self.identifier = identifier
+        }
+    }
+
     private struct Storage {
         var partials: [String] = []
         var finals: [String] = []
@@ -10,6 +21,8 @@ public final class RecordingSink: TranscriptSink, @unchecked Sendable {
         var segments: [TranscriptSegment] = []
         var revisions: [[SpeakerRevision]] = []
         var limits: [SessionLimit] = []
+        var speakers: [[ProviderSpeaker]] = []
+        var ignored: [Ignored] = []
     }
 
     private let lock = NSLock()
@@ -25,6 +38,10 @@ public final class RecordingSink: TranscriptSink, @unchecked Sendable {
         lock.withLock { storage.revisions.append(revisions) }
     }
     public func onSessionLimit(_ limit: SessionLimit) { lock.withLock { storage.limits.append(limit) } }
+    public func onSpeakers(_ speakers: [ProviderSpeaker]) { lock.withLock { storage.speakers.append(speakers) } }
+    public func onIdentifierIgnored(label: String?, identifier: String?) {
+        lock.withLock { storage.ignored.append(Ignored(label: label, identifier: identifier)) }
+    }
 
     public var partials: [String] { lock.withLock { storage.partials } }
     public var finals: [String] { lock.withLock { storage.finals } }
@@ -32,4 +49,6 @@ public final class RecordingSink: TranscriptSink, @unchecked Sendable {
     public var segments: [TranscriptSegment] { lock.withLock { storage.segments } }
     public var revisions: [[SpeakerRevision]] { lock.withLock { storage.revisions } }
     public var limits: [SessionLimit] { lock.withLock { storage.limits } }
+    public var speakers: [[ProviderSpeaker]] { lock.withLock { storage.speakers } }
+    public var ignored: [Ignored] { lock.withLock { storage.ignored } }
 }
