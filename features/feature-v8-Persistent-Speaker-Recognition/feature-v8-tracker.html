@@ -1,0 +1,1605 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Persistent Speaker Recognition</title>
+
+  <!--
+    ===================================================================
+    feature-tracker template
+    -------------------------------------------------------------------
+    Replace every {{TOKEN}} below with HTML. Each of the four panels
+    follows the same three-part shape:
+
+        timestamp chip  →  Highlights (≤10 bullets)  →  Detail (prose)
+
+    so a reader can pick up the section at a glance and then drill in.
+    Tokens for a panel are owned by the skill that produces that panel:
+
+      Brainstorming  ←  /feature-storm
+      Design         ←  /feature-design
+      Plan           ←  /feature-plan
+      Implementation ←  /feature-implement
+      Usage          ←  usage-report (one token; see Run usage)
+
+    A skill substitutes its own panel's tokens with real HTML. For
+    any panel whose owning skill has not yet run, the currently
+    running skill substitutes the placeholder values:
+
+      {{X_AT}}        → "Awaiting /feature-<step>"
+      {{X_BULLETS}}   → <p class="empty">Not yet filled — pending /feature-<step>.</p>
+      {{X_DETAILS}}   → <p class="empty">Not yet filled — pending /feature-<step>.</p>
+
+    Header tokens (any skill substitutes if still literal):
+      {{FEATURE_VERSION}}        integer, e.g. "3"
+      {{FEATURE_TITLE}}          readable title, max 10 words
+                                 (e.g. "Add payment checkout flow")
+      {{FEATURE_SLUG}}           "feature-v3-add-payment-checkout-flow"
+      {{GENERATED_AT}}           ISO date, e.g. "2026-05-26"
+
+    Per-panel tokens:
+      Brainstorming (owned by /feature-storm):
+        {{BRAINSTORMING_AT}}        chip text — "Updated <UTC ts>"
+                                    or "Awaiting /feature-storm"
+        {{BRAINSTORMING_BULLETS}}   <ul><li>…</li>…</ul>, ≤10 items
+        {{BRAINSTORMING_DETAILS}}   free-form HTML continuing the
+                                    requirement specifics
+
+      Design (owned by /feature-design):
+        {{DESIGN_AT}}               chip text — "Updated <UTC ts>"
+                                    or "Awaiting /feature-design"
+        {{DESIGN_BULLETS}}          <ul><li>…</li>…</ul>, ≤10 highlights
+        {{DESIGN_DETAILS}}          free-form HTML rendering the
+                                    design's key sections in
+                                    increasing detail
+
+      Plan (owned by /feature-plan):
+        {{PLAN_AT}}                 chip text — "Updated <UTC ts>"
+                                    or "Awaiting /feature-plan"
+        {{PLAN_BULLETS}}            <ul><li>…</li>…</ul>, ≤10 highlights
+        {{PLAN_DETAILS}}            free-form HTML rendering the
+                                    plan's stages, coverage map,
+                                    deviations, etc.
+
+      Implementation (owned by /feature-implement):
+        {{IMPLEMENTATION_AT}}       chip text — "Updated <UTC ts>"
+                                    or "Awaiting /feature-implement"
+        {{IMPLEMENTATION_BULLETS}}  <ul><li>…</li>…</ul>, ≤10 highlights
+        {{IMPLEMENTATION_DETAILS}}  free-form HTML — stage list,
+                                    test results, coverage,
+                                    deviations, etc.
+
+      Run usage (all nine owned by usage-report — never by the
+      panel's own skill):
+        {{BRAINSTORMING_USAGE_CHIP}}, {{DESIGN_USAGE_CHIP}},
+        {{PLAN_USAGE_CHIP}}, {{IMPLEMENTATION_USAGE_CHIP}}
+                                    headline chip beside the panel's
+                                    timestamp chip, e.g.
+                                    "8m 08s · 25,924 out · 76.0 tok/s"
+        {{BRAINSTORMING_USAGE}}, {{DESIGN_USAGE}},
+        {{PLAN_USAGE}}, {{IMPLEMENTATION_USAGE}}
+                                    <div class="usage-pair"> of two
+                                    <table class="usage"> halves, below
+                                    the panel's Highlights bullets
+        {{CYCLE_USAGE}}             the whole Usage tab: the cycle's
+                                    two chips, its stage-columns table
+                                    and footnote, rewritten from the
+                                    usage log by every report and cycle
+
+      These nine are the one exception to the substitute-only-if-
+      literal rule: usage-report fills its own stage's pair and the
+      Usage tab, and blanks the other six on every run, so a re-run
+      shows the latest figures rather than a second table. Safe
+      because they have exactly one owner. Note the template has TWO
+      consumers — usage-report and bug-tracker-render, which blanks
+      all twenty-one feature-panel tokens — so adding or renaming one
+      here is a two-skill change.
+
+    Progress stepper (Storming → Design → Plan → Implement):
+      The four <li class="step" data-stage="…"> elements track stage
+      lifecycle via data-state="pending|complete". The raw template
+      ships with every step set to "pending", which renders a grey
+      "nothing started yet" view. Each feature-* skill is responsible
+      for updating its own step:
+
+        data-stage="storm"      ← /feature-storm
+        data-stage="design"     ← /feature-design
+        data-stage="plan"       ← /feature-plan
+        data-stage="implement"  ← /feature-implement
+
+      The skill flips its own step pending → complete as part of its
+      tracker update step, only when its stage file is committed (or
+      finalised). There is no in-flight "current" state — a step is
+      either not done (grey) or done (green). Edits target both
+      attributes for uniqueness:
+
+        old: data-stage="design" data-state="pending"
+        new: data-stage="design" data-state="complete"
+
+      Do NOT touch sibling steps from another skill — the stepper is
+      an additive timeline, not a global state machine.
+
+    Tracker kind (feature view vs. bug tracker):
+      The page BODY element carries an optional data-tracker-kind attr.
+
+        (absent)            → feature view: stepper, the four feature
+                              tabs and Usage are shown; the Issues tab
+                              and its panel are hidden. This is the
+                              default the feature-* skills seed via
+                              feature-resolve.
+        data-tracker-kind   → bug tracker: the stepper, the four
+          ="bugs"             feature tabs/panels and Usage are
+                              hidden; only the Issues tab/panel is
+                              shown, and the header version chip +
+                              slug are hidden. /bug-submit sets this
+                              when it generates the repo-wide
+                              bugs/bugs-tracker.html from this template.
+
+    Issues panel (owned by /bug-submit, bug tracker only):
+      Unlike the four feature panels — each filled ONCE by its owning
+      skill via {{TOKEN}} substitution — the Issues panel is a LIVING
+      list regenerated wholesale on every /bug-submit run. Its content
+      lives between three pairs of HTML-comment markers (written with
+      real comment syntax in the panel markup below), NOT in {{tokens}}.
+      The marker names — each a :START / :END pair — are:
+
+        ISSUES_AT       the "Updated <UTC>" chip text
+        ISSUES_OPEN     one .issue card per open bug (folders in
+                        bugs/), else the empty placeholder
+        ISSUES_CLOSED   one .issue card per closed bug (folders in
+                        bugs/archive/), else the empty placeholder
+
+      (Note: do NOT paste those literal comment markers into THIS doc
+      block — an inner end-of-comment would close the doc comment early.)
+
+      /bug-submit replaces everything between each START/END pair. The
+      Open/Closed counts are computed at load time from the rendered
+      cards, so the skill never writes them. Each card is a
+      details.issue[data-status="open|closed"] with a summary
+      (#N, title, severity badge, filed date) and an expandable body
+      (report sections + img screenshots referenced by RELATIVE path).
+    ===================================================================
+  -->
+
+  <style>
+    :root {
+      --bg: #f9fafb;
+      --surface: #ffffff;
+      --surface-muted: #f3f4f6;
+      --border: #e5e7eb;
+      --text: #0f172a;
+      --text-muted: #6b7280;
+      --text-subtle: #9ca3af;
+      --accent: #4f46e5;
+      --accent-soft: #eef2ff;
+      --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04);
+      --shadow-md: 0 1px 2px rgba(15, 23, 42, 0.04), 0 12px 32px rgba(15, 23, 42, 0.06);
+      --radius: 14px;
+      --radius-sm: 8px;
+      --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+      --sans: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, system-ui, sans-serif;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0b0b0d;
+        --surface: #131316;
+        --surface-muted: #1a1a1f;
+        --border: #26262b;
+        --text: #f5f5f7;
+        --text-muted: #a1a1aa;
+        --text-subtle: #71717a;
+        --accent: #818cf8;
+        --accent-soft: rgba(129, 140, 248, 0.12);
+        --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+        --shadow-md: 0 1px 2px rgba(0, 0, 0, 0.4), 0 12px 32px rgba(0, 0, 0, 0.32);
+      }
+    }
+
+    *,
+    *::before,
+    *::after { box-sizing: border-box; }
+
+    html, body { margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      font-size: 16px;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    .container {
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 56px 32px 96px;
+    }
+
+    /* Header --------------------------------------------------------- */
+
+    .feature-header {
+      margin-bottom: 32px;
+      padding-bottom: 28px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .version-chip {
+      display: inline-flex;
+      align-items: center;
+      padding: 4px 10px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      border-radius: 999px;
+      font-size: 11.5px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .feature-title {
+      margin: 16px 0 10px;
+      font-size: 34px;
+      font-weight: 700;
+      letter-spacing: -0.022em;
+      line-height: 1.18;
+      color: var(--text);
+    }
+
+    .feature-slug {
+      font-family: var(--mono);
+      font-size: 13px;
+      color: var(--text-muted);
+      background: var(--surface-muted);
+      padding: 3px 9px;
+      border-radius: var(--radius-sm);
+      display: inline-block;
+      border: 1px solid var(--border);
+    }
+
+    /* Progress stepper ---------------------------------------------- */
+
+    .progress-stepper {
+      display: flex;
+      list-style: none;
+      margin: 0 0 36px;
+      padding: 0;
+      gap: 0;
+    }
+
+    .step {
+      position: relative;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    /* Connector line — drawn rightward from each step except the last.
+       Coloured by THIS step's state: a complete step extends an accent
+       line toward the next; anything else extends a muted line. */
+    .step::after {
+      content: "";
+      position: absolute;
+      top: 13px;
+      left: calc(50% + 18px);
+      right: calc(-50% + 18px);
+      height: 2px;
+      background: var(--border);
+      z-index: 0;
+      transition: background 0.2s ease;
+    }
+
+    .step:last-child::after { display: none; }
+
+    .step[data-state="complete"]::after { background: var(--accent); }
+
+    .step-indicator {
+      position: relative;
+      z-index: 1;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      border: 2px solid var(--border);
+      background: var(--surface);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-muted);
+      font-variant-numeric: tabular-nums;
+      transition: background 0.2s ease,
+                  border-color 0.2s ease,
+                  color 0.2s ease,
+                  box-shadow 0.2s ease;
+    }
+
+    .step-check { display: none; line-height: 1; }
+    .step-number { display: inline; line-height: 1; }
+
+    .step[data-state="complete"] .step-indicator {
+      border-color: var(--accent);
+      background: var(--accent);
+      color: #ffffff;
+    }
+
+    .step[data-state="complete"] .step-check { display: inline; }
+    .step[data-state="complete"] .step-number { display: none; }
+
+    .step-label {
+      font-size: 12.5px;
+      font-weight: 500;
+      color: var(--text-muted);
+      letter-spacing: 0.02em;
+      text-align: center;
+      line-height: 1.25;
+    }
+
+    .step[data-state="complete"] .step-label {
+      color: var(--text);
+      font-weight: 600;
+    }
+
+    /* Tabs ----------------------------------------------------------- */
+
+    .tabs {
+      position: sticky;
+      top: 0;
+      z-index: 5;
+      display: flex;
+      gap: 0;
+      margin-bottom: 28px;
+      border-bottom: 1px solid var(--border);
+      background: color-mix(in srgb, var(--bg) 88%, transparent);
+      backdrop-filter: saturate(180%) blur(10px);
+      -webkit-backdrop-filter: saturate(180%) blur(10px);
+      padding-top: 4px;
+    }
+
+    .tab {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 14px 18px;
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-family: inherit;
+      font-size: 14.5px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: color 0.15s ease;
+      border-radius: 0;
+      outline: none;
+    }
+
+    .tab:hover { color: var(--text); }
+
+    .tab:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: -4px;
+      border-radius: var(--radius-sm);
+    }
+
+    .tab[aria-selected="true"] {
+      color: var(--accent);
+      font-weight: 600;
+    }
+
+    .tab .tab-icon {
+      width: 16px;
+      height: 16px;
+      stroke-width: 2;
+      flex-shrink: 0;
+    }
+
+    .tab-indicator {
+      position: absolute;
+      left: 0;
+      bottom: -1px;
+      height: 2px;
+      width: 0;
+      background: var(--accent);
+      border-radius: 2px 2px 0 0;
+      transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+                  width 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+      pointer-events: none;
+    }
+
+    /* Panels --------------------------------------------------------- */
+
+    .panel { display: none; }
+
+    .panel.active {
+      display: block;
+      animation: panel-in 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    @keyframes panel-in {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .panel-section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 28px 32px;
+      margin-bottom: 16px;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .panel-section:last-child { margin-bottom: 0; }
+
+    .section-label {
+      margin: 0 0 18px;
+      font-size: 11.5px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--text-subtle);
+    }
+
+    /* Bullets -------------------------------------------------------- */
+
+    .bullets ul,
+    .prose ul {
+      list-style: none;
+      margin: 0;
+      padding-left: 0;
+    }
+
+    .bullets ol,
+    .prose ol {
+      margin: 0;
+      padding-left: 24px;
+    }
+
+    .bullets ul > li,
+    .prose ul > li {
+      position: relative;
+      padding-left: 22px;
+      margin-bottom: 10px;
+    }
+
+    .bullets ul > li::before,
+    .prose ul > li::before {
+      content: "";
+      position: absolute;
+      left: 6px;
+      top: 12px;
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: var(--accent);
+      opacity: 0.9;
+    }
+
+    .bullets ol > li,
+    .prose ol > li { margin-bottom: 10px; }
+
+    .bullets li:last-child,
+    .prose li:last-child { margin-bottom: 0; }
+
+    .bullets li > ul, .bullets li > ol,
+    .prose li > ul, .prose li > ol { margin-top: 8px; }
+
+    /* Prose ---------------------------------------------------------- */
+
+    .prose p { margin: 0 0 14px; }
+    .prose p:last-child { margin-bottom: 0; }
+    .prose strong { font-weight: 600; }
+
+    .prose a {
+      color: var(--accent);
+      text-decoration: none;
+      border-bottom: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
+      transition: border-color 0.15s ease;
+    }
+    .prose a:hover { border-bottom-color: var(--accent); }
+
+    .prose h2,
+    .prose h3,
+    .prose h4 {
+      margin: 28px 0 10px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      line-height: 1.3;
+    }
+    .prose h2 { font-size: 20px; }
+    .prose h3 { font-size: 16px; }
+    .prose h4 {
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+    }
+    .prose h2:first-child,
+    .prose h3:first-child,
+    .prose h4:first-child { margin-top: 0; }
+
+    .prose code {
+      font-family: var(--mono);
+      font-size: 0.9em;
+      background: var(--surface-muted);
+      color: var(--text);
+      padding: 1.5px 6px;
+      border-radius: 5px;
+      border: 1px solid var(--border);
+    }
+
+    .prose pre {
+      background: #0f172a;
+      color: #e2e8f0;
+      padding: 16px 18px;
+      border-radius: var(--radius-sm);
+      overflow-x: auto;
+      font-family: var(--mono);
+      font-size: 13px;
+      line-height: 1.55;
+      margin: 14px 0;
+    }
+    .prose pre code {
+      background: transparent;
+      border: none;
+      padding: 0;
+      color: inherit;
+      font-size: inherit;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      .prose pre { background: #05050a; }
+    }
+
+    .prose blockquote {
+      margin: 14px 0;
+      padding: 10px 16px;
+      border-left: 3px solid var(--accent);
+      background: var(--accent-soft);
+      color: var(--text);
+      border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+    }
+    .prose blockquote p:last-child { margin-bottom: 0; }
+
+    .prose table {
+      border-collapse: collapse;
+      width: 100%;
+      margin: 16px 0;
+      font-size: 14px;
+    }
+    .prose th,
+    .prose td {
+      text-align: left;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    .prose th {
+      font-weight: 600;
+      color: var(--text-muted);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      background: var(--surface-muted);
+    }
+
+    .empty {
+      color: var(--text-subtle);
+      font-style: italic;
+      margin: 0;
+    }
+
+    /* Section timestamp chip --------------------------------------- */
+
+    .section-timestamp {
+      margin: 0 0 16px;
+      display: inline-block;
+      padding: 4px 12px;
+      background: var(--surface-muted);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      font-family: var(--mono);
+      font-size: 11.5px;
+      font-weight: 500;
+      color: var(--text-muted);
+      letter-spacing: 0.02em;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* Run-usage chip and table (both filled by usage-report) --------- */
+
+    .chip.usage {
+      display: inline-block;
+      margin: 0 0 16px 8px;
+      padding: 4px 12px;
+      background: var(--accent-soft);
+      border: 1px solid var(--accent);
+      border-radius: 999px;
+      font-family: var(--mono);
+      font-size: 11.5px;
+      font-weight: 600;
+      color: var(--accent);
+      letter-spacing: 0.02em;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* The usage fragment is two halves side by side — the small total-only
+       groups beside the token breakdown — reflowing to stacked when the panel
+       is narrow. Each half is an ordinary table.usage, so every rule below
+       applies to both unchanged. */
+    .usage-pair {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0 28px;
+      align-items: flex-start;
+    }
+    .usage-pair > table.usage {
+      flex: 1 1 320px;
+      width: auto;
+      min-width: 0;
+    }
+
+    /* The usage fragment sits outside .prose, so it carries its own
+       table rules rather than inheriting the ones above. */
+    table.usage {
+      border-collapse: collapse;
+      width: 100%;
+      margin-top: 16px;
+      font-family: var(--mono);
+      font-size: 12px;
+      font-variant-numeric: tabular-nums;
+    }
+    table.usage th {
+      text-align: right;
+      padding: 5px 10px;
+      border-bottom: 1px solid var(--border);
+      font-weight: 600;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-subtle);
+    }
+    table.usage td {
+      text-align: right;
+      padding: 4px 10px;
+      border-bottom: 1px solid var(--surface-muted);
+      color: var(--text-muted);
+    }
+    table.usage th:first-child,
+    table.usage td:first-child { text-align: left; }
+    table.usage td:first-child { color: var(--text); }
+    table.usage tr.grp td {
+      padding-top: 12px;
+      border-bottom: none;
+      font-weight: 600;
+      font-size: 10.5px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-subtle);
+    }
+    table.usage tr.sub td:first-child {
+      padding-left: 24px;
+      color: var(--text-subtle);
+    }
+    table.usage tr.tp td {
+      background: var(--accent-soft);
+      font-weight: 600;
+      color: var(--accent);
+    }
+
+    /* The Usage tab's seven-column cycle table scrolls rather than squeezes
+       on a narrow screen, so its cells never wrap. */
+    .usage-scroll { overflow-x: auto; white-space: nowrap; }
+    .usage-note {
+      margin: 12px 0 0;
+      font-size: 12px;
+      color: var(--text-subtle);
+    }
+
+    /* Footer --------------------------------------------------------- */
+
+    .feature-footer {
+      margin-top: 40px;
+      padding-top: 20px;
+      border-top: 1px solid var(--border);
+      font-size: 12px;
+      color: var(--text-subtle);
+      text-align: center;
+      letter-spacing: 0.02em;
+    }
+
+    /* Responsive ----------------------------------------------------- */
+
+    @media (max-width: 720px) {
+      .container { padding: 32px 18px 64px; }
+      .feature-title { font-size: 26px; }
+      .tabs { overflow-x: auto; }
+      .tabs::-webkit-scrollbar { display: none; }
+      .tab {
+        white-space: nowrap;
+        padding: 12px 12px;
+        font-size: 13.5px;
+      }
+      .panel-section { padding: 20px 18px; }
+      .progress-stepper { margin-bottom: 24px; }
+      .step-label { font-size: 11px; }
+      .step-indicator { width: 26px; height: 26px; font-size: 12px; }
+      .step::after { top: 12px; left: calc(50% + 17px); right: calc(-50% + 17px); }
+    }
+
+    /* Tracker kind — feature view (default) vs. bug tracker --------- */
+
+    /* Feature view (no data-tracker-kind): hide the Issues tab + panel. */
+    body:not([data-tracker-kind="bugs"]) .tab[data-kind="issues"],
+    body:not([data-tracker-kind="bugs"]) #panel-issues { display: none !important; }
+
+    /* Bug tracker: only the Issues tab/panel; no stepper, no feature tabs,
+       no version chip/slug in the header. */
+    body[data-tracker-kind="bugs"] .progress-stepper,
+    body[data-tracker-kind="bugs"] .feature-header .version-chip,
+    body[data-tracker-kind="bugs"] .feature-header .feature-slug,
+    body[data-tracker-kind="bugs"] .tab:not([data-kind="issues"]) { display: none; }
+
+    body[data-tracker-kind="bugs"] .panel:not(#panel-issues) { display: none !important; }
+    body[data-tracker-kind="bugs"] #panel-issues { display: block; }
+
+    /* Issues panel --------------------------------------------------- */
+
+    .issue-filter {
+      display: inline-flex;
+      gap: 4px;
+      margin: 0 0 20px;
+      padding: 4px;
+      background: var(--surface-muted);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+    }
+
+    .issue-tab {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 6px 16px;
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      font-family: inherit;
+      font-size: 13.5px;
+      font-weight: 500;
+      border-radius: 999px;
+      cursor: pointer;
+      transition: background 0.15s ease, color 0.15s ease;
+    }
+
+    .issue-tab:hover { color: var(--text); }
+
+    .issue-tab:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    .issue-tab[aria-pressed="true"] {
+      background: var(--surface);
+      color: var(--accent);
+      font-weight: 600;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .issue-count {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 20px;
+      height: 18px;
+      padding: 0 6px;
+      border-radius: 999px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-size: 11.5px;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .issue-tab[aria-pressed="false"] .issue-count {
+      background: var(--border);
+      color: var(--text-muted);
+    }
+
+    .issue-list[hidden] { display: none; }
+
+    .issue {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      margin-bottom: 12px;
+      box-shadow: var(--shadow-sm);
+      overflow: hidden;
+    }
+    .issue:last-child { margin-bottom: 0; }
+
+    .issue-summary {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 16px 20px;
+      cursor: pointer;
+      list-style: none;
+      user-select: none;
+    }
+    .issue-summary::-webkit-details-marker { display: none; }
+
+    .issue-summary::before {
+      content: "";
+      width: 7px;
+      height: 7px;
+      border-right: 2px solid var(--text-subtle);
+      border-bottom: 2px solid var(--text-subtle);
+      transform: rotate(-45deg);
+      transition: transform 0.18s ease;
+      flex-shrink: 0;
+    }
+    .issue[open] > .issue-summary::before { transform: rotate(45deg); }
+
+    .issue-number {
+      font-family: var(--mono);
+      font-size: 12.5px;
+      font-weight: 600;
+      color: var(--text-subtle);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .issue-title {
+      flex: 1;
+      min-width: 0;
+      font-weight: 600;
+      font-size: 15px;
+      color: var(--text);
+    }
+
+    .issue-sev {
+      padding: 2px 9px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      flex-shrink: 0;
+    }
+    .sev-low      { background: #ecfdf5; color: #047857; }
+    .sev-medium   { background: #fffbeb; color: #b45309; }
+    .sev-high     { background: #fef2f2; color: #b91c1c; }
+    .sev-critical { background: #b91c1c; color: #ffffff; }
+
+    @media (prefers-color-scheme: dark) {
+      .sev-low      { background: rgba(16, 185, 129, 0.16); color: #34d399; }
+      .sev-medium   { background: rgba(245, 158, 11, 0.16); color: #fbbf24; }
+      .sev-high     { background: rgba(239, 68, 68, 0.16);  color: #f87171; }
+      .sev-critical { background: #dc2626; color: #ffffff; }
+    }
+
+    .issue-date {
+      font-family: var(--mono);
+      font-size: 11.5px;
+      color: var(--text-subtle);
+      font-variant-numeric: tabular-nums;
+      flex-shrink: 0;
+    }
+
+    .issue-body {
+      padding: 4px 20px 22px;
+      border-top: 1px solid var(--border);
+    }
+
+    .issue-body img {
+      max-width: 100%;
+      height: auto;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      margin: 10px 0;
+      display: block;
+    }
+
+    @media (max-width: 720px) {
+      .issue-summary { flex-wrap: wrap; gap: 8px; padding: 14px 16px; }
+      .issue-title { flex-basis: 100%; order: 3; }
+      .issue-body { padding: 4px 16px 18px; }
+    }
+
+    /* Print ---------------------------------------------------------- */
+
+    @media print {
+      .tabs,
+      .tab-indicator { display: none; }
+      body[data-tracker-kind="bugs"] .panel:not(#panel-issues) { display: none !important; }
+      .issue { break-inside: avoid; }
+      .panel {
+        display: block !important;
+        page-break-after: always;
+      }
+      .panel:last-of-type { page-break-after: auto; }
+      .container { max-width: none; padding: 24px; }
+      body { background: white; color: black; }
+      .panel-section {
+        box-shadow: none;
+        border: 1px solid #ccc;
+        break-inside: avoid;
+      }
+      .progress-stepper { break-inside: avoid; }
+    }
+  </style>
+</head>
+
+<body>
+  <main class="container">
+    <header class="feature-header">
+      <span class="version-chip">v8</span>
+      <h1 class="feature-title">Persistent Speaker Recognition</h1>
+      <code class="feature-slug">feature-v8-Persistent-Speaker-Recognition</code>
+    </header>
+
+    <ol class="progress-stepper" aria-label="Feature progress: Storming, Design, Plan, Implement">
+      <li class="step" data-stage="storm" data-state="complete">
+        <span class="step-indicator" aria-hidden="true">
+          <span class="step-check">&#10003;</span>
+          <span class="step-number">1</span>
+        </span>
+        <span class="step-label">Storming</span>
+      </li>
+      <li class="step" data-stage="design" data-state="complete">
+        <span class="step-indicator" aria-hidden="true">
+          <span class="step-check">&#10003;</span>
+          <span class="step-number">2</span>
+        </span>
+        <span class="step-label">Design</span>
+      </li>
+      <li class="step" data-stage="plan" data-state="complete">
+        <span class="step-indicator" aria-hidden="true">
+          <span class="step-check">&#10003;</span>
+          <span class="step-number">3</span>
+        </span>
+        <span class="step-label">Plan</span>
+      </li>
+      <li class="step" data-stage="implement" data-state="pending">
+        <span class="step-indicator" aria-hidden="true">
+          <span class="step-check">&#10003;</span>
+          <span class="step-number">4</span>
+        </span>
+        <span class="step-label">Implement</span>
+      </li>
+    </ol>
+
+    <nav class="tabs" role="tablist" aria-label="Feature sections">
+      <button class="tab" role="tab" aria-selected="true"
+              aria-controls="panel-brainstorming" id="tab-brainstorming" tabindex="0">
+        <svg class="tab-icon" xmlns="http://www.w3.org/2000/svg"
+             viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M9 18h6"/>
+          <path d="M10 22h4"/>
+          <path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5A4.61 4.61 0 0 1 8.91 14"/>
+        </svg>
+        <span>Brainstorming</span>
+      </button>
+
+      <button class="tab" role="tab" aria-selected="false"
+              aria-controls="panel-design" id="tab-design" tabindex="-1">
+        <svg class="tab-icon" xmlns="http://www.w3.org/2000/svg"
+             viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="10"/>
+          <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/>
+        </svg>
+        <span>Design</span>
+      </button>
+
+      <button class="tab" role="tab" aria-selected="false"
+              aria-controls="panel-plan" id="tab-plan" tabindex="-1">
+        <svg class="tab-icon" xmlns="http://www.w3.org/2000/svg"
+             viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <line x1="8" y1="6" x2="21" y2="6"/>
+          <line x1="8" y1="12" x2="21" y2="12"/>
+          <line x1="8" y1="18" x2="21" y2="18"/>
+          <line x1="3" y1="6" x2="3.01" y2="6"/>
+          <line x1="3" y1="12" x2="3.01" y2="12"/>
+          <line x1="3" y1="18" x2="3.01" y2="18"/>
+        </svg>
+        <span>Plan</span>
+      </button>
+
+      <button class="tab" role="tab" aria-selected="false"
+              aria-controls="panel-implementation" id="tab-implementation" tabindex="-1">
+        <svg class="tab-icon" xmlns="http://www.w3.org/2000/svg"
+             viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <polyline points="16 18 22 12 16 6"/>
+          <polyline points="8 6 2 12 8 18"/>
+        </svg>
+        <span>Implementation</span>
+      </button>
+
+      <button class="tab" role="tab" aria-selected="false"
+              aria-controls="panel-usage" id="tab-usage" tabindex="-1">
+        <svg class="tab-icon" xmlns="http://www.w3.org/2000/svg"
+             viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M3 3v18h18"/>
+          <line x1="8" y1="17" x2="8" y2="12"/>
+          <line x1="13" y1="17" x2="13" y2="7"/>
+          <line x1="18" y1="17" x2="18" y2="14"/>
+        </svg>
+        <span>Usage</span>
+      </button>
+
+      <button class="tab" role="tab" aria-selected="false" data-kind="issues"
+              aria-controls="panel-issues" id="tab-issues" tabindex="-1">
+        <svg class="tab-icon" xmlns="http://www.w3.org/2000/svg"
+             viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="9"/>
+          <line x1="12" y1="8" x2="12" y2="13"/>
+          <line x1="12" y1="16.5" x2="12.01" y2="16.5"/>
+        </svg>
+        <span>Issues</span>
+      </button>
+
+      <span class="tab-indicator" aria-hidden="true"></span>
+    </nav>
+
+    <section class="panel active" role="tabpanel"
+             id="panel-brainstorming" aria-labelledby="tab-brainstorming">
+      <p class="section-timestamp">Updated 2026-11-20 07:27 UTC</p>
+      <!-- usage:BRAINSTORMING_USAGE_CHIP --><span class="chip usage">22m 39s · 67,327 out · 130.0 tok/s · $5.01</span><!-- /usage:BRAINSTORMING_USAGE_CHIP -->
+      <article class="panel-section">
+        <h2 class="section-label">Highlights</h2>
+        <div class="bullets"><ul>
+<li>What it is: Mini Whisper remembers the people you name in meetings and names them in later ones. Two opt-in toggles under Settings › Meetings › Engine, both off by default: Speechmatics voice identifiers under the Speechmatics engines, a bundled local voice model (WeSpeaker) under the AssemblyAI engines. Remote and in-room, including recognising you in the room.</li>
+<li>Learning: with a toggle on, every rename remembers that voice, and the rename popover says so. It works during the meeting or after Stop, because each meeting keeps its speakers' voice data (never audio) until the meeting or the person is deleted.</li>
+<li>Applying names, local model: a sure match is a normal name with "Not Alice" on hover; a less sure match is a marked suggestion with visible accept and dismiss; anything weaker stays "Speaker N".</li>
+<li>Applying names, Speechmatics: it gives no score, so a person's first match is a suggestion and, once accepted, their later matches are applied. A manual rename always wins, and an unaccepted suggestion stays "Speaker N" in summaries, exports and MCP.</li>
+<li>Settings: one "Cautious to Eager" slider under the toggle, and an Advanced section with each raw number as a slider: both thresholds, margin, minimum speech, buffer length and Speechmatics sensitivity.</li>
+<li>People: one list in Settings to view, rename, merge, forget one person or forget everyone, stored in ~/.config/mini-whisper/voices.json. Turning a toggle off stops matching and learning but keeps the list.</li>
+<li>Credits and log: a new credits window lists WeSpeaker (CC-BY-4.0, with pyannote and Fluid Inference) and Sparkle. A local log records each match's score and what you did with it, unused for now.</li>
+<li>Out of v8: context-based naming (v9), enrolling from existing audio, back-filling earlier meetings, people carrying over between providers, names read from the call app, agents naming speakers through MCP, the "Who is this?" review, self-tuning thresholds, recognition in test calls.</li>
+<li>Constraints: no new dependency; the model is an 8 MB bundled resource loaded with Core ML directly. macOS 14 target. On the local route voice data never leaves the Mac. Measured: one clip per call at about 20 ms, and a short turn must be filled with the speaker's own speech, not silence.</li>
+<li>Risks and open design questions: thresholds are untested on real meeting audio; Speechmatics identifiers stop working when it updates its model or the account changes. Design must close the default numbers, the toggle and suggestion layouts (at mockup), which people are sent under the 50-identifier cap, and how your own voice is learned.</li>
+</ul></div>
+        <!-- usage:BRAINSTORMING_USAGE --><div class="usage-pair">
+<table class="usage">
+<thead><tr><th>Metric</th><th>Main</th><th>Subagents</th><th>Total</th></tr></thead>
+<tbody>
+<tr class="grp"><td colspan="4">Time</td></tr>
+<tr><td>elapsed</td><td>—</td><td>—</td><td>22m 39s</td></tr>
+<tr><td>run time</td><td>—</td><td>—</td><td>11m 16s</td></tr>
+<tr class="grp"><td colspan="4">Requests</td></tr>
+<tr><td>model</td><td>24</td><td>2</td><td>26</td></tr>
+<tr><td>web_search</td><td>0</td><td>0</td><td>0</td></tr>
+<tr><td>web_fetch</td><td>0</td><td>0</td><td>0</td></tr>
+<tr class="grp"><td colspan="4">Throughput</td></tr>
+<tr class="tp"><td>output tok/s</td><td>—</td><td>—</td><td>130.0</td></tr>
+</tbody>
+</table>
+<table class="usage">
+<thead><tr><th>Metric</th><th>Main</th><th>Subagents</th><th>Total</th></tr></thead>
+<tbody>
+<tr class="grp"><td colspan="4">Tokens</td></tr>
+<tr><td>input_tokens</td><td>54</td><td>4</td><td>58</td></tr>
+<tr><td>output_tokens</td><td>63,750</td><td>3,577</td><td>67,327</td></tr>
+<tr class="sub"><td>thinking_tokens</td><td>35,092</td><td>1,404</td><td>36,496</td></tr>
+<tr><td>cache_write</td><td>112,333</td><td>11,207</td><td>123,540</td></tr>
+<tr class="sub"><td>ephemeral_1h</td><td>112,333</td><td>0</td><td>112,333</td></tr>
+<tr class="sub"><td>ephemeral_5m</td><td>0</td><td>11,207</td><td>11,207</td></tr>
+<tr><td>cache_read</td><td>3,276,735</td><td>4,553</td><td>3,281,288</td></tr>
+</tbody>
+</table>
+</div><!-- /usage:BRAINSTORMING_USAGE -->
+      </article>
+      <article class="panel-section">
+        <h2 class="section-label">Detail</h2>
+        <div class="prose">
+<h3>Summary</h3>
+<p>Meeting speakers are numbered afresh in every meeting, and a name given to "Speaker 2" is forgotten when the meeting ends; only the user is recognised, and only in remote calls. This feature makes Mini Whisper remember the people the user names and name them in later meetings. It has two opt-in routes, chosen by the meeting engine: Speechmatics voice identifiers under the two Speechmatics engines, and a bundled local voice model (WeSpeaker) under the two AssemblyAI engines. Recognised names appear as applied names or as suggestions, depending on how sure the match is, and the user stays in control through accept, dismiss and the existing rename.</p>
+<h3>In scope</h3>
+<ul>
+<li>Two toggles under Settings › Meetings › Engine, both off by default. Layout settled at mockup.</li>
+<li>Recognition in remote and in-room meetings, including recognising the user in the room.</li>
+<li>Learning on every rename while a toggle is on, during the meeting or after Stop.</li>
+<li>Each meeting keeps its speakers' voice data (vectors or identifiers, never audio) until the meeting is deleted or the data is removed from the People list.</li>
+<li>Local model: sure matches applied, less sure ones suggested, the rest "Speaker N".</li>
+<li>Speechmatics: a person's first match is a suggestion; once accepted, later matches are applied.</li>
+<li>A manual rename always wins. Unaccepted suggestions stay "Speaker N" in summaries, exports and MCP results.</li>
+<li>One "Cautious to Eager" slider, and an Advanced section with the raw sliders.</li>
+<li>A People list: view, rename, merge, forget one, forget everyone.</li>
+<li>One store at ~/.config/mini-whisper/voices.json. A person is learned separately by each provider.</li>
+<li>A local log of match scores and outcomes, recorded only.</li>
+<li>A credits window listing WeSpeaker and Sparkle.</li>
+<li>A suggestion display that a second source can feed.</li>
+</ul>
+<h3>Out of scope or deferred</h3>
+<ul>
+<li>Naming speakers from what is said: separate feature, v9.</li>
+<li>Enrolling voices from existing meetings' audio.</li>
+<li>Back-filling earlier meetings when a person is named later.</li>
+<li>People carrying over between providers, and cross-checking Speechmatics matches with the local model.</li>
+<li>Reading the active speaker's name from the call app's window.</li>
+<li>Agents naming speakers through MCP; the server stays read-only.</li>
+<li>A "Who is this?" review of recurring unnamed voices: future consideration.</li>
+<li>Self-tuning thresholds: future development; the log is recorded from v8.</li>
+<li>Recognition in test calls.</li>
+</ul>
+<h3>Technical direction</h3>
+<ul>
+<li>No new third-party dependency, macOS 14 target, arm64, Swift 6 strict concurrency, durations tested on a virtual clock, settings in config.json.</li>
+<li>The local model is wespeaker_v2.mlmodelc, about 8 MB, bundled and loaded with Core ML directly.</li>
+<li>Measured on macOS 26.6.1 with synthetic voices: loads in 0.1 to 0.6 s, 15 to 23 ms per call; same voice 0.88 to 0.92, different voices 0.08 to 0.66.</li>
+<li>The model takes one 10-second clip per call with three speaker masks, not three clips as the research note says.</li>
+<li>A short clip padded with silence does not separate voices; the window must be filled with the speaker's own speech.</li>
+<li>Not yet run on macOS 14 or on real meeting audio.</li>
+<li>Speechmatics returns no match score; speaker_sensitivity is its only tuning. At most 50 identifiers per session. Identifiers are tied to the model, account and project.</li>
+<li>The voice store is a plain file beside config.json, chosen over an encrypted file, one file per person and the Keychain.</li>
+</ul>
+</div>
+      </article>
+    </section>
+
+    <section class="panel" role="tabpanel"
+             id="panel-design" aria-labelledby="tab-design" hidden>
+      <p class="section-timestamp">Updated 2026-11-20 09:38 UTC</p>
+      <!-- usage:DESIGN_USAGE_CHIP --><span class="chip usage">1h 55m 09s · 258,092 out · 119.6 tok/s · $28.60</span><!-- /usage:DESIGN_USAGE_CHIP -->
+      <article class="panel-section">
+        <h2 class="section-label">Highlights</h2>
+        <div class="bullets"><ul>
+          <li>Two opt-in routes, both off by default: a bundled WeSpeaker Core ML model under the AssemblyAI engines, Speechmatics voice identifiers under the Speechmatics engines.</li>
+          <li>A sure match is applied as a normal name; a weaker one shows as a provisional name with Accept, Edit and Dismiss; an applied name shows "Not &lt;name&gt;" on hover.</li>
+          <li>A suggestion never changes the stored name, so summaries, exports, search and agents keep "Speaker N" until the user confirms.</li>
+          <li>Only confirmed links learn: an accepted suggestion or a rename. The user's own voice is learned automatically.</li>
+          <li>Defaults calibrated on 18 real meetings: sure 0.70, suggestion 0.50, margin 0.10, first check after 15 s; Speechmatics sensitivity 0.80 from a live probe.</li>
+          <li>A person keeps up to 8 local samples (a near-repeat at 0.85 replaces its twin) and one Speechmatics identifier per tier.</li>
+          <li>People live in <code>voices.json</code>; each meeting keeps its voice data in a sidecar; a match log is recorded. Never audio.</li>
+          <li>A new Settings section, People: rename, merge, forget one person or everyone, with every trace removed.</li>
+          <li>Speechmatics receives opaque <code>mw:</code> labels, never names; identifiers its model refuses are dropped automatically.</li>
+          <li>A new <code>MWVoices</code> core module of small pure types and one store actor; the model is committed under <code>App/Resources</code>.</li>
+        </ul></div>
+        <!-- usage:DESIGN_USAGE --><div class="usage-pair">
+<table class="usage">
+<thead><tr><th>Metric</th><th>Main</th><th>Subagents</th><th>Total</th></tr></thead>
+<tbody>
+<tr class="grp"><td colspan="4">Time</td></tr>
+<tr><td>elapsed</td><td>—</td><td>—</td><td>1h 55m 09s</td></tr>
+<tr><td>run time</td><td>—</td><td>—</td><td>49m 14s</td></tr>
+<tr class="grp"><td colspan="4">Requests</td></tr>
+<tr><td>model</td><td>106</td><td>7</td><td>113</td></tr>
+<tr><td>web_search</td><td>0</td><td>0</td><td>0</td></tr>
+<tr><td>web_fetch</td><td>0</td><td>0</td><td>0</td></tr>
+<tr class="grp"><td colspan="4">Throughput</td></tr>
+<tr class="tp"><td>output tok/s</td><td>—</td><td>—</td><td>119.6</td></tr>
+</tbody>
+</table>
+<table class="usage">
+<thead><tr><th>Metric</th><th>Main</th><th>Subagents</th><th>Total</th></tr></thead>
+<tbody>
+<tr class="grp"><td colspan="4">Tokens</td></tr>
+<tr><td>input_tokens</td><td>252</td><td>14</td><td>266</td></tr>
+<tr><td>output_tokens</td><td>243,779</td><td>14,313</td><td>258,092</td></tr>
+<tr class="sub"><td>thinking_tokens</td><td>113,644</td><td>6,010</td><td>119,654</td></tr>
+<tr><td>cache_write</td><td>589,191</td><td>76,326</td><td>665,517</td></tr>
+<tr class="sub"><td>ephemeral_1h</td><td>589,191</td><td>0</td><td>589,191</td></tr>
+<tr class="sub"><td>ephemeral_5m</td><td>0</td><td>76,326</td><td>76,326</td></tr>
+<tr><td>cache_read</td><td>47,020,710</td><td>51,241</td><td>47,071,951</td></tr>
+</tbody>
+</table>
+</div><!-- /usage:DESIGN_USAGE -->
+      </article>
+      <article class="panel-section">
+        <h2 class="section-label">Detail</h2>
+        <div class="prose">
+          <p>Accepted mockups:
+            <a href="./mockups/mockup-v8-recognition-settings.html#in-engine-card">Settings toggles</a> (<a href="https://claude.ai/artifact/DreQJ5XL5H9uoW1Ba5x7nE#in-engine-card">artifact</a>) ·
+            <a href="./mockups/mockup-v8-provisional-name.html">Transcript names</a> (<a href="https://claude.ai/artifact/5DFRtWDN6j4xJHCzdJgnrr">artifact</a>) ·
+            <a href="./mockups/mockup-v8-people.html">People list</a> (<a href="https://claude.ai/artifact/QJMnNUJAimpTXG87RZY5fj">artifact</a>) ·
+            <a href="./mockups/mockup-v8-credits.html">Credits window</a> (<a href="https://claude.ai/artifact/EM2d3E1BrecQtS4QvdZ9Lc">artifact</a>).
+            Design language: <a href="../../DESIGN.md">DESIGN.md</a> · <a href="../../design/specimen.html">specimen</a>.
+            Full design: <a href="./feature-design-v8-Persistent-Speaker-Recognition.md">feature-design-v8-Persistent-Speaker-Recognition.md</a>.</p>
+
+          <h3>Summary</h3>
+          <p>Mini Whisper remembers the people the user names in meetings and names them in later ones. A sure voice match is applied as a normal name; a weaker one is offered as a provisional name. Only what the user confirms is learned, and a People section forgets one person or everyone.</p>
+
+          <h3>Goals and non-goals</h3>
+          <ul>
+            <li>A person named once is named or suggested later on the same route.</li>
+            <li>No unconfirmed name reaches a summary, export, chip, search result or agent.</li>
+            <li>Both routes off by default; with both off nothing changes.</li>
+            <li>No voice data leaves the Mac on the local route; no name is sent to Speechmatics.</li>
+            <li>Not in this version: naming from what is said (v9), enrolling from old audio, carrying people between routes, test-call recognition, macOS 14 verification.</li>
+          </ul>
+
+          <h3>Design</h3>
+          <h4>Components</h4>
+          <table>
+            <tr><th>Component</th><th>Module</th><th>Responsibility</th></tr>
+            <tr><td>VoiceSettings, VoiceRoute</td><td>MWConfig</td><td>Eight settings and the Cautious–Eager mapping</td></tr>
+            <tr><td>NameMatch, VoiceVector, MeetingVoices</td><td>MWMeetings</td><td>Stored shapes; three optional fields on SpeakerLabel</td></tr>
+            <tr><td>VoiceStore, SampleSet, VoiceMatcher, VoiceWindow, SpeechmaticsEnrolment, MatchLog, VoiceScrubber, CoreMLVoiceEmbedder</td><td>MWVoices (new)</td><td>People, the sample rule, matching, windows, enrolment, the log, forgetting, embedding</td></tr>
+            <tr><td>Speechmatics adapter and engine additions</td><td>MWStreaming</td><td>speakers, GetSpeakers, SpeakersResult, the speaker_id warning</td></tr>
+            <tr><td>VoiceAudioBuffer, VoiceRecogniser, SpeakerRegistry and MeetingController additions</td><td>MWMeetingPipeline</td><td>Rolling audio, turn vectors, suggest / apply / accept / dismiss / detach / link</td></tr>
+            <tr><td>Settings, People, transcript, Credits</td><td>App</td><td>The four accepted surfaces</td></tr>
+          </table>
+          <h4>Data</h4>
+          <ul>
+            <li><code>config.json</code>: two switches and six tuning values.</li>
+            <li><code>meeting.json</code>: a speaker may carry <code>person</code>, <code>matches</code> and <code>rejected</code>; written only when set.</li>
+            <li><code>meetings/&lt;id&gt;/voices.json</code>: a vector or identifier per provider key, written at Stop.</li>
+            <li><code>~/.config/mini-whisper/voices.json</code>: people, up to 8 local samples each, one Speechmatics identifier per tier.</li>
+            <li><code>~/.config/mini-whisper/voice-matches.jsonl</code>: every match and what the user did with it.</li>
+          </ul>
+          <h4>Matching</h4>
+          <ul>
+            <li>Local: each final segment with at least 1.5 s of speech gives vectors from a 10 s window looped with the speaker's own speech. A voice is checked once it has 15 s; a person's score is the best cosine against their samples.</li>
+            <li>Speechmatics: known people are enrolled under <code>mw:&lt;uuid&gt;</code> labels at each session open; a person's first match is a suggestion, later ones are applied once the user has confirmed them.</li>
+            <li>Recognition only touches speakers still called "Speaker N".</li>
+          </ul>
+          <h4>Failure and privacy</h4>
+          <ul>
+            <li>A model that fails to load disables the local switch with its reason; the meeting carries on.</li>
+            <li>A lost Speechmatics session leaves its speakers unlearnable; a refused identifier is dropped and one notice is shown.</li>
+            <li>Files are 0600; logs carry no names, vectors or identifiers; the CLI and MCP server cannot reach voice data.</li>
+          </ul>
+          <h4>Testing</h4>
+          <p>Every pure type and actor has its own suite on fakes. The real model is exercised by an AppTests test from the app bundle and by a macos-15 CI job; Speechmatics enrolment by an opt-in integration test.</p>
+
+          <h3>Risks</h3>
+          <ul>
+            <li>Defaults rest on 18 remote meetings of one user; in-room data is thin.</li>
+            <li>macOS 14 is unverified for the local model; failure degrades to a disabled switch.</li>
+            <li>Speechmatics gives no score and can name an unknown voice as a similar enrolled one; sensitivity 0.80 and first-match-is-a-suggestion limit it.</li>
+            <li>Sending <code>speaker_sensitivity</code> changes Speechmatics diarization while its switch is on.</li>
+            <li>Voice data about other people sits in plain files, as meeting audio already does.</li>
+          </ul>
+
+          <h3>Rollout</h3>
+          <p>One release with both switches off. A macos-15 CI job checks the committed model. Rollback is turning the switches off; the new files are inert without them.</p>
+        </div>
+      </article>
+    </section>
+
+    <section class="panel" role="tabpanel"
+             id="panel-plan" aria-labelledby="tab-plan" hidden>
+      <p class="section-timestamp">Updated 2026-11-20 10:14 UTC</p>
+      <!-- usage:PLAN_USAGE_CHIP --><span class="chip usage">35m 07s · 226,633 out · 141.7 tok/s · $15.90</span><!-- /usage:PLAN_USAGE_CHIP -->
+      <article class="panel-section">
+        <h2 class="section-label">Highlights</h2>
+        <div class="bullets"><ul>
+          <li>21 stages in six phases; every behaviour-changing stage test-first (Swift Testing core, AppTests for the app).</li>
+          <li>Foundations (1–4): the eight <code>voice_*</code> config keys, rolling audio buffers on the capture tick, the Credits window, and the stored shapes with the meeting sidecar.</li>
+          <li><code>MWVoices</code> (5–10): the new module with people, <code>SampleSet</code>, <code>VoiceMatcher</code>, windows, enrolment, <code>VoiceStore</code>, match log and scrubber, the registry operations, and the bundled WeSpeaker model with <code>CoreMLVoiceEmbedder</code> and a macos-15 CI check.</li>
+          <li>Streaming, recogniser, Settings (11–14): the Speechmatics identification wire, per-session enrolment and <code>GetSpeakers</code>, the <code>VoiceRecogniser</code> actor, and the switches and tuning.</li>
+          <li>Controller (15–17): local recognition, then accept / dismiss / reject and learning, then the Speechmatics route.</li>
+          <li>Surfaces (18–20): provisional names and actions, People (rename, merge), then Forget — after which the app wires the feature on, so nothing is learned before it can be forgotten.</li>
+          <li>Documentation (21): CHANGELOG, README, CLAUDE.md module map.</li>
+          <li>Schedule: 15 batches, 9 stages parallel-eligible; critical path 11 of 21 stages (4 → 5 → 6 → 13 → 15 → 16 → 17 → 18 → 19 → 20 → 21).</li>
+          <li>Design coverage 29/29; deviations from the design: none (two factual corrections made in place).</li>
+        </ul></div>
+        <!-- usage:PLAN_USAGE --><div class="usage-pair">
+<table class="usage">
+<thead><tr><th>Metric</th><th>Main</th><th>Subagents</th><th>Total</th></tr></thead>
+<tbody>
+<tr class="grp"><td colspan="4">Time</td></tr>
+<tr><td>elapsed</td><td>—</td><td>—</td><td>35m 07s</td></tr>
+<tr><td>run time</td><td>—</td><td>—</td><td>35m 07s</td></tr>
+<tr class="grp"><td colspan="4">Requests</td></tr>
+<tr><td>model</td><td>7</td><td>119</td><td>126</td></tr>
+<tr><td>web_search</td><td>0</td><td>0</td><td>0</td></tr>
+<tr><td>web_fetch</td><td>0</td><td>0</td><td>0</td></tr>
+<tr class="grp"><td colspan="4">Throughput</td></tr>
+<tr class="tp"><td>output tok/s</td><td>—</td><td>—</td><td>141.7</td></tr>
+</tbody>
+</table>
+<table class="usage">
+<thead><tr><th>Metric</th><th>Main</th><th>Subagents</th><th>Total</th></tr></thead>
+<tbody>
+<tr class="grp"><td colspan="4">Tokens</td></tr>
+<tr><td>input_tokens</td><td>18</td><td>240</td><td>258</td></tr>
+<tr><td>output_tokens</td><td>19,537</td><td>207,096</td><td>226,633</td></tr>
+<tr class="sub"><td>thinking_tokens</td><td>449</td><td>113,692</td><td>114,141</td></tr>
+<tr><td>cache_write</td><td>27,328</td><td>888,884</td><td>916,212</td></tr>
+<tr class="sub"><td>ephemeral_1h</td><td>27,328</td><td>0</td><td>27,328</td></tr>
+<tr class="sub"><td>ephemeral_5m</td><td>0</td><td>888,884</td><td>888,884</td></tr>
+<tr><td>cache_read</td><td>673,315</td><td>32,842,075</td><td>33,515,390</td></tr>
+</tbody>
+</table>
+</div><!-- /usage:PLAN_USAGE -->
+      </article>
+      <article class="panel-section">
+        <h2 class="section-label">Detail</h2>
+        <div class="prose">
+          <p>Full plan: <a href="./feature-plan-v8-Persistent-Speaker-Recognition.md">feature-plan-v8-Persistent-Speaker-Recognition.md</a>.</p>
+
+          <h3>Overview</h3>
+          <p>A bundled WeSpeaker Core ML model under the AssemblyAI engines and Speechmatics voice identifiers under the Speechmatics engines, both behind switches that ship off. Foundations first, then the pure <code>MWVoices</code> parts, the streaming wire and recogniser, Settings, the controller in three steps, and the surfaces. No meeting recognises or learns anything before Stage 20, by which point Forget exists; no release before Stage 21. Baseline at <code>6c2e390</code>: core 17 runs / 1067 tests green, app 467 tests green.</p>
+
+          <h3>Stages</h3>
+          <h4>Phase A — Foundations</h4>
+          <ul>
+            <li><strong>1. Voice settings in config.json</strong> — <code>VoiceSettings</code>, <code>VoiceRoute</code>, eight keys, clamps, step mapping. <em>MWConfig/VoiceSettings.swift, Config.swift.</em></li>
+            <li><strong>2. Rolling voice audio buffers</strong> — <code>VoiceAudioBuffer</code>; the audio tick appends when buffers are handed in. <em>MWMeetingPipeline/VoiceAudioBuffer.swift, MeetingAudioPath.swift.</em></li>
+            <li><strong>3. The Credits window</strong> — About 300 × 330 with "Credits…"; Credits 460 × 440 for WeSpeaker and Sparkle. <em>App/Credits*.swift, AboutView, Sparkle-LICENSE.txt, THIRD_PARTY_NOTICES.md.</em></li>
+            <li><strong>4. Stored voice shapes and the meeting sidecar</strong> — <code>VoiceVector</code>, <code>NameMatch</code>, <code>MeetingVoices</code>, <code>SpeakerLabel</code> fields encoded only when set; <code>MeetingStore</code> sidecar I/O. <em>MWMeetings.</em></li>
+          </ul>
+          <h4>Phase B — The MWVoices module</h4>
+          <ul>
+            <li><strong>5. The module: people, samples, matching</strong> — the one <code>Package.swift</code> edit, <code>Log.voice</code>, <code>Person</code>, <code>SampleSet</code>, <code>VoiceMatcher</code>, <code>VoiceEmbedding</code>, <code>FakeVoiceEmbedder</code>.</li>
+            <li><strong>6. VoiceWindow and SpeechmaticsEnrolment</strong> — R6's cut and R10/R11's list and labels.</li>
+            <li><strong>7. VoiceStore</strong> — <code>voices.json</code>: find-or-create, rename refusal, merge, forget, samples, identifiers, 0600 atomic.</li>
+            <li><strong>8. MatchLog and VoiceScrubber</strong> — the 2 MB match log and the on-disk scrub (plus a pure per-meeting scrub).</li>
+            <li><strong>9. SpeakerRegistry</strong> — suggest, apply, accept, dismiss, detach, link.</li>
+            <li><strong>10. The bundled model and CoreMLVoiceEmbedder</strong> — hash-checked model under <code>App/Resources</code> as a folder resource, AppTests on four <code>say</code> clips, <code>scripts/voice_model_check.swift</code> and a macos-15 CI job.</li>
+          </ul>
+          <h4>Phase C — Streaming, the recogniser and Settings</h4>
+          <ul>
+            <li><strong>11. The Speechmatics identification wire</strong> — enrolment fields, <code>GetSpeakers</code>, <code>SpeakersResult</code>, the <code>speaker_id</code> warning; byte-identical without voices.</li>
+            <li><strong>12. Per-session enrolment and GetSpeakers</strong> — <code>makeMeeting(…voices:)</code>, the supervisor's closure read at every install, <code>requestSpeakers()</code>; opt-in live test.</li>
+            <li><strong>13. VoiceRecogniser</strong> — turn vectors per key, revisions, evaluation, decisions, off the main actor.</li>
+            <li><strong>14. Voice settings in Settings › Meetings</strong> — switches, disabled reasons, slider, Advanced; one shared embedder.</li>
+          </ul>
+          <h4>Phase D — The controller</h4>
+          <ul>
+            <li><strong>15. Local recognition</strong> — Start, ingest, apply/suggest, revisions, switch-off, sidecar at Stop; <code>MeetingVoiceRoute</code>.</li>
+            <li><strong>16. Accept, dismiss, reject and learn</strong> — links, samples, the user's own voice, stored meetings.</li>
+            <li><strong>17. The Speechmatics route</strong> — enrolment per session, <code>mw:</code> labels by trust, identifiers, the notice.</li>
+          </ul>
+          <h4>Phase E — Surfaces</h4>
+          <ul>
+            <li><strong>18. Transcript: provisional names and actions</strong> — <code>nameState</code>, <code>learnsVoice</code>, pills, "Not &lt;name&gt;", popover line, notice.</li>
+            <li><strong>19. People: list, rename, merge</strong> — a tenth Settings section.</li>
+            <li><strong>20. Forget, and the feature on</strong> — controller and coordinator scrub, Forget / Forget everyone; then the app passes <code>VoiceDependencies</code>; manual acceptance.</li>
+          </ul>
+          <h4>Phase F — Documentation</h4>
+          <ul><li><strong>21. Documentation</strong> — CHANGELOG, README, CLAUDE.md.</li></ul>
+
+          <h3>Requirements coverage map</h3>
+          <table>
+            <thead><tr><th>Req</th><th>Stages</th></tr></thead>
+            <tbody>
+              <tr><td>R1 switches, routes</td><td>1, 14</td></tr>
+              <tr><td>R2 route active / inactive leaves today's files</td><td>4, 12, 15, 17, 20</td></tr>
+              <tr><td>R3 switch off at once; read per evaluation / session</td><td>13, 15, 17</td></tr>
+              <tr><td>R4 disabled reasons</td><td>14</td></tr>
+              <tr><td>R5 rolling buffers</td><td>2, 15</td></tr>
+              <tr><td>R6 turn vectors</td><td>6, 10, 13</td></tr>
+              <tr><td>R7 key voice, revisions</td><td>4, 13, 15</td></tr>
+              <tr><td>R8 evaluation tiers</td><td>5, 13, 15</td></tr>
+              <tr><td>R9 suggestion replacement</td><td>9, 15</td></tr>
+              <tr><td>R10 enrolment fields</td><td>6, 11, 12, 17</td></tr>
+              <tr><td>R11 mw: labels by trust</td><td>6, 17</td></tr>
+              <tr><td>R12 SpeakersResult, GetSpeakers</td><td>11, 12, 17</td></tr>
+              <tr><td>R13 speaker_id warning, notice</td><td>7, 11, 17, 18</td></tr>
+              <tr><td>R14 suggestion keeps name</td><td>9, 15, 18</td></tr>
+              <tr><td>R15 Accept / Edit / Dismiss / Not</td><td>9, 16, 18</td></tr>
+              <tr><td>R16 never overrides the user</td><td>9, 15</td></tr>
+              <tr><td>R17 learn only on confirmed links</td><td>7, 16</td></tr>
+              <tr><td>R18 rename onto a People name</td><td>7, 16</td></tr>
+              <tr><td>R19 the user's own voice</td><td>16, 17</td></tr>
+              <tr><td>R20 8 samples, one identifier per tier</td><td>5, 7</td></tr>
+              <tr><td>R21 meeting sidecar</td><td>4, 8, 15, 17, 20</td></tr>
+              <tr><td>R22 stored-meeting actions</td><td>16, 18</td></tr>
+              <tr><td>R23 store and match log</td><td>7, 8, 15, 16</td></tr>
+              <tr><td>R24 People section</td><td>7, 8, 19, 20</td></tr>
+              <tr><td>R25 test calls inert</td><td>15, 18</td></tr>
+              <tr><td>R26 bundled model, Credits</td><td>3, 10</td></tr>
+              <tr><td>R27 no names / vectors / identifiers in logs; opaque labels</td><td>6, 11, 15, 17</td></tr>
+              <tr><td>R28 embedding off capture thread and main actor</td><td>2, 13</td></tr>
+              <tr><td>R29 Swift 6, macOS 14, system frameworks only</td><td>5, 10, every build</td></tr>
+            </tbody>
+          </table>
+
+          <h3>Cross-cutting concerns</h3>
+          <ul>
+            <li><strong>Security</strong> — Speechmatics messages are the trust boundary (opaque labels and identifiers, anchored warning parse, nothing logged); voice data 0600 and never logged; CLI/MCP see neither store nor sidecar; the model is hash-checked; Forget lands before the app turns learning on.</li>
+            <li><strong>Performance</strong> — one locked append per buffer per tick; embedding on the recogniser's queue; writes only on user actions and at Stop.</li>
+            <li><strong>Observability</strong> — <code>Log.voice</code> with keys, scores and seconds; the match log as the durable record.</li>
+            <li><strong>Compatibility</strong> — no migration; exact-bytes <code>SpeakerLabel</code> encoding; defaulted parameters bound every shared signature's blast radius.</li>
+          </ul>
+
+          <h3>Verification</h3>
+          <p>Both suites green (18 core runs); the model check script locally and the macos-15 job after push; the design's manual acceptance in Stage 20 (name, recognise within a minute, pending suggestion stays <code>Speaker N</code> in the summary, Forget clears People and both sidecars); spot checks for R2, R10–R12, R25, R27; the opt-in Speechmatics live test; then <code>/design-language-update</code> records decisions 74–76.</p>
+
+          <h3>Execution schedule</h3>
+          <table>
+            <thead><tr><th>Batch</th><th>Stages</th><th>Mode</th><th>Why</th></tr></thead>
+            <tbody>
+              <tr><td>1</td><td>1, 2, 3</td><td>parallel</td><td>Disjoint files, no shared symbols or registration; only Stage 3 runs the app test host</td></tr>
+              <tr><td>2</td><td>4</td><td>serial</td><td>Shared <code>SpeakerLabel</code></td></tr>
+              <tr><td>3</td><td>5</td><td>serial</td><td>New module scaffold, <code>Package.swift</code></td></tr>
+              <tr><td>4</td><td>6, 7, 8, 9</td><td>parallel</td><td>Pure parts on Stages 1, 4, 5 only; core suites only</td></tr>
+              <tr><td>5</td><td>10</td><td>serial</td><td>Third-party model, <code>project.yml</code>, CI job</td></tr>
+              <tr><td>6</td><td>11</td><td>serial</td><td>Enum variants and widened streaming protocols</td></tr>
+              <tr><td>7</td><td>12</td><td>serial</td><td><code>makeMeeting</code> signature</td></tr>
+              <tr><td>8</td><td>13, 14</td><td>parallel</td><td>Recogniser (core) beside Settings (app); disjoint files</td></tr>
+              <tr><td>9–11</td><td>15, 16, 17</td><td>serial</td><td>Same controller files in sequence</td></tr>
+              <tr><td>12</td><td>18</td><td>serial</td><td><code>MeetingControlling</code> widened</td></tr>
+              <tr><td>13</td><td>19</td><td>serial</td><td>New Settings section</td></tr>
+              <tr><td>14</td><td>20</td><td>serial</td><td><code>MeetingControlling</code> again; Forget before turn-on</td></tr>
+              <tr><td>15</td><td>21</td><td>serial</td><td>Documents everything</td></tr>
+            </tbody>
+          </table>
+          <p><strong>Critical path:</strong> 4 → 5 → 6 → 13 → 15 → 16 → 17 → 18 → 19 → 20 → 21 (11 of 21 stages); 15 batches.</p>
+
+          <h3>Planning decisions taken</h3>
+          <ul>
+            <li>The app passes <code>VoiceDependencies</code> only at the end of Stage 20, after Forget, so no commit learns a voice it cannot forget.</li>
+            <li>One <code>Package.swift</code> edit (Stage 5) and one <code>project.yml</code> edit (Stage 10), so parallel stages share no registration point.</li>
+            <li>Design corrected in place: <code>makeMeeting</code> also has <code>AnnouncingProvider</code> and two test callers; the About anchor is <code>AboutView.swift:4</code>.</li>
+            <li><code>MeetingVoiceRoute</code> holds per-meeting voice state; <code>VoiceRecogniser</code> cuts audio at ingest and streams decisions; the drop gate applies to both routes.</li>
+            <li>Model fetched from a pinned Hugging Face revision and hash-checked; fixture clips from recorded <code>say</code> commands (probe-scored 0.934 / 0.866 / ≤ 0.248).</li>
+            <li>Hand-written Speechmatics fixtures; scrubber fixtures built in a <code>TempDirectory</code>; the macos-15 job standalone.</li>
+            <li>Full list (28) in the plan's <em>Planning decisions taken</em>.</li>
+          </ul>
+
+          <h3>Deviations from the design</h3>
+          <p>None — plan matches design v8 exactly.</p>
+        </div>
+      </article>
+    </section>
+
+    <section class="panel" role="tabpanel"
+             id="panel-implementation" aria-labelledby="tab-implementation" hidden>
+      <p class="section-timestamp">Awaiting /feature-implement</p>
+      <!-- usage:IMPLEMENTATION_USAGE_CHIP --><!-- /usage:IMPLEMENTATION_USAGE_CHIP -->
+      <article class="panel-section">
+        <h2 class="section-label">Highlights</h2>
+        <div class="bullets"><p class="empty">Not yet filled — pending /feature-implement.</p></div>
+        <!-- usage:IMPLEMENTATION_USAGE --><!-- /usage:IMPLEMENTATION_USAGE -->
+      </article>
+      <article class="panel-section">
+        <h2 class="section-label">Detail</h2>
+        <div class="prose"><p class="empty">Not yet filled — pending /feature-implement.</p></div>
+      </article>
+    </section>
+
+    <section class="panel" role="tabpanel"
+             id="panel-usage" aria-labelledby="tab-usage" hidden>
+      <!-- usage:CYCLE_USAGE --><p class="section-timestamp">3 of 4 stages · 3 runs</p>
+<span class="chip usage">$49.51 · 2h 52m 55s · 552,052 out</span>
+<article class="panel-section">
+<h2 class="section-label">Cycle usage</h2>
+<div class="usage-scroll"><table class="usage">
+<thead><tr><th>Metric</th><th>Storm</th><th>Design</th><th>Plan</th><th>Implement</th><th>Total</th><th>Cost</th></tr></thead>
+<tbody>
+<tr class="grp"><td colspan="7">Tokens</td></tr>
+<tr><td>input</td><td>58</td><td>266</td><td>258</td><td>—</td><td>582</td><td>$0.00</td></tr>
+<tr><td>cache write 1h</td><td>112,333</td><td>589,191</td><td>27,328</td><td>—</td><td>728,852</td><td>$11.44</td></tr>
+<tr><td>cache write 5m</td><td>11,207</td><td>76,326</td><td>888,884</td><td>—</td><td>976,417</td><td>$4.46</td></tr>
+<tr><td>cache read</td><td>3,281,288</td><td>47,071,951</td><td>33,515,390</td><td>—</td><td>83,868,629</td><td>$16.76</td></tr>
+<tr><td>output</td><td>67,327</td><td>258,092</td><td>226,633</td><td>—</td><td>552,052</td><td>$16.84</td></tr>
+<tr class="sub"><td>thinking</td><td>36,496</td><td>119,654</td><td>114,141</td><td>—</td><td>270,291</td><td>—</td></tr>
+<tr><td>web searches</td><td>0</td><td>0</td><td>0</td><td>—</td><td>0</td><td>$0.00</td></tr>
+<tr class="tp"><td>cost</td><td>$5.01</td><td>$28.60</td><td>$15.90</td><td>—</td><td></td><td>$49.51</td></tr>
+<tr class="grp"><td colspan="7">Run</td></tr>
+<tr><td>model</td><td>fable-5-2 + haiku-5-5</td><td>fable-5-2 + haiku-5-5</td><td>opus-5-5</td><td>—</td><td></td><td></td></tr>
+<tr><td>runs</td><td>1</td><td>1</td><td>1</td><td>—</td><td>3</td><td></td></tr>
+<tr><td>elapsed</td><td>22m 39s</td><td>1h 55m 09s</td><td>35m 07s</td><td>—</td><td>2h 52m 55s</td><td></td></tr>
+</tbody>
+</table></div>
+<p class="usage-note">API list prices as of 2026-11-10, not subscription billing</p>
+</article><!-- /usage:CYCLE_USAGE -->
+    </section>
+
+    <section class="panel" role="tabpanel"
+             id="panel-issues" aria-labelledby="tab-issues" hidden>
+      <p class="section-timestamp"><!-- ISSUES_AT:START -->Awaiting /bug-submit<!-- ISSUES_AT:END --></p>
+
+      <div class="issue-filter" role="group" aria-label="Filter issues by status">
+        <button type="button" class="issue-tab" data-status="open" aria-pressed="true">
+          Open <span class="issue-count" data-for="open">0</span>
+        </button>
+        <button type="button" class="issue-tab" data-status="closed" aria-pressed="false">
+          Closed <span class="issue-count" data-for="closed">0</span>
+        </button>
+      </div>
+
+      <div class="issue-list" data-status="open">
+        <!-- ISSUES_OPEN:START -->
+        <p class="empty">No open issues.</p>
+        <!-- ISSUES_OPEN:END -->
+      </div>
+
+      <div class="issue-list" data-status="closed" hidden>
+        <!-- ISSUES_CLOSED:START -->
+        <p class="empty">No closed issues.</p>
+        <!-- ISSUES_CLOSED:END -->
+      </div>
+    </section>
+
+    <footer class="feature-footer">
+      Generated 2026-11-20
+    </footer>
+  </main>
+
+  <script>
+    (function () {
+      const tabs = Array.from(document.querySelectorAll('[role="tab"]'))
+        .filter((t) => getComputedStyle(t).display !== 'none');
+      const panels = Array.from(document.querySelectorAll('[role="tabpanel"]'));
+      const indicator = document.querySelector('.tab-indicator');
+
+      function positionIndicator(tab) {
+        if (!indicator || !tab) return;
+        const navRect = tab.parentElement.getBoundingClientRect();
+        const rect = tab.getBoundingClientRect();
+        indicator.style.transform = `translateX(${rect.left - navRect.left}px)`;
+        indicator.style.width = `${rect.width}px`;
+      }
+
+      function activate(tab, focus) {
+        if (!tab) return;
+        tabs.forEach((t) => {
+          const selected = t === tab;
+          t.setAttribute('aria-selected', selected ? 'true' : 'false');
+          t.setAttribute('tabindex', selected ? '0' : '-1');
+        });
+        panels.forEach((p) => {
+          const isActive = p.id === tab.getAttribute('aria-controls');
+          p.hidden = !isActive;
+          p.classList.toggle('active', isActive);
+        });
+        positionIndicator(tab);
+        if (focus) tab.focus();
+      }
+
+      tabs.forEach((tab) => {
+        tab.addEventListener('click', () => activate(tab));
+        tab.addEventListener('keydown', (e) => {
+          const i = tabs.indexOf(tab);
+          let target = null;
+          if (e.key === 'ArrowRight') target = tabs[(i + 1) % tabs.length];
+          else if (e.key === 'ArrowLeft') target = tabs[(i - 1 + tabs.length) % tabs.length];
+          else if (e.key === 'Home') target = tabs[0];
+          else if (e.key === 'End') target = tabs[tabs.length - 1];
+          if (target) {
+            e.preventDefault();
+            activate(target, true);
+          }
+        });
+      });
+
+      const initial = tabs.find((t) => t.getAttribute('aria-selected') === 'true') || tabs[0];
+      // Defer to next frame so layout is settled before placing the indicator
+      requestAnimationFrame(() => activate(initial));
+
+      window.addEventListener('resize', () => {
+        const selected = tabs.find((t) => t.getAttribute('aria-selected') === 'true');
+        if (selected) positionIndicator(selected);
+      });
+    })();
+
+    // Issues panel: Open/Closed filter + auto-computed counts.
+    (function () {
+      const filterBtns = Array.from(document.querySelectorAll('.issue-tab'));
+      const lists = Array.from(document.querySelectorAll('.issue-list'));
+      if (!filterBtns.length) return;
+
+      lists.forEach((list) => {
+        const status = list.getAttribute('data-status');
+        const badge = document.querySelector(`.issue-count[data-for="${status}"]`);
+        if (badge) badge.textContent = list.querySelectorAll('.issue').length;
+      });
+
+      function show(status) {
+        filterBtns.forEach((b) =>
+          b.setAttribute('aria-pressed', b.getAttribute('data-status') === status ? 'true' : 'false'));
+        lists.forEach((l) => { l.hidden = l.getAttribute('data-status') !== status; });
+      }
+
+      filterBtns.forEach((b) => b.addEventListener('click', () => show(b.getAttribute('data-status'))));
+      show('open');
+    })();
+  </script>
+</body>
+</html>

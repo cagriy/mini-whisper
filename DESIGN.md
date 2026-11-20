@@ -10,7 +10,7 @@ Notes outside the marked region are yours: /design-language-update reads them as
 |---|---|
 | Classification | established |
 | Platforms | macOS |
-| Updated | 2026-11-16 17:57 UTC |
+| Updated | 2026-11-20 09:32 UTC |
 | Specimen | https://claude.ai/artifact/3iQhWG4jNhvrqA4EXTwHGh |
 
 ### Visual Theme & Atmosphere
@@ -137,11 +137,12 @@ Source: user: 2026-11-13
 | other | Pane header | — | fg=color.text.secondary; border=color.line | code: App/Meeting/SpeakerColor.swift:15 |
 | other | Recording pill | — | radius=radius.pill; bg=color.recording.soft; bars=color.recording | code: App/Main/RecordingPill.swift:5 |
 | other | Usage table | — | fg=color.text.secondary; header=color.text.tertiary; border=color.line | code: App/Main/UsageTableView.swift:5 |
+| other | Provisional name | — | — | user · pending v8 |
 
 ### Responsive Behavior
 
 - Main window: resizable, 1080 by 720 by default, 900 by 600 at least — user: 2026-11-13
-- Small windows: Correction, Onboarding and About keep a standard title bar and a fixed size — user: 2026-11-13
+- Small windows: Correction, Onboarding, About and Credits keep a standard title bar and a fixed size — user · pending v8
 - One main window holds search, Meetings, Dictations, Settings and each meeting as pages; its size and place persist — code: App/Main/WindowFramePolicy.swift:14
 - A page is a centred, scrolling column under its display-serif title — code: App/Design/PageColumn.swift:4
 
@@ -169,6 +170,7 @@ Source: user: 2026-11-13
 - Do: colour the label, not the button, for accent and destructive row actions — code: App/Design/PillButtonStyle.swift:21
 - Do: take every colour, size and type style from DS, whose values appear nowhere else — code: App/Design/DS.swift:4
 - Do: derive the language from the v6 reference screenshots without copying their branding, icons, names or copy — user: 2026-11-13
+- Do: a quiet pill used as a name or row action keeps a color.text.secondary label that turns color.accent on hover or keyboard focus and color.recording when destructive — user · pending v8
 - Don't: shadows inside a window, only dialogs and menus lift — user: 2026-11-13
 - Don't: bundled fonts, display type is the system serif — user: 2026-11-13
 - Don't: restyle the dictation overlay; it keeps its own visual system — user: 2026-11-13
@@ -230,7 +232,7 @@ Source: user: 2026-11-13
 | 50 | Spacing moves in steps of 4 | user | 2026-11-13 | superseded by 68 |
 | 51 | Max width is a 736px page column and a 640px reading column, centred | user | 2026-11-13 | active |
 | 52 | The main window is resizable, 1080 by 720 by default, 900 by 600 at least | user | 2026-11-13 | active |
-| 53 | Correction, Onboarding and About keep a standard title bar and a fixed size | user | 2026-11-13 | active |
+| 53 | Correction, Onboarding and About keep a standard title bar and a fixed size | user | 2026-11-13 | superseded by 75 |
 | 54 | Icons are SF Symbols in outline, plus the cloud-and-pulse mark of the app icon for empty states and About | user | 2026-11-13 | active |
 | 55 | The recording pill's four bars pulse while a meeting records and rest when it is paused or Reduce Motion is on | user | 2026-11-13 | active |
 | 56 | Field labels and group headings are in sentence case, never small capitals | user | 2026-11-13 | active |
@@ -251,6 +253,9 @@ Source: user: 2026-11-13
 | 71 | The Rounded field fills with color.canvas and the Search pill with color.card, as the accepted v6 mockup and the code do; the earlier record gave color.card | skill | 2026-11-14 | active |
 | 72 | Floating prompt is a component: the Dialog card as a borderless, non-activating floating panel with no scrim, above every window and full-screen Space | user | 2026-11-16 | active |
 | 73 | Chip gains a Flag variant: color.sidebar fill, color.text label, leading SF Symbol in color.text.secondary | user | 2026-11-16 | active |
+| 74 | A quiet pill used as a name or row action keeps a color.text.secondary label that turns color.accent on hover or keyboard focus and color.recording when destructive | user | 2026-11-20 | pending v8 |
+| 75 | Correction, Onboarding, About and Credits keep a standard title bar and a fixed size | user | 2026-11-20 | pending v8 |
+| 76 | Provisional name is a component: a suggested speaker name in its speaker colour with a question mark and a 1.5px dashed underline | user | 2026-11-20 | pending v8 |
 
 ### Drift
 

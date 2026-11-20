@@ -1,0 +1,595 @@
+<title>Credits window</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/* Layout: one proposal — About with its new button beside the Credits window it opens; the summary below. */
+:root{
+  --stage:#E8E5DE; --bg:#FBFAF7; --side:#F2F0EA; --card:#FFFFFF; --hover:#ECE9E2; --line:#E1DDD3;
+  --ink:#23221F; --ink2:#6B675E; --ink3:#969084;
+  --accent:#2A6FC9; --accent-ink:#FFFFFF; --accent-soft:#E3EEFB;
+  --rec:#D2452D; --warn:#A56A00;
+  --shadow:0 14px 36px rgba(35,34,31,.18);
+  --serif:ui-serif,"New York","Iowan Old Style",Georgia,serif;
+  --sans:-apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,"Segoe UI",sans-serif;
+  --mono:ui-monospace,"SF Mono",Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --stage:#151413; --bg:#262522; --side:#1E1D1B; --card:#2F2E2A; --hover:#39372F; --line:#46443D;
+  --ink:#F1EEE7; --ink2:#B4AFA4; --ink3:#878278;
+  --accent:#7DB8F0; --accent-ink:#10202F; --accent-soft:#2A3948;
+  --rec:#F07A62; --warn:#E2B45E;
+  --shadow:0 14px 36px rgba(0,0,0,.45); color-scheme:dark}}
+:root[data-theme="dark"]{
+  --stage:#151413; --bg:#262522; --side:#1E1D1B; --card:#2F2E2A; --hover:#39372F; --line:#46443D;
+  --ink:#F1EEE7; --ink2:#B4AFA4; --ink3:#878278;
+  --accent:#7DB8F0; --accent-ink:#10202F; --accent-soft:#2A3948;
+  --rec:#F07A62; --warn:#E2B45E;
+  --shadow:0 14px 36px rgba(0,0,0,.45); color-scheme:dark}
+
+*,*::before,*::after{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;background:var(--stage);color:var(--ink);font:14px/1.5 var(--sans);-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.page{max-width:1040px;margin:0 auto;padding-block:24px 120px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  display:grid;gap:20px}
+
+/* Page chrome (not part of the app) */
+.banner,.sect{background:var(--card);border:1px solid var(--line);border-radius:14px}
+.banner{padding:16px 20px;display:grid;gap:6px}
+.banner .tag{font:600 11px/14px var(--sans);letter-spacing:.06em;text-transform:uppercase;color:var(--warn)}
+.banner h1{margin:0;font:500 24px/30px var(--serif);text-wrap:balance}
+.banner p{margin:0;color:var(--ink2);max-width:96ch}
+.sect{padding:18px 20px;display:grid;gap:12px;min-width:0}
+.sect > h2{margin:0;font:500 20px/26px var(--serif)}
+.sect > p{margin:0;color:var(--ink2);max-width:96ch}
+.sect ul{margin:0;padding-left:20px;display:grid;gap:5px;max-width:104ch;color:var(--ink2)}
+.sect li b{color:var(--ink);font-weight:600}
+.pairw{display:flex;flex-wrap:wrap;gap:28px;align-items:flex-start;justify-content:center}
+.cap{margin:0 0 8px;color:var(--ink3);font:500 12px/16px var(--sans);text-align:center}
+.arrow{align-self:center;color:var(--ink3);font:500 12px/16px var(--sans);text-align:center}
+
+/* App atoms */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:24px;padding:0 10px;border-radius:999px;
+  border:1px solid var(--line);background:transparent;color:var(--ink);font:500 12px/16px var(--sans);white-space:nowrap}
+.btn:hover{background:var(--hover)}
+.btn.quiet{border-color:transparent;color:var(--ink2)}
+.btn.quiet:hover,.btn.quiet:focus-visible{color:var(--accent)}
+
+/* App: small windows */
+.win{background:var(--bg);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);display:flex;flex-direction:column;overflow:hidden;max-width:100%}
+.tbar{position:relative;height:36px;flex:none;display:grid;place-items:center;font:600 13px/18px var(--sans);color:var(--ink2)}
+.lights{position:absolute;left:12px;top:12px;display:flex;gap:8px}
+.lights i{width:12px;height:12px;border-radius:50%;background:#EC6A5E}
+.lights i.off{background:var(--line)}
+.about{flex:1;display:grid;justify-items:center;align-content:start;text-align:center;gap:8px;padding:2px 24px 16px}
+.mark{width:64px;height:64px;border-radius:16px;display:grid;place-items:center;background:var(--accent);color:var(--accent-ink)}
+.mark svg{width:40px;height:28px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.about h3{margin:0;font:500 22px/28px var(--serif)}
+.about .v,.about .txt{color:var(--ink2);font:13px/18px var(--sans)}
+.about .txt{max-width:240px}
+.about .pw{color:var(--ink3);font:12px/16px var(--sans)}
+.newtag{font:600 10px/14px var(--sans);color:var(--accent);letter-spacing:.04em;margin-left:6px}
+.cbody{flex:1;overflow:auto;padding:4px 20px 20px;display:grid;gap:12px;align-content:start}
+.lead{margin:0;color:var(--ink2);font:13px/18px var(--sans)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:0 16px}
+.crow{padding:14px 0;border-top:1px solid var(--line);display:grid;gap:4px}
+.crow:first-child{border-top:0}
+.cname{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px}
+.cname b{font:500 14px/20px var(--sans)}
+.cname span{color:var(--ink3);font:12px/16px var(--sans)}
+.crow p{margin:0;color:var(--ink2);font:13px/18px var(--sans)}
+.lic{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;margin-top:2px;color:var(--ink2);font:12px/16px var(--sans)}
+.lic .url{font:12px/18px var(--mono);overflow-wrap:anywhere;user-select:all}
+.lic .grow{flex:1}
+.text{margin:6px 0 0;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink2);font:12px/18px var(--mono);white-space:pre-wrap;max-height:150px;overflow:auto}
+</style>
+
+<div class="page" id="credits" data-mf-option="credits">
+
+  <header class="banner">
+    <div class="tag">Mockup — not shipping code · v8 · set 4 of 4 · Accepted 2026-11-20</div>
+    <h1>The Credits window, and how About opens it</h1>
+    <p>Bundling the WeSpeaker voice model requires crediting it (CC BY 4.0), and Sparkle's licence asks for its notice to ship with the app. A small Credits window lists both. About gets one quiet button that opens it.</p>
+    <p>Follows DESIGN.md (small windows with a standard title bar and a fixed size, the settings card with hairline rows, quiet small pill buttons, an action that opens something ends in an ellipsis). The component names and licences are the real ones the app must show. Live: press Credits… and the licence buttons.</p>
+  </header>
+
+  <section class="sect">
+    <h2>About, and the window it opens</h2>
+    <div class="pairw">
+      <div>
+        <p class="cap">About · 300 × 330 (300 × 300 today)</p>
+        <div class="win" style="width:300px;height:330px">
+          <div class="tbar"><span class="lights" aria-hidden="true"><i></i><i class="off"></i><i class="off"></i></span></div>
+          <div class="about">
+            <div class="mark"><svg viewBox="0 0 40 28" aria-hidden="true"><path d="M10 23h19a7 7 0 0 0 1-13.9A10 10 0 0 0 11 8.5 7.3 7.3 0 0 0 10 23Z"/><path d="M14 16h3l2-4 3 8 2-4h3"/></svg></div>
+            <h3>Mini Whisper</h3>
+            <div class="v">Version 0.8.0</div>
+            <div class="txt">Hold your hotkey to talk, or tap to toggle recording. Transcribed text is pasted into the active app.</div>
+            <div class="pw">Powered by OpenAI gpt-4o-mini-transcribe.</div>
+            <div><button class="btn quiet" id="open">Credits…</button><span class="newtag">New</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="arrow" aria-hidden="true">opens →</div>
+      <div>
+        <p class="cap">Credits · 460 × 440, fixed; its content scrolls</p>
+        <div class="win" id="cwin" style="width:460px;height:440px">
+          <div class="tbar"><span class="lights" aria-hidden="true"><i></i><i class="off"></i><i class="off"></i></span>Credits</div>
+          <div class="cbody">
+            <p class="lead">Mini Whisper includes the work of others.</p>
+            <div class="card">
+              <div class="crow">
+                <div class="cname"><b>WeSpeaker voice model</b><span>Recognises voices on this Mac</span></div>
+                <p>WeSpeaker ResNet34-LM by the WeSpeaker authors, as published by pyannote and converted to Core ML by Fluid Inference. Bundled as a modified Core ML conversion.</p>
+                <div class="lic"><span>CC BY 4.0</span><span class="url">creativecommons.org/licenses/by/4.0</span><span class="grow"></span><button class="btn quiet" data-note="Opens the licence page in the browser.">Open Licence…</button></div>
+              </div>
+              <div class="crow">
+                <div class="cname"><b>Sparkle</b><span>Checks for and installs updates</span></div>
+                <p>Copyright © 2006–2017 Andy Matuschak and the Sparkle contributors. Includes bsdiff, sais-lite and an Ed25519 implementation under their own notices.</p>
+                <div class="lic"><span>MIT-style licence</span><span class="grow"></span><button class="btn quiet" id="showlic" aria-expanded="false">Show Licence</button></div>
+                <pre class="text" id="lictext" hidden>Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction …
+
+[The full Sparkle LICENSE file, including its EXTERNAL LICENSES section, is shown here from a file bundled with the app.]</pre>
+              </div>
+            </div>
+            <p class="lead" id="note" style="color:var(--ink3);font-size:12px" hidden></p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="sect">
+    <h2>What this proposes</h2>
+    <ul>
+      <li><b>About.</b> One quiet small pill, "Credits…", under the "Powered by" line. The window grows from 300 × 300 to 300 × 330 to hold it; nothing else in it changes.</li>
+      <li><b>Credits window.</b> A small window like About: standard title bar titled "Credits", fixed at 460 × 440, closed with the red button. One lead line, then a settings card with one row per component.</li>
+      <li><b>Row.</b> The component's name at 14 px medium with what it does in grey beside it; a paragraph naming who made it and how it is used; a last line with the licence name and a quiet button.</li>
+      <li><b>WeSpeaker voice model.</b> Credits WeSpeaker, pyannote and Fluid Inference, says it is a modified Core ML conversion, names CC BY 4.0 and shows the licence address as selectable text. "Open Licence…" opens that page in the browser.</li>
+      <li><b>Sparkle.</b> Its copyright line and the parts it includes. "Show Licence" unfolds the full licence text in a scrolling monospaced box, read from a file shipped inside the app, so it works offline.</li>
+      <li><b>Opening Credits again</b> brings the same window forward; it does not close About.</li>
+    </ul>
+  </section>
+</div>
+
+<script>
+(function(){
+  var cwin=document.getElementById("cwin"), note=document.getElementById("note");
+  document.getElementById("open").addEventListener("click",function(){
+    cwin.scrollIntoView({behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block:"center"});
+    cwin.style.outline="2px solid var(--accent)"; setTimeout(function(){ cwin.style.outline=""; }, 900);
+  });
+  var b=document.getElementById("showlic"), t=document.getElementById("lictext");
+  b.addEventListener("click",function(){ var open=t.hidden; t.hidden=!open; b.setAttribute("aria-expanded", String(open)); b.textContent = open ? "Hide Licence" : "Show Licence"; });
+  document.querySelectorAll("[data-note]").forEach(function(x){ x.addEventListener("click",function(){ note.textContent=x.getAttribute("data-note"); note.hidden=false; }); });
+})();
+</script>
+
+<!-- mockup-feedback:start -->
+<style>
+.mf-bar {
+  --mf-bg: #f6f7f9;
+  --mf-fg: #1a2127;
+  --mf-muted: #59646d;
+  --mf-line: #d3d9de;
+  --mf-field: #ffffff;
+  --mf-accent: #2f5fd0;
+  --mf-accent-fg: #ffffff;
+  --mf-ok: #1d7a4c;
+  --mf-warn: #8f5d00;
+  --mf-err: #b2322b;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .mf-bar {
+    --mf-bg: #161b20;
+    --mf-fg: #e3e8ec;
+    --mf-muted: #98a3ab;
+    --mf-line: #2d363e;
+    --mf-field: #0f1317;
+    --mf-accent: #7ea2f5;
+    --mf-accent-fg: #0b1220;
+    --mf-ok: #57c48c;
+    --mf-warn: #e2ac45;
+    --mf-err: #f08077;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] .mf-bar {
+  --mf-bg: #161b20;
+  --mf-fg: #e3e8ec;
+  --mf-muted: #98a3ab;
+  --mf-line: #2d363e;
+  --mf-field: #0f1317;
+  --mf-accent: #7ea2f5;
+  --mf-accent-fg: #0b1220;
+  --mf-ok: #57c48c;
+  --mf-warn: #e2ac45;
+  --mf-err: #f08077;
+  color-scheme: dark;
+}
+.mf-bar, .mf-bar * { box-sizing: border-box; }
+.mf-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 2147483000;
+  margin: 24px 0 0;
+  padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px));
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--mf-bg);
+  color: var(--mf-fg);
+  border-top: 1px solid var(--mf-line);
+  box-shadow: 0 -6px 18px rgba(0, 0, 0, 0.08);
+  font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  text-align: left;
+}
+.mf-bar[hidden] { display: none; }
+.mf-bar .mf-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+.mf-bar .mf-tag {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--mf-muted);
+}
+.mf-bar .mf-title { font-weight: 600; }
+.mf-bar .mf-context { color: var(--mf-muted); min-width: 0; overflow-wrap: anywhere; }
+.mf-bar .mf-toggle {
+  margin-left: auto;
+  padding: 2px 6px;
+  border: 0;
+  background: none;
+  color: var(--mf-accent);
+  font: inherit;
+  font-size: 13px;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.mf-bar .mf-body { display: flex; flex-direction: column; gap: 8px; }
+.mf-bar.mf-collapsed .mf-body { display: none; }
+.mf-bar .mf-options { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; border: 0; }
+.mf-bar .mf-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border: 1.5px solid var(--mf-line);
+  border-radius: 999px;
+  background: var(--mf-field);
+  cursor: pointer;
+}
+.mf-bar .mf-chip input { margin: 0; accent-color: var(--mf-accent); }
+.mf-bar .mf-chip:has(input:checked) { border-color: var(--mf-accent); }
+.mf-bar .mf-chip:has(input:focus-visible) { outline: 2px solid var(--mf-accent); outline-offset: 2px; }
+.mf-bar .mf-note {
+  width: 100%;
+  min-height: 38px;
+  max-height: 140px;
+  padding: 7px 10px;
+  resize: vertical;
+  font: inherit;
+  color: var(--mf-fg);
+  background: var(--mf-field);
+  border: 1.5px solid var(--mf-line);
+  border-radius: 8px;
+}
+.mf-bar .mf-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.mf-bar .mf-btn {
+  padding: 7px 12px;
+  border: 1.5px solid var(--mf-line);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--mf-fg);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.mf-bar .mf-btn.mf-primary { background: var(--mf-accent); border-color: var(--mf-accent); color: var(--mf-accent-fg); }
+.mf-bar .mf-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.mf-bar .mf-btn:focus-visible, .mf-bar .mf-toggle:focus-visible, .mf-bar .mf-note:focus-visible {
+  outline: 2px solid var(--mf-accent);
+  outline-offset: 2px;
+}
+.mf-bar .mf-channel { display: flex; align-items: center; gap: 6px; margin: 0; font-size: 13px; color: var(--mf-muted); }
+.mf-bar .mf-dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--mf-muted); }
+.mf-bar .mf-channel[data-state="available"] .mf-dot { background: var(--mf-ok); }
+.mf-bar .mf-channel[data-state="no_session"] .mf-dot,
+.mf-bar .mf-channel[data-state="writers_only"] .mf-dot { background: var(--mf-warn); }
+.mf-bar .mf-channel[data-state="blocked"] .mf-dot { background: var(--mf-err); }
+.mf-bar .mf-result { margin: 0; font-size: 13px; }
+.mf-bar .mf-result[data-kind="ok"] { color: var(--mf-ok); }
+.mf-bar .mf-result[data-kind="err"] { color: var(--mf-err); }
+.mf-bar .mf-verdict { margin: 0; font-weight: 600; }
+[data-mf-option].mf-selected { outline: 3px solid #3b6fe0; outline-offset: 4px; }
+</style>
+<aside class="mf-bar" id="mf-bar" role="region" aria-label="Mockup feedback" data-uncommentable hidden>
+  <div class="mf-head">
+    <span class="mf-tag">Feedback</span>
+    <span class="mf-title" id="mf-title"></span>
+    <span class="mf-context" id="mf-context"></span>
+    <button type="button" class="mf-toggle" id="mf-toggle" aria-expanded="true" aria-controls="mf-body">Hide</button>
+  </div>
+  <div class="mf-body" id="mf-body">
+    <p class="mf-verdict" id="mf-verdict" hidden></p>
+    <fieldset class="mf-options" id="mf-options" hidden></fieldset>
+    <textarea class="mf-note" id="mf-note" maxlength="1500" placeholder="Note for Claude (optional; required to request changes)" aria-label="Note for Claude"></textarea>
+    <div class="mf-actions" id="mf-actions"></div>
+    <p class="mf-channel" id="mf-channel" data-state="checking">
+      <span class="mf-dot" aria-hidden="true"></span>
+      <span id="mf-channel-text">Checking whether a Claude session is listening.</span>
+      <button type="button" class="mf-toggle" id="mf-recheck" hidden>Check again</button>
+    </p>
+    <p class="mf-result" id="mf-result" role="status" aria-live="polite" hidden></p>
+  </div>
+</aside>
+<script type="application/json" id="mf-config">{"set":"v8-s5","setLabel":"Credits window","mode":"review","options":[{"id":"credits","label":"Credits window"}],"this":null,"status":"accepted","chosen":null}</script>
+<script>
+(function () {
+  var cfg;
+  try { cfg = JSON.parse(document.getElementById("mf-config").textContent); } catch (e) { return; }
+  if (!cfg || !cfg.options || !cfg.options.length) return;
+
+  var PREFIX = "Mockup feedback · ";
+  var CHANNEL = {
+    checking: "Checking whether a Claude session is listening.",
+    available: "A Claude session is listening. Sending wakes it.",
+    no_session: "No Claude session is listening. Reply in chat, or check again once the session is back.",
+    writers_only: "Only editors of this page can send to Claude. Reply in chat instead.",
+    off: "Sending to Claude is not offered here. Reply in chat instead.",
+    absent: "Sending works on the published page. Here, reply in chat instead.",
+    blocked: "Commenting from this page is turned off. Reply in chat instead."
+  };
+  var KNOWN = ["available", "writers_only", "no_session", "off"];
+
+  var bar = document.getElementById("mf-bar");
+  var titleEl = document.getElementById("mf-title");
+  var contextEl = document.getElementById("mf-context");
+  var toggleBtn = document.getElementById("mf-toggle");
+  var verdictEl = document.getElementById("mf-verdict");
+  var optionsEl = document.getElementById("mf-options");
+  var noteEl = document.getElementById("mf-note");
+  var actionsEl = document.getElementById("mf-actions");
+  var channelEl = document.getElementById("mf-channel");
+  var channelText = document.getElementById("mf-channel-text");
+  var recheckBtn = document.getElementById("mf-recheck");
+  var resultEl = document.getElementById("mf-result");
+
+  var comments = null;
+  var state = "checking";
+  var busy = false;
+  var sent = false;
+  var buttons = [];
+
+  function byId(list, id) {
+    for (var i = 0; i < list.length; i++) if (list[i].id === id) return list[i];
+    return null;
+  }
+  function label(id) { var o = byId(cfg.options, id); return o ? o.label : id; }
+  function root(id) { return document.querySelector('[data-mf-option="' + id + '"]'); }
+  function picked() {
+    if (cfg.mode !== "compare") return cfg.mode === "pick" ? cfg["this"] : cfg.options[0].id;
+    var r = optionsEl.querySelector("input:checked");
+    return r ? r.value : null;
+  }
+  function say(text, kind) {
+    resultEl.hidden = !text;
+    resultEl.textContent = text || "";
+    if (kind) resultEl.setAttribute("data-kind", kind);
+    else resultEl.removeAttribute("data-kind");
+  }
+  function clean(text) {
+    return text.replace(/[\u0000-\u0008\u000B-\u001F\u007F]/g, "").trim();
+  }
+
+  // Header: the set, and where this page sits in it.
+  titleEl.textContent = cfg.setLabel;
+  if (cfg.mode === "pick") {
+    var others = [];
+    var position = 0;
+    for (var i = 0; i < cfg.options.length; i++) {
+      if (cfg.options[i].id === cfg["this"]) position = i + 1;
+      else others.push(cfg.options[i].label);
+    }
+    contextEl.textContent = "Option " + position + " of " + cfg.options.length + ": " + label(cfg["this"]) +
+      ". The others are on their own pages: " + others.join(", ") + ". Choosing here rules them out.";
+  } else if (cfg.mode === "compare") {
+    contextEl.textContent = cfg.options.length + " options on this page. Pick one.";
+  } else {
+    contextEl.textContent = label(cfg.options[0].id);
+  }
+
+  toggleBtn.addEventListener("click", function () {
+    var collapsed = bar.classList.toggle("mf-collapsed");
+    toggleBtn.textContent = collapsed ? "Show" : "Hide";
+    toggleBtn.setAttribute("aria-expanded", collapsed ? "false" : "true");
+  });
+
+  // A settled page shows its verdict and nothing to act on.
+  if (cfg.status !== "open") {
+    var verdict = {
+      accepted: cfg.mode === "compare" ? "Accepted: " + label(cfg.chosen) + "." : "Accepted.",
+      "not-chosen": "Not chosen.",
+      closed: "Closed. Choices on this page are no longer read."
+    }[cfg.status] || "Closed.";
+    verdictEl.textContent = verdict;
+    verdictEl.hidden = false;
+    noteEl.hidden = true;
+    channelEl.hidden = true;
+    if (cfg.mode === "compare" && cfg.status === "accepted" && root(cfg.chosen)) root(cfg.chosen).classList.add("mf-selected");
+    bar.hidden = false;
+    return;
+  }
+
+  // Compare: one chip per option, outlining its section when picked.
+  if (cfg.mode === "compare") {
+    var legend = document.createElement("legend");
+    legend.className = "mf-tag";
+    legend.textContent = "Options";
+    optionsEl.appendChild(legend);
+    cfg.options.forEach(function (o) {
+      var chip = document.createElement("label");
+      chip.className = "mf-chip";
+      var input = document.createElement("input");
+      input.type = "radio";
+      input.name = "mf-option";
+      input.id = "mf-option-" + o.id;
+      input.value = o.id;
+      input.addEventListener("change", function () {
+        var all = document.querySelectorAll("[data-mf-option]");
+        for (var k = 0; k < all.length; k++) all[k].classList.remove("mf-selected");
+        var el = root(o.id);
+        if (el) {
+          el.classList.add("mf-selected");
+          var still = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+          el.scrollIntoView({ block: "nearest", behavior: still ? "auto" : "smooth" });
+        }
+        refresh();
+      });
+      chip.appendChild(input);
+      chip.appendChild(document.createTextNode(o.label));
+      optionsEl.appendChild(chip);
+    });
+    optionsEl.hidden = false;
+  }
+
+  // Actions per shape. needsNote: a change request must say what to change.
+  var ACTIONS = {
+    review: [
+      { action: "accept", text: "Looks right", primary: true },
+      { action: "revise", text: "Request changes", needsNote: true },
+      { action: "alternatives", text: "Show alternatives" }
+    ],
+    compare: [
+      { action: "choose", text: "Send choice", primary: true, needsPick: true },
+      { action: "none", text: "None of these", needsNote: true },
+      { action: "comment", text: "Comment on this option", needsPick: true }
+    ],
+    pick: [
+      { action: "choose", text: "Choose this one", primary: true },
+      { action: "revise", text: "Request changes", needsNote: true },
+      { action: "none", text: "None of these", needsNote: true }
+    ]
+  }[cfg.mode] || [];
+
+  ACTIONS.forEach(function (a) {
+    var b = document.createElement("button");
+    b.type = "button";
+    b.className = "mf-btn" + (a.primary ? " mf-primary" : "");
+    b.id = "mf-" + a.action;
+    b.textContent = a.text;
+    b.addEventListener("click", function () {
+      if (a.action === "comment") compose();
+      else send(a);
+    });
+    actionsEl.appendChild(b);
+    buttons.push({ el: b, spec: a });
+  });
+
+  function render() {
+    channelEl.setAttribute("data-state", state);
+    channelText.textContent = CHANNEL[state] || CHANNEL.off;
+    recheckBtn.hidden = !comments || state === "available" || state === "checking" || state === "blocked";
+    var pick = picked();
+    buttons.forEach(function (b) {
+      if (b.spec.action === "comment") {
+        b.el.disabled = !comments || !pick;
+        b.el.hidden = !comments;
+        return;
+      }
+      b.el.disabled = busy || sent || state !== "available" || (b.spec.needsPick && !pick);
+    });
+    noteEl.disabled = sent;
+  }
+
+  function refresh() {
+    if (!comments || state === "blocked") { render(); return; }
+    comments.canSendToClaude().then(function (v) {
+      return KNOWN.indexOf(v) === -1 ? "off" : v;
+    }, function () {
+      return "off";
+    }).then(function (v) {
+      if (comments && state !== "blocked") state = v;
+      render();
+    });
+  }
+
+  function fail(err) {
+    var code = err && err.code;
+    if (code === "consent_required") {
+      say("Not sent. The page was not allowed to comment as you. Your note is kept.", "err");
+    } else if (code === "forbidden") {
+      state = "blocked";
+      say("Not sent. Commenting from this page is turned off.", "err");
+    } else if (code === "claude_unavailable") {
+      say("Not sent. No Claude session could receive it. Nothing was posted.", "err");
+      refresh();
+    } else if (code === "rate_limited") {
+      say("Not sent. Too many sends in a row. Wait a moment.", "err");
+    } else if (code === "invalid" || code === "transform_error") {
+      say("Not sent. The note has characters a comment cannot carry.", "err");
+    } else if (code === "not_granted" || code === "capability_disabled" || code === "capability_removed") {
+      comments = null;
+      state = "absent";
+      say("Not sent. This view cannot post comments from the page.", "err");
+    } else {
+      say("Not sent. Comments are unavailable right now. Try once more.", "err");
+    }
+  }
+
+  function send(spec) {
+    if (!comments || busy || sent) return;
+    var option = spec.action === "choose" || spec.action === "accept" || spec.action === "revise" ? picked() : null;
+    if (spec.needsPick && !option) { say("Pick an option first.", "err"); return; }
+    var note = clean(noteEl.value);
+    if (spec.needsNote && !note) {
+      say("Add a note saying what to change.", "err");
+      noteEl.focus();
+      return;
+    }
+    var text = PREFIX + cfg.set + " · " + spec.action + (option ? " " + option : "") + (note ? "\nNote: " + note : "");
+    var target = root(option || picked() || cfg.options[0].id) || bar.parentNode;
+    busy = true;
+    say("", null);
+    render();
+    comments.anchorFor(target).then(function (anchor) {
+      return comments.sendToClaude({ anchor: anchor, text: text });
+    }).then(function () {
+      sent = true;
+      say("Sent to Claude: " + spec.text.toLowerCase() + (option ? " (" + label(option) + ")" : "") +
+        ". Claude replies in the comment thread and updates this page.", "ok");
+    }, fail).then(function () {
+      busy = false;
+      render();
+    });
+  }
+
+  function compose() {
+    var option = picked();
+    var el = option && root(option);
+    if (!comments || !el) return;
+    comments.openComposer({ element: el }).then(function (r) {
+      if (r && r.opened) say("Comment box opened on " + label(option) + ". Write your comment and press Send to Claude.", "ok");
+    }, function (err) {
+      say(err && err.code === "rate_limited" ? "Too many tries in a row. Wait a moment." : "The comment box is unavailable here.", "err");
+    });
+  }
+
+  recheckBtn.addEventListener("click", refresh);
+  window.addEventListener("focus", refresh);
+  bar.hidden = false;
+  render();
+
+  var ready = window.claude && typeof window.claude.use === "function"
+    ? window.claude.use("comments")
+    : Promise.resolve(null);
+  ready.then(function (ns) { return ns; }, function () { return null; }).then(function (ns) {
+    comments = ns;
+    if (!ns) { state = "absent"; render(); return; }
+    refresh();
+  });
+})();
+</script>
+<!-- mockup-feedback:end -->

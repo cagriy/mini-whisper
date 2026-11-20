@@ -1,0 +1,762 @@
+<title>Voice toggles placement</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/* Layout: two options side by side, each the Settings › Meetings page as it is today plus the proposed controls; shared state switches above. */
+:root{
+  --stage:#E8E5DE; --bg:#FBFAF7; --side:#F2F0EA; --card:#FFFFFF; --hover:#ECE9E2; --line:#E1DDD3;
+  --ink:#23221F; --ink2:#6B675E; --ink3:#969084;
+  --accent:#2A6FC9; --accent-ink:#FFFFFF; --accent-soft:#E3EEFB;
+  --rec:#D2452D; --ok:#2F8A5B; --warn:#A56A00;
+  --serif:ui-serif,"New York","Iowan Old Style",Georgia,serif;
+  --sans:-apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,"Segoe UI",sans-serif;
+  --mono:ui-monospace,"SF Mono",Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --stage:#151413; --bg:#262522; --side:#1E1D1B; --card:#2F2E2A; --hover:#39372F; --line:#46443D;
+  --ink:#F1EEE7; --ink2:#B4AFA4; --ink3:#878278;
+  --accent:#7DB8F0; --accent-ink:#10202F; --accent-soft:#2A3948;
+  --rec:#F07A62; --ok:#7FC79E; --warn:#E2B45E; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --stage:#151413; --bg:#262522; --side:#1E1D1B; --card:#2F2E2A; --hover:#39372F; --line:#46443D;
+  --ink:#F1EEE7; --ink2:#B4AFA4; --ink3:#878278;
+  --accent:#7DB8F0; --accent-ink:#10202F; --accent-soft:#2A3948;
+  --rec:#F07A62; --ok:#7FC79E; --warn:#E2B45E; color-scheme:dark}
+
+*,*::before,*::after{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;background:var(--stage);color:var(--ink);font:14px/1.5 var(--sans);-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.page{max-width:1560px;margin:0 auto;padding-block:24px 120px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  display:grid;gap:20px}
+
+/* Page chrome (not part of the app) */
+.banner{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 20px;display:grid;gap:6px}
+.banner .tag{font:600 11px/14px var(--sans);letter-spacing:.06em;text-transform:uppercase;color:var(--warn)}
+.banner h1{margin:0;font:500 24px/30px var(--serif);text-wrap:balance}
+.banner p{margin:0;color:var(--ink2);max-width:96ch}
+.ctl{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 20px;display:flex;flex-wrap:wrap;gap:8px 18px;align-items:center;color:var(--ink2);font-size:13px}
+.ctl b{color:var(--ink);font-weight:600}
+.ctl label{display:inline-flex;gap:6px;align-items:center;cursor:pointer}
+.options{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,620px),1fr));gap:20px;align-items:start}
+.opt{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;display:grid;gap:12px;min-width:0}
+.opt > h2{margin:0;font:500 20px/26px var(--serif)}
+.opt > h2 code{font:500 13px/18px var(--mono);color:var(--ink3);margin-left:6px}
+.opt > p{margin:0;color:var(--ink2);max-width:80ch}
+.opt > p b{color:var(--ink);font-weight:600}
+.shared{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px 20px;display:grid;gap:8px}
+.shared h2{margin:0;font:500 20px/26px var(--serif)}
+.shared ul{margin:0;padding-left:20px;display:grid;gap:5px;max-width:110ch;color:var(--ink2)}
+.shared li b{color:var(--ink);font-weight:600}
+
+/* App: Settings › Meetings column */
+.win{background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:22px 26px 24px;display:grid;gap:14px;min-width:0}
+.display{margin:0;font:500 28px/34px var(--serif);letter-spacing:-.01em}
+.group{font:500 12px/16px var(--sans);color:var(--ink3);margin:0 0 -8px;padding:0 4px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:0 16px}
+.row{padding:14px 0;border-top:1px solid var(--line)}
+.row:first-child{border-top:0}
+.set{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 16px;align-items:center}
+.t{font:500 13px/18px var(--sans)}
+.d{color:var(--ink2);font:12px/17px var(--sans);max-width:58ch}
+.d.note{color:var(--ink3)}
+.d.warn{color:var(--warn)}
+.d code{font:11.5px/17px var(--mono)}
+.radio{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:2px 10px;align-items:start;padding:6px 0;border:0;background:transparent;width:100%;text-align:left;font:13px/18px var(--sans)}
+.radio .o{width:16px;height:16px;border-radius:50%;border:1.5px solid var(--ink3);margin-top:1px}
+.radio.on .o{border:5px solid var(--accent)}
+.radio.off{opacity:.55;cursor:default}
+.radio .p{color:var(--ink2);font-variant-numeric:tabular-nums}
+.radio .d.warn{color:var(--warn)}
+.toggle{width:36px;height:20px;border-radius:999px;border:0;background:var(--line);position:relative;padding:0;flex:none}
+.toggle::after{content:"";position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.25)}
+.toggle[aria-pressed="true"]{background:var(--accent)}
+.toggle[aria-pressed="true"]::after{left:18px}
+.toggle:disabled{opacity:.45;cursor:default}
+.voice{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 16px;align-items:start}
+.voice.inset{margin:4px 0 6px 26px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg)}
+.sep{border-top:1px solid var(--line);margin:8px 0}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:24px;padding:0 10px;border-radius:999px;
+  border:1px solid var(--line);background:transparent;color:var(--ink);font:500 12px/16px var(--sans);white-space:nowrap}
+.btn:hover{background:var(--hover)}
+
+/* Slider (the stock macOS slider, accent tint, as Sound › Volume) */
+input[type=range]{-webkit-appearance:none;appearance:none;height:20px;background:transparent;margin:0;width:100%;min-width:0;cursor:pointer}
+input[type=range]::-webkit-slider-runnable-track{height:4px;border-radius:999px;background:linear-gradient(to right,var(--accent) var(--fill,50%),var(--line) var(--fill,50%))}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:#fff;border:1px solid var(--line);box-shadow:0 1px 2px rgba(0,0,0,.25);margin-top:-7px}
+input[type=range]::-moz-range-track{height:4px;border-radius:999px;background:var(--line)}
+input[type=range]::-moz-range-progress{height:4px;border-radius:999px;background:var(--accent)}
+input[type=range]::-moz-range-thumb{width:18px;height:18px;border-radius:50%;background:#fff;border:1px solid var(--line);box-shadow:0 1px 2px rgba(0,0,0,.25)}
+.main.custom input[type=range]::-webkit-slider-runnable-track{background:var(--line)}
+.main.custom input[type=range]::-webkit-slider-thumb{background:var(--bg);border:1.5px dashed var(--ink3);box-shadow:none}
+.main.custom input[type=range]::-moz-range-progress{background:var(--line)}
+.main.custom input[type=range]::-moz-range-thumb{background:var(--bg);border:1.5px dashed var(--ink3);box-shadow:none}
+.main{display:grid;gap:6px}
+.main .head{display:flex;flex-wrap:wrap;gap:4px 12px;align-items:baseline;justify-content:space-between}
+.main .cap{color:var(--ink2);font:12px/17px var(--sans);font-variant-numeric:tabular-nums}
+.main .cap b{color:var(--ink);font-weight:600}
+.scale{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:center;color:var(--ink2);font:12px/16px var(--sans)}
+.adv-toggle{display:inline-flex;align-items:center;gap:6px;border:0;background:transparent;padding:0;color:var(--ink2);font:500 12px/16px var(--sans)}
+.adv-toggle svg{width:10px;height:10px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;transition:transform .15s}
+.adv-toggle[aria-expanded="true"] svg{transform:rotate(90deg)}
+@media (prefers-reduced-motion:reduce){.adv-toggle svg{transition:none}}
+.adv{display:grid;gap:10px;margin-top:10px}
+.arow{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(90px,1fr) 52px;gap:4px 14px;align-items:center}
+.arow .v{text-align:right;color:var(--ink2);font:13px/18px var(--sans);font-variant-numeric:tabular-nums}
+.arow.dim{opacity:.5}
+.reset{border:0;background:transparent;padding:0;color:var(--accent);font:500 12px/16px var(--sans)}
+@media (max-width:520px){.arow{grid-template-columns:minmax(0,1fr) 52px}.arow input{grid-column:1 / -1;grid-row:2}}
+</style>
+
+<div class="page">
+
+  <header class="banner">
+    <div class="tag">Mockup — not shipping code · v8 · set 1 of 4 · Accepted 2026-11-20: in-engine-card</div>
+    <h1>Where the two voice toggles and their tuning sit</h1>
+    <p>Settings › Meetings today, plus the two opt-in toggles, the Cautious–Eager slider and the Advanced values. Both options hold the same controls and wording; they differ in <b>where the toggles sit</b>: beside the engines they belong to, or in a card of their own.</p>
+    <p>Follows DESIGN.md (settings cards with hairline rows, radio rows, the switch, the stock slider with the accent tint as Sound › Volume uses, footnotes that state a setting's consequence). Prices are placeholders. Everything here is live: click an engine, flip a toggle, drag a slider.</p>
+  </header>
+
+  <div class="ctl" role="group" aria-label="States to try">
+    <b>Try a state</b>
+    <label><input type="checkbox" id="st-nokey"> No Speechmatics key</label>
+    <label><input type="checkbox" id="st-nomodel"> Voice model failed to load</label>
+    <span>Click an engine row to see the toggle of the provider that is not in use.</span>
+  </div>
+
+  <div class="options">
+
+    <!-- Option A -->
+    <section class="opt" id="in-engine-card" data-mf-option="in-engine-card">
+      <h2>In the Engine card <code>in-engine-card</code> <code>· Accepted 2026-11-20</code></h2>
+      <p>Each toggle sits directly under the two engines it applies to, so nothing has to say which engines it is for. The slider and Advanced close the card once a toggle is on. <b>Trade-off:</b> the Engine card grows from four rows to a tall card, and picking an engine now shares space with tuning.</p>
+      <div class="win">
+        <h1 class="display">Meetings</h1>
+        <div class="group">Engine</div>
+        <div class="card">
+          <div class="row">
+            <button class="radio" data-engine="sm" data-id="sm-std"><span class="o"></span><span><span>Speechmatics Standard</span><span class="d" style="display:block" data-sub="sm">Speaker labels included · English</span></span><span class="p">$0.00/h</span></button>
+            <button class="radio" data-engine="sm" data-id="sm-enh"><span class="o"></span><span><span>Speechmatics Enhanced</span><span class="d" style="display:block" data-sub="sm">Higher accuracy · speaker labels included</span></span><span class="p">$0.00/h</span></button>
+            <div class="voice inset" data-voice="sm">
+              <div>
+                <div class="t">Remember voices with Speechmatics</div>
+                <div class="d" data-desc="sm"></div>
+                <div class="d note" data-note="sm" hidden>Used when a Speechmatics engine is selected.</div>
+              </div>
+              <button class="toggle" aria-pressed="false" data-toggle="sm" aria-label="Remember voices with Speechmatics"></button>
+            </div>
+            <div class="sep"></div>
+            <button class="radio on" data-engine="aai" data-id="aai-str"><span class="o"></span><span><span>AssemblyAI Universal-Streaming</span><span class="d" style="display:block">Speaker labels add-on · English</span></span><span class="p">$0.00 + $0.00/h</span></button>
+            <button class="radio" data-engine="aai" data-id="aai-pro"><span class="o"></span><span><span>AssemblyAI Universal 3.6 Pro</span><span class="d" style="display:block">Higher accuracy · speaker labels add-on</span></span><span class="p">$0.00 + $0.00/h</span></button>
+            <div class="voice inset" data-voice="aai">
+              <div>
+                <div class="t">Remember voices on this Mac</div>
+                <div class="d" data-desc="aai"></div>
+                <div class="d note" data-note="aai" hidden>Used when an AssemblyAI engine is selected.</div>
+              </div>
+              <button class="toggle" aria-pressed="true" data-toggle="aai" aria-label="Remember voices on this Mac"></button>
+            </div>
+          </div>
+          <div class="row" data-tuning>
+            <div class="main" data-main>
+              <div class="head"><div class="t">How readily names are applied</div><div class="cap" data-cap></div></div>
+              <div class="scale"><span>Cautious</span><input type="range" min="0" max="10" step="1" value="5" data-eager aria-label="Cautious to Eager"><span>Eager</span></div>
+            </div>
+            <div style="margin-top:10px"><button class="adv-toggle" aria-expanded="false" data-adv-toggle><svg viewBox="0 0 10 10" aria-hidden="true"><path d="M3 1.5 6.5 5 3 8.5"/></svg>Advanced</button></div>
+            <div class="adv" data-adv hidden></div>
+          </div>
+          <div class="row"><div class="d">Meetings are English only. The second AssemblyAI figure is its speaker-labels add-on. These list prices drive a live meeting's running cost and the Today/Month totals.</div></div>
+        </div>
+        <div class="group">Recording</div>
+        <div class="card"><div class="row set"><div><div class="t">Your name</div><div class="d">Labels your microphone in remote calls and in exports.</div></div><span class="d">…the rest of the page is unchanged</span></div></div>
+      </div>
+    </section>
+
+    <!-- Option B -->
+    <section class="opt" id="recognition-card" data-mf-option="recognition-card">
+      <h2>A card of its own <code>recognition-card</code> <code>· Not chosen</code></h2>
+      <p>The Engine card stays exactly as it is. A new <b>Speaker recognition</b> card follows it, with one row per toggle, then the slider and Advanced. <b>Trade-off:</b> each toggle has to name the engines it works with, and the link between an engine and its toggle is read, not seen.</p>
+      <div class="win">
+        <h1 class="display">Meetings</h1>
+        <div class="group">Engine</div>
+        <div class="card">
+          <div class="row">
+            <button class="radio" data-engine="sm" data-id="sm-std"><span class="o"></span><span><span>Speechmatics Standard</span><span class="d" style="display:block" data-sub="sm">Speaker labels included · English</span></span><span class="p">$0.00/h</span></button>
+            <button class="radio" data-engine="sm" data-id="sm-enh"><span class="o"></span><span><span>Speechmatics Enhanced</span><span class="d" style="display:block" data-sub="sm">Higher accuracy · speaker labels included</span></span><span class="p">$0.00/h</span></button>
+            <button class="radio on" data-engine="aai" data-id="aai-str"><span class="o"></span><span><span>AssemblyAI Universal-Streaming</span><span class="d" style="display:block">Speaker labels add-on · English</span></span><span class="p">$0.00 + $0.00/h</span></button>
+            <button class="radio" data-engine="aai" data-id="aai-pro"><span class="o"></span><span><span>AssemblyAI Universal 3.6 Pro</span><span class="d" style="display:block">Higher accuracy · speaker labels add-on</span></span><span class="p">$0.00 + $0.00/h</span></button>
+            <div class="d" style="margin-top:6px">Meetings are English only. The second AssemblyAI figure is its speaker-labels add-on. These list prices drive a live meeting's running cost and the Today/Month totals.</div>
+          </div>
+        </div>
+        <div class="group">Speaker recognition</div>
+        <div class="card">
+          <div class="row voice" data-voice="aai">
+            <div>
+              <div class="t">Remember voices on this Mac</div>
+              <div class="d" data-desc="aai" data-prefix="With the AssemblyAI engines. "></div>
+              <div class="d note" data-note="aai" hidden>Used when an AssemblyAI engine is selected.</div>
+            </div>
+            <button class="toggle" aria-pressed="true" data-toggle="aai" aria-label="Remember voices on this Mac"></button>
+          </div>
+          <div class="row voice" data-voice="sm">
+            <div>
+              <div class="t">Remember voices with Speechmatics</div>
+              <div class="d" data-desc="sm" data-prefix="With the Speechmatics engines. "></div>
+              <div class="d note" data-note="sm" hidden>Used when a Speechmatics engine is selected.</div>
+            </div>
+            <button class="toggle" aria-pressed="false" data-toggle="sm" aria-label="Remember voices with Speechmatics"></button>
+          </div>
+          <div class="row" data-tuning>
+            <div class="main" data-main>
+              <div class="head"><div class="t">How readily names are applied</div><div class="cap" data-cap></div></div>
+              <div class="scale"><span>Cautious</span><input type="range" min="0" max="10" step="1" value="5" data-eager aria-label="Cautious to Eager"><span>Eager</span></div>
+            </div>
+            <div style="margin-top:10px"><button class="adv-toggle" aria-expanded="false" data-adv-toggle><svg viewBox="0 0 10 10" aria-hidden="true"><path d="M3 1.5 6.5 5 3 8.5"/></svg>Advanced</button></div>
+            <div class="adv" data-adv hidden></div>
+          </div>
+        </div>
+        <div class="group">Recording</div>
+        <div class="card"><div class="row set"><div><div class="t">Your name</div><div class="d">Labels your microphone in remote calls and in exports.</div></div><span class="d">…the rest of the page is unchanged</span></div></div>
+      </div>
+    </section>
+  </div>
+
+  <section class="shared">
+    <h2>The same in both options</h2>
+    <ul>
+      <li><b>Off by default.</b> With both toggles off the slider and Advanced are not shown, and the page reads as it does today plus two switched-off rows.</li>
+      <li><b>What is stored, said on the row.</b> The description under each toggle is the disclosure; there is no separate dialog. It stays visible while the toggle is on.</li>
+      <li><b>Provider not in use.</b> The toggle stays operable and adds one grey line: "Used when a Speechmatics engine is selected."</li>
+      <li><b>Cannot be used.</b> No key: the switch is disabled under the engine rows' own hint, "Add a Speechmatics key under Keys to enable". Model fails to load: disabled with "The voice model could not be loaded on this Mac."</li>
+      <li><b>One slider, eleven steps, centre by default.</b> It sets five of the six Advanced values together. Its caption names the result. Change an Advanced value by hand and the caption reads Custom with a hollow thumb; moving the slider, or Reset, puts every value back on a step.</li>
+      <li><b>Advanced</b> is closed by default: sure match 0.70 · suggestion 0.50 · margin 0.10 · minimum speech 15 s · audio buffer 120 s · Speechmatics sensitivity 0.80. A value whose route is switched off is dimmed.</li>
+      <li><b>Changes apply from the next meeting</b>; switching a toggle off takes effect at once.</li>
+    </ul>
+  </section>
+</div>
+
+<script>
+(function(){
+  var DESC = {
+    aai: "Learns the voice of each speaker you name and names them in later meetings. Keeps a voiceprint per person, never audio, in ~/.config/mini-whisper/voices.json and in each meeting's folder. Nothing leaves this Mac.",
+    sm: "Speechmatics returns a voice identifier for each speaker you name, and later meetings send those identifiers back so it can name them. Kept in ~/.config/mini-whisper/voices.json, never audio. Names are not sent."
+  };
+  var ADV = [
+    {k:"sure", t:"Sure match", d:"A score at or above this applies the name.", min:0.5, max:0.95, step:0.05, unit:"", route:"aai"},
+    {k:"sugg", t:"Suggestion", d:"From this score up, the name is offered.", min:0.3, max:0.9, step:0.05, unit:"", route:"aai"},
+    {k:"margin", t:"Margin", d:"How far ahead of the next-best person a match must be.", min:0, max:0.3, step:0.01, unit:"", route:"aai"},
+    {k:"speech", t:"Minimum speech", d:"Speech heard from a voice before the first check.", min:5, max:60, step:1, unit:" s", route:"aai"},
+    {k:"buffer", t:"Audio buffer", d:"Recent audio kept in memory for matching. Not set by the slider.", min:60, max:300, step:10, unit:" s", route:"aai"},
+    {k:"sens", t:"Speechmatics sensitivity", d:"Higher keeps unknown voices apart from remembered ones.", min:0, max:1, step:0.05, unit:"", route:"sm"}
+  ];
+  function preset(p){ return {sure:0.80-0.20*p, sugg:0.60-0.20*p, margin:0.15-0.10*p, speech:25-20*p, sens:0.95-0.30*p}; }
+  function fmt(k,v){ return (k==="speech"||k==="buffer") ? Math.round(v)+" s" : v.toFixed(2); }
+  function names(step){ return step===5 ? "Balanced" : step<5 ? (step<=1?"Most cautious":"Cautious") : (step>=9?"Most eager":"Eager"); }
+
+  var state = {nokey:false, nomodel:false, engine:"aai-str", on:{sm:false, aai:true}, step:5, custom:false,
+               v:Object.assign({buffer:120}, preset(0.5)), adv:false};
+
+  function fill(input){ var min=+input.min, max=+input.max; input.style.setProperty("--fill", ((+input.value-min)/(max-min)*100)+"%"); }
+
+  document.querySelectorAll("[data-adv]").forEach(function(box){
+    ADV.forEach(function(a){
+      var row=document.createElement("div"); row.className="arow"; row.setAttribute("data-arow",a.k); row.setAttribute("data-route",a.route);
+      row.innerHTML='<div><div class="t"></div><div class="d"></div></div><input type="range"><div class="v"></div>';
+      row.querySelector(".t").textContent=a.t; row.querySelector(".d").textContent=a.d;
+      var inp=row.querySelector("input"); inp.min=a.min; inp.max=a.max; inp.step=a.step; inp.setAttribute("aria-label",a.t);
+      inp.addEventListener("input",function(){ state.v[a.k]=+inp.value; state.custom = a.k==="buffer" ? state.custom : !onStep(); paint(); });
+      box.appendChild(row);
+    });
+    var r=document.createElement("div"); r.innerHTML='<button class="reset" data-reset>Reset to Balanced</button>'; box.appendChild(r);
+  });
+
+  function onStep(){
+    for(var s=0;s<=10;s++){ var p=preset(s/10), ok=true;
+      ["sure","sugg","margin","sens"].forEach(function(k){ if(Math.abs(p[k]-state.v[k])>0.005) ok=false; });
+      if(Math.abs(p.speech-state.v.speech)>0.5) ok=false;
+      if(ok){ state.step=s; return true; } }
+    return false;
+  }
+
+  function paint(){
+    var active = state.engine.indexOf("sm")===0 ? "sm" : "aai";
+    document.querySelectorAll("[data-mf-option]").forEach(function(root){
+      root.querySelectorAll(".radio").forEach(function(b){
+        var sm=b.getAttribute("data-engine")==="sm", off=sm&&state.nokey;
+        b.classList.toggle("on", b.getAttribute("data-id")===state.engine && !off);
+        b.classList.toggle("off", off);
+      });
+      root.querySelectorAll("[data-sub='sm']").forEach(function(el,i){
+        el.classList.toggle("warn", state.nokey);
+        el.textContent = state.nokey ? "Add a Speechmatics key under Keys to enable" : (i===0 ? "Speaker labels included · English" : "Higher accuracy · speaker labels included");
+      });
+      ["sm","aai"].forEach(function(r){
+        var blocked = (r==="sm"&&state.nokey) || (r==="aai"&&state.nomodel);
+        var t=root.querySelector("[data-toggle='"+r+"']"), d=root.querySelector("[data-desc='"+r+"']"), n=root.querySelector("[data-note='"+r+"']");
+        t.disabled=blocked; t.setAttribute("aria-pressed", String(state.on[r] && !blocked));
+        d.classList.toggle("warn", blocked);
+        d.textContent = blocked ? (r==="sm" ? "Add a Speechmatics key under Keys to enable" : "The voice model could not be loaded on this Mac.")
+                                : (d.getAttribute("data-prefix")||"") + DESC[r];
+        n.hidden = blocked || !state.on[r] || active===r;
+      });
+      var any = (state.on.sm&&!state.nokey) || (state.on.aai&&!state.nomodel);
+      root.querySelector("[data-tuning]").hidden = !any;
+      var main=root.querySelector("[data-main]"), eager=root.querySelector("[data-eager]"), cap=root.querySelector("[data-cap]");
+      main.classList.toggle("custom", state.custom);
+      eager.value=state.step; fill(eager);
+      cap.innerHTML = state.custom ? "<b>Custom</b> · set in Advanced"
+        : "<b>"+names(state.step)+"</b> · applies a name at "+state.v.sure.toFixed(2)+", suggests from "+state.v.sugg.toFixed(2);
+      var tog=root.querySelector("[data-adv-toggle]"), box=root.querySelector("[data-adv]");
+      tog.setAttribute("aria-expanded", String(state.adv)); box.hidden=!state.adv;
+      box.querySelectorAll("[data-arow]").forEach(function(row){
+        var k=row.getAttribute("data-arow"), inp=row.querySelector("input");
+        inp.value=state.v[k]; fill(inp); row.querySelector(".v").textContent=fmt(k,state.v[k]);
+        var r=row.getAttribute("data-route"); row.classList.toggle("dim", !(state.on[r] && !((r==="sm"&&state.nokey)||(r==="aai"&&state.nomodel))));
+      });
+      root.querySelector("[data-reset]").hidden = !state.custom && state.step===5;
+    });
+  }
+
+  document.addEventListener("click",function(e){
+    var radio=e.target.closest(".radio"); if(radio && !radio.classList.contains("off")){ state.engine=radio.getAttribute("data-id"); paint(); return; }
+    var tg=e.target.closest("[data-toggle]"); if(tg && !tg.disabled){ var r=tg.getAttribute("data-toggle"); state.on[r]=!state.on[r]; paint(); return; }
+    if(e.target.closest("[data-adv-toggle]")){ state.adv=!state.adv; paint(); return; }
+    if(e.target.closest("[data-reset]")){ state.step=5; state.custom=false; Object.assign(state.v, preset(0.5)); paint(); }
+  });
+  document.querySelectorAll("[data-eager]").forEach(function(inp){
+    inp.addEventListener("input",function(){ state.step=+inp.value; state.custom=false; Object.assign(state.v, preset(state.step/10)); paint(); });
+  });
+  document.getElementById("st-nokey").addEventListener("change",function(e){ state.nokey=e.target.checked; if(state.nokey && state.engine.indexOf("sm")===0) state.engine="aai-str"; paint(); });
+  document.getElementById("st-nomodel").addEventListener("change",function(e){ state.nomodel=e.target.checked; paint(); });
+  paint();
+})();
+</script>
+
+<!-- mockup-feedback:start -->
+<style>
+.mf-bar {
+  --mf-bg: #f6f7f9;
+  --mf-fg: #1a2127;
+  --mf-muted: #59646d;
+  --mf-line: #d3d9de;
+  --mf-field: #ffffff;
+  --mf-accent: #2f5fd0;
+  --mf-accent-fg: #ffffff;
+  --mf-ok: #1d7a4c;
+  --mf-warn: #8f5d00;
+  --mf-err: #b2322b;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .mf-bar {
+    --mf-bg: #161b20;
+    --mf-fg: #e3e8ec;
+    --mf-muted: #98a3ab;
+    --mf-line: #2d363e;
+    --mf-field: #0f1317;
+    --mf-accent: #7ea2f5;
+    --mf-accent-fg: #0b1220;
+    --mf-ok: #57c48c;
+    --mf-warn: #e2ac45;
+    --mf-err: #f08077;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] .mf-bar {
+  --mf-bg: #161b20;
+  --mf-fg: #e3e8ec;
+  --mf-muted: #98a3ab;
+  --mf-line: #2d363e;
+  --mf-field: #0f1317;
+  --mf-accent: #7ea2f5;
+  --mf-accent-fg: #0b1220;
+  --mf-ok: #57c48c;
+  --mf-warn: #e2ac45;
+  --mf-err: #f08077;
+  color-scheme: dark;
+}
+.mf-bar, .mf-bar * { box-sizing: border-box; }
+.mf-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 2147483000;
+  margin: 24px 0 0;
+  padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px));
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--mf-bg);
+  color: var(--mf-fg);
+  border-top: 1px solid var(--mf-line);
+  box-shadow: 0 -6px 18px rgba(0, 0, 0, 0.08);
+  font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  text-align: left;
+}
+.mf-bar[hidden] { display: none; }
+.mf-bar .mf-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+.mf-bar .mf-tag {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--mf-muted);
+}
+.mf-bar .mf-title { font-weight: 600; }
+.mf-bar .mf-context { color: var(--mf-muted); min-width: 0; overflow-wrap: anywhere; }
+.mf-bar .mf-toggle {
+  margin-left: auto;
+  padding: 2px 6px;
+  border: 0;
+  background: none;
+  color: var(--mf-accent);
+  font: inherit;
+  font-size: 13px;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.mf-bar .mf-body { display: flex; flex-direction: column; gap: 8px; }
+.mf-bar.mf-collapsed .mf-body { display: none; }
+.mf-bar .mf-options { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; border: 0; }
+.mf-bar .mf-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border: 1.5px solid var(--mf-line);
+  border-radius: 999px;
+  background: var(--mf-field);
+  cursor: pointer;
+}
+.mf-bar .mf-chip input { margin: 0; accent-color: var(--mf-accent); }
+.mf-bar .mf-chip:has(input:checked) { border-color: var(--mf-accent); }
+.mf-bar .mf-chip:has(input:focus-visible) { outline: 2px solid var(--mf-accent); outline-offset: 2px; }
+.mf-bar .mf-note {
+  width: 100%;
+  min-height: 38px;
+  max-height: 140px;
+  padding: 7px 10px;
+  resize: vertical;
+  font: inherit;
+  color: var(--mf-fg);
+  background: var(--mf-field);
+  border: 1.5px solid var(--mf-line);
+  border-radius: 8px;
+}
+.mf-bar .mf-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.mf-bar .mf-btn {
+  padding: 7px 12px;
+  border: 1.5px solid var(--mf-line);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--mf-fg);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.mf-bar .mf-btn.mf-primary { background: var(--mf-accent); border-color: var(--mf-accent); color: var(--mf-accent-fg); }
+.mf-bar .mf-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.mf-bar .mf-btn:focus-visible, .mf-bar .mf-toggle:focus-visible, .mf-bar .mf-note:focus-visible {
+  outline: 2px solid var(--mf-accent);
+  outline-offset: 2px;
+}
+.mf-bar .mf-channel { display: flex; align-items: center; gap: 6px; margin: 0; font-size: 13px; color: var(--mf-muted); }
+.mf-bar .mf-dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--mf-muted); }
+.mf-bar .mf-channel[data-state="available"] .mf-dot { background: var(--mf-ok); }
+.mf-bar .mf-channel[data-state="no_session"] .mf-dot,
+.mf-bar .mf-channel[data-state="writers_only"] .mf-dot { background: var(--mf-warn); }
+.mf-bar .mf-channel[data-state="blocked"] .mf-dot { background: var(--mf-err); }
+.mf-bar .mf-result { margin: 0; font-size: 13px; }
+.mf-bar .mf-result[data-kind="ok"] { color: var(--mf-ok); }
+.mf-bar .mf-result[data-kind="err"] { color: var(--mf-err); }
+.mf-bar .mf-verdict { margin: 0; font-weight: 600; }
+[data-mf-option].mf-selected { outline: 3px solid #3b6fe0; outline-offset: 4px; }
+</style>
+<aside class="mf-bar" id="mf-bar" role="region" aria-label="Mockup feedback" data-uncommentable hidden>
+  <div class="mf-head">
+    <span class="mf-tag">Feedback</span>
+    <span class="mf-title" id="mf-title"></span>
+    <span class="mf-context" id="mf-context"></span>
+    <button type="button" class="mf-toggle" id="mf-toggle" aria-expanded="true" aria-controls="mf-body">Hide</button>
+  </div>
+  <div class="mf-body" id="mf-body">
+    <p class="mf-verdict" id="mf-verdict" hidden></p>
+    <fieldset class="mf-options" id="mf-options" hidden></fieldset>
+    <textarea class="mf-note" id="mf-note" maxlength="1500" placeholder="Note for Claude (optional; required to request changes)" aria-label="Note for Claude"></textarea>
+    <div class="mf-actions" id="mf-actions"></div>
+    <p class="mf-channel" id="mf-channel" data-state="checking">
+      <span class="mf-dot" aria-hidden="true"></span>
+      <span id="mf-channel-text">Checking whether a Claude session is listening.</span>
+      <button type="button" class="mf-toggle" id="mf-recheck" hidden>Check again</button>
+    </p>
+    <p class="mf-result" id="mf-result" role="status" aria-live="polite" hidden></p>
+  </div>
+</aside>
+<script type="application/json" id="mf-config">{"set":"v8-s1","setLabel":"Voice toggles placement","mode":"compare","options":[{"id":"in-engine-card","label":"In the Engine card"},{"id":"recognition-card","label":"A card of its own"}],"this":null,"status":"accepted","chosen":"in-engine-card"}</script>
+<script>
+(function () {
+  var cfg;
+  try { cfg = JSON.parse(document.getElementById("mf-config").textContent); } catch (e) { return; }
+  if (!cfg || !cfg.options || !cfg.options.length) return;
+
+  var PREFIX = "Mockup feedback · ";
+  var CHANNEL = {
+    checking: "Checking whether a Claude session is listening.",
+    available: "A Claude session is listening. Sending wakes it.",
+    no_session: "No Claude session is listening. Reply in chat, or check again once the session is back.",
+    writers_only: "Only editors of this page can send to Claude. Reply in chat instead.",
+    off: "Sending to Claude is not offered here. Reply in chat instead.",
+    absent: "Sending works on the published page. Here, reply in chat instead.",
+    blocked: "Commenting from this page is turned off. Reply in chat instead."
+  };
+  var KNOWN = ["available", "writers_only", "no_session", "off"];
+
+  var bar = document.getElementById("mf-bar");
+  var titleEl = document.getElementById("mf-title");
+  var contextEl = document.getElementById("mf-context");
+  var toggleBtn = document.getElementById("mf-toggle");
+  var verdictEl = document.getElementById("mf-verdict");
+  var optionsEl = document.getElementById("mf-options");
+  var noteEl = document.getElementById("mf-note");
+  var actionsEl = document.getElementById("mf-actions");
+  var channelEl = document.getElementById("mf-channel");
+  var channelText = document.getElementById("mf-channel-text");
+  var recheckBtn = document.getElementById("mf-recheck");
+  var resultEl = document.getElementById("mf-result");
+
+  var comments = null;
+  var state = "checking";
+  var busy = false;
+  var sent = false;
+  var buttons = [];
+
+  function byId(list, id) {
+    for (var i = 0; i < list.length; i++) if (list[i].id === id) return list[i];
+    return null;
+  }
+  function label(id) { var o = byId(cfg.options, id); return o ? o.label : id; }
+  function root(id) { return document.querySelector('[data-mf-option="' + id + '"]'); }
+  function picked() {
+    if (cfg.mode !== "compare") return cfg.mode === "pick" ? cfg["this"] : cfg.options[0].id;
+    var r = optionsEl.querySelector("input:checked");
+    return r ? r.value : null;
+  }
+  function say(text, kind) {
+    resultEl.hidden = !text;
+    resultEl.textContent = text || "";
+    if (kind) resultEl.setAttribute("data-kind", kind);
+    else resultEl.removeAttribute("data-kind");
+  }
+  function clean(text) {
+    return text.replace(/[\u0000-\u0008\u000B-\u001F\u007F]/g, "").trim();
+  }
+
+  // Header: the set, and where this page sits in it.
+  titleEl.textContent = cfg.setLabel;
+  if (cfg.mode === "pick") {
+    var others = [];
+    var position = 0;
+    for (var i = 0; i < cfg.options.length; i++) {
+      if (cfg.options[i].id === cfg["this"]) position = i + 1;
+      else others.push(cfg.options[i].label);
+    }
+    contextEl.textContent = "Option " + position + " of " + cfg.options.length + ": " + label(cfg["this"]) +
+      ". The others are on their own pages: " + others.join(", ") + ". Choosing here rules them out.";
+  } else if (cfg.mode === "compare") {
+    contextEl.textContent = cfg.options.length + " options on this page. Pick one.";
+  } else {
+    contextEl.textContent = label(cfg.options[0].id);
+  }
+
+  toggleBtn.addEventListener("click", function () {
+    var collapsed = bar.classList.toggle("mf-collapsed");
+    toggleBtn.textContent = collapsed ? "Show" : "Hide";
+    toggleBtn.setAttribute("aria-expanded", collapsed ? "false" : "true");
+  });
+
+  // A settled page shows its verdict and nothing to act on.
+  if (cfg.status !== "open") {
+    var verdict = {
+      accepted: cfg.mode === "compare" ? "Accepted: " + label(cfg.chosen) + "." : "Accepted.",
+      "not-chosen": "Not chosen.",
+      closed: "Closed. Choices on this page are no longer read."
+    }[cfg.status] || "Closed.";
+    verdictEl.textContent = verdict;
+    verdictEl.hidden = false;
+    noteEl.hidden = true;
+    channelEl.hidden = true;
+    if (cfg.mode === "compare" && cfg.status === "accepted" && root(cfg.chosen)) root(cfg.chosen).classList.add("mf-selected");
+    bar.hidden = false;
+    return;
+  }
+
+  // Compare: one chip per option, outlining its section when picked.
+  if (cfg.mode === "compare") {
+    var legend = document.createElement("legend");
+    legend.className = "mf-tag";
+    legend.textContent = "Options";
+    optionsEl.appendChild(legend);
+    cfg.options.forEach(function (o) {
+      var chip = document.createElement("label");
+      chip.className = "mf-chip";
+      var input = document.createElement("input");
+      input.type = "radio";
+      input.name = "mf-option";
+      input.id = "mf-option-" + o.id;
+      input.value = o.id;
+      input.addEventListener("change", function () {
+        var all = document.querySelectorAll("[data-mf-option]");
+        for (var k = 0; k < all.length; k++) all[k].classList.remove("mf-selected");
+        var el = root(o.id);
+        if (el) {
+          el.classList.add("mf-selected");
+          var still = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+          el.scrollIntoView({ block: "nearest", behavior: still ? "auto" : "smooth" });
+        }
+        refresh();
+      });
+      chip.appendChild(input);
+      chip.appendChild(document.createTextNode(o.label));
+      optionsEl.appendChild(chip);
+    });
+    optionsEl.hidden = false;
+  }
+
+  // Actions per shape. needsNote: a change request must say what to change.
+  var ACTIONS = {
+    review: [
+      { action: "accept", text: "Looks right", primary: true },
+      { action: "revise", text: "Request changes", needsNote: true },
+      { action: "alternatives", text: "Show alternatives" }
+    ],
+    compare: [
+      { action: "choose", text: "Send choice", primary: true, needsPick: true },
+      { action: "none", text: "None of these", needsNote: true },
+      { action: "comment", text: "Comment on this option", needsPick: true }
+    ],
+    pick: [
+      { action: "choose", text: "Choose this one", primary: true },
+      { action: "revise", text: "Request changes", needsNote: true },
+      { action: "none", text: "None of these", needsNote: true }
+    ]
+  }[cfg.mode] || [];
+
+  ACTIONS.forEach(function (a) {
+    var b = document.createElement("button");
+    b.type = "button";
+    b.className = "mf-btn" + (a.primary ? " mf-primary" : "");
+    b.id = "mf-" + a.action;
+    b.textContent = a.text;
+    b.addEventListener("click", function () {
+      if (a.action === "comment") compose();
+      else send(a);
+    });
+    actionsEl.appendChild(b);
+    buttons.push({ el: b, spec: a });
+  });
+
+  function render() {
+    channelEl.setAttribute("data-state", state);
+    channelText.textContent = CHANNEL[state] || CHANNEL.off;
+    recheckBtn.hidden = !comments || state === "available" || state === "checking" || state === "blocked";
+    var pick = picked();
+    buttons.forEach(function (b) {
+      if (b.spec.action === "comment") {
+        b.el.disabled = !comments || !pick;
+        b.el.hidden = !comments;
+        return;
+      }
+      b.el.disabled = busy || sent || state !== "available" || (b.spec.needsPick && !pick);
+    });
+    noteEl.disabled = sent;
+  }
+
+  function refresh() {
+    if (!comments || state === "blocked") { render(); return; }
+    comments.canSendToClaude().then(function (v) {
+      return KNOWN.indexOf(v) === -1 ? "off" : v;
+    }, function () {
+      return "off";
+    }).then(function (v) {
+      if (comments && state !== "blocked") state = v;
+      render();
+    });
+  }
+
+  function fail(err) {
+    var code = err && err.code;
+    if (code === "consent_required") {
+      say("Not sent. The page was not allowed to comment as you. Your note is kept.", "err");
+    } else if (code === "forbidden") {
+      state = "blocked";
+      say("Not sent. Commenting from this page is turned off.", "err");
+    } else if (code === "claude_unavailable") {
+      say("Not sent. No Claude session could receive it. Nothing was posted.", "err");
+      refresh();
+    } else if (code === "rate_limited") {
+      say("Not sent. Too many sends in a row. Wait a moment.", "err");
+    } else if (code === "invalid" || code === "transform_error") {
+      say("Not sent. The note has characters a comment cannot carry.", "err");
+    } else if (code === "not_granted" || code === "capability_disabled" || code === "capability_removed") {
+      comments = null;
+      state = "absent";
+      say("Not sent. This view cannot post comments from the page.", "err");
+    } else {
+      say("Not sent. Comments are unavailable right now. Try once more.", "err");
+    }
+  }
+
+  function send(spec) {
+    if (!comments || busy || sent) return;
+    var option = spec.action === "choose" || spec.action === "accept" || spec.action === "revise" ? picked() : null;
+    if (spec.needsPick && !option) { say("Pick an option first.", "err"); return; }
+    var note = clean(noteEl.value);
+    if (spec.needsNote && !note) {
+      say("Add a note saying what to change.", "err");
+      noteEl.focus();
+      return;
+    }
+    var text = PREFIX + cfg.set + " · " + spec.action + (option ? " " + option : "") + (note ? "\nNote: " + note : "");
+    var target = root(option || picked() || cfg.options[0].id) || bar.parentNode;
+    busy = true;
+    say("", null);
+    render();
+    comments.anchorFor(target).then(function (anchor) {
+      return comments.sendToClaude({ anchor: anchor, text: text });
+    }).then(function () {
+      sent = true;
+      say("Sent to Claude: " + spec.text.toLowerCase() + (option ? " (" + label(option) + ")" : "") +
+        ". Claude replies in the comment thread and updates this page.", "ok");
+    }, fail).then(function () {
+      busy = false;
+      render();
+    });
+  }
+
+  function compose() {
+    var option = picked();
+    var el = option && root(option);
+    if (!comments || !el) return;
+    comments.openComposer({ element: el }).then(function (r) {
+      if (r && r.opened) say("Comment box opened on " + label(option) + ". Write your comment and press Send to Claude.", "ok");
+    }, function (err) {
+      say(err && err.code === "rate_limited" ? "Too many tries in a row. Wait a moment." : "The comment box is unavailable here.", "err");
+    });
+  }
+
+  recheckBtn.addEventListener("click", refresh);
+  window.addEventListener("focus", refresh);
+  bar.hidden = false;
+  render();
+
+  var ready = window.claude && typeof window.claude.use === "function"
+    ? window.claude.use("comments")
+    : Promise.resolve(null);
+  ready.then(function (ns) { return ns; }, function () { return null; }).then(function (ns) {
+    comments = ns;
+    if (!ns) { state = "absent"; render(); return; }
+    refresh();
+  });
+})();
+</script>
+<!-- mockup-feedback:end -->
