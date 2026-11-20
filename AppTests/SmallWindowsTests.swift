@@ -6,10 +6,21 @@ import Testing
 /// R24's sizes and closability. The windows are built, never shown.
 @MainActor
 @Suite struct SmallWindowsTests {
-    @Test func aboutIs300By300AndClosesFromItsCloseButton() {
+    @Test func aboutIs300By330AndClosesFromItsCloseButton() {
         let window = AboutWindowController().window
 
-        #expect(window.frame.size == CGSize(width: 300, height: 300))
+        #expect(window.frame.size == CGSize(width: 300, height: 330))
+        #expect(window.styleMask.contains(.titled))
+        #expect(window.styleMask.contains(.closable))
+        #expect(!window.styleMask.contains(.resizable))
+    }
+
+    @Test func creditsIs460By440AndClosesFromItsCloseButton() {
+        let window = CreditsWindowController().window
+
+        #expect(window.frame.size == CGSize(width: 460, height: 440))
+        #expect(window.title == "Credits")
+        #expect(window.titleVisibility == .visible)
         #expect(window.styleMask.contains(.titled))
         #expect(window.styleMask.contains(.closable))
         #expect(!window.styleMask.contains(.resizable))

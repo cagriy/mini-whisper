@@ -1,8 +1,9 @@
 import SwiftUI
 
-/// The About window's content: the mark, the name, the version and what the app does.
+/// The About window's content: the mark, the name, the version, what the app does and Credits.
 struct AboutView: View {
     let version: String
+    let showCredits: () -> Void
 
     var body: some View {
         VStack(spacing: DS.Space.s4) {
@@ -21,6 +22,8 @@ struct AboutView: View {
             Text("Powered by OpenAI gpt-4o-mini-transcribe.")
                 .textStyle(.meta)
                 .foregroundStyle(DS.Colors.textTertiary)
+            Button("Credits…", action: showCredits)
+                .buttonStyle(.pill(.quiet, size: .small))
         }
         .multilineTextAlignment(.center)
         .smallWindowBody(.top, top: DS.Space.s1)
