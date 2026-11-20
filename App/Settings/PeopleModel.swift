@@ -1,6 +1,5 @@
 import Foundation
 import MWConfig
-import MWMeetings
 import MWSupport
 import MWVoices
 import Observation
