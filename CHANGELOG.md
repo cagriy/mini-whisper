@@ -2,6 +2,24 @@
 
 ## [Unreleased]
 
+### Added
+
+- Remember voices. A speaker you name is named, or offered as a provisional name to Accept,
+  Edit or Dismiss, in later meetings; only names you confirm are learned. Two switches under
+  Settings → Meetings, both off by default:
+  - **Remember voices on this Mac** (AssemblyAI engines) keeps a voiceprint per person from a
+    bundled voice model (WeSpeaker, Core ML). Nothing leaves the Mac. Unverified on macOS 14.
+  - **Remember voices with Speechmatics** (Speechmatics engines) keeps the voice identifier
+    Speechmatics returns and sends it back in later meetings, labelled by an opaque id, never a
+    name. With this switch on, Speechmatics may split speakers differently.
+  Voiceprints and identifiers, never audio, are kept in `~/.config/mini-whisper/voices.json`,
+  each meeting's `voices.json` and `voice-matches.jsonl` (all 0600). A slider sets how readily
+  names are applied; `config.json` gains `voice_local_enabled`, `voice_speechmatics_enabled` and
+  six `voice_*` tuning keys.
+- Settings → People lists everyone remembered, with Rename, Merge into…, Forget and Forget
+  everyone. Forget removes their voice data from every meeting; names in transcripts stay.
+- About → **Credits…** credits the WeSpeaker voice model (CC BY 4.0) and Sparkle.
+
 ## [0.7.3] - 2026-11-19
 
 ### Added

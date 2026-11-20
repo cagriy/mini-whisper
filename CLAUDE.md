@@ -20,7 +20,8 @@ App/                         app target sources (AppKit shell, SwiftUI windows a
 App/Design/                  `DS` tokens and components, the code side of DESIGN.md
 App/Main/                    the main window: sidebar, navigation, frame
 App/Search/                  one search over meetings and dictations
-App/Resources/               AppIcon.icns, on.mp3, off.mp3, mini-whisper.png, default prompts
+App/Resources/               AppIcon.icns, on.mp3, off.mp3, mini-whisper.png, default prompts,
+                             wespeaker_v2.mlmodelc (folder resource, CC BY 4.0), Sparkle-LICENSE.txt
 App/Info.plist, App/MiniWhisper.entitlements
 Packages/MiniWhisperCore/    SwiftPM package, all non-UI logic
 AppTests/                    xcodebuild-run tests for app-only pieces
@@ -66,7 +67,8 @@ empty XCTest bundle, not the result. Read the `✔/✘ Test run with N tests in 
 | `MWOverlaySim` | `ConstellationSimulation`, `CaptionModel`, `OverlayStyle` | — |
 | `MWPipeline` | `StreamSink`, `ProcessingJob`, `DictationController` | all of the above |
 | `MWMeetings` | Meeting model, `MeetingStore`, `MeetingMarkdown`, `MeetingSearch`, `SummaryDocument`, `SearchExcerpt`, `TitleSanitizer` | MWConfig, MWSupport |
-| `MWMeetingPipeline` | `SpeechGate`, `AudioMixer`, `SystemAudioRing`, `SystemAudioLeveller`, `SpeakerAttributor`, `SpeakerRegistry`, `SessionSupervisor`, `MeetingRecorder`, `MeetingBilling`, `Summariser`, `SilenceWatch`, `MeetingController` | MWMeetings, MWStreaming, MWAudio, MWConfig, MWCorrections, MWUsage, MWTranscription, MWSupport, MWTestCall |
+| `MWVoices` | `Person`, `SampleSet`, `VoiceMatcher`, `VoiceWindow`, `VoiceEmbedding`, `CoreMLVoiceEmbedder`, `SpeechmaticsEnrolment`, `VoiceStore`, `MatchLog`, `VoiceScrubber` | MWMeetings, MWConfig, MWSupport |
+| `MWMeetingPipeline` | `SpeechGate`, `AudioMixer`, `SystemAudioRing`, `SystemAudioLeveller`, `SpeakerAttributor`, `SpeakerRegistry`, `SessionSupervisor`, `MeetingRecorder`, `MeetingBilling`, `Summariser`, `SilenceWatch`, `VoiceAudioBuffer`, `VoiceRecogniser`, `MeetingVoiceRoute`, `MeetingController` | MWMeetings, MWStreaming, MWAudio, MWConfig, MWCorrections, MWUsage, MWTranscription, MWSupport, MWTestCall, MWVoices |
 | `MWAgentAccess` | `MeetingsCLI`, `MCPServer`, `MeetingID` | MWMeetings, MWSupport |
 | `MWTestCall` | `TestScenario`, `ScenarioLibrary`, `VoiceCatalog`, `TranscriptNormalizer`, `WordAligner`, `TestCallConductor`, `TestCallScorer`, `TestRunHistory` | MWMeetings, MWConfig, MWSupport |
 | `MWTestSupport` | Fakes and helpers shared across test targets | all except MWPipeline, MWMeetings included |

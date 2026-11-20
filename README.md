@@ -132,6 +132,26 @@ speaker. **Export** writes `<title> - transcript.md` and `<title> - summary.md`.
 The Meetings page lists meetings by day. Under each title: the summary's topics, else its first
 sentence, else the transcript's first line.
 
+### Remembering voices
+
+With **Remember voices** on (Settings → Meetings, off by default), a speaker you name is
+recognised in later meetings: a sure match is named outright, a weaker one shows as a provisional
+name (**Bob?**) with **Accept**, **Edit** and **Dismiss**. A provisional name stays out of
+summaries, exports, search and the MCP server until you accept it; **Not Bob** undoes an applied
+one. Only names you confirm, by accepting or renaming, are learned, and your own voice is learned
+from your microphone. Each engine has its own switch and its own memory:
+
+- **Remember voices on this Mac** (AssemblyAI engines): a bundled voice model (WeSpeaker, Core
+  ML) keeps up to eight voiceprints per person. Nothing leaves the Mac.
+- **Remember voices with Speechmatics** (Speechmatics engines): Speechmatics returns an
+  identifier for each speaker you name, and later meetings send those identifiers back under an
+  opaque label. Names are never sent. A person is offered, not applied, until you have
+  confirmed them once with Speechmatics.
+
+**How readily names are applied** runs from Cautious to Eager; **Advanced** sets each threshold.
+Settings → **People** lists everyone remembered, newest first, with Rename, Merge into…, Forget
+and Forget everyone (not while a meeting records). Test calls never recognise or learn.
+
 ### Engines and prices
 
 Pick the engine under Settings → Meetings. Without a pick, or without its key, the first
@@ -158,6 +178,7 @@ every rate can be overridden in `config.json`'s `pricing_overrides`.
     segments.jsonl    transcript
     notes.jsonl       notes
     audio.m4a         AAC, 16 kHz mono, about 14 MB per hour
+    voices.json       speakers' voiceprints or identifiers (Remember voices only)
     testcall.json     a test call's score
 ```
 
@@ -244,6 +265,12 @@ summarised like any meeting and marked TEST on the Meetings page.
   only**, in `~/.config/mini-whisper/meetings/` (folders 0700, files 0600), until you delete
   them. They are not part of dictation history. An agent connected to the MCP server can
   read every meeting except test calls.
+- With **Remember voices** on, voiceprints (this Mac) or Speechmatics identifiers of the people
+  you name, never audio, are stored **locally** in `~/.config/mini-whisper/voices.json`, each
+  meeting's `voices.json` and `voice-matches.jsonl` (0600). Voiceprints never leave the Mac;
+  identifiers go back only to Speechmatics, under an opaque label, never a name. Settings →
+  People → Forget, or Forget everyone, deletes them. The MCP server and command line never see
+  them.
 - There is no telemetry or analytics of any kind.
 
 ## Development
