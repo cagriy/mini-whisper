@@ -398,6 +398,23 @@ import MWMeetingPipeline
         #expect(registry.labels == before)
     }
 
+    @Test func bindingAKeyToTheUserDropsItsMatch() {
+        var registry = SpeakerRegistry(labels: [
+            user,
+            SpeakerLabel(
+                id: 1, name: "Speaker 1", providerKeys: ["1:A", "1:B"],
+                matches: [match("1:A", "Alice", alice), match("1:B", "Bob", bob)]
+            ),
+        ])
+
+        registry.bindToUser(session: 1, label: "A")
+
+        #expect(registry.labels == [
+            SpeakerLabel(id: 0, name: "Alex", isUser: true, providerKeys: ["1:A"]),
+            SpeakerLabel(id: 1, name: "Speaker 1", providerKeys: ["1:B"], matches: [match("1:B", "Bob", bob)]),
+        ])
+    }
+
     @Test func aRenameMergeCarriesMatchesRejectedAndPerson() {
         var registry = SpeakerRegistry(labels: [
             user,

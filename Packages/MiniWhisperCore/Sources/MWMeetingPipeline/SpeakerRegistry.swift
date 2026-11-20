@@ -57,12 +57,14 @@ public struct SpeakerRegistry: Sendable, Equatable {
         return id
     }
 
-    /// Hands a provider label to the user; a speaker it was numbered as keeps its earlier segments.
+    /// Hands a provider label to the user; a speaker it was numbered as keeps its earlier segments
+    /// and loses any match for the label, since recognition never names the user (R16).
     public mutating func bindToUser(session: Int, label: String?) {
         let key = Self.key(session: session, label: label)
         guard owners[key] != Self.userID, let user = index(of: Self.userID) else { return }
         if let owner = owners[key], let previous = index(of: owner) {
             labels[previous].providerKeys.removeAll { $0 == key }
+            labels[previous].matches.removeAll { $0.key == key }
         }
         labels[user].providerKeys.append(key)
         owners[key] = Self.userID
@@ -199,7 +201,7 @@ public struct SpeakerRegistry: Sendable, Equatable {
         (labels.last?.id ?? Self.userID) + 1
     }
 
-    private static func defaultName(_ id: Int) -> String {
+    static func defaultName(_ id: Int) -> String {
         "Speaker \(id)"
     }
 

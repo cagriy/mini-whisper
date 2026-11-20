@@ -6,6 +6,20 @@ import MWStreaming
 import MWSupport
 import MWTranscription
 import MWUsage
+import MWVoices
+
+/// What a meeting needs to remember voices (design v8 §5 Interfaces).
+public struct VoiceDependencies: Sendable {
+    public var store: VoiceStore
+    public var embedder: any VoiceEmbedding
+    public var log: MatchLog
+
+    public init(store: VoiceStore, embedder: any VoiceEmbedding, log: MatchLog) {
+        self.store = store
+        self.embedder = embedder
+        self.log = log
+    }
+}
 
 /// Every side effect a meeting has, protocol-typed so the controller runs on fakes (design §5.3).
 public struct MeetingDependencies: Sendable {
@@ -27,6 +41,8 @@ public struct MeetingDependencies: Sendable {
     public var now: @Sendable () -> Date
     /// Opens `audio.m4a` when `meeting_keep_audio` is on.
     public var makeAudioWriter: @Sendable (URL) throws -> any AudioFileWriting
+    /// Nil leaves voice recognition out of every meeting.
+    public var voices: VoiceDependencies?
 
     public init(
         audio: any AudioCapture,
@@ -41,7 +57,8 @@ public struct MeetingDependencies: Sendable {
         userName: @escaping @Sendable () -> String,
         clock: any Clock = SystemClock(),
         now: @escaping @Sendable () -> Date = { Date() },
-        makeAudioWriter: @escaping @Sendable (URL) throws -> any AudioFileWriting = { try AACFileWriter(url: $0) }
+        makeAudioWriter: @escaping @Sendable (URL) throws -> any AudioFileWriting = { try AACFileWriter(url: $0) },
+        voices: VoiceDependencies? = nil
     ) {
         self.audio = audio
         self.tapFactory = tapFactory
@@ -56,5 +73,6 @@ public struct MeetingDependencies: Sendable {
         self.clock = clock
         self.now = now
         self.makeAudioWriter = makeAudioWriter
+        self.voices = voices
     }
 }

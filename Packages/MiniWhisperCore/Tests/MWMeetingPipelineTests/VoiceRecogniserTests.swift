@@ -401,10 +401,6 @@ private func near(_ axis: Int, cosine: Float) -> VoiceVector {
     return VoiceVector(values)
 }
 
-private func isClose(_ value: Double?, _ expected: Double) -> Bool {
-    value.map { abs($0 - expected) < 0.001 } ?? false
-}
-
 /// Embeds as `FakeVoiceEmbedder` does, but throws for every window of `failing`'s voice.
 private struct PartlyFailingEmbedder: VoiceEmbedding {
     let failing: VoiceVector

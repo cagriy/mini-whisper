@@ -661,6 +661,8 @@ final class MeetingWindowModel {
             break
         case .error(let message):
             errorMessage = message
+        case .notice, .voiceData:
+            break
         }
     }
 

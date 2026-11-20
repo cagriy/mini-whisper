@@ -81,6 +81,11 @@ public enum MeetingEvent: Sendable, Equatable {
     case silence(SilencePrompt)
     /// A failure the meeting survives, such as a transcript write error.
     case error(String)
+    /// An information line, shown once (design v8 R13).
+    case notice(String)
+    /// The provider keys with stored voice data; `active` while this session runs the route
+    /// (design v8 §5 Interfaces).
+    case voiceData(active: Bool, keys: Set<String>)
 }
 
 public enum MeetingError: Error, Equatable, LocalizedError {

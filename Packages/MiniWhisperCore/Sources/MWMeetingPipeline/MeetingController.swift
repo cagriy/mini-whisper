@@ -7,6 +7,7 @@ import MWStreaming
 import MWSupport
 import MWTestCall
 import MWUsage
+import MWVoices
 
 /// One meeting from Start to its summary (design §5.3, §5.6): capture held open with voice
 /// processing, the system-audio tap in a remote call, one supervised provider session, and
@@ -70,6 +71,8 @@ public final class MeetingController {
     private var silence: SilenceWatch?
     /// A `.silence(.open)` was emitted since the last close or expiry.
     private var promptShown = false
+    /// Nil unless the meeting's voice route is active (design v8 R2).
+    private var voice: MeetingVoiceRoute?
 
     public init(deps: MeetingDependencies, config: ConfigStore) {
         self.deps = deps
@@ -103,6 +106,9 @@ public final class MeetingController {
             title: title, startedAt: deps.now(), mode: mode, app: deps.frontAppName(), engine: engine,
             userName: userName, speakers: registry.labels, test: test, titleByUser: false
         )
+        let voice = MeetingVoiceRoute.live(
+            deps.voices, engine: engine, mode: mode, meeting: meeting.id, isTest: test != nil, settings: config.voice
+        ) { [configStore] in await configStore.load().voice }
         let supervisor = SessionSupervisor(
             provider: deps.engines,
             engine: engine,
@@ -123,7 +129,8 @@ public final class MeetingController {
                 mode: mode,
                 recorder: recorder,
                 billing: MeetingBilling(engine: engine, overrides: config.pricingOverrides),
-                supervisor: supervisor
+                supervisor: supervisor,
+                voices: voice?.buffers
             )
             await deps.audio.holdRunning(true)
             held = true
@@ -146,6 +153,7 @@ public final class MeetingController {
 
         self.meeting = meeting
         self.supervisor = supervisor
+        self.voice = voice
         silence = test == nil ? SilenceWatch(threshold: config.meetingSilenceStopSeconds) : nil
         sessionEvents = Task { [weak self, events = supervisor.events] in
             for await event in events { await self?.handle(event) }
@@ -155,6 +163,13 @@ public final class MeetingController {
         }
         if mode == .remote { startTap() }
         emit(.speakers(registry.labels))
+        if let voice {
+            emit(.voiceData(active: true, keys: []))
+            voice.begin(
+                matched: { [weak self] in await self?.matched($0) },
+                failed: { [weak self] in self?.voiceModelFailed() }
+            )
+        }
         log.info("meeting started: \(mode.rawValue), \(engine.rawValue)")
         setState(.recording)
         startTicker()
@@ -243,6 +258,7 @@ public final class MeetingController {
         }
         await persistSegments()
         for segment in attribution.segments { emit(.segmentAdded(segment)) }
+        voice?.heard(attribution.segments, speakers: registry.labels)
     }
 
     /// A session's time in meeting seconds: its origin, plus every input device change it did
@@ -257,8 +273,11 @@ public final class MeetingController {
 
     private func revise(_ revisions: [SpeakerRevision], session: Int) async {
         let labels = registry.labels
+        // Copied only for the route: the revision below would otherwise copy every segment.
+        let before = voice == nil ? [] : segments
         let changed = Self.revise(&segments, with: revisions, session: session, registry: &registry)
         guard !changed.isEmpty else { return }
+        voice?.revised(changed.map { (before[$0], segments[$0]) }, speakers: registry.labels)
         if registry.labels != labels { emit(.speakers(registry.labels)) }
         needsRewrite = true
         await persistSegments()
@@ -358,7 +377,9 @@ public final class MeetingController {
                 checkSystemAudio()
                 emit(.elapsed(meetingTime))
                 emit(.cost(audioPath?.billing.liveCost ?? 0))
-                await checkSilence()
+                let config = await configStore.load()
+                checkSilence(config)
+                voice?.refresh(config.voice)
             }
         }
     }
@@ -382,12 +403,10 @@ public final class MeetingController {
     // MARK: - Silence
 
     /// Design v7 R7: the threshold is read every tick, so Off closes an open prompt.
-    private func checkSilence() async {
+    private func checkSilence(_ config: Config) {
+        // A partial, Pause or Stop may have run during the ticker's load.
         guard state == .recording, silence != nil else { return }
-        let threshold = await configStore.load().meetingSilenceStopSeconds
-        // A partial, Pause or Stop may have run during the load.
-        guard state == .recording else { return }
-        report(silence?.setThreshold(threshold), reason: "setting")
+        report(silence?.setThreshold(config.meetingSilenceStopSeconds), reason: "setting")
         report(silence?.tick(at: meetingTime), reason: "setting")
     }
 
@@ -507,6 +526,7 @@ public final class MeetingController {
         audioPath.finish()
         self.audioPath = nil
         await persistSegments()
+        await finishVoices()
 
         meeting?.endedAt = endedAt
         meeting?.durationSeconds = duration
@@ -532,6 +552,62 @@ public final class MeetingController {
         await deps.audio.scheduleIdleStop(after: .seconds(Double(idleStopSeconds)))
     }
 
+    // MARK: - Voices
+
+    /// Design v8 §5 Segment arrives: a sure match names the speaker, a suggestion is offered. Either
+    /// is dropped when the switch is now off, or the speaker is no longer open to recognition, has
+    /// rejected the person or holds the same match already (R3, R8, R9, R16).
+    private func matched(_ match: MeetingVoiceRoute.Match) async {
+        guard let voice, await voiceIsOn(), let userName = meeting?.userName,
+              let label = MeetingVoiceRoute.speaker(owning: match.key, in: registry.labels),
+              MeetingVoiceRoute.isOpen(label), !label.rejected.contains(match.person.id),
+              !label.matches.contains(where: { $0.key == match.key && $0.person == match.person.id && !match.sure })
+        else { return }
+        let named = NameMatch(
+            key: match.key, name: match.person.isUser ? userName : match.person.name, person: match.person.id,
+            state: match.sure ? .applied : .suggested, score: match.score
+        )
+        if match.sure {
+            await applyMerge(registry.apply(named, userName: match.person.isUser ? userName : nil))
+        } else {
+            registry.suggest(named)
+            await applyMerge(nil)
+        }
+        await voice.logMatch(match, at: deps.now())
+    }
+
+    /// The meeting's route switch as it stands now (R3).
+    private func voiceIsOn() async -> Bool {
+        guard let voice, voice.isActive else { return false }
+        return await configStore.load().voice.isEnabled(voice.route)
+    }
+
+    private func voiceModelFailed() {
+        emit(.error("Voice recognition is off for this meeting: the voice model could not be loaded."))
+        emit(.voiceData(active: false, keys: []))
+    }
+
+    /// Design v8 §5 Stop: with the switch still on, the recogniser's voices become the sidecar.
+    private func finishVoices() async {
+        guard let voice, let id = meeting?.id else { return }
+        let sidecar = await voice.finish()
+        guard await voiceIsOn() else {
+            self.voice = nil
+            return emit(.voiceData(active: false, keys: []))
+        }
+        if !sidecar.keys.isEmpty {
+            do {
+                try await deps.store.writeVoices(sidecar, of: id)
+                Log.voice.info("sidecar written: \(sidecar.keys.count) key\(sidecar.keys.count == 1 ? "" : "s")")
+            } catch {
+                let reason = AnyError(error).description
+                Log.voice.error("sidecar not written: \(reason)")
+                emit(.error("Could not save this meeting's voice data (\(reason))"))
+            }
+        }
+        emit(.voiceData(active: true, keys: Set(sidecar.keys.keys)))
+    }
+
     // MARK: - Speakers, notes and edits
 
     /// Design §5.6 Rename: onto another speaker's name the two merge.
@@ -541,6 +617,12 @@ public final class MeetingController {
         let labels = registry.labels
         let merge = registry.rename(id, to: name)
         guard registry.labels != labels else { return }
+        await applyMerge(merge)
+    }
+
+    /// After a registry change: a merge's segments follow it into the surviving speaker, then
+    /// segments and `meeting.json` are saved and the speakers emitted.
+    private func applyMerge(_ merge: SpeakerRegistry.Merge?) async {
         var changed: [Int] = []
         if let merge {
             for index in segments.indices where segments[index].speaker == merge.from {

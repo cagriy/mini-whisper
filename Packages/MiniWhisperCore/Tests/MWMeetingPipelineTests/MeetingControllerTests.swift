@@ -12,6 +12,7 @@ import MWSupport
 import MWTestSupport
 import MWTranscription
 import MWUsage
+import MWVoices
 
 /// Start, the audio tick, segments, Stop, persistence, billing and the summary (design §5.6).
 @MainActor
@@ -461,13 +462,18 @@ final class MeetingHarness {
     let directory: TempDirectory
     let store: MeetingStore
     let config: ConfigStore
+    /// The people store and match log in `directory`, when the harness was given an embedder.
+    let voices: VoiceDependencies?
     let controller: MeetingController
+    /// Every event pulled so far, oldest first.
+    private(set) var seen: [MeetingEvent] = []
     private let puller: MeetingEventPuller
 
     init(
         secrets: [KeyAccount: String] = [.speechmatics: MeetingHarness.key],
         tap: FakeSystemAudioTap? = FakeSystemAudioTap(),
         summarizer: FakeSummarizer = FakeSummarizer(result: SummaryResult(text: "## Summary\n\nShipped.")),
+        voices embedder: FakeVoiceEmbedder? = nil,
         _ configure: @escaping @Sendable (inout Config) -> Void = { _ in }
     ) async throws {
         tapFactory = FakeSystemAudioTapFactory(tap: tap)
@@ -477,6 +483,13 @@ final class MeetingHarness {
         store = MeetingStore(directory: directory.file("meetings"))
         config = ConfigStore(directory: directory.url, watcher: NoFileWatcher())
         try await config.update(configure)
+        let voices = embedder.map { [directory] in
+            VoiceDependencies(
+                store: VoiceStore(directory: directory.url), embedder: $0,
+                log: MatchLog(url: directory.file("voice-matches.jsonl"))
+            )
+        }
+        self.voices = voices
         let clock = clock
         controller = MeetingController(
             deps: MeetingDependencies(
@@ -492,7 +505,8 @@ final class MeetingHarness {
                 userName: { "Alex" },
                 clock: clock,
                 now: { MeetingHarness.wallStart.addingTimeInterval(clock.now) },
-                makeAudioWriter: { [writers] in writers.make($0) }
+                makeAudioWriter: { [writers] in writers.make($0) },
+                voices: voices
             ),
             config: config
         )
@@ -531,21 +545,41 @@ final class MeetingHarness {
         await waitFor { if case .segmentAdded = $0 { true } else { false } }
     }
 
+    /// Delivers a segment on `session` whose padded speech is exactly `start..<end` session seconds,
+    /// one word a second, and waits until the controller has added it.
+    func deliverWords(
+        session: Int = 1, label: String?, from start: Double, to end: Double, turnOrder: Int? = nil
+    ) async throws {
+        let first = start + VoiceWindow.padding, last = end - VoiceWindow.padding
+        let words = stride(from: first, to: last, by: 1).map {
+            TranscriptWord(text: "secret", start: $0, end: min($0 + 1, last))
+        }
+        try sink(session).onSegment(TranscriptSegment(
+            text: words.map(\.text).joined(separator: " "), words: words, speaker: label, turnOrder: turnOrder,
+            start: first, end: last
+        ))
+        await waitFor { if case .segmentAdded(let segment) = $0 { segment.session == session } else { false } }
+    }
+
     func stored() throws -> LoadedMeeting {
         try store.load(#require(controller.meeting?.id))
     }
 
-    func next() async -> MeetingEvent? { await puller.next() }
+    func next() async -> MeetingEvent? {
+        let event = await puller.next()
+        if let event { seen.append(event) }
+        return event
+    }
 
     /// Pulls events up to and including the first that matches.
     @discardableResult
     func waitFor(_ match: (MeetingEvent) -> Bool) async -> [MeetingEvent] {
-        var seen: [MeetingEvent] = []
-        while let event = await puller.next() {
-            seen.append(event)
+        var pulled: [MeetingEvent] = []
+        while let event = await next() {
+            pulled.append(event)
             if match(event) { break }
         }
-        return seen
+        return pulled
     }
 
     @discardableResult
