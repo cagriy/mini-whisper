@@ -184,6 +184,15 @@ final class MeetingWindowModel {
         var text: String
     }
 
+    /// How a paragraph's speaker name is drawn (design v8 §5 UI surfaces, Transcript).
+    enum NameState: Equatable {
+        case plain
+        /// A provisional name with Accept, Edit and Dismiss.
+        case suggested(NameMatch)
+        /// A plain name offering "Not <name>".
+        case applied(NameMatch)
+    }
+
     /// R13: one entry of *Move this segment to*.
     struct ReassignChoice: Equatable, Identifiable {
         let id: Int
@@ -248,6 +257,12 @@ final class MeetingWindowModel {
     private(set) var testScore: TestScoreState?
     /// A test meeting's script and score pane.
     private(set) var testCall: TestCallPaneModel?
+    /// The live header's information line (design v8 R13).
+    private(set) var notice: String?
+    /// This session runs the meeting's voice route.
+    private var voiceActive = false
+    /// The provider keys with stored voice data.
+    private var voiceKeys: Set<String> = []
 
     var noteDraft = "" {
         didSet {
@@ -265,6 +280,8 @@ final class MeetingWindowModel {
     /// The tab is chosen once, when the meeting first stops on this model.
     @ObservationIgnored private var hasStopped = false
     @ObservationIgnored private let loadRuns: @MainActor (TestCallTag) async -> [TestRunHistory.Run]
+    /// Whether an engine's voice route switch is on, read from the current config each time.
+    @ObservationIgnored private let voiceRouteEnabled: @MainActor (MeetingEngine) -> Bool
     /// As last shown; the summary's "partial" note needs it.
     @ObservationIgnored private var meeting: Meeting?
     /// Whether the ready summary read a truncated transcript (*Planning decisions taken* #26).
@@ -287,6 +304,7 @@ final class MeetingWindowModel {
         timeZone: TimeZone = .current,
         now: @escaping () -> Date = Date.init,
         clock: any MWSupport.Clock = SystemClock(),
+        voiceRouteEnabled: @escaping @MainActor (MeetingEngine) -> Bool = { _ in false },
         /// Earlier runs of a test call's scenario revision, newest first.
         loadRuns: @escaping @MainActor (TestCallTag) async -> [TestRunHistory.Run] = { _ in [] }
     ) {
@@ -296,6 +314,7 @@ final class MeetingWindowModel {
         self.now = now
         self.clock = clock
         self.loadRuns = loadRuns
+        self.voiceRouteEnabled = voiceRouteEnabled
         mode = chooser.defaultMode
     }
 
@@ -505,6 +524,49 @@ final class MeetingWindowModel {
         "Rename \(name(of: speaker)) (every segment)"
     }
 
+    /// The popover opened from a suggestion names the speaker, starting from the suggested name (R15).
+    func renameTitle(of paragraph: Paragraph) -> String {
+        guard case .suggested = nameState(of: paragraph) else { return renameTitle(of: paragraph.speaker) }
+        return "Name \(name(of: paragraph.speaker)) (every segment)"
+    }
+
+    func renameDraft(of paragraph: Paragraph) -> String {
+        if case .suggested(let match) = nameState(of: paragraph) { match.name } else { name(of: paragraph.speaker) }
+    }
+
+    /// The match stored for the provider key of the paragraph's first segment; never in a test
+    /// call (R25).
+    func nameState(of paragraph: Paragraph) -> NameState {
+        guard !isTest, let first = paragraph.segmentIDs.first, let position = positions[first] else { return .plain }
+        let key = SpeakerRegistry.key(session: segments[position].session, label: segments[position].providerLabel)
+        guard let match = speakers.first(where: { $0.id == paragraph.speaker })?.matches.first(where: { $0.key == key })
+        else { return .plain }
+        return match.state == .suggested ? .suggested(match) : .applied(match)
+    }
+
+    /// "Not <name>" on an applied name.
+    func rejectTitle(of paragraph: Paragraph) -> String {
+        "Not \(name(of: paragraph.speaker))"
+    }
+
+    /// A rename teaches the speaker's voice: the route switch is on now, and the meeting runs the
+    /// route or the speaker owns a key with stored voice data (design v8 §5 Interfaces).
+    func learnsVoice(speaker: Int) -> Bool {
+        guard !isTest, let engine, voiceRouteEnabled(engine), let label = speakers.first(where: { $0.id == speaker })
+        else { return false }
+        if state.isActive, voiceActive { return true }
+        return label.providerKeys.contains(where: voiceKeys.contains)
+            || (label.isUser && voiceKeys.contains(MeetingVoices.userKey))
+    }
+
+    /// The rename popover's promise, while the rename teaches the voice; a default name creates no
+    /// one (R17).
+    func rememberLine(speaker: Int, draft: String) -> String? {
+        let name = draft.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard learnsVoice(speaker: speaker), !name.isEmpty, name.wholeMatch(of: /Speaker \d+/) == nil else { return nil }
+        return "This voice will be remembered as \(name)."
+    }
+
     /// Renaming onto another speaker's name merges the two, so the window asks first (§5.7).
     func mergePrompt(renaming speaker: Int, to name: String) -> String? {
         let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -661,8 +723,11 @@ final class MeetingWindowModel {
             break
         case .error(let message):
             errorMessage = message
-        case .notice, .voiceData:
-            break
+        case .notice(let text):
+            notice = text
+        case .voiceData(let active, let keys):
+            voiceActive = active
+            voiceKeys = keys
         }
     }
 

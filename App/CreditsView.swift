@@ -61,7 +61,7 @@ private struct CreditRow: View {
             }
         }
         .foregroundStyle(DS.Colors.textSecondary)
-        .buttonStyle(.pill(.quiet, size: .small))
+        .buttonStyle(.pill(.quietAction, size: .small))
     }
 
     private var licenceName: some View {

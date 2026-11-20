@@ -125,6 +125,9 @@ struct MeetingCoordinatorTests {
         func edit(segment: UUID, text: String) async { request.yield("edit \(text)") }
         func reassign(segment: UUID, to speaker: Int) async { request.yield("reassign \(speaker)") }
         func retitle(_ title: String) async { request.yield("retitle \(title)") }
+        func acceptSuggestion(key: String) async { request.yield("accept \(key)") }
+        func dismissSuggestion(key: String) async { request.yield("dismiss \(key)") }
+        func rejectMatch(key: String) async { request.yield("reject \(key)") }
     }
 
     /// Records the prompt's calls and yields each on `calls`: `.silence` does not call `changed()`.
@@ -232,6 +235,8 @@ struct MeetingCoordinatorTests {
         var opensFail = false
         /// Starts the controller had seen each time a dictation was ended.
         var startsWhenDictationEnded: [Int] = []
+        /// The engines whose voice route switch is on.
+        var voiceRoutes: Set<MeetingEngine> = []
         lazy var coordinator: MeetingCoordinator = MeetingCoordinator(deps: MeetingCoordinator.Dependencies(
             makeController: { [unowned self] frontApp in
                 frontApps.append(frontApp)
@@ -283,7 +288,8 @@ struct MeetingCoordinatorTests {
                 loadVoices: { [store] in store.loadVoices() },
                 index: { [store] in store.index() },
                 readRecord: { [store] in store.read($0) }
-            )
+            ),
+            voiceRouteEnabled: { [unowned self] in voiceRoutes.contains($0) }
         ))
 
         init() {
@@ -507,6 +513,40 @@ struct MeetingCoordinatorTests {
         }
         #expect(Set(requests) == ["summarise", "edit Agreed!", "reassign 2", "retitle Northwind rollout sync"])
         #expect(harness.models[0].title == "Northwind rollout sync")
+    }
+
+    @Test func acceptDismissAndRejectReachTheController() async {
+        let harness = Harness()
+        let controller = await harness.stopped()
+        let actions = harness.actions[0]
+
+        actions.acceptSuggestion("1:A")
+        actions.dismissSuggestion("1:B")
+        actions.rejectMatch("2:C")
+
+        var requests: [String] = []
+        for await request in controller.requests {
+            requests.append(request)
+            if requests.count == 3 { break }
+        }
+        #expect(Set(requests) == ["accept 1:A", "dismiss 1:B", "reject 2:C"])
+    }
+
+    @Test func everyModelReadsTheVoiceRouteSwitch() async {
+        let harness = Harness()
+        harness.voiceRoutes = [.speechmaticsStandard]
+        let controller = await harness.recording()
+        let model = harness.models[0]
+
+        controller.send(.state(.recording))
+        controller.send(.speakers([SpeakerLabel(id: 0, name: "Alex", isUser: true)]))
+        controller.send(.voiceData(active: true, keys: []))
+        await until { model.learnsVoice(speaker: 0) }
+        #expect(model.learnsVoice(speaker: 0))
+
+        // Read when asked, not when the model was made.
+        harness.voiceRoutes = []
+        #expect(model.learnsVoice(speaker: 0) == false)
     }
 
     @Test func headerRenameNotifiesTheList() async {

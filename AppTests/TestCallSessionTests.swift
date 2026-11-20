@@ -109,6 +109,9 @@ private final class StubController: MeetingControlling {
     func edit(segment: UUID, text: String) async {}
     func reassign(segment: UUID, to speaker: Int) async {}
     func retitle(_ title: String) async {}
+    func acceptSuggestion(key: String) async {}
+    func dismissSuggestion(key: String) async {}
+    func rejectMatch(key: String) async {}
 }
 
 /// Collects log messages; AppTests cannot reach `MWTestSupport`'s capturing sink.

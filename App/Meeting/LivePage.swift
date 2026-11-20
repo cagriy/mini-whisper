@@ -15,6 +15,11 @@ struct LivePage: View {
     var body: some View {
         VStack(spacing: 0) {
             header
+            if let notice = model.notice {
+                StatusLine(notice, .info)
+                    .padding(.horizontal, 20)
+                    .padding(.top, DS.Space.s6)
+            }
             if let error = model.errorMessage {
                 StatusLine(error, .error)
             }

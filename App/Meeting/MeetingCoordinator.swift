@@ -29,6 +29,9 @@ protocol MeetingControlling: AnyObject {
     func reassign(segment: UUID, to speaker: Int) async
     func retitle(_ title: String) async
     func regenerateSummary() async
+    func acceptSuggestion(key: String) async
+    func dismissSuggestion(key: String) async
+    func rejectMatch(key: String) async
 }
 
 extension MeetingController: MeetingControlling {}
@@ -57,6 +60,9 @@ struct MeetingActions {
     var back: @MainActor () -> Void
     var copySummary: @MainActor () -> Void
     var regenerate: @MainActor () -> Void
+    var acceptSuggestion: @MainActor (_ key: String) -> Void = { _ in }
+    var dismissSuggestion: @MainActor (_ key: String) -> Void = { _ in }
+    var rejectMatch: @MainActor (_ key: String) -> Void = { _ in }
 }
 
 /// Meeting mode's entry points (design §5.5): the hotkey and menu open a chooser, Start runs a
@@ -88,6 +94,7 @@ final class MeetingCoordinator {
         var changed: @MainActor () -> Void
         var silencePrompt: any SilencePrompting
         var testCalls: TestCallDependencies
+        var voiceRouteEnabled: @MainActor (MeetingEngine) -> Bool = { _ in false }
     }
 
     @MainActor
@@ -194,7 +201,9 @@ final class MeetingCoordinator {
     private func makeModel() -> MeetingWindowModel {
         let index = deps.testCalls.index
         let read = deps.testCalls.readRecord
-        return MeetingWindowModel(chooser: deps.chooser(), now: deps.now, clock: deps.clock) { tag in
+        return MeetingWindowModel(
+            chooser: deps.chooser(), now: deps.now, clock: deps.clock, voiceRouteEnabled: deps.voiceRouteEnabled
+        ) { tag in
             await Task.detached {
                 guard let entries = try? index() else { return [] }
                 return TestRunHistory.runs(of: tag, in: entries, load: read)
@@ -440,8 +449,21 @@ final class MeetingCoordinator {
             regenerate: { [weak session] in
                 guard let controller = session?.controller else { return }
                 Task { await controller.regenerateSummary() }
-            }
+            },
+            acceptSuggestion: Self.matchAction(of: session) { await $0.acceptSuggestion(key: $1) },
+            dismissSuggestion: Self.matchAction(of: session) { await $0.dismissSuggestion(key: $1) },
+            rejectMatch: Self.matchAction(of: session) { await $0.rejectMatch(key: $1) }
         )
+    }
+
+    /// A transcript action on a provider key's match, for the session's controller while it lives.
+    private static func matchAction(
+        of session: Session, _ call: @escaping @MainActor (any MeetingControlling, String) async -> Void
+    ) -> @MainActor (String) -> Void {
+        { [weak session] key in
+            guard let controller = session?.controller else { return }
+            Task { await call(controller, key) }
+        }
     }
 
     /// The controller's events finish when it is released, which ends this task.

@@ -23,7 +23,7 @@ struct AboutView: View {
                 .textStyle(.meta)
                 .foregroundStyle(DS.Colors.textTertiary)
             Button("Credits…", action: showCredits)
-                .buttonStyle(.pill(.quiet, size: .small))
+                .buttonStyle(.pill(.quietAction, size: .small))
         }
         .multilineTextAlignment(.center)
         .smallWindowBody(.top, top: DS.Space.s1)

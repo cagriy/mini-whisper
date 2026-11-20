@@ -852,4 +852,158 @@ import Testing
         model.apply(.testScore(.unreadable))
         #expect(model.testScore == .unreadable)
     }
+
+    // MARK: - Remembered voices
+
+    private static let bob = NameMatch(key: "1:B", name: "Bob", person: UUID(), state: .suggested, score: 0.62)
+    private static let alice = NameMatch(key: "1:C", name: "Alice", person: UUID(), state: .applied, score: 0.81)
+
+    /// Speaker 2 ("1:B", "1:D") is offered Bob for "1:B"; Alice ("1:C") was applied; Speaker 4
+    /// ("1:E") has no match. One paragraph each, in that order, the last two of Speaker 2's
+    /// second key; `routeOn` is the meeting's route switch.
+    private func voiced(routeOn: Bool = true, meeting: Meeting = meeting()) -> MeetingWindowModel {
+        let model = MeetingWindowModel(
+            chooser: chooser(), timeZone: Self.utc, clock: ManualClock(),
+            voiceRouteEnabled: { $0 == meeting.engine && routeOn }
+        )
+        model.show(meeting)
+        model.apply(.speakers([
+            Self.alex,
+            SpeakerLabel(id: 2, name: "Speaker 2", providerKeys: ["1:B", "1:D"], matches: [Self.bob]),
+            SpeakerLabel(id: 3, name: "Alice", providerKeys: ["1:C"], matches: [Self.alice]),
+            SpeakerLabel(id: 4, name: "Speaker 4", providerKeys: ["1:E"]),
+        ]))
+        for (index, (speaker, label)) in [(2, "B"), (3, "C"), (4, "E"), (2, "D")].enumerated() {
+            model.apply(.segmentAdded(Segment(
+                speaker: speaker, start: Double(index * 10), end: Double(index * 10 + 2), text: "Line \(index).",
+                session: 1, providerLabel: label
+            )))
+        }
+        return model
+    }
+
+    private func paragraphs(_ model: MeetingWindowModel) -> [MeetingWindowModel.Paragraph] {
+        model.rows.compactMap(\.paragraph)
+    }
+
+    @Test func aSuggestedMatchShowsAsSuggested() throws {
+        let model = voiced()
+        let paragraph = try #require(paragraphs(model).first)
+
+        #expect(model.nameState(of: paragraph) == .suggested(Self.bob))
+        #expect(model.name(of: paragraph.speaker) == "Speaker 2")
+    }
+
+    @Test func anAppliedMatchShowsAsApplied() {
+        let model = voiced()
+        #expect(model.nameState(of: paragraphs(model)[1]) == .applied(Self.alice))
+    }
+
+    @Test func aParagraphWithoutAMatchIsPlain() {
+        let model = voiced()
+        let rows = paragraphs(model)
+
+        #expect(model.nameState(of: rows[2]) == .plain)
+        // Speaker 2's other key holds no match.
+        #expect(model.nameState(of: rows[3]) == .plain)
+    }
+
+    @Test func aTestCallIsAlwaysPlain() {
+        let model = voiced(meeting: Self.testMeeting())
+        model.apply(.state(.recording))
+        model.apply(.voiceData(active: true, keys: ["1:B"]))
+
+        #expect(paragraphs(model).map(model.nameState(of:)) == [.plain, .plain, .plain, .plain])
+        #expect(model.learnsVoice(speaker: 2) == false)
+    }
+
+    @Test func learnsVoiceWhileLiveWithTheRouteOn() {
+        let model = voiced()
+        model.apply(.state(.recording))
+        #expect(model.learnsVoice(speaker: 2) == false)
+
+        model.apply(.voiceData(active: true, keys: []))
+        #expect(model.learnsVoice(speaker: 2))
+        #expect(model.learnsVoice(speaker: 4))
+
+        model.apply(.state(.paused(.user)))
+        #expect(model.learnsVoice(speaker: 4))
+
+        // The voice model failed to load: the route is off for this meeting.
+        model.apply(.voiceData(active: false, keys: []))
+        #expect(model.learnsVoice(speaker: 4) == false)
+    }
+
+    @Test func afterStopLearnsVoiceOnlyForKeysWithVoiceData() {
+        let model = voiced()
+        model.apply(.state(.recording))
+        model.apply(.voiceData(active: true, keys: []))
+        model.apply(.state(.stopped))
+        model.apply(.voiceData(active: true, keys: ["1:D", MeetingVoices.userKey]))
+
+        #expect(model.learnsVoice(speaker: 2))
+        #expect(model.learnsVoice(speaker: 3) == false)
+        #expect(model.learnsVoice(speaker: 4) == false)
+        // The user's microphone voice is kept under its own key.
+        #expect(model.learnsVoice(speaker: 0))
+    }
+
+    @Test func neverLearnsWithTheRouteOff() {
+        let live = voiced(routeOn: false)
+        live.apply(.state(.recording))
+        live.apply(.voiceData(active: true, keys: []))
+        #expect(live.learnsVoice(speaker: 2) == false)
+
+        let stored = voiced(routeOn: false)
+        stored.apply(.voiceData(active: false, keys: ["1:B"]))
+        stored.apply(.state(.stopped))
+        #expect(stored.learnsVoice(speaker: 2) == false)
+    }
+
+    @Test func theRememberedLineNamesTheTrimmedDraft() {
+        let model = voiced()
+        model.apply(.state(.recording))
+        model.apply(.voiceData(active: true, keys: []))
+
+        #expect(model.rememberLine(speaker: 4, draft: " Carol ") == "This voice will be remembered as Carol.")
+        // A blank or default name creates no one (R17).
+        #expect(model.rememberLine(speaker: 4, draft: "  ") == nil)
+        #expect(model.rememberLine(speaker: 4, draft: "Speaker 7") == nil)
+
+        model.apply(.voiceData(active: false, keys: []))
+        #expect(model.rememberLine(speaker: 4, draft: "Carol") == nil)
+    }
+
+    @Test func theNoticeIsKeptForTheLiveHeader() {
+        let model = voiced()
+        #expect(model.notice == nil)
+
+        model.apply(.notice("Speechmatics ignored some remembered voices. Rename those speakers to learn them again."))
+
+        #expect(model.notice
+            == "Speechmatics ignored some remembered voices. Rename those speakers to learn them again.")
+    }
+
+    @Test func editOfASuggestionTitlesThePopoverNameSpeakerN() {
+        let model = voiced()
+        let rows = paragraphs(model)
+
+        #expect(model.renameTitle(of: rows[0]) == "Name Speaker 2 (every segment)")
+        #expect(model.renameDraft(of: rows[0]) == "Bob")
+        #expect(model.renameTitle(of: rows[2]) == "Rename Speaker 4 (every segment)")
+        #expect(model.renameDraft(of: rows[2]) == "Speaker 4")
+        #expect(model.renameTitle(of: rows[1]) == "Rename Alice (every segment)")
+    }
+
+    @Test func theRejectLabelIsNotName() {
+        let model = voiced()
+        model.apply(.speakers([
+            Self.alex,
+            SpeakerLabel(id: 2, name: "Bob", providerKeys: ["1:B", "1:D"], matches: [
+                NameMatch(key: "1:B", name: "Bob", person: Self.bob.person, state: .applied, score: 0.74),
+            ]),
+        ]))
+
+        #expect(model.rejectTitle(of: paragraphs(model)[0]) == "Not Bob")
+    }
 }

@@ -9,6 +9,9 @@ struct PillButtonStyle: ButtonStyle {
         case secondary
         /// No outline until hovered.
         case quiet
+        /// Quiet, as a name or row action: the secondary label takes `tint`, the accent by
+        /// default, on hover or keyboard focus (decision 74).
+        case quietAction
     }
 
     enum Size {
@@ -18,7 +21,8 @@ struct PillButtonStyle: ButtonStyle {
 
     var kind = Kind.secondary
     var size = Size.regular
-    /// The label's colour on an accent or destructive row action. A primary button ignores it.
+    /// The label's colour on an accent or destructive row action; a quiet action's only while lit.
+    /// A primary button ignores it.
     var tint: Color?
 
     func makeBody(configuration: Configuration) -> some View {
@@ -31,16 +35,19 @@ struct PillButtonStyle: ButtonStyle {
         let configuration: Configuration
 
         @Environment(\.isEnabled) private var isEnabled
+        @Environment(\.isFocused) private var isFocused
         @State private var hovered = false
 
         private var small: Bool { style.size == .small }
         private var lit: Bool { isEnabled && (hovered || configuration.isPressed) }
+        private var focused: Bool { isEnabled && isFocused }
 
         private var foreground: Color {
             switch style.kind {
             case .primary: DS.Colors.accentOn
             case .secondary: style.tint ?? DS.Colors.text
             case .quiet: style.tint ?? DS.Colors.textSecondary
+            case .quietAction: lit || focused ? style.tint ?? DS.Colors.accent : DS.Colors.textSecondary
             }
         }
 
