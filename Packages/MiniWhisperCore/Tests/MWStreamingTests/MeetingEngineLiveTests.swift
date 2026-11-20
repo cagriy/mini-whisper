@@ -29,7 +29,7 @@ struct MeetingEngineLiveTests {
 
         let result = try await ClipPlayback.play(
             try TestFixtures.wav("two_speakers"),
-            through: EngineFactory().makeMeeting(tier, key: key, hints: .none),
+            through: EngineFactory().makeMeeting(tier, key: key, hints: .none, voices: nil),
             sink: sink,
             timeout: .seconds(30),
             realTime: true

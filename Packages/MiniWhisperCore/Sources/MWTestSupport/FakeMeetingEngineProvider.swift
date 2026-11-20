@@ -11,6 +11,7 @@ public final class FakeMeetingEngineProvider: MeetingEngineProviding, @unchecked
         public var engine: MeetingEngine
         public var key: String
         public var hints: RecognitionHints
+        public var voices: VoiceSessionConfig?
     }
 
     private let lock = NSLock()
@@ -24,9 +25,11 @@ public final class FakeMeetingEngineProvider: MeetingEngineProviding, @unchecked
     /// Every engine handed out, oldest first.
     public var engines: [FakeStreamingEngine] { lock.withLock { made.map(\.engine) } }
 
-    public func makeMeeting(_ engine: MeetingEngine, key: String, hints: RecognitionHints) -> any StreamingEngine {
+    public func makeMeeting(
+        _ engine: MeetingEngine, key: String, hints: RecognitionHints, voices: VoiceSessionConfig?
+    ) -> any StreamingEngine {
         let session = FakeStreamingEngine { [weak self] in self?.didStart() }
-        lock.withLock { made.append((Call(engine: engine, key: key, hints: hints), session)) }
+        lock.withLock { made.append((Call(engine: engine, key: key, hints: hints, voices: voices), session)) }
         return session
     }
 

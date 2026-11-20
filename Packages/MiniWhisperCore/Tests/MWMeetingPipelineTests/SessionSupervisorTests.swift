@@ -1,5 +1,6 @@
 import AVFAudio
 import Foundation
+import os
 import Testing
 
 import MWConfig
@@ -226,6 +227,88 @@ private func segment(_ text: String, _ start: Double, _ end: Double) -> Transcri
         ])
     }
 
+    // MARK: - Voices (R10, R12, R13)
+
+    @Test func voicesAreReadAtEveryInstall() async throws {
+        let reads = OSAllocatedUnfairLock(initialState: 0)
+        let enrolment: @Sendable (Int) -> VoiceSessionConfig = { read in
+            VoiceSessionConfig(
+                speakers: [VoiceSessionConfig.Speaker(label: "mw:placeholder", identifier: "placeholder-\(read)")],
+                sensitivity: 0.8
+            )
+        }
+        var rig = Rig(engine: .speechmaticsStandard) {
+            let read = reads.withLock { reads in
+                reads += 1
+                return reads
+            }
+            return read == 2 ? nil : enrolment(read)
+        }
+        #expect(reads.withLock { $0 } == 0)
+
+        rig.supervisor.open(at: 0)
+        #expect(reads.withLock { $0 } == 1)
+        try rig.sink(1).onEngineError(lost)
+        await rig.reopen(after: 1, session: 2)
+        #expect(reads.withLock { $0 } == 2)
+        try rig.sink(2).onSessionLimit(.warning)
+        #expect(await rig.connectionStates(3) == [.reconnecting(attempt: 1), .connected, .rolledOver])
+
+        #expect(reads.withLock { $0 } == 3)
+        #expect(rig.provider.fakes.calls.map(\.voices) == [enrolment(1), nil, enrolment(3)])
+    }
+
+    @Test func requestSpeakersReachesOnlyTheCurrentSession() async throws {
+        let rig = Rig(engine: .speechmaticsEnhanced)
+        rig.supervisor.open(at: 0)
+
+        rig.supervisor.requestSpeakers()
+        #expect(rig.engines.map(\.commands) == [[.requestSpeakers]])
+
+        try rig.sink(1).onSessionLimit(.warning)
+        rig.supervisor.requestSpeakers()
+        #expect(rig.engines.map(\.commands) == [[.requestSpeakers], [.requestSpeakers]])
+    }
+
+    @Test func requestSpeakersWithoutASessionDoesNothing() async throws {
+        let rig = Rig(engine: .speechmaticsStandard)
+        rig.supervisor.requestSpeakers()
+        #expect(rig.engines.isEmpty)
+
+        rig.supervisor.open(at: 0)
+        try rig.sink(1).onEngineError(lost)
+        rig.supervisor.requestSpeakers()
+        await rig.reopen(after: 1, session: 2)
+        await rig.supervisor.close()
+        rig.supervisor.requestSpeakers()
+
+        #expect(rig.engines.map(\.commands) == [[], []])
+    }
+
+    @Test(.timeLimit(.minutes(1)))
+    func speakersAndIgnoredIdentifiersBecomeEvents() async throws {
+        var rig = Rig(engine: .speechmaticsStandard)
+        rig.supervisor.open(at: 0)
+        let first = [ProviderSpeaker(label: "S1", identifiers: ["placeholder-s1"])]
+        let late = [ProviderSpeaker(label: "S2", identifiers: ["placeholder-s2"])]
+
+        try rig.sink(1).onSpeakers(first)
+        try rig.sink(1).onIdentifierIgnored(label: "mw:placeholder", identifier: "placeholder-enrolled")
+        try rig.sink(1).onIdentifierIgnored(label: nil, identifier: nil)
+        try rig.sink(1).onSessionLimit(.warning)
+        // A retired session's result still lands under its own index.
+        try rig.sink(1).onSpeakers(late)
+
+        #expect(await rig.next(6) == [
+            .speakers(first, session: 1),
+            .identifierIgnored(label: "mw:placeholder", identifier: "placeholder-enrolled"),
+            .identifierIgnored(label: nil, identifier: nil),
+            .connection(.connected),
+            .connection(.rolledOver),
+            .speakers(late, session: 1),
+        ])
+    }
+
     @Test func audioFedWhileClosedIsDropped() async throws {
         let rig = Rig()
         rig.supervisor.feed(buffer(), at: 0)
@@ -347,13 +430,17 @@ private struct Rig {
     let supervisor: SessionSupervisor
     private var iterator: AsyncStream<SupervisorEvent>.AsyncIterator
 
-    init(engine: MeetingEngine = .assemblyaiStreaming, hints: RecognitionHints = .none) {
+    init(
+        engine: MeetingEngine = .assemblyaiStreaming,
+        hints: RecognitionHints = .none,
+        voices: @escaping @Sendable () -> VoiceSessionConfig? = { nil }
+    ) {
         let clock = RecordingClock()
         self.clock = clock
         provider = AnnouncingProvider(clock: clock.base)
         supervisor = SessionSupervisor(
             provider: provider, engine: engine, key: key, hints: hints, clock: clock,
-            now: { wallStart.addingTimeInterval(clock.now) }
+            now: { wallStart.addingTimeInterval(clock.now) }, voices: voices
         )
         iterator = supervisor.events.makeAsyncIterator()
     }
@@ -423,8 +510,10 @@ private final class AnnouncingProvider: MeetingEngineProviding, @unchecked Senda
     /// The clock time at each session's start, oldest first.
     var startTimes: [Double] { lock.withLock { starts } }
 
-    func makeMeeting(_ engine: MeetingEngine, key: String, hints: RecognitionHints) -> any StreamingEngine {
-        AnnouncingEngine(inner: fakes.makeMeeting(engine, key: key, hints: hints), provider: self)
+    func makeMeeting(
+        _ engine: MeetingEngine, key: String, hints: RecognitionHints, voices: VoiceSessionConfig?
+    ) -> any StreamingEngine {
+        AnnouncingEngine(inner: fakes.makeMeeting(engine, key: key, hints: hints, voices: voices), provider: self)
     }
 
     fileprivate func didStart() {
@@ -451,6 +540,10 @@ private final class AnnouncingEngine: StreamingEngine {
 
     func feed(_ buffer: AVAudioPCMBuffer) {
         inner.feed(buffer)
+    }
+
+    func send(_ command: EngineCommand) {
+        inner.send(command)
     }
 
     func finish(timeout: Duration) async -> StreamResult {

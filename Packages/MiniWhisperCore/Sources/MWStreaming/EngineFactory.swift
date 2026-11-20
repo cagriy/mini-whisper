@@ -152,11 +152,13 @@ public struct EngineFactory: EngineProvider {
 
 /// Design §5.3: every tier diarizes; the tier picks the provider model.
 extension EngineFactory: MeetingEngineProviding {
-    public func makeMeeting(_ engine: MeetingEngine, key: String, hints: RecognitionHints) -> any StreamingEngine {
+    public func makeMeeting(
+        _ engine: MeetingEngine, key: String, hints: RecognitionHints, voices: VoiceSessionConfig?
+    ) -> any StreamingEngine {
         switch engine {
         case .speechmaticsStandard, .speechmaticsEnhanced:
             webSocketEngine(SpeechmaticsAdapter(
-                apiKey: key, hints: hints, diarization: true, model: engine.providerModel
+                apiKey: key, hints: hints, diarization: true, model: engine.providerModel, voices: voices
             ))
         case .assemblyaiStreaming, .assemblyaiPro:
             // Pro returns formatted end-of-turns on its own; `format_turns` is Universal-Streaming only.

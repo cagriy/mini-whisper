@@ -214,6 +214,8 @@ public final class MeetingController {
             }
         case .gap(let marker):
             addMarker(marker)
+        case .speakers, .identifierIgnored:
+            break
         }
     }
 

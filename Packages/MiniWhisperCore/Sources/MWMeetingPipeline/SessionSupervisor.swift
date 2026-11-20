@@ -26,6 +26,10 @@ public enum SupervisorEvent: Sendable, Equatable {
     case connection(ConnectionState)
     /// Transcript lost to a reconnect, emitted just before the first segment after it.
     case gap(Marker)
+    /// A session's `SpeakersResult`, from whichever session sent it.
+    case speakers([ProviderSpeaker], session: Int)
+    /// The enrolled label and identifier the provider refused; nils when it did not say which.
+    case identifierIgnored(label: String?, identifier: String?)
 }
 
 /// Keeps one provider session open for a meeting (design §5.3, R10, R11).
@@ -77,15 +81,18 @@ public final class SessionSupervisor: Sendable {
     private let hints: RecognitionHints
     private let clock: any Clock
     private let now: @Sendable () -> Date
+    private let voices: @Sendable () -> VoiceSessionConfig?
 
-    /// `now` is the wall clock that AssemblyAI's `expires_at` is compared with.
+    /// `now` is the wall clock that AssemblyAI's `expires_at` is compared with. `voices` is read
+    /// at every session open, so each session enrols whoever is known then (R10).
     public init(
         provider: any MeetingEngineProviding,
         engine: MeetingEngine,
         key: String,
         hints: RecognitionHints,
         clock: any Clock,
-        now: @escaping @Sendable () -> Date = { Date() }
+        now: @escaping @Sendable () -> Date = { Date() },
+        voices: @escaping @Sendable () -> VoiceSessionConfig? = { nil }
     ) {
         self.provider = provider
         meetingEngine = engine
@@ -93,6 +100,7 @@ public final class SessionSupervisor: Sendable {
         self.hints = hints
         self.clock = clock
         self.now = now
+        self.voices = voices
         (events, continuation) = AsyncStream.makeStream(bufferingPolicy: .unbounded)
     }
 
@@ -125,6 +133,11 @@ public final class SessionSupervisor: Sendable {
         }
         engine?.feed(buffer)
         return engine != nil
+    }
+
+    /// R12: asks the open session for its speakers' identifiers; nothing while none is open.
+    public func requestSpeakers() {
+        state.withLock { $0.current?.engine }?.send(.requestSpeakers)
     }
 
     /// Stops reconnecting and finishes the open session, and any still draining after a
@@ -178,6 +191,15 @@ public final class SessionSupervisor: Sendable {
         continuation.yield(.revision(revisions, session: index))
     }
 
+    /// A retired session's result counts too: its keys are its own.
+    fileprivate func received(_ speakers: [ProviderSpeaker], from index: Int) {
+        continuation.yield(.speakers(speakers, session: index))
+    }
+
+    fileprivate func ignored(label: String?, identifier: String?) {
+        continuation.yield(.identifierIgnored(label: label, identifier: identifier))
+    }
+
     fileprivate func received(_ limit: SessionLimit, from index: Int) {
         let lead: Duration? = {
             guard case .expiresAt(let date) = limit else { return nil }
@@ -218,7 +240,7 @@ public final class SessionSupervisor: Sendable {
     private func install(_ state: inout State) -> Session {
         let session = Session(
             index: state.nextIndex,
-            engine: provider.makeMeeting(meetingEngine, key: key, hints: hints)
+            engine: provider.makeMeeting(meetingEngine, key: key, hints: hints, voices: voices())
         )
         state.nextIndex += 1
         state.current = session
@@ -328,4 +350,8 @@ private final class SessionSink: TranscriptSink {
     func onSegment(_ segment: TranscriptSegment) { supervisor?.received(segment, from: index) }
     func onSpeakerRevision(_ revisions: [SpeakerRevision]) { supervisor?.received(revisions, from: index) }
     func onSessionLimit(_ limit: SessionLimit) { supervisor?.received(limit, from: index) }
+    func onSpeakers(_ speakers: [ProviderSpeaker]) { supervisor?.received(speakers, from: index) }
+    func onIdentifierIgnored(label: String?, identifier: String?) {
+        supervisor?.ignored(label: label, identifier: identifier)
+    }
 }

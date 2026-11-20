@@ -313,14 +313,15 @@ private final class ConnectRecorder: @unchecked Sendable {
     /// What a meeting engine dials and sends before the scripted server error ends it.
     private func meetingSession(
         _ tier: MeetingEngine,
-        hints: RecognitionHints = .none
+        hints: RecognitionHints = .none,
+        voices: VoiceSessionConfig? = nil
     ) async throws -> MeetingSession {
         let clock = VirtualClock()
         let recorder = ConnectRecorder(connection: FakeWebSocketConnection(
             script: FixtureScript(steps: [.serverError("stop")]), clock: clock
         ))
         let engine = factory(clock: clock, connect: recorder.connect)
-            .makeMeeting(tier, key: Self.meetingKey, hints: hints)
+            .makeMeeting(tier, key: Self.meetingKey, hints: hints, voices: voices)
         engine.start(sink: RecordingSink())
         _ = await engine.finish(timeout: .seconds(5))
 
@@ -338,14 +339,20 @@ private final class ConnectRecorder: @unchecked Sendable {
 
     private static let meetingKey = "placeholder-not-a-real-key"
 
-    @Test(arguments: [(MeetingEngine.speechmaticsStandard, "standard"), (.speechmaticsEnhanced, "enhanced")])
-    func makeMeetingSpeechmaticsTiersAreDiarizedWithTheirModel(_ tier: MeetingEngine, _ model: String) async throws {
-        let session = try await meetingSession(tier)
+    /// `StartRecognition`'s `transcription_config`.
+    private func transcriptionConfig(_ session: MeetingSession) throws -> [String: JSONValue] {
         let start = try JSONDecoder().decode(JSONValue.self, from: Data(try #require(session.frames.first).utf8))
         guard case .object(let fields) = start, case .object(let config)? = fields["transcription_config"] else {
             Issue.record("no transcription_config in \(start)")
-            return
+            return [:]
         }
+        return config
+    }
+
+    @Test(arguments: [(MeetingEngine.speechmaticsStandard, "standard"), (.speechmaticsEnhanced, "enhanced")])
+    func makeMeetingSpeechmaticsTiersAreDiarizedWithTheirModel(_ tier: MeetingEngine, _ model: String) async throws {
+        let session = try await meetingSession(tier)
+        let config = try transcriptionConfig(session)
 
         #expect(session.name == .speechmatics)
         #expect(session.headers == ["Authorization": "Bearer \(Self.meetingKey)"])
@@ -390,6 +397,40 @@ private final class ConnectRecorder: @unchecked Sendable {
         #expect(speechmatics.frames.first?.contains("\"additional_vocab\"") == true)
         #expect(speechmatics.frames.first?.contains("\"content\":\"Aoife\"") == true)
         #expect(assemblyAI.query["keyterms_prompt"] == #"["Aoife","eefa","xcodegen"]"#)
+    }
+
+    private static let voices = VoiceSessionConfig(
+        speakers: [VoiceSessionConfig.Speaker(label: "mw:placeholder", identifier: "placeholder-identifier")],
+        sensitivity: 0.8
+    )
+
+    /// R10; R2 with nil.
+    @Test(arguments: [MeetingEngine.speechmaticsStandard, .speechmaticsEnhanced])
+    func speechmaticsMeetingsCarryTheVoicesIntoStartRecognition(_ tier: MeetingEngine) async throws {
+        let enrolled = try transcriptionConfig(await meetingSession(tier, voices: Self.voices))
+        let plain = try transcriptionConfig(await meetingSession(tier, voices: nil))
+
+        #expect(enrolled["speaker_diarization_config"] == .object([
+            "max_speakers": .number(10),
+            "get_speakers": .bool(true),
+            "speaker_sensitivity": .number(0.8),
+            "speakers": .array([.object([
+                "label": .string("mw:placeholder"),
+                "speaker_identifiers": .array([.string("placeholder-identifier")]),
+            ])]),
+        ]))
+        #expect(plain["speaker_diarization_config"] == .object(["max_speakers": .number(10)]))
+        #expect(enrolled.keys.sorted() == plain.keys.sorted())
+    }
+
+    @Test(arguments: [MeetingEngine.assemblyaiStreaming, .assemblyaiPro])
+    func assemblyAIIgnoresVoices(_ tier: MeetingEngine) async throws {
+        let enrolled = try await meetingSession(tier, voices: Self.voices)
+        let plain = try await meetingSession(tier, voices: nil)
+
+        #expect(enrolled.url == plain.url)
+        #expect(enrolled.headers == plain.headers)
+        #expect(enrolled.frames == plain.frames)
     }
 
     // MARK: - SpeechAnalyzer gating
