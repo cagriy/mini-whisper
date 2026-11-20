@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-11-20
+
 ### Added
 
 - Remember voices. A speaker you name is named, or offered as a provisional name to Accept,
