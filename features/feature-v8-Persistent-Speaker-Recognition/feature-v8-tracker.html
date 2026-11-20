@@ -966,7 +966,7 @@
         </span>
         <span class="step-label">Plan</span>
       </li>
-      <li class="step" data-stage="implement" data-state="pending">
+      <li class="step" data-stage="implement" data-state="complete">
         <span class="step-indicator" aria-hidden="true">
           <span class="step-check">&#10003;</span>
           <span class="step-number">4</span>
@@ -1450,16 +1450,87 @@
 
     <section class="panel" role="tabpanel"
              id="panel-implementation" aria-labelledby="tab-implementation" hidden>
-      <p class="section-timestamp">Awaiting /feature-implement</p>
+      <p class="section-timestamp">Updated 2026-11-20 13:39 UTC</p>
       <!-- usage:IMPLEMENTATION_USAGE_CHIP --><!-- /usage:IMPLEMENTATION_USAGE_CHIP -->
       <article class="panel-section">
         <h2 class="section-label">Highlights</h2>
-        <div class="bullets"><p class="empty">Not yet filled — pending /feature-implement.</p></div>
+        <div class="bullets"><ul>
+          <li>Stages completed: 22/22 (21 planned + 1 dead-code cleanup)</li>
+          <li>Tests: core 1,299 in 18 runs, app 519 in 50 suites, scripts 14 — all passing</li>
+          <li>Design coverage: 29/29 requirements verified by tests</li>
+          <li>Pre-existing failures excluded: None</li>
+          <li>Dead-code orphans removed: 1 (an unused import, Stage 22)</li>
+          <li>Parallelism: 9 stages built concurrently in 3 batches; none demoted</li>
+          <li>Deviations from plan: 16 entries, all implementation detail; none changes scope</li>
+          <li>Pending human verification: UI checks for Stages 3, 14, 18–20, the live acceptance, the Speechmatics live test, the first voice-model CI run</li>
+          <li>Final commit: ad4eff0; branch main ahead of origin, not pushed</li>
+        </ul></div>
         <!-- usage:IMPLEMENTATION_USAGE --><!-- /usage:IMPLEMENTATION_USAGE -->
       </article>
       <article class="panel-section">
         <h2 class="section-label">Detail</h2>
-        <div class="prose"><p class="empty">Not yet filled — pending /feature-implement.</p></div>
+        <div class="prose">
+          <h3>Stages completed</h3>
+          <ul>
+            <li>Stage 1 — Voice settings in <code>config.json</code> — 2e5db48 (parallel, batch 1)</li>
+            <li>Stage 2 — Rolling voice audio buffers — 345ff0b (parallel, batch 1)</li>
+            <li>Stage 3 — The Credits window — 6c4fe3c (parallel, batch 1)</li>
+            <li>Stage 4 — Stored voice shapes and the meeting sidecar — ba171a3</li>
+            <li>Stage 5 — The <code>MWVoices</code> module: people, samples, matching — b4e7038</li>
+            <li>Stage 6 — <code>VoiceWindow</code> and <code>SpeechmaticsEnrolment</code> — 4eddb2a (parallel, batch 4)</li>
+            <li>Stage 7 — <code>VoiceStore</code> — 88428f2 (parallel, batch 4)</li>
+            <li>Stage 8 — <code>MatchLog</code> and <code>VoiceScrubber</code> — 92f9e1c (parallel, batch 4)</li>
+            <li>Stage 9 — <code>SpeakerRegistry</code>: suggest, apply, accept, dismiss, detach, link — b29fa59 (parallel, batch 4)</li>
+            <li>Stage 10 — The bundled voice model and <code>CoreMLVoiceEmbedder</code> — cba90e5</li>
+            <li>Stage 11 — The Speechmatics identification wire — d8f8093</li>
+            <li>Stage 12 — Per-session enrolment and <code>GetSpeakers</code> — 928a486</li>
+            <li>Stage 13 — <code>VoiceRecogniser</code> — 189d706 (parallel, batch 8)</li>
+            <li>Stage 14 — Voice settings in Settings › Meetings — b37807b (parallel, batch 8)</li>
+            <li>Stage 15 — Controller: local recognition — bc89178</li>
+            <li>Stage 16 — Controller: accept, dismiss, reject and learn — 3be13b4</li>
+            <li>Stage 17 — Controller: the Speechmatics route — f640121</li>
+            <li>Stage 18 — Transcript: provisional names and actions — ec115db</li>
+            <li>Stage 19 — People: list, rename, merge — a8fa21b</li>
+            <li>Stage 20 — Forget, and the feature on — 229fd30</li>
+            <li>Stage 21 — Documentation — fa496f9</li>
+            <li>Stage 22 — Dead-code cleanup — ad4eff0</li>
+          </ul>
+          <h3>Tests &amp; lint</h3>
+          <p>Core <code>swift test</code>: 18 runs, 1,299 tests (baseline 1,067). App: 519 tests in 50 suites (baseline 467). Scripts: 14. No pre-existing failures. No linter or formatter is configured; the Swift 6 compiler is the type check. Periphery 3.8.0 against the run's baseline: one new orphan removed; <code>VoiceStore</code>'s encoded <code>schema</code> field kept as a serialization target.</p>
+          <h3>Design coverage</h3>
+          <table>
+            <thead><tr><th>Req</th><th>Verified by (examples)</th></tr></thead>
+            <tbody>
+              <tr><td>R1</td><td>VoiceSettingsTests.eachEngineHasItsRoute; SettingsModelTests.voiceSwitchesWriteTheirKeys</td></tr>
+              <tr><td>R2</td><td>MeetingControllerVoiceTests.withTheSwitchOffNothingChanges; MeetingControllerSpeechmaticsVoiceTests.withTheSwitchOffStartRecognitionIsUnchanged</td></tr>
+              <tr><td>R3</td><td>switchingOffMidMeetingStopsMatchingLoggingAndTheSidecar; theEnrolmentIsRebuiltAtEverySessionOpen</td></tr>
+              <tr><td>R4</td><td>SettingsModelTests.theLocalSwitchIsDisabledWhenTheModelFailsToLoad</td></tr>
+              <tr><td>R5</td><td>MeetingAudioPathVoiceTests.remoteAppendsMicrophoneAndSystemAtTheTickTime</td></tr>
+              <tr><td>R6</td><td>VoiceWindowTests.eachWindowIsLoopedTo160000Samples; CoreMLVoiceEmbedderTests</td></tr>
+              <tr><td>R7</td><td>VoiceRecogniserTests.aKeysVoiceIsTheSecondsWeightedNormalisedSum</td></tr>
+              <tr><td>R8</td><td>VoiceMatcherTests.sureNeedsTheThresholdAndTheMargin; evaluationWaitsForTheMinimumSpeech</td></tr>
+              <tr><td>R9</td><td>aLaterSureMatchReplacesASuggestion; aLaterNothingLeavesTheSuggestion</td></tr>
+              <tr><td>R10–R13</td><td>SpeechmaticsVoiceTests; SpeechmaticsEnrolmentTests; MeetingControllerSpeechmaticsVoiceTests</td></tr>
+              <tr><td>R14–R16</td><td>SpeakerRegistryTests; MeetingControllerVoiceTests; MeetingControllerVoiceLearningTests</td></tr>
+              <tr><td>R17–R22</td><td>MeetingControllerVoiceLearningTests; VoiceStoreTests; SampleSetTests; MeetingStoreTests</td></tr>
+              <tr><td>R23–R24</td><td>VoiceStoreTests; MatchLogTests; VoiceScrubberTests; PeopleModelTests; MeetingControllerVoiceScrubTests</td></tr>
+              <tr><td>R25</td><td>aTestCallNeitherPreparesNorRecognises; MeetingWindowModelTests.aTestCallIsAlwaysPlain</td></tr>
+              <tr><td>R26</td><td>VoiceModelTests.theModelIsInTheAppBundleAsOneFolder; CreditsTests</td></tr>
+              <tr><td>R27</td><td>logsCarryKeysAndScoresNeverNamesOrVectors; logsNeverCarryIdentifiersOrNames; warningTextIsNeverLogged</td></tr>
+              <tr><td>R28</td><td>VoiceRecogniserTests.embeddingRunsOffTheMainThread; VoiceAudioBufferTests.concurrentAppendAndReadNeverTear</td></tr>
+              <tr><td>R29</td><td>VoiceModelTests.sameVoiceScoresAboveSeventyAndOtherVoicesBelow; every stage's build</td></tr>
+            </tbody>
+          </table>
+          <h3>Deviations from plan</h3>
+          <p>16 entries in the plan's <em>Deviations from plan</em>. All are implementation detail; none changes scope. Notable: R2's "byte-identical <code>StartRecognition</code>" is pinned as exact JSON equality, because today's encoder is not byte-stable. <code>bindToUser</code> now drops the moved key's match. A Custom tuning value tints the slider track instead of drawing a hollow thumb. A scrub of the user's person also removes the <code>"user"</code> sidecar key.</p>
+          <h3>Notes</h3>
+          <ul>
+            <li>Branch <code>main</code> is ahead of <code>origin/main</code> and was not pushed.</li>
+            <li>Fresh checkouts resolve Sparkle 2.10.1, not 2.9.6: <code>Package.resolved</code> lives in the git-ignored xcodeproj.</li>
+            <li>The atomic 0600 write now exists as three private copies (<code>MeetingStore</code>, <code>VoiceStore</code>, <code>MatchLog</code>). <code>VoiceStore</code>'s temp file is created at the default mode and then set to 0600.</li>
+            <li><code>MeetingController.swift</code> is 1,086 lines; per-meeting voice logic lives in <code>MeetingVoiceRoute</code>.</li>
+          </ul>
+        </div>
       </article>
     </section>
 

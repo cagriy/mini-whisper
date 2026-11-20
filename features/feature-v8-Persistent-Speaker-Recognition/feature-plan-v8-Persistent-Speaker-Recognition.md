@@ -948,6 +948,15 @@ Stage 21** (*Risks* 3), since builds from Stages 14–19 show switches that do n
 
 **Risks specific to this stage:** None.
 
+### Stage 22 — Dead-code cleanup
+**Goal:** remove the orphans the final whole-project dead-code sweep finds that this feature introduced.
+**Category:** behaviour-preserving refactor / deletion — added by `/feature-implement`'s final sweep (periphery 3.8.0 against the run's baseline).
+**Touches:** `App/Settings/PeopleModel.swift`
+
+**Steps:** remove `PeopleModel`'s unused `import MWMeetings`; keep `VoiceStore`'s encoded `schema` field (a serialization target); app suite and build green.
+
+**Definition of done:** periphery reports no new finding beyond serialization targets; suites green.
+
 ## Cross-cutting concerns
 
 - **Security** — The trust boundary is Speechmatics' messages: `SpeakersResult` labels and identifiers are stored as
@@ -1122,6 +1131,7 @@ Batches run in order; a batch starts only when the previous one has fully landed
 | 13 | Stage 19 | serial | Adds a `SettingsModel.Section` variant (exhaustive `SettingsPage` switch, `allCases` guard) — category exclusion |
 | 14 | Stage 20 | serial | Widens `MeetingControlling` again and edits Stage 19's `PeopleModel`; security ordering: it wires Forget before it turns learning on, so it can share a batch with nothing that would land learning first |
 | 15 | Stage 21 | serial | Documents what every earlier stage introduces |
+| 16 | Stage 22 | serial | Added by the final dead-code sweep; runs after everything it scans |
 
 **Critical path:** Stage 4 → Stage 5 → Stage 6 → Stage 13 → Stage 15 → Stage 16 → Stage 17 → Stage 18 → Stage 19 → Stage 20 → Stage 21 by dependency (11 of 21 stages); by schedule 15 batches, since Stages 10, 11 and 12 are serialised by category, not by dependency.
 
