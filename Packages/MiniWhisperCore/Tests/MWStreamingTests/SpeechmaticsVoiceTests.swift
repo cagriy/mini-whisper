@@ -7,7 +7,7 @@ import Testing
 import MWStreaming
 
 /// R2, R10, R12, R13, R27: the Speechmatics identification wire. The fixtures are written from
-/// the shapes recorded in design §4 and `speaker-persistence.md`, with placeholder identifiers.
+/// the shapes recorded in design §4, with placeholder identifiers.
 @Suite struct SpeechmaticsVoiceTests {
     private static let key = "placeholder-not-a-real-key"
     private static let alice = "mw:00000000-0000-4000-8000-000000000001"

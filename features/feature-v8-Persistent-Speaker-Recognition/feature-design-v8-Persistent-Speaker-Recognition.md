@@ -85,7 +85,6 @@ Non-functional
 - Summaries, exports, the CLI, MCP and search read `SpeakerLabel.name` (`MWMeetings/MeetingMarkdown.swift:179`, `MWMeetingPipeline/Summariser.swift:126`, `App/Search/SearchModel.swift:186`), so a suggestion that leaves `name` alone stays out of all of them.
 - Config keys are declared, decoded and encoded in three places (`MWConfig/Config.swift:192`, `:228`, `:286`).
 - UI: the Engine card (`App/Settings/MeetingsSection.swift:30`), the Settings sections (`App/Settings/SettingsModel.swift:69`, `App/Settings/SettingsPage.swift:11`), the transcript header and rename popover (`App/Meeting/TranscriptView.swift:99`, `:213`), About (`App/AboutView.swift:4`).
-- Research: [`speaker-persistence.md`](../../speaker-persistence.md). Its claim of three clips per call is wrong; the model reads one clip and three masks.
 
 Measured during this design (2026-11-20, macOS 26.6.1):
 

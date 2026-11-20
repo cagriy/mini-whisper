@@ -38,7 +38,7 @@ to see **assertion** failures before implementing. Every "confirm fail" step bel
 symbols all exist already (Stage 17) goes straight to assertion failures.
 
 **Runners and checks** (each run once on 2026-11-20 at `6c2e390`, before drafting; the working tree's uncommitted
-`DESIGN.md` / `design/specimen.html` / `speaker-persistence.md` changes touch no source):
+`DESIGN.md` / `design/specimen.html` changes touch no source):
 
 | Check | Command | Observed baseline |
 |---|---|---|
@@ -546,8 +546,8 @@ Stage 21** (*Risks* 3), since builds from Stages 14–19 show switches that do n
 **Touches:** new `Packages/MiniWhisperCore/Sources/MWStreaming/VoiceSessionConfig.swift` (`VoiceSessionConfig`, `ProviderSpeaker`, `EngineCommand`), `…/MWStreaming/EngineAdapter.swift`, `…/MWStreaming/StreamingEngine.swift`, `…/MWStreaming/TranscriptSink.swift`, `…/MWStreaming/Adapters/SpeechmaticsAdapter.swift`, `…/MWStreaming/WebSocketEngine.swift`, `Packages/MiniWhisperCore/Sources/MWTestSupport/RecordingSink.swift`, `…/MWTestSupport/FakeStreamingEngine.swift`, new `Packages/MiniWhisperCore/Tests/MWStreamingTests/SpeechmaticsVoiceTests.swift`, `…/MWStreamingTests/WebSocketEngineTests.swift`, new `…/MWStreamingTests/Fixtures/streaming/speechmatics_speakers_result.json`, new `…/Fixtures/streaming/speechmatics_speaker_id_warning.json`, new `…/Fixtures/streaming/speechmatics_speaker_id_warning_unparsed.json`
 
 **Steps (TDD):**
-1. Write the three fixtures from the shapes recorded in design §4 and `speaker-persistence.md` (placeholder
-   identifiers, never real ones): `{"message":"SpeakersResult","speakers":[{"label":"S1","speaker_identifiers":["id-s1"]},{"label":"mw:…","speaker_identifiers":["id-mw"]}]}`;
+1. Write the three fixtures from the shapes recorded in design §4 (placeholder identifiers, never real
+   ones): `{"message":"SpeakersResult","speakers":[{"label":"S1","speaker_identifiers":["id-s1"]},{"label":"mw:…","speaker_identifiers":["id-mw"]}]}`;
    `{"message":"Warning","type":"speaker_id","reason":"identifier '1', speaker '2' - reason: identifier from an incompatible model"}`;
    the same with an unparseable reason. Write tests:
    - `SpeechmaticsVoiceTests`: `startRecognitionIsUnchangedWithoutVoices` (`SpeechmaticsAdapter(apiKey:hints:
@@ -1079,7 +1079,7 @@ Once Stage 21 has landed:
     sliders, so `SettingsModel.setVoice(_:for:)` has a typed second argument and the clamps live in core.
 16. **Tier key:** a person's Speechmatics identifiers and the sidecar's `model` are keyed by
     `MeetingEngine.providerModel` (`standard` / `enhanced`), the strings the design's JSON shows.
-17. **Speechmatics fixtures are written by hand** from the shapes recorded in design §4 and `speaker-persistence.md`
+17. **Speechmatics fixtures are written by hand** from the shapes recorded in design §4
     with placeholder identifiers; the design's probe printed its captures and saved none.
 18. **Scrubber fixtures are built through `MeetingStore` in a `TempDirectory`**, so `MWVoicesTests` needs no
     `Fixtures` resource and no further `Package.swift` edit.

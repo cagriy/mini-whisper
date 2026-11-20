@@ -5,7 +5,7 @@
 
 ## 1. Summary
 
-Meeting speakers are numbered afresh in every meeting, and a name given to "Speaker 2" is forgotten when the meeting ends; only the user is recognised, and only in remote calls. This feature makes Mini Whisper remember the people the user names and name them in later meetings. It has two opt-in routes, chosen by the meeting engine: Speechmatics voice identifiers under the two Speechmatics engines, and a bundled local voice model (WeSpeaker) under the two AssemblyAI engines. Recognised names appear in the transcript as applied names or as suggestions, depending on how sure the match is, and the user stays in control through accept, dismiss and the existing rename. It is for anyone who meets the same people repeatedly, and it follows the research in `speaker-persistence.md` (2026-11-20), which v4 had deferred as "automatic speaker recognition across meetings".
+Meeting speakers are numbered afresh in every meeting, and a name given to "Speaker 2" is forgotten when the meeting ends; only the user is recognised, and only in remote calls. This feature makes Mini Whisper remember the people the user names and name them in later meetings. It has two opt-in routes, chosen by the meeting engine: Speechmatics voice identifiers under the two Speechmatics engines, and a bundled local voice model (WeSpeaker) under the two AssemblyAI engines. Recognised names appear in the transcript as applied names or as suggestions, depending on how sure the match is, and the user stays in control through accept, dismiss and the existing rename. It is for anyone who meets the same people repeatedly, and it follows up what v4 deferred as "automatic speaker recognition across meetings".
 
 ## 2. Goals
 
@@ -52,7 +52,7 @@ Meeting speakers are numbered afresh in every meeting, and a name given to "Spea
 - Measured on 2026-11-20 on macOS 26.6.1 with macOS synthetic voices:
   - Loads with plain `MLModel` in 0.1 to 0.6 s; 15 to 23 ms per call.
   - Same voice, different sentence: 0.88 to 0.92 cosine similarity. Different voices: 0.08 to 0.66.
-  - The model takes one 10-second clip per call with three speaker masks. Only the first waveform row is read. `speaker-persistence.md` describes three clips per call; that is wrong.
+  - The model takes one 10-second clip per call with three speaker masks. Only the first waveform row is read.
   - A short clip padded with silence does not separate voices (0.85 to 0.95 against other voices). Filled with the speaker's own speech it does (0.82 to 0.89 against itself, at most 0.56 against others). The window must be filled with real speech from that speaker.
   - Not yet run on macOS 14 or on real meeting audio.
 - The provider keeps deciding who spoke when; the local model only answers whose voice a label is.
