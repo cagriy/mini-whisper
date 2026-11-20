@@ -308,6 +308,28 @@ import MWVoices
         #expect(harness.seen.last { $0.isVoiceData } == .voiceData(active: false, keys: []))
     }
 
+    @Test func switchedBackOnMidMeetingStaysOffUntilTheNextMeeting() async throws {
+        let harness = try await MeetingHarness.local()
+        try await harness.remember("Bob", voice: .unit(7))
+        try await harness.start(.remote)
+        try await harness.config.update { @Sendable in $0.voice.localEnabled = false }
+        _ = await harness.tick(to: 1)
+        try await harness.config.update { @Sendable in $0.voice.localEnabled = true }
+        _ = await harness.tick(to: 2)
+
+        harness.speak(0.07, for: 6)
+        try await harness.deliverWords(label: "B", from: 0, to: 6)
+        await harness.controller.stop(summarise: false)
+        await harness.waitFor(.state(.stopped))
+
+        let speakers = try harness.stored().meeting.speakers
+        #expect(speakers.owning("1:B")?.name == "Speaker 1")
+        #expect(speakers.owning("1:B")?.matches == [])
+        #expect(try harness.matchLog().isEmpty)
+        #expect(try harness.sidecar() == nil)
+        #expect(harness.seen.last { $0.isVoiceData } == .voiceData(active: false, keys: []))
+    }
+
     @Test func aRevisionMovesTheVectorsToTheNewKey() async throws {
         let harness = try await MeetingHarness.local()
         try await harness.remember("Carol", voice: .unit(9))

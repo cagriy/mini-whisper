@@ -291,6 +291,28 @@ import MWVoices
         #expect(try harness.sidecar() == nil)
     }
 
+    @Test func switchedBackOnMidMeetingTheNextSessionStillEnrolsNoOne() async throws {
+        let harness = try await MeetingHarness.speechmatics()
+        let bob = try await harness.rememberSpeechmatics("Bob", identifier: "id-bob", trusted: true)
+        let label = SpeechmaticsEnrolment.label(for: bob.id)
+        try await harness.start(.remote)
+        try await harness.config.update { @Sendable in $0.voice.speechmaticsEnabled = false }
+        _ = await harness.tick(to: 1)
+        try await harness.config.update { @Sendable in $0.voice.speechmaticsEnabled = true }
+        _ = await harness.tick(to: 2)
+
+        try harness.sink(1).onSessionLimit(.warning)
+        try await harness.deliverWords(session: 2, label: label, from: 0, to: 6)
+        await harness.controller.stop(summarise: false)
+
+        #expect(harness.engines.calls.map { $0.voices == nil } == [false, true])
+        let speakers = try harness.stored().meeting.speakers
+        #expect(speakers.map(\.name) == ["Alex", "Speaker 1"])
+        #expect(speakers.allSatisfy { $0.matches.isEmpty })
+        #expect(try harness.matchLog().isEmpty)
+        #expect(try harness.sidecar() == nil)
+    }
+
     @Test func logsNeverCarryIdentifiersOrNames() async throws {
         let logs = CapturingLogSink()
         let harness = try await MeetingHarness.speechmatics()

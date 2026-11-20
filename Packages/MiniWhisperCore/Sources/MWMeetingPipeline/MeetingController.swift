@@ -388,7 +388,7 @@ public final class MeetingController {
                 emit(.cost(audioPath?.billing.liveCost ?? 0))
                 let config = await configStore.load()
                 checkSilence(config)
-                voice?.refresh(config.voice)
+                refreshVoice(config.voice)
             }
         }
     }
@@ -589,7 +589,15 @@ public final class MeetingController {
     private func voiceSettings() async -> VoiceSettings? {
         guard let voice, voice.isActive else { return nil }
         let settings = await configStore.load().voice
-        return settings.isEnabled(voice.route) ? settings : nil
+        refreshVoice(settings)
+        return voice.isActive && settings.isEnabled(voice.route) ? settings : nil
+    }
+
+    /// Hands the route the latest settings; a live route the switch turned off stays off (R3).
+    private func refreshVoice(_ settings: VoiceSettings) {
+        guard let voice, voice.isActive else { return }
+        voice.refresh(settings)
+        if !voice.isActive { emit(.voiceData(active: false, keys: [])) }
     }
 
     private func voiceModelFailed() {

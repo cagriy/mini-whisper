@@ -44,7 +44,8 @@ final class MeetingVoiceRoute {
     private var stored: MeetingVoices?
     private var preparing: Task<Void, Never>?
     private var consuming: Task<Void, Never>?
-    /// False for good once the model failed to load.
+    /// False for good once the model failed to load, or once the switch went off during the
+    /// meeting: switching it on again applies from the next meeting (R3).
     private(set) var isActive = true
 
     /// Who the next Speechmatics session enrols, read by the supervisor at every session open (R10).
@@ -167,6 +168,7 @@ final class MeetingVoiceRoute {
     /// The ticker's reading of the settings (R3): with the switch off nothing is fed, and the
     /// next Speechmatics session enrols no one; a new sensitivity applies at the next one.
     func refresh(_ settings: VoiceSettings) {
+        if stored == nil, !settings.isEnabled(route) { isActive = false }
         guard settings != self.settings else { return }
         self.settings = settings
         rebuildEnrolment()
@@ -302,7 +304,7 @@ final class MeetingVoiceRoute {
         let speakers = SpeechmaticsEnrolment.entries(people: people, tier: model).map {
             VoiceSessionConfig.Speaker(label: $0.label, identifier: $0.identifier)
         }
-        let config = settings.isEnabled(route)
+        let config = isActive && settings.isEnabled(route)
             ? VoiceSessionConfig(speakers: speakers, sensitivity: settings.speechmaticsSensitivity) : nil
         enrolment.withLock { $0 = config }
     }
