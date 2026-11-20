@@ -66,10 +66,11 @@ final class SettingsModel {
         var copy: @MainActor (String) -> Void = { _ in }
         /// Loads the bundled voice model; false when it cannot be loaded on this Mac.
         var prepareVoiceModel: @Sendable () async -> Bool = { true }
+        var people = PeopleModel.Dependencies()
     }
 
     enum Section: String, CaseIterable, Identifiable {
-        case general, hotkeys, keys, cleanup, vocabulary, history, meetings, overlay, sound
+        case general, hotkeys, keys, cleanup, vocabulary, history, meetings, people, overlay, sound
 
         var id: String { rawValue }
 
@@ -82,6 +83,7 @@ final class SettingsModel {
             case .vocabulary: "Vocabulary"
             case .history: "Dictations"
             case .meetings: "Meetings"
+            case .people: "People"
             case .overlay: "Overlay"
             case .sound: "Sound"
             }
@@ -96,6 +98,7 @@ final class SettingsModel {
             case .vocabulary: "textformat.abc"
             case .history: "clock.arrow.circlepath"
             case .meetings: "person.2.wave.2"
+            case .people: "person.crop.circle"
             case .overlay: "sparkles.rectangle.stack"
             case .sound: "speaker.wave.2"
             }
@@ -174,6 +177,7 @@ final class SettingsModel {
     let vocabulary: VocabularyModel
     let profiles: ProfilesEditorModel
     let corrections: CorrectionsEditorModel
+    let people: PeopleModel
 
     /// The two prompt files, read when the Cleanup pane first appears.
     var cleanupPromptDraft = ""
@@ -205,6 +209,7 @@ final class SettingsModel {
             apps: deps.apps,
             openCorrection: deps.openCorrection
         )
+        people = PeopleModel(deps: deps.people)
         refreshKeys()
         for binding in BindingName.allCases {
             displays[binding] = Self.displayString(of: stored(binding))

@@ -16,6 +16,7 @@ struct SettingsPage: View {
             case .vocabulary: VocabularySection(model: model)
             case .history: HistorySection(model: model, confirmingClear: $confirmingClear)
             case .meetings: MeetingsSection(model: model)
+            case .people: PeopleSection(model: model.people)
             case .overlay: OverlaySection(model: model)
             case .sound: SoundSection(model: model)
             }

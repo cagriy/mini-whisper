@@ -4,6 +4,7 @@ import MWHotkeys
 import MWMeetings
 import MWOverlaySim
 import MWStreaming
+import MWVoices
 import Testing
 @testable import MiniWhisper
 
@@ -39,7 +40,8 @@ import Testing
             speechModel: AssetStatus = .unavailable,
             status: (@Sendable () async -> AssetStatus)? = nil,
             installAssets: @escaping @Sendable () async throws -> Void = {},
-            prepareVoiceModel: @escaping @Sendable () async -> Bool = { true }
+            prepareVoiceModel: @escaping @Sendable () async -> Bool = { true },
+            people: PeopleModel.Dependencies = PeopleModel.Dependencies()
         ) async -> SettingsModel {
             let model = SettingsModel(
                 config: await store.load(),
@@ -72,7 +74,8 @@ import Testing
                     isToolInstalled: { [meetings] in meetings.installed },
                     toolBinaryPath: "/Applications/Mini Whisper.app/Contents/MacOS/Mini Whisper",
                     copy: { [meetings] in meetings.copied.append($0) },
-                    prepareVoiceModel: prepareVoiceModel
+                    prepareVoiceModel: prepareVoiceModel,
+                    people: people
                 )
             )
             await model.refreshSpeechModel()
@@ -561,7 +564,7 @@ import Testing
 
     @Test func overlaySectionSitsBetweenHistoryAndSound() {
         #expect(SettingsModel.Section.allCases == [
-            .general, .hotkeys, .keys, .cleanup, .vocabulary, .history, .meetings, .overlay, .sound,
+            .general, .hotkeys, .keys, .cleanup, .vocabulary, .history, .meetings, .people, .overlay, .sound,
         ])
         #expect(SettingsModel.Section.overlay.title == "Overlay")
         #expect(SettingsModel.Section.overlay.symbolName == "sparkles.rectangle.stack")
@@ -644,6 +647,24 @@ import Testing
     @Test func meetingsSectionTitleAndSymbol() {
         #expect(SettingsModel.Section.meetings.title == "Meetings")
         #expect(SettingsModel.Section.meetings.symbolName == "person.2.wave.2")
+    }
+
+    // MARK: - People (design v8 R24)
+
+    @Test func peopleSectionFollowsMeetings() {
+        let sections = SettingsModel.Section.allCases
+        #expect(sections.firstIndex(of: .people) == sections.firstIndex(of: .meetings).map { $0 + 1 })
+        #expect(SettingsModel.Section.people.title == "People")
+        #expect(SettingsModel.Section.people.symbolName == "person.crop.circle")
+    }
+
+    @Test func thePeopleModelIsBuiltFromItsDependencies() async {
+        let alice = Person(name: "Alice", createdAt: Date(timeIntervalSince1970: 1_795_000_000))
+        let model = await Harness().model(people: PeopleModel.Dependencies(load: { [alice] }))
+
+        for _ in 0..<1_000 where model.people.rows.isEmpty { await Task.yield() }
+
+        #expect(model.people.rows.map(\.name) == ["Alice"])
     }
 
     @Test func engineRowsShowPricesAndKeyGating() async throws {

@@ -149,6 +149,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         let controller = DictationController(deps: deps, config: configStore)
         self.controller = controller
+        // The app's one people store: People in Settings and every meeting share it (R23).
+        let voices = VoiceStore(directory: Self.configDirectory)
         let store = MeetingStore(directory: Self.configDirectory.appendingPathComponent("meetings", isDirectory: true))
         let exporter = MeetingExporter(generator: AgentCommand.generator)
         let export: @MainActor (MeetingExporter.Kind, UUID) -> Void = { kind, id in
@@ -230,7 +232,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             installTool: { CommandLineToolInstaller.install() },
             isToolInstalled: { CommandLineToolInstaller.isInstalled() },
             copy: { _ = NSPasteboardAccess().write($0) },
-            prepareVoiceModel: { [voiceEmbedder] in (try? await voiceEmbedder.prepare()) != nil }
+            prepareVoiceModel: { [voiceEmbedder] in (try? await voiceEmbedder.prepare()) != nil },
+            people: PeopleModel.Dependencies(
+                load: { await voices.people() },
+                changes: voices.changes,
+                rename: { try await voices.rename($0, to: $1) },
+                merge: { try await voices.merge($0, into: $1) },
+                openMeetingsSettings: { [weak self] in self?.main?.model.settings.selection = .meetings }
+            )
         )
 
         let dictations = HistoryListModel(deps: HistoryListModel.Dependencies(
@@ -411,12 +420,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSWorkspace.shared.activateFileViewerSelecting([folder])
     }
 
-    /// The menu and the recording pill follow the meeting; Stop and the summary add usage (R18).
+    /// The menu, the recording pill and People's lock follow the meeting; Stop and the summary add
+    /// usage (R18).
     /// The Meetings page and the results follow titles, summaries and new rows.
     private func meetingChanged(usage: UsageStore) {
         statusItem?.setMeetingActive(meetings?.isActive ?? false)
         if let main {
             main.model.liveMeeting = meetings?.liveModel
+            main.model.settings.people.isRecording = meetings?.isActive ?? false
             Task { await main.model.meetings.reload() }
             main.model.search.invalidate()
         }

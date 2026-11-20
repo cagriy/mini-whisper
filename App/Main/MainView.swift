@@ -74,6 +74,14 @@ struct MainView: View {
                 },
                 cancel: { self.meetingDialog = nil }
             )
+        } else if let confirmation = model.settings.people.pending {
+            DSDialog(
+                title: confirmation.title,
+                message: confirmation.message,
+                confirmTitle: confirmation.confirmTitle,
+                confirm: { Task { await model.settings.people.confirm() } },
+                cancel: model.settings.people.cancelConfirmation
+            )
         } else if confirmingSettingsClear {
             DSDialog(
                 title: "Delete every stored dictation?",

@@ -55,6 +55,9 @@ struct Tile: View {
     /// The app's cloud-and-pulse mark, large on the accent, as About shows it.
     static var app: Tile { Tile(.app, DS.Colors.accent, DS.Colors.accentOn, .large) }
 
+    /// The app's mark in the accent on its soft fill, for an empty page.
+    static var appSoft: Tile { Tile(.app, DS.Colors.accentSoft, DS.Colors.accent, .large) }
+
     private init(_ mark: Mark, _ fill: Color, _ ink: Color, _ scale: Scale) {
         self.mark = mark
         self.fill = fill

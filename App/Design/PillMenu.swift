@@ -27,7 +27,8 @@ struct PillMenu: View {
         .buttonStyle(.pill(size: size))
     }
 
-    private static func popUp(_ items: [Item]) {
+    /// Opens `items` as a menu under the pointer, for a button styled otherwise.
+    static func popUp(_ items: [Item]) {
         let menu = NSMenu()
         menu.autoenablesItems = false
         for item in items {
