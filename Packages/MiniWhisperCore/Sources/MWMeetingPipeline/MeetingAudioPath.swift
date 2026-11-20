@@ -33,12 +33,17 @@ final class MeetingAudioPath: BufferListener, Sendable {
     private let mode: MeetingMode
     private let state: OSAllocatedUnfairLock<State>
     private let ring = SystemAudioRing()
+    private let voices: VoiceBuffers?
     /// Weak: the supervisor's events end only when it is released (Stop drains them).
     private weak let supervisor: SessionSupervisor?
 
-    init(mode: MeetingMode, recorder: MeetingRecorder?, billing: MeetingBilling, supervisor: SessionSupervisor) {
+    init(
+        mode: MeetingMode, recorder: MeetingRecorder?, billing: MeetingBilling, supervisor: SessionSupervisor,
+        voices: VoiceBuffers? = nil
+    ) {
         self.mode = mode
         self.supervisor = supervisor
+        self.voices = voices
         state = OSAllocatedUnfairLock(initialState: State(recorder: recorder, billing: billing))
     }
 
@@ -65,6 +70,10 @@ final class MeetingAudioPath: BufferListener, Sendable {
             // Taken while paused too, so the ring stays in step with the microphone.
             let system = mode == .remote ? ring.take(mic.count) : []
             guard state.streaming else { return }
+            if let voices {
+                voices.microphone.append(mic, at: time)
+                if mode == .remote { voices.system?.append(system, at: time) }
+            }
             var mixed = mic
             if mode == .remote {
                 state.gate.push(mic, at: time)
