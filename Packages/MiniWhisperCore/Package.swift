@@ -24,6 +24,7 @@ let package = Package(
         .library(name: "MWMeetingPipeline", targets: ["MWMeetingPipeline"]),
         .library(name: "MWAgentAccess", targets: ["MWAgentAccess"]),
         .library(name: "MWTestCall", targets: ["MWTestCall"]),
+        .library(name: "MWVoices", targets: ["MWVoices"]),
     ],
     targets: [
         .target(name: "MWSupport"),
@@ -54,18 +55,19 @@ let package = Package(
             name: "MWMeetingPipeline",
             dependencies: [
                 "MWMeetings", "MWStreaming", "MWAudio", "MWConfig", "MWCorrections", "MWUsage",
-                "MWTranscription", "MWSupport", "MWTestCall",
+                "MWTranscription", "MWSupport", "MWTestCall", "MWVoices",
             ]
         ),
         // Read-only meeting access for the CLI and MCP server: no audio, streaming or pipeline.
         .target(name: "MWAgentAccess", dependencies: ["MWMeetings", "MWSupport"]),
         .target(name: "MWTestCall", dependencies: ["MWMeetings", "MWConfig", "MWSupport"]),
+        .target(name: "MWVoices", dependencies: ["MWMeetings", "MWConfig", "MWSupport"]),
         .target(
             name: "MWTestSupport",
             dependencies: [
                 "MWSupport", "MWConfig", "MWCorrections", "MWHotkeys", "MWAudio",
                 "MWStreaming", "MWTranscription", "MWUsage", "MWHistory", "MWProfiles",
-                "MWPaste", "MWOverlaySim", "MWPipeline", "MWMeetings",
+                "MWPaste", "MWOverlaySim", "MWPipeline", "MWMeetings", "MWVoices",
             ],
             // The WAV fixtures several test targets share, reached through
             // `TestFixtures.wav(_:)`.
@@ -102,6 +104,7 @@ let package = Package(
             dependencies: ["MWTestCall", "MWTestSupport", "MWOverlaySim"],
             resources: [.copy("Fixtures")]
         ),
+        .testTarget(name: "MWVoicesTests", dependencies: ["MWVoices", "MWTestSupport"]),
     ],
     swiftLanguageModes: [.v6]
 )

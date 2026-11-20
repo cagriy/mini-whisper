@@ -89,6 +89,8 @@ public enum Log {
     public static let ui = LogCategory(name: "ui")
     public static let config = LogCategory(name: "config")
     public static let meeting = LogCategory(name: "meeting")
+    /// Keys, scores, seconds and short person ids only: never a name, vector or identifier.
+    public static let voice = LogCategory(name: "voice")
 
     public static func stream(_ engine: String) -> LogCategory {
         LogCategory(name: "stream.\(engine)")
