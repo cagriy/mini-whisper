@@ -13,6 +13,7 @@ import MWStreaming
 import MWSupport
 import MWTestCall
 import MWUsage
+import MWVoices
 import os
 
 @MainActor
@@ -23,6 +24,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let sounds = SoundPlayer()
     private let retentionDays = OSAllocatedUnfairLock(initialState: 7)
     private let frontAppTracker = FrontAppTracker()
+    /// The bundled voice model, loaded at most once per launch.
+    private let voiceEmbedder = CoreMLVoiceEmbedder(
+        modelURL: Bundle.main.url(forResource: "wespeaker_v2", withExtension: "mlmodelc")
+    )
 
     private var statusItem: StatusItemController?
     private var router: UIEventRouter?
@@ -224,7 +229,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             showMeetingsFolder: { Self.showInFinder(store) },
             installTool: { CommandLineToolInstaller.install() },
             isToolInstalled: { CommandLineToolInstaller.isInstalled() },
-            copy: { _ = NSPasteboardAccess().write($0) }
+            copy: { _ = NSPasteboardAccess().write($0) },
+            prepareVoiceModel: { [voiceEmbedder] in (try? await voiceEmbedder.prepare()) != nil }
         )
 
         let dictations = HistoryListModel(deps: HistoryListModel.Dependencies(

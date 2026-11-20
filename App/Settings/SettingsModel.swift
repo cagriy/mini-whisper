@@ -64,6 +64,8 @@ final class SettingsModel {
         var isToolInstalled: @Sendable () -> Bool = { false }
         var toolBinaryPath: String = Bundle.main.executablePath ?? ""
         var copy: @MainActor (String) -> Void = { _ in }
+        /// Loads the bundled voice model; false when it cannot be loaded on this Mac.
+        var prepareVoiceModel: @Sendable () async -> Bool = { true }
     }
 
     enum Section: String, CaseIterable, Identifiable {
@@ -534,6 +536,127 @@ final class SettingsModel {
         bytes >= 1_000_000_000
             ? String(format: "%.1f GB", Double(bytes) / 1e9)
             : "\(max(1, Int((Double(bytes) / 1e6).rounded()))) MB"
+    }
+
+    // MARK: - Voices (design v8 §3 R1, R3, R4)
+
+    enum VoiceModelStatus: Equatable {
+        case ready
+        case failed
+    }
+
+    /// The slider's caption: the step's name, which the row sets in bold, and what the step does.
+    struct VoiceCaption: Equatable {
+        var name: String
+        var detail: String
+    }
+
+    private static let balancedVoiceStep = 5
+
+    /// Nil until the Meetings section first appears.
+    private(set) var voiceModelStatus: VoiceModelStatus?
+    private var voiceModelPreparation: Task<Bool, Never>?
+
+    var voice: VoiceSettings { config.voice }
+
+    /// Prepares the model once per launch; a later call waits for that same outcome.
+    func checkVoiceModel() async {
+        let prepare = deps.prepareVoiceModel
+        let preparation = voiceModelPreparation ?? Task { await prepare() }
+        voiceModelPreparation = preparation
+        voiceModelStatus = await preparation.value ? .ready : .failed
+    }
+
+    /// R4. A model that will not load outranks a missing key, since adding the key would not help.
+    func voiceDisabledReason(for route: VoiceRoute) -> String? {
+        if route == .local, voiceModelStatus == .failed {
+            return "The voice model could not be loaded on this Mac."
+        }
+        let account: KeyAccount =
+            switch route {
+            case .local: .assemblyai
+            case .speechmatics: .speechmatics
+            }
+        return hasKey(account) ? nil : Self.keyHint(for: account)
+    }
+
+    /// A switch that cannot be moved shows off, and its stored value is left alone.
+    func isVoiceOn(_ route: VoiceRoute) -> Bool {
+        voice.isEnabled(route) && voiceDisabledReason(for: route) == nil
+    }
+
+    /// The line under a switch that is on while the other provider's engine is selected.
+    func voiceNote(for route: VoiceRoute) -> String? {
+        guard isVoiceOn(route), activeMeetingEngine?.voiceRoute != route else { return nil }
+        return switch route {
+        case .local: "Used when an AssemblyAI engine is selected."
+        case .speechmatics: "Used when a Speechmatics engine is selected."
+        }
+    }
+
+    var voiceTuningShown: Bool { VoiceRoute.allCases.contains { isVoiceOn($0) } }
+
+    var voiceResetOffered: Bool { voice.step != Self.balancedVoiceStep }
+
+    /// Speechmatics sensitivity belongs to its route; every other value to the local one.
+    func isVoiceFieldDimmed(_ field: VoiceSettings.Field) -> Bool {
+        !isVoiceOn(field == .sensitivity ? .speechmatics : .local)
+    }
+
+    static func voiceCaption(_ voice: VoiceSettings) -> VoiceCaption {
+        guard let step = voice.step else { return VoiceCaption(name: "Custom", detail: "set in Advanced") }
+        let name =
+            switch step {
+            case ...1: "Most cautious"
+            case 2...4: "Cautious"
+            case balancedVoiceStep: "Balanced"
+            case 6...8: "Eager"
+            default: "Most eager"
+            }
+        let sure = voiceReadOut(.sure, of: voice)
+        let suggestion = voiceReadOut(.suggestion, of: voice)
+        return VoiceCaption(name: name, detail: "applies a name at \(sure), suggests from \(suggestion)")
+    }
+
+    /// A hand-set value is on no step, so the slider rests on the step nearest its sure threshold.
+    static func voiceSliderStep(_ voice: VoiceSettings) -> Int {
+        if let step = voice.step { return step }
+        let distance = { (step: Int) in abs(voice.tuned(toStep: step).sureThreshold - voice.sureThreshold) }
+        return VoiceSettings.steps.min { distance($0) < distance($1) } ?? balancedVoiceStep
+    }
+
+    static func voiceReadOut(_ field: VoiceSettings.Field, of voice: VoiceSettings) -> String {
+        let value = voice.value(of: field)
+        return isSeconds(field) ? "\(Int(value.rounded())) s" : String(format: "%.2f", value)
+    }
+
+    func setVoiceEnabled(_ enabled: Bool, for route: VoiceRoute) async {
+        guard voiceDisabledReason(for: route) == nil else { return }
+        await write { config in
+            switch route {
+            case .local: config.voice.localEnabled = enabled
+            case .speechmatics: config.voice.speechmaticsEnabled = enabled
+            }
+        }
+    }
+
+    func setVoiceStep(_ step: Int) async {
+        await write { $0.voice = $0.voice.tuned(toStep: step) }
+    }
+
+    /// Stored as it reads out. The whole value is validated, so a sure threshold set below the
+    /// suggestion threshold takes it down too.
+    func setVoice(_ value: Double, for field: VoiceSettings.Field) async {
+        let rounded = Self.isSeconds(field) ? value.rounded() : (value * 100).rounded() / 100
+        await write { $0.voice = $0.voice.setting(field, to: rounded) }
+    }
+
+    func resetVoiceTuning() async {
+        await setVoiceStep(Self.balancedVoiceStep)
+    }
+
+    private static func isSeconds(_ field: VoiceSettings.Field) -> Bool {
+        field == .minimumSpeech || field == .buffer
     }
 
     // MARK: - Appearance (R8)

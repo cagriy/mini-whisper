@@ -38,7 +38,8 @@ import Testing
             osMajor: Int = 14,
             speechModel: AssetStatus = .unavailable,
             status: (@Sendable () async -> AssetStatus)? = nil,
-            installAssets: @escaping @Sendable () async throws -> Void = {}
+            installAssets: @escaping @Sendable () async throws -> Void = {},
+            prepareVoiceModel: @escaping @Sendable () async -> Bool = { true }
         ) async -> SettingsModel {
             let model = SettingsModel(
                 config: await store.load(),
@@ -70,7 +71,8 @@ import Testing
                     },
                     isToolInstalled: { [meetings] in meetings.installed },
                     toolBinaryPath: "/Applications/Mini Whisper.app/Contents/MacOS/Mini Whisper",
-                    copy: { [meetings] in meetings.copied.append($0) }
+                    copy: { [meetings] in meetings.copied.append($0) },
+                    prepareVoiceModel: prepareVoiceModel
                 )
             )
             await model.refreshSpeechModel()
@@ -875,6 +877,269 @@ import Testing
         await model.refreshMeetings()
         model.copyChatGPTCommand()
         #expect(harness.meetings.copied == ["/usr/local/bin/mini-whisper"])
+    }
+
+    // MARK: - Voices (design v8 §3 R1, R3, R4)
+
+    /// Counts the model preparations and answers with a set outcome.
+    private final class VoiceModelProbe: @unchecked Sendable {
+        private let lock = NSLock()
+        private var prepared = 0
+        private let loads: Bool
+
+        init(loads: Bool) { self.loads = loads }
+
+        var count: Int { lock.withLock { prepared } }
+
+        func prepare() async -> Bool {
+            lock.withLock { prepared += 1 }
+            return loads
+        }
+    }
+
+    private static func keyBoth(_ harness: Harness) {
+        harness.secrets.stored[.speechmatics] = "placeholder-not-a-real-key"
+        harness.secrets.stored[.assemblyai] = "placeholder-not-a-real-key"
+    }
+
+    @Test func voiceSwitchesWriteTheirKeys() async {
+        let harness = Harness()
+        defer { harness.cleanUp() }
+        Self.keyBoth(harness)
+        let model = await harness.model()
+        #expect(!model.voice.localEnabled)
+        #expect(!model.voice.speechmaticsEnabled)
+
+        await model.setVoiceEnabled(true, for: .local)
+        #expect(model.isVoiceOn(.local))
+        #expect(await harness.store.load().voice.localEnabled)
+        #expect(await harness.store.load().voice.speechmaticsEnabled == false)
+
+        await model.setVoiceEnabled(true, for: .speechmatics)
+        #expect(model.isVoiceOn(.speechmatics))
+        #expect(await harness.store.load().voice.speechmaticsEnabled)
+
+        await model.setVoiceEnabled(false, for: .local)
+        #expect(!model.isVoiceOn(.local))
+        #expect(await harness.store.load().voice.localEnabled == false)
+        #expect(await harness.store.load().voice.speechmaticsEnabled)
+    }
+
+    @Test func aSwitchWithoutItsProvidersKeyIsDisabledWithTheKeyHint() async throws {
+        let harness = Harness()
+        defer { harness.cleanUp() }
+        try harness.writeConfig(#"{"voice_speechmatics_enabled": true}"#)
+        let model = await harness.model()
+
+        #expect(model.voiceDisabledReason(for: .speechmatics) == "Add a Speechmatics key under Keys to enable")
+        #expect(model.voiceDisabledReason(for: .local) == "Add an AssemblyAI key under Keys to enable")
+        // A switch that cannot be moved shows off and leaves the stored value alone.
+        #expect(!model.isVoiceOn(.speechmatics))
+        await model.setVoiceEnabled(true, for: .local)
+        await model.setVoiceEnabled(false, for: .speechmatics)
+        #expect(await harness.store.load().voice.localEnabled == false)
+        #expect(await harness.store.load().voice.speechmaticsEnabled)
+
+        harness.secrets.stored[.speechmatics] = "placeholder-not-a-real-key"
+        model.refreshKeys()
+        #expect(model.voiceDisabledReason(for: .speechmatics) == nil)
+        #expect(model.isVoiceOn(.speechmatics))
+        #expect(model.voiceDisabledReason(for: .local) == "Add an AssemblyAI key under Keys to enable")
+    }
+
+    @Test func theLocalSwitchIsDisabledWhenTheModelFailsToLoad() async {
+        let harness = Harness()
+        defer { harness.cleanUp() }
+        Self.keyBoth(harness)
+        let probe = VoiceModelProbe(loads: false)
+        let model = await harness.model(prepareVoiceModel: { await probe.prepare() })
+        #expect(model.voiceDisabledReason(for: .local) == nil)
+
+        await model.checkVoiceModel()
+
+        #expect(model.voiceModelStatus == .failed)
+        #expect(model.voiceDisabledReason(for: .local) == "The voice model could not be loaded on this Mac.")
+        #expect(model.voiceDisabledReason(for: .speechmatics) == nil)
+        await model.setVoiceEnabled(true, for: .local)
+        #expect(await harness.store.load().voice.localEnabled == false)
+
+        // A key would not make the model load, so its absence is not the reason given.
+        harness.secrets.stored[.assemblyai] = nil
+        model.refreshKeys()
+        #expect(model.voiceDisabledReason(for: .local) == "The voice model could not be loaded on this Mac.")
+    }
+
+    @Test func theModelIsPreparedOnceWhenMeetingsFirstAppears() async {
+        let harness = Harness()
+        defer { harness.cleanUp() }
+        let probe = VoiceModelProbe(loads: true)
+        let model = await harness.model(prepareVoiceModel: { await probe.prepare() })
+        #expect(probe.count == 0)
+        #expect(model.voiceModelStatus == nil)
+
+        await model.checkVoiceModel()
+        await model.checkVoiceModel()
+
+        #expect(probe.count == 1)
+        #expect(model.voiceModelStatus == .ready)
+    }
+
+    @Test func aSwitchOnWhileItsProviderIsNotActiveSaysWhenItIsUsed() async {
+        let harness = Harness()
+        defer { harness.cleanUp() }
+        Self.keyBoth(harness)
+        let model = await harness.model()
+        #expect(model.activeMeetingEngine == .speechmaticsStandard)
+        #expect(model.voiceNote(for: .local) == nil)
+
+        await model.setVoiceEnabled(true, for: .local)
+        await model.setVoiceEnabled(true, for: .speechmatics)
+        #expect(model.voiceNote(for: .local) == "Used when an AssemblyAI engine is selected.")
+        #expect(model.voiceNote(for: .speechmatics) == nil)
+
+        await model.selectMeetingEngine(.assemblyaiPro)
+        #expect(model.voiceNote(for: .local) == nil)
+        #expect(model.voiceNote(for: .speechmatics) == "Used when a Speechmatics engine is selected.")
+
+        await model.setVoiceEnabled(false, for: .speechmatics)
+        #expect(model.voiceNote(for: .speechmatics) == nil)
+    }
+
+    @Test func tuningShowsWhileEitherSwitchIsOn() async {
+        let harness = Harness()
+        defer { harness.cleanUp() }
+        Self.keyBoth(harness)
+        let model = await harness.model()
+        #expect(!model.voiceTuningShown)
+
+        await model.setVoiceEnabled(true, for: .local)
+        #expect(model.voiceTuningShown)
+
+        await model.setVoiceEnabled(false, for: .local)
+        await model.setVoiceEnabled(true, for: .speechmatics)
+        #expect(model.voiceTuningShown)
+
+        // A switch left on whose key is gone no longer counts.
+        harness.secrets.stored[.speechmatics] = nil
+        model.refreshKeys()
+        #expect(!model.voiceTuningShown)
+    }
+
+    @Test func aStepWritesItsFiveValuesAndKeepsTheBuffer() async throws {
+        let harness = Harness()
+        defer { harness.cleanUp() }
+        let model = await harness.model()
+        await model.setVoice(200, for: .buffer)
+
+        await model.setVoiceStep(0)
+
+        let cautious = await harness.store.load().voice
+        #expect(cautious.sureThreshold == 0.80)
+        #expect(cautious.suggestionThreshold == 0.60)
+        #expect(cautious.margin == 0.15)
+        #expect(cautious.minimumSpeechSeconds == 25)
+        #expect(cautious.speechmaticsSensitivity == 0.95)
+        #expect(cautious.bufferSeconds == 200)
+        #expect(model.voice.step == 0)
+
+        await model.setVoiceStep(10)
+
+        let eager = await harness.store.load().voice
+        #expect(eager.sureThreshold == 0.60)
+        #expect(eager.suggestionThreshold == 0.40)
+        #expect(eager.margin == 0.05)
+        #expect(eager.minimumSpeechSeconds == 5)
+        #expect(eager.speechmaticsSensitivity == 0.65)
+        #expect(eager.bufferSeconds == 200)
+        #expect(SettingsModel.voiceSliderStep(model.voice) == 10)
+    }
+
+    @Test func theCaptionNamesTheStepAndItsThresholds() {
+        let balanced = SettingsModel.voiceCaption(VoiceSettings())
+        #expect(balanced == .init(name: "Balanced", detail: "applies a name at 0.70, suggests from 0.50"))
+
+        let names = VoiceSettings.steps.map { SettingsModel.voiceCaption(VoiceSettings().tuned(toStep: $0)).name }
+        #expect(names == [
+            "Most cautious", "Most cautious", "Cautious", "Cautious", "Cautious", "Balanced",
+            "Eager", "Eager", "Eager", "Most eager", "Most eager",
+        ])
+        #expect(SettingsModel.voiceCaption(VoiceSettings().tuned(toStep: 0)).detail
+            == "applies a name at 0.80, suggests from 0.60")
+        #expect(SettingsModel.voiceCaption(VoiceSettings().tuned(toStep: 7)).detail
+            == "applies a name at 0.66, suggests from 0.46")
+    }
+
+    @Test func aHandSetValueIsCustom() async {
+        let harness = Harness()
+        defer { harness.cleanUp() }
+        let model = await harness.model()
+        #expect(!model.voiceResetOffered)
+
+        await model.setVoice(0.72, for: .sure)
+
+        #expect(model.voice.step == nil)
+        #expect(SettingsModel.voiceCaption(model.voice) == .init(name: "Custom", detail: "set in Advanced"))
+        #expect(model.voiceResetOffered)
+        // The slider rests on the step whose sure threshold is nearest.
+        #expect(SettingsModel.voiceSliderStep(model.voice) == 4)
+    }
+
+    @Test func aHandSetValueIsStoredAsItReadsOut() async {
+        let harness = Harness()
+        defer { harness.cleanUp() }
+        let model = await harness.model()
+
+        await model.setVoice(0.7249, for: .sure)
+        await model.setVoice(14.6, for: .minimumSpeech)
+
+        #expect(await harness.store.load().voice.sureThreshold == 0.72)
+        #expect(await harness.store.load().voice.minimumSpeechSeconds == 15)
+    }
+
+    @Test func resetVoiceTuningReturnsToBalanced() async {
+        let harness = Harness()
+        defer { harness.cleanUp() }
+        let model = await harness.model()
+        await model.setVoice(200, for: .buffer)
+        await model.setVoice(0.21, for: .margin)
+        #expect(model.voiceResetOffered)
+
+        await model.resetVoiceTuning()
+
+        #expect(model.voice.step == 5)
+        #expect(model.voice.bufferSeconds == 200)
+        #expect(!model.voiceResetOffered)
+        #expect(SettingsModel.voiceCaption(model.voice).name == "Balanced")
+        #expect(await harness.store.load().voice.margin == 0.10)
+
+        // Another step is not Balanced, so Reset is offered there too.
+        await model.setVoiceStep(7)
+        #expect(model.voiceResetOffered)
+    }
+
+    @Test func aValueWhoseRouteIsOffIsDimmed() async {
+        let harness = Harness()
+        defer { harness.cleanUp() }
+        Self.keyBoth(harness)
+        let model = await harness.model()
+        let local: [VoiceSettings.Field] = [.sure, .suggestion, .margin, .minimumSpeech, .buffer]
+        #expect(VoiceSettings.Field.allCases.allSatisfy { model.isVoiceFieldDimmed($0) })
+
+        await model.setVoiceEnabled(true, for: .local)
+        #expect(!local.contains { model.isVoiceFieldDimmed($0) })
+        #expect(model.isVoiceFieldDimmed(.sensitivity))
+
+        await model.setVoiceEnabled(false, for: .local)
+        await model.setVoiceEnabled(true, for: .speechmatics)
+        #expect(local.allSatisfy { model.isVoiceFieldDimmed($0) })
+        #expect(!model.isVoiceFieldDimmed(.sensitivity))
+    }
+
+    @Test func advancedReadOutsFormatEachValue() {
+        let voice = VoiceSettings()
+        let readOuts = VoiceSettings.Field.allCases.map { SettingsModel.voiceReadOut($0, of: voice) }
+        #expect(readOuts == ["0.70", "0.50", "0.10", "15 s", "120 s", "0.80"])
+        #expect(SettingsModel.voiceReadOut(.margin, of: voice.setting(.margin, to: 0.0749)) == "0.07")
     }
 
     private static func entry(audioBytes: Int) -> IndexEntry {

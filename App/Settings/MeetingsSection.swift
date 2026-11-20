@@ -1,3 +1,4 @@
+import MWConfig
 import SwiftUI
 
 /// R20's Meetings section, as the overview mockup lays it out: engine, recording, summary
@@ -21,26 +22,98 @@ struct MeetingsSection: View {
             model.loadSummaryPrompt()
         }
         .task { await model.refreshMeetings() }
+        .task { await model.checkVoiceModel() }
         .onDisappear(perform: commitName)
         .onChange(of: editingName) { _, editing in
             if !editing { commitName() }
         }
     }
 
+    /// Each provider's engines with its voice switch under them; the tuning closes the card while a
+    /// switch is on.
     private var engines: some View {
         Card("Engine") {
-            SettingRow.full(spacing: DS.Space.s2) {
-                VStack(spacing: 0) {
-                    ForEach(model.meetingEngineRows) { row in
+            SettingRow.full {
+                ForEach(Array(Self.routes.enumerated()), id: \.element) { index, route in
+                    if index > 0 {
+                        Rectangle()
+                            .fill(DS.Colors.line)
+                            .frame(height: DS.Size.hairline)
+                            .padding(.vertical, DS.Space.s4)
+                    }
+                    ForEach(model.meetingEngineRows.filter { $0.engine.voiceRoute == route }) { row in
                         engineRow(row)
                     }
+                    voiceSwitch(route)
                 }
+            }
+            if model.voiceTuningShown {
+                SettingRow.full { VoiceTuning(model: model) }
+            }
+            SettingRow.full {
                 SettingsFootnote(
                     "Meetings are English only. The second AssemblyAI figure is its speaker-labels add-on."
                         + " These list prices drive a live meeting's running cost and the Today/Month totals."
                 )
             }
         }
+    }
+
+    /// The routes in the order of their engines.
+    private static let routes: [VoiceRoute] = MeetingEngine.allCases.reduce(into: []) { routes, engine in
+        if !routes.contains(engine.voiceRoute) { routes.append(engine.voiceRoute) }
+    }
+
+    /// An inset box under the route's engine rows. The disclosure always shows; a reason the switch
+    /// cannot be moved, or when it applies, reads under it.
+    private func voiceSwitch(_ route: VoiceRoute) -> some View {
+        let title =
+            switch route {
+            case .local: "Remember voices on this Mac"
+            case .speechmatics: "Remember voices with Speechmatics"
+            }
+        let disclosure =
+            switch route {
+            case .local:
+                "Learns the voice of each speaker you name and names them in later meetings. Keeps a voiceprint"
+                    + " per person, never audio, in ~/.config/mini-whisper/voices.json and in each meeting's"
+                    + " folder. Nothing leaves this Mac."
+            case .speechmatics:
+                "Speechmatics returns a voice identifier for each speaker you name, and later meetings send those"
+                    + " identifiers back so it can name them. Kept in ~/.config/mini-whisper/voices.json, never"
+                    + " audio. Names are not sent."
+            }
+        let reason = model.voiceDisabledReason(for: route)
+        return HStack(alignment: .top, spacing: 16) {
+            VStack(alignment: .leading, spacing: 0) {
+                Text(title).textStyle(.body.weight(.medium)).foregroundStyle(DS.Colors.text)
+                Group {
+                    Text(disclosure).foregroundStyle(DS.Colors.textSecondary)
+                    if let reason {
+                        Text(reason).foregroundStyle(DS.Colors.warn)
+                    } else if let note = model.voiceNote(for: route) {
+                        Text(note).foregroundStyle(DS.Colors.textTertiary)
+                    }
+                }
+                .textStyle(.meta)
+                .fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            Toggle(
+                title,
+                isOn: settingsBinding(model.isVoiceOn(route)) { await model.setVoiceEnabled($0, for: route) }
+            )
+            .toggleStyle(.ds)
+            .disabled(reason != nil)
+        }
+        .padding(.vertical, DS.Space.s5 + DS.Size.hairline)
+        .padding(.horizontal, DS.Space.s6 + DS.Size.hairline)
+        .background(RoundedRectangle(cornerRadius: DS.Radius.row).fill(DS.Colors.canvas))
+        .overlay(RoundedRectangle(cornerRadius: DS.Radius.row).strokeBorder(DS.Colors.line))
+        // In line with the radio titles: past the 16 pt ring and its gap.
+        .padding(.leading, 16 + DS.Space.s5)
+        .padding(.top, DS.Space.s2)
+        .padding(.bottom, DS.Space.s3)
     }
 
     private func engineRow(_ row: SettingsModel.MeetingEngineRow) -> some View {
@@ -199,6 +272,131 @@ struct MeetingsSection: View {
         Task {
             await model.setMeetingUserName(userName)
             userName = model.meetingUserName
+        }
+    }
+}
+
+/// The Cautious–Eager slider with its caption, and the six values under Advanced. As Sound › Volume's,
+/// the sliders follow a drag and write once it ends; the caption and read-outs follow the drag too.
+private struct VoiceTuning: View {
+    let model: SettingsModel
+
+    /// The tuning a drag under way would write.
+    @State private var draft: VoiceSettings?
+    @State private var advancedOpen = false
+
+    private static let steps = Double(VoiceSettings.steps.lowerBound)...Double(VoiceSettings.steps.upperBound)
+
+    var body: some View {
+        let shown = draft ?? model.voice
+        let caption = SettingsModel.voiceCaption(shown)
+        VStack(alignment: .leading, spacing: DS.Space.s5) {
+            VStack(alignment: .leading, spacing: DS.Space.s3) {
+                HStack(alignment: .firstTextBaseline, spacing: DS.Space.s6) {
+                    Text("How readily names are applied")
+                        .textStyle(.body.weight(.medium))
+                        .foregroundStyle(DS.Colors.text)
+                    Spacer(minLength: 0)
+                    (Text(caption.name).fontWeight(.semibold).foregroundStyle(DS.Colors.text)
+                        + Text(" · \(caption.detail)"))
+                        .textStyle(.meta)
+                        .monospacedDigit()
+                        .foregroundStyle(DS.Colors.textSecondary)
+                }
+                HStack(spacing: DS.Space.s5) {
+                    Text("Cautious")
+                    Slider(
+                        value: Binding(
+                            get: { Double(SettingsModel.voiceSliderStep(shown)) },
+                            set: { draft = model.voice.tuned(toStep: Int($0.rounded())) }
+                        ),
+                        in: Self.steps,
+                        step: 1
+                    ) { editing in
+                        guard !editing, let step = draft?.step else { return }
+                        commit { await model.setVoiceStep(step) }
+                    }
+                    // The stock thumb cannot be drawn hollow, so a hand-set value shows an unfilled track.
+                    .tint(shown.step == nil ? DS.Colors.line : DS.Colors.accent)
+                    .accessibilityLabel("Cautious to Eager")
+                    Text("Eager")
+                }
+                .textStyle(.meta)
+                .foregroundStyle(DS.Colors.textSecondary)
+            }
+            DisclosureGroup(isExpanded: $advancedOpen) {
+                VStack(alignment: .leading, spacing: DS.Space.s5) {
+                    ForEach(VoiceSettings.Field.allCases, id: \.self) { field in
+                        advancedRow(field, shown: shown)
+                    }
+                    if model.voiceResetOffered {
+                        Button("Reset to Balanced") { Task { await model.resetVoiceTuning() } }
+                            .buttonStyle(.plain)
+                            .textStyle(.meta.weight(.medium))
+                            .foregroundStyle(DS.Colors.accent)
+                    }
+                }
+                .padding(.top, DS.Space.s5)
+            } label: {
+                // The stock label does not toggle on macOS; the word should, as the arrow does.
+                Button("Advanced") { advancedOpen.toggle() }
+                    .buttonStyle(.plain)
+                    .textStyle(.meta.weight(.medium))
+                    .foregroundStyle(DS.Colors.textSecondary)
+            }
+        }
+    }
+
+    private func advancedRow(_ field: VoiceSettings.Field, shown: VoiceSettings) -> some View {
+        let (title, description) = Self.text(of: field)
+        return HStack(spacing: DS.Space.s7) {
+            VStack(alignment: .leading, spacing: 0) {
+                Text(title).textStyle(.body.weight(.medium)).foregroundStyle(DS.Colors.text)
+                Text(description)
+                    .textStyle(.meta)
+                    .foregroundStyle(DS.Colors.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            Slider(
+                value: Binding(
+                    get: { shown.value(of: field) },
+                    set: { draft = (draft ?? model.voice).setting(field, to: $0) }
+                ),
+                in: VoiceSettings.range(of: field)
+            ) { editing in
+                guard !editing, let value = draft?.value(of: field) else { return }
+                commit { await model.setVoice(value, for: field) }
+            }
+            .tint(DS.Colors.accent)
+            .frame(width: 200)
+            .accessibilityLabel(title)
+            Text(SettingsModel.voiceReadOut(field, of: shown))
+                .textStyle(.body)
+                .monospacedDigit()
+                .foregroundStyle(DS.Colors.textSecondary)
+                .frame(width: 52, alignment: .trailing)
+        }
+        .opacity(model.isVoiceFieldDimmed(field) ? 0.5 : 1)
+    }
+
+    /// Writes, then shows the stored tuning again unless another drag has begun meanwhile.
+    private func commit(_ write: @escaping @MainActor () async -> Void) {
+        let committed = draft
+        Task {
+            await write()
+            if draft == committed { draft = nil }
+        }
+    }
+
+    private static func text(of field: VoiceSettings.Field) -> (title: String, description: String) {
+        switch field {
+        case .sure: ("Sure match", "A score at or above this applies the name.")
+        case .suggestion: ("Suggestion", "From this score up, the name is offered.")
+        case .margin: ("Margin", "How far ahead of the next-best person a match must be.")
+        case .minimumSpeech: ("Minimum speech", "Speech heard from a voice before the first check.")
+        case .buffer: ("Audio buffer", "Recent audio kept in memory for matching. Not set by the slider.")
+        case .sensitivity: ("Speechmatics sensitivity", "Higher keeps unknown voices apart from remembered ones.")
         }
     }
 }
