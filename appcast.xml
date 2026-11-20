@@ -5,6 +5,16 @@
     <link>https://raw.githubusercontent.com/cagriy/mini-whisper/main/appcast.xml</link>
     <language>en</language>
     <item>
+      <title>Mini Whisper 0.8.1</title>
+      <sparkle:version>0.8.1</sparkle:version>
+      <sparkle:shortVersionString>0.8.1</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <description>&lt;h3&gt;Fixed&lt;/h3&gt;
+&lt;ul&gt;&lt;li&gt;Turning a Remember voices switch off and on again during a meeting resumed recognising and learning in that meeting; it now stays off until the next one.&lt;/li&gt;&lt;li&gt;&lt;code&gt;voices.json&lt;/code&gt; was written through a temporary file that other users on the Mac could briefly read; it is now owner-only from the start.&lt;/li&gt;&lt;/ul&gt;</description>
+      <pubDate>Fri, 20 Nov 2026 15:21:31 +0000</pubDate>
+      <enclosure url="https://github.com/cagriy/mini-whisper/releases/download/v0.8.1/MiniWhisper-0.8.1-arm64.dmg" sparkle:edSignature="7QSDm1f0QuPq5o3/nwID9vPx9ewRqqm/0lzkdAS+fpeD5sRdhfQ4RTpkT9YYjrElTWCqVDSWdll4Z+2nAyuwBw==" length="16031158" type="application/octet-stream" />
+    </item>
+    <item>
       <title>Mini Whisper 0.8.0</title>
       <sparkle:version>0.8.0</sparkle:version>
       <sparkle:shortVersionString>0.8.0</sparkle:shortVersionString>
