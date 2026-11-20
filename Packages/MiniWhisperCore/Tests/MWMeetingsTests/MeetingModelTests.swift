@@ -173,4 +173,84 @@ import MWMeetings
         #expect(try object(data)["titleByUser"] as? Bool == true)
         #expect(try MeetingCoding.decoder().decode(Meeting.self, from: data) == set)
     }
+
+    // MARK: - Voices
+
+    private let alice = UUID(uuidString: "0B6F7C1E-2D3A-4B5C-8D9E-0F1A2B3C4D5E")!
+    private let bob = UUID(uuidString: "9A8B7C6D-5E4F-4A3B-8C2D-1E0F9A8B7C6D")!
+
+    @Test func aLabelFromAnOldFileHasNoVoiceFields() throws {
+        let url = try #require(Bundle.module.url(forResource: "meeting-v0.5", withExtension: "json", subdirectory: "Fixtures"))
+        let label = try #require(try MeetingCoding.decoder().decode(Meeting.self, from: Data(contentsOf: url)).speakers.first)
+
+        #expect(label.person == nil)
+        #expect(label.matches == [])
+        #expect(label.rejected == [])
+    }
+
+    @Test func aLabelWithoutVoiceFieldsEncodesAsToday() throws {
+        let data = try MeetingCoding.encoder().encode(SpeakerLabel(id: 1, name: "Speaker 1", providerKeys: ["1:A"]))
+
+        #expect(String(decoding: data, as: UTF8.self) == #"{"id":1,"isUser":false,"name":"Speaker 1","providerKeys":["1:A"]}"#)
+    }
+
+    @Test func aLabelWithAllThreeRoundTrips() throws {
+        let label = SpeakerLabel(
+            id: 2, name: "Alice", providerKeys: ["1:A", "2:B"], person: alice,
+            matches: [NameMatch(key: "2:B", name: "Alice", person: alice, state: .applied, score: 0.83)],
+            rejected: [bob]
+        )
+        let data = try MeetingCoding.encoder().encode(label)
+
+        #expect(try MeetingCoding.decoder().decode(SpeakerLabel.self, from: data) == label)
+        let json = try object(data)
+        #expect(json["person"] as? String == alice.uuidString)
+        #expect(json["rejected"] as? [String] == [bob.uuidString])
+        #expect((json["matches"] as? [Any])?.count == 1)
+    }
+
+    @Test func nameMatchEncodesItsSixFields() throws {
+        let match = NameMatch(key: "1:A", name: "Alice", person: alice, source: "voice", state: .suggested, score: 0.62)
+        let data = try MeetingCoding.encoder().encode(match)
+
+        #expect(String(decoding: data, as: UTF8.self) == """
+            {"key":"1:A","name":"Alice","person":"\(alice.uuidString)","score":0.62,"source":"voice","state":"suggested"}
+            """)
+        #expect(try MeetingCoding.decoder().decode(NameMatch.self, from: data) == match)
+        #expect(NameMatch(key: "1:A", name: "Alice", person: alice, state: .applied).source == "voice")
+    }
+
+    @Test func meetingVoicesDecodesTheDesignsTwoShapes() throws {
+        let vector = VoiceVector((0..<VoiceVector.dimension).map { Float(cos(Double($0) / 7)) / 11 })
+        let base64 = String(String(decoding: try MeetingCoding.encoder().encode(vector), as: UTF8.self).dropFirst().dropLast())
+        let local = Data("""
+            {"schema":1,"route":"local","model":"wespeaker_v2",
+             "keys":{"1:A":{"seconds":212.4,"vector":"\(base64)"},
+                     "user":{"seconds":640.0,"vector":"\(base64)"}}}
+            """.utf8)
+        let speechmatics = Data("""
+            {"schema":1,"route":"speechmatics","model":"standard",
+             "keys":{"1:S2":{"seconds":88.1,"identifier":"opaque-identifier"}}}
+            """.utf8)
+
+        let localVoices = try MeetingCoding.decoder().decode(MeetingVoices.self, from: local)
+        #expect(localVoices.schema == 1)
+        #expect(localVoices.route == .local)
+        #expect(localVoices.model == "wespeaker_v2")
+        #expect(localVoices.keys["1:A"] == MeetingVoices.Entry(seconds: 212.4, vector: vector))
+        #expect(localVoices.keys[MeetingVoices.userKey] == MeetingVoices.Entry(seconds: 640, vector: vector))
+        #expect(MeetingVoices.userKey == "user")
+
+        let speechmaticsVoices = try MeetingCoding.decoder().decode(MeetingVoices.self, from: speechmatics)
+        #expect(speechmaticsVoices == MeetingVoices(
+            route: .speechmatics, model: "standard",
+            keys: ["1:S2": MeetingVoices.Entry(seconds: 88.1, identifier: "opaque-identifier")]
+        ))
+
+        for (voices, source) in [(localVoices, local), (speechmaticsVoices, speechmatics)] {
+            let encoded = try MeetingCoding.encoder().encode(voices)
+            #expect(try MeetingCoding.decoder().decode(MeetingVoices.self, from: encoded) == voices)
+            #expect(try object(encoded) as NSDictionary == object(source) as NSDictionary)
+        }
+    }
 }

@@ -134,12 +134,57 @@ public struct SpeakerLabel: Codable, Sendable, Equatable, Identifiable {
     public var isUser: Bool
     /// `"<session>:<provider label>"`, e.g. `"2:S1"`.
     public var providerKeys: [String]
+    /// The confirmed identity.
+    public var person: UUID?
+    /// At most one per provider key the speaker owns.
+    public var matches: [NameMatch]
+    /// People never offered for this speaker again.
+    public var rejected: [UUID]
 
-    public init(id: Int, name: String, isUser: Bool = false, providerKeys: [String] = []) {
+    public init(
+        id: Int,
+        name: String,
+        isUser: Bool = false,
+        providerKeys: [String] = [],
+        person: UUID? = nil,
+        matches: [NameMatch] = [],
+        rejected: [UUID] = []
+    ) {
         self.id = id
         self.name = name
         self.isUser = isUser
         self.providerKeys = providerKeys
+        self.person = person
+        self.matches = matches
+        self.rejected = rejected
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, name, isUser, providerKeys, person, matches, rejected
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(Int.self, forKey: .id)
+        name = try container.decode(String.self, forKey: .name)
+        isUser = try container.decode(Bool.self, forKey: .isUser)
+        providerKeys = try container.decode([String].self, forKey: .providerKeys)
+        // Absent from files written before voices were remembered.
+        person = try container.decodeIfPresent(UUID.self, forKey: .person)
+        matches = try container.decodeIfPresent([NameMatch].self, forKey: .matches) ?? []
+        rejected = try container.decodeIfPresent([UUID].self, forKey: .rejected) ?? []
+    }
+
+    /// The voice fields only when set, so a meeting without recognition is written as before.
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(name, forKey: .name)
+        try container.encode(isUser, forKey: .isUser)
+        try container.encode(providerKeys, forKey: .providerKeys)
+        try container.encodeIfPresent(person, forKey: .person)
+        if !matches.isEmpty { try container.encode(matches, forKey: .matches) }
+        if !rejected.isEmpty { try container.encode(rejected, forKey: .rejected) }
     }
 }
 

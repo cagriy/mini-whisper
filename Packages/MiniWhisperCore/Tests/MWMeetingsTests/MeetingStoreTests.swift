@@ -373,6 +373,75 @@ import MWMeetings
         #expect(entries.first { $0.id == MeetingFixtures.northwindID }?.test == nil)
     }
 
+    // MARK: - Voices
+
+    private func voices() -> MeetingVoices {
+        MeetingVoices(route: .local, model: "wespeaker_v2", keys: [
+            "1:A": .init(seconds: 21.5, vector: VoiceVector((0..<VoiceVector.dimension).map { Float($0) / 256 })),
+        ])
+    }
+
+    @Test func voicesRoundTripAt0600() async throws {
+        let fixture = try Fixture()
+        let meeting = MeetingFixtures.make().meeting
+        try await fixture.store.create(meeting)
+
+        try await fixture.store.writeVoices(voices(), of: meeting.id)
+
+        #expect(try fixture.store.readVoices(meeting.id) == voices())
+        #expect(try permissions(fixture.folder(meeting.id).appendingPathComponent("voices.json")) == 0o600)
+        #expect(try contents(fixture.folder(meeting.id)) == [
+            "meeting.json", "notes.jsonl", "segments.jsonl", "voices.json",
+        ])
+    }
+
+    @Test func readVoicesIsNilWithoutTheFile() async throws {
+        let fixture = try Fixture()
+        let meeting = MeetingFixtures.make().meeting
+        try await fixture.store.create(meeting)
+
+        #expect(try fixture.store.readVoices(meeting.id) == nil)
+        #expect(try fixture.store.readVoices(UUID()) == nil)
+    }
+
+    @Test func deleteVoicesRemovesOnlyTheSidecar() async throws {
+        let fixture = try Fixture()
+        let meeting = MeetingFixtures.make().meeting
+        try await fixture.store.create(meeting)
+        try await fixture.store.writeVoices(voices(), of: meeting.id)
+
+        try await fixture.store.deleteVoices(meeting.id)
+        try await fixture.store.deleteVoices(meeting.id)
+
+        #expect(try fixture.store.readVoices(meeting.id) == nil)
+        #expect(try contents(fixture.folder(meeting.id)) == ["meeting.json", "notes.jsonl", "segments.jsonl"])
+        #expect(try fixture.store.load(meeting.id).meeting == meeting)
+    }
+
+    @Test func deletingTheMeetingDeletesItsVoices() async throws {
+        let fixture = try Fixture()
+        let meeting = MeetingFixtures.make().meeting
+        try await fixture.store.create(meeting)
+        try await fixture.store.writeVoices(voices(), of: meeting.id)
+
+        try await fixture.store.delete(meeting.id)
+
+        #expect(try fixture.store.readVoices(meeting.id) == nil)
+        #expect(FileManager.default.fileExists(atPath: fixture.folder(meeting.id).path) == false)
+    }
+
+    @Test func aMeetingWithoutVoicesHasNoSidecar() async throws {
+        let fixture = try Fixture()
+        let meeting = MeetingFixtures.make().meeting
+        try await fixture.store.create(meeting)
+        try await fixture.store.append(segment("one", at: 1), to: meeting.id)
+        try await fixture.store.update(meeting)
+        try await fixture.store.rewriteSegments([segment("one, edited", at: 1)], of: meeting.id)
+
+        #expect(try contents(fixture.folder(meeting.id)) == ["meeting.json", "notes.jsonl", "segments.jsonl"])
+        #expect(try fixture.store.readVoices(meeting.id) == nil)
+    }
+
     @Test func audioURLIsInsideTheMeetingFolder() throws {
         let fixture = try Fixture()
         let id = UUID()

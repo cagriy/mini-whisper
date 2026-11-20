@@ -19,6 +19,7 @@ public actor MeetingStore: MeetingReading {
         case notes = "notes.jsonl"
         case audio = "audio.m4a"
         case testCall = "testcall.json"
+        case voices = "voices.json"
     }
 
     public nonisolated let directory: URL
@@ -83,22 +84,25 @@ public actor MeetingStore: MeetingReading {
         for file in [File.segments, .notes] {
             try? handles.removeValue(forKey: url(file, of: id))?.close()
         }
-        if FileManager.default.fileExists(atPath: folder(id).path) {
-            try FileManager.default.removeItem(at: folder(id))
-        }
+        try Self.removeIfPresent(folder(id))
         try writeIndex(readIndexOrScan().filter { $0.id != id })
     }
 
     public func deleteAudio(_ id: UUID) throws {
-        let audio = audioURL(id)
-        if FileManager.default.fileExists(atPath: audio.path) {
-            try FileManager.default.removeItem(at: audio)
-        }
+        try Self.removeIfPresent(audioURL(id))
         try updateIndexEntry(for: readMeeting(id))
     }
 
     public func writeTestCall(_ record: TestCallRecord, of id: UUID) throws {
         try Self.write(MeetingCoding.encoder().encode(record), to: url(.testCall, of: id))
+    }
+
+    public func writeVoices(_ voices: MeetingVoices, of id: UUID) throws {
+        try Self.write(MeetingCoding.encoder().encode(voices), to: url(.voices, of: id))
+    }
+
+    public func deleteVoices(_ id: UUID) throws {
+        try Self.removeIfPresent(url(.voices, of: id))
     }
 
     /// Rebuilds `index.json` from the meeting folders and writes it.
@@ -139,6 +143,13 @@ public actor MeetingStore: MeetingReading {
     public nonisolated func readTestCall(_ id: UUID) throws -> TestCallRecord? {
         guard let data = FileManager.default.contents(atPath: url(.testCall, of: id).path) else { return nil }
         return try MeetingCoding.decoder().decode(TestCallRecord.self, from: data)
+    }
+
+    /// Nil when the meeting has no `voices.json`. Not on `MeetingReading`: the CLI and MCP server
+    /// never see voice data.
+    public nonisolated func readVoices(_ id: UUID) throws -> MeetingVoices? {
+        guard let data = FileManager.default.contents(atPath: url(.voices, of: id).path) else { return nil }
+        return try MeetingCoding.decoder().decode(MeetingVoices.self, from: data)
     }
 
     // MARK: - Paths
@@ -263,6 +274,12 @@ public actor MeetingStore: MeetingReading {
 
     private static func newestFirst(_ entries: [IndexEntry]) -> [IndexEntry] {
         entries.sorted { $0.startedAt > $1.startedAt }
+    }
+
+    private static func removeIfPresent(_ url: URL) throws {
+        if FileManager.default.fileExists(atPath: url.path) {
+            try FileManager.default.removeItem(at: url)
+        }
     }
 
     /// Temp file in the same folder, 0600, renamed over the target.
