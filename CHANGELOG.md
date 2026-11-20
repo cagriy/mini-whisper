@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.8.1] - 2026-11-20
+
 ### Fixed
 
 - Turning a Remember voices switch off and on again during a meeting resumed recognising and
