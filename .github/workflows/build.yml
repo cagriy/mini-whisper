@@ -36,6 +36,20 @@ jobs:
           xcodebuild -project "Mini Whisper.xcodeproj" \
             -scheme MiniWhisper -destination 'platform=macOS' test
 
+  # The oldest hosted macOS. Standalone, not in build's needs: a model that fails to load
+  # disables the local voice switch rather than breaking the app, so this flags, not blocks.
+  voice-model:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile the voice model check
+        run: swiftc -O scripts/voice_model_check.swift -o "$RUNNER_TEMP/voice_model_check"
+      - name: Check the bundled voice model
+        run: |
+          "$RUNNER_TEMP/voice_model_check" App/Resources/wespeaker_v2.mlmodelc \
+            AppTests/Fixtures/daniel-1.wav AppTests/Fixtures/daniel-2.wav \
+            AppTests/Fixtures/karen-1.wav AppTests/Fixtures/karen-2.wav
+
   build:
     needs: unit-tests
     runs-on: macos-26

@@ -28,6 +28,12 @@ targets:
     platform: macOS
     sources:
       - path: App
+        excludes:
+          - "Resources/wespeaker_v2.mlmodelc"
+      # A folder reference, so the compiled model is copied as one directory.
+      - path: App/Resources/wespeaker_v2.mlmodelc
+        type: folder
+        buildPhase: resources
     dependencies:
       - package: MiniWhisperCore
         product: MWSupport
@@ -63,6 +69,8 @@ targets:
         product: MWMeetingPipeline
       - package: MiniWhisperCore
         product: MWTestCall
+      - package: MiniWhisperCore
+        product: MWVoices
       - package: Sparkle
     settings:
       base:
