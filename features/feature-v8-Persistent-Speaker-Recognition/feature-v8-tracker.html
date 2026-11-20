@@ -1451,7 +1451,7 @@
     <section class="panel" role="tabpanel"
              id="panel-implementation" aria-labelledby="tab-implementation" hidden>
       <p class="section-timestamp">Updated 2026-11-20 13:39 UTC</p>
-      <!-- usage:IMPLEMENTATION_USAGE_CHIP --><!-- /usage:IMPLEMENTATION_USAGE_CHIP -->
+      <!-- usage:IMPLEMENTATION_USAGE_CHIP --><span class="chip usage">3h 13m 33s · 1,619,370 out · 141.2 tok/s · $109.32</span><!-- /usage:IMPLEMENTATION_USAGE_CHIP -->
       <article class="panel-section">
         <h2 class="section-label">Highlights</h2>
         <div class="bullets"><ul>
@@ -1465,7 +1465,35 @@
           <li>Pending human verification: UI checks for Stages 3, 14, 18–20, the live acceptance, the Speechmatics live test, the first voice-model CI run</li>
           <li>Final commit: ad4eff0; branch main ahead of origin, not pushed</li>
         </ul></div>
-        <!-- usage:IMPLEMENTATION_USAGE --><!-- /usage:IMPLEMENTATION_USAGE -->
+        <!-- usage:IMPLEMENTATION_USAGE --><div class="usage-pair">
+<table class="usage">
+<thead><tr><th>Metric</th><th>Main</th><th>Subagents</th><th>Total</th></tr></thead>
+<tbody>
+<tr class="grp"><td colspan="4">Time</td></tr>
+<tr><td>elapsed</td><td>—</td><td>—</td><td>3h 13m 33s</td></tr>
+<tr><td>run time</td><td>—</td><td>—</td><td>3h 12m 02s</td></tr>
+<tr class="grp"><td colspan="4">Requests</td></tr>
+<tr><td>model</td><td>113</td><td>1,176</td><td>1,289</td></tr>
+<tr><td>web_search</td><td>0</td><td>0</td><td>0</td></tr>
+<tr><td>web_fetch</td><td>0</td><td>0</td><td>0</td></tr>
+<tr class="grp"><td colspan="4">Throughput</td></tr>
+<tr class="tp"><td>output tok/s</td><td>—</td><td>—</td><td>141.2</td></tr>
+</tbody>
+</table>
+<table class="usage">
+<thead><tr><th>Metric</th><th>Main</th><th>Subagents</th><th>Total</th></tr></thead>
+<tbody>
+<tr class="grp"><td colspan="4">Tokens</td></tr>
+<tr><td>input_tokens</td><td>268</td><td>2,400</td><td>2,668</td></tr>
+<tr><td>output_tokens</td><td>121,367</td><td>1,498,003</td><td>1,619,370</td></tr>
+<tr class="sub"><td>thinking_tokens</td><td>22,158</td><td>829,240</td><td>851,398</td></tr>
+<tr><td>cache_write</td><td>310,075</td><td>4,982,398</td><td>5,292,473</td></tr>
+<tr class="sub"><td>ephemeral_1h</td><td>310,075</td><td>0</td><td>310,075</td></tr>
+<tr class="sub"><td>ephemeral_5m</td><td>0</td><td>4,982,398</td><td>4,982,398</td></tr>
+<tr><td>cache_read</td><td>37,367,207</td><td>210,260,817</td><td>247,628,024</td></tr>
+</tbody>
+</table>
+</div><!-- /usage:IMPLEMENTATION_USAGE -->
       </article>
       <article class="panel-section">
         <h2 class="section-label">Detail</h2>
@@ -1536,29 +1564,29 @@
 
     <section class="panel" role="tabpanel"
              id="panel-usage" aria-labelledby="tab-usage" hidden>
-      <!-- usage:CYCLE_USAGE --><p class="section-timestamp">3 of 4 stages · 3 runs</p>
-<span class="chip usage">$49.51 · 2h 52m 55s · 552,052 out</span>
+      <!-- usage:CYCLE_USAGE --><p class="section-timestamp">4 of 4 stages · 4 runs</p>
+<span class="chip usage">$158.82 · 6h 06m 28s · 2,171,422 out</span>
 <article class="panel-section">
 <h2 class="section-label">Cycle usage</h2>
 <div class="usage-scroll"><table class="usage">
 <thead><tr><th>Metric</th><th>Storm</th><th>Design</th><th>Plan</th><th>Implement</th><th>Total</th><th>Cost</th></tr></thead>
 <tbody>
 <tr class="grp"><td colspan="7">Tokens</td></tr>
-<tr><td>input</td><td>58</td><td>266</td><td>258</td><td>—</td><td>582</td><td>$0.00</td></tr>
-<tr><td>cache write 1h</td><td>112,333</td><td>589,191</td><td>27,328</td><td>—</td><td>728,852</td><td>$11.44</td></tr>
-<tr><td>cache write 5m</td><td>11,207</td><td>76,326</td><td>888,884</td><td>—</td><td>976,417</td><td>$4.46</td></tr>
-<tr><td>cache read</td><td>3,281,288</td><td>47,071,951</td><td>33,515,390</td><td>—</td><td>83,868,629</td><td>$16.76</td></tr>
-<tr><td>output</td><td>67,327</td><td>258,092</td><td>226,633</td><td>—</td><td>552,052</td><td>$16.84</td></tr>
-<tr class="sub"><td>thinking</td><td>36,496</td><td>119,654</td><td>114,141</td><td>—</td><td>270,291</td><td>—</td></tr>
-<tr><td>web searches</td><td>0</td><td>0</td><td>0</td><td>—</td><td>0</td><td>$0.00</td></tr>
-<tr class="tp"><td>cost</td><td>$5.01</td><td>$28.60</td><td>$15.90</td><td>—</td><td></td><td>$49.51</td></tr>
+<tr><td>input</td><td>58</td><td>266</td><td>258</td><td>2,668</td><td>3,250</td><td>$0.01</td></tr>
+<tr><td>cache write 1h</td><td>112,333</td><td>589,191</td><td>27,328</td><td>310,075</td><td>1,038,927</td><td>$13.92</td></tr>
+<tr><td>cache write 5m</td><td>11,207</td><td>76,326</td><td>888,884</td><td>4,982,398</td><td>5,958,815</td><td>$29.37</td></tr>
+<tr><td>cache read</td><td>3,281,288</td><td>47,071,951</td><td>33,515,390</td><td>247,628,024</td><td>331,496,653</td><td>$66.29</td></tr>
+<tr><td>output</td><td>67,327</td><td>258,092</td><td>226,633</td><td>1,619,370</td><td>2,171,422</td><td>$49.23</td></tr>
+<tr class="sub"><td>thinking</td><td>36,496</td><td>119,654</td><td>114,141</td><td>851,398</td><td>1,121,689</td><td>—</td></tr>
+<tr><td>web searches</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>$0.00</td></tr>
+<tr class="tp"><td>cost</td><td>$5.01</td><td>$28.60</td><td>$15.90</td><td>$109.32</td><td></td><td>$158.82</td></tr>
 <tr class="grp"><td colspan="7">Run</td></tr>
-<tr><td>model</td><td>fable-5-2 + haiku-5-5</td><td>fable-5-2 + haiku-5-5</td><td>opus-5-5</td><td>—</td><td></td><td></td></tr>
-<tr><td>runs</td><td>1</td><td>1</td><td>1</td><td>—</td><td>3</td><td></td></tr>
-<tr><td>elapsed</td><td>22m 39s</td><td>1h 55m 09s</td><td>35m 07s</td><td>—</td><td>2h 52m 55s</td><td></td></tr>
+<tr><td>model</td><td>fable-5-2 + haiku-5-5</td><td>fable-5-2 + haiku-5-5</td><td>opus-5-5</td><td>opus-5-5</td><td></td><td></td></tr>
+<tr><td>runs</td><td>1</td><td>1</td><td>1</td><td>1</td><td>4</td><td></td></tr>
+<tr><td>elapsed</td><td>22m 39s</td><td>1h 55m 09s</td><td>35m 07s</td><td>3h 13m 33s</td><td>6h 06m 28s</td><td></td></tr>
 </tbody>
 </table></div>
-<p class="usage-note">API list prices as of 2026-11-10, not subscription billing</p>
+<p class="usage-note">API list prices as of 2026-11-10, not subscription billing · evals included (implement)</p>
 </article><!-- /usage:CYCLE_USAGE -->
     </section>
 
