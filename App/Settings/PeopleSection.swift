@@ -1,7 +1,8 @@
 import SwiftUI
 
 /// Design v8 §5 UI surfaces, People (mockup `mockup-v8-people.html`): what is kept, then a card of
-/// everyone remembered with their actions on hover or focus; or, before anyone, the empty page.
+/// everyone remembered with their actions on hover or focus and Forget everyone; or, before
+/// anyone, the empty page.
 struct PeopleSection: View {
     let model: PeopleModel
 
@@ -17,21 +18,32 @@ struct PeopleSection: View {
                 if let line = model.recordingLine {
                     StatusLine(line, .info)
                 }
+                if let error = model.errorMessage {
+                    StatusLine(error, .warning)
+                }
                 Card(model.groupTitle) {
                     ForEach(model.rows) { PersonRow(model: model, row: $0) }
+                }
+                Card {
+                    SettingRow(PeopleModel.forgetEveryoneTitle, description: PeopleModel.forgetEveryoneDetail) {
+                        Button(PeopleModel.forgetEveryoneAction, action: model.requestForgetEveryone)
+                            .buttonStyle(.pill(size: .small, tint: DS.Colors.recording))
+                            .disabled(!model.canAct)
+                    }
                 }
             }
         }
     }
 }
 
-/// A person's name and routes; Rename and Merge into… appear in reserved space on hover or focus.
+/// A person's name and routes; Rename, Merge into… and Forget appear in reserved space on hover or
+/// focus. The user's own entry has only Forget.
 private struct PersonRow: View {
     let model: PeopleModel
     let row: PeopleModel.Row
 
     private enum Action: Hashable {
-        case rename, merge
+        case rename, merge, forget
     }
 
     @State private var hovered = false
@@ -87,6 +99,9 @@ private struct PersonRow: View {
                 Button("Merge into…") { PillMenu.popUp(mergeItems) }
                     .focused($focused, equals: .merge)
             }
+            Button("Forget") { model.requestForget(row) }
+                .buttonStyle(.pill(.quietAction, size: .small, tint: DS.Colors.recording))
+                .focused($focused, equals: .forget)
         }
         .buttonStyle(.pill(.quietAction, size: .small))
         .disabled(!model.canAct)

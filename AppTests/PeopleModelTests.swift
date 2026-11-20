@@ -34,7 +34,12 @@ struct PeopleModelTests {
     }
 
     private static let you = person("Sample User", isUser: true, heard: -60, local: true, tiers: ["standard"])
-    private static let alice = person("Alice", heard: -2 * day, local: true, tiers: ["standard"])
+    private static let merged = UUID()
+    private static let alice: Person = {
+        var alice = person("Alice", heard: -2 * day, local: true, tiers: ["standard"])
+        alice.aliases = [merged]
+        return alice
+    }()
     private static let bob = person("Bob", heard: -2 * day - 60, local: true)
     private static let carol = person("Carol", heard: -8 * day, tiers: ["enhanced"])
 
@@ -45,6 +50,19 @@ struct PeopleModelTests {
         var merges: [(UUID, UUID)] = []
         var openedMeetings = 0
         var renameFailure: (any Error)?
+        /// Forget's steps in order, and what each was given.
+        var steps: [String] = []
+        var forgets: [UUID?] = []
+        var forgetFailure: (any Error)?
+        var heldScrubs: [Set<UUID>?] = []
+        /// The meetings sessions hold.
+        let held: Set<UUID> = [UUID(), UUID()]
+        var storedScrubs: [(people: Set<UUID>?, skipping: Set<UUID>)] = []
+        var logRemovals: [Set<UUID>?] = []
+    }
+
+    private struct DiskFull: LocalizedError {
+        var errorDescription: String? { "disk full" }
     }
 
     private func model(
@@ -62,6 +80,30 @@ struct PeopleModelTests {
                 }
             },
             merge: { source, target in await MainActor.run { calls.merges.append((source, target)) } },
+            forget: { id in
+                try await MainActor.run {
+                    calls.steps.append("store")
+                    calls.forgets.append(id)
+                    if let failure = calls.forgetFailure { throw failure }
+                }
+            },
+            scrubOpenMeetings: { people in
+                calls.steps.append("held")
+                calls.heldScrubs.append(people)
+                return calls.held
+            },
+            scrubStoredMeetings: { people, skipping in
+                await MainActor.run {
+                    calls.steps.append("stored")
+                    calls.storedScrubs.append((people, skipping))
+                }
+            },
+            removeMatches: { people in
+                await MainActor.run {
+                    calls.steps.append("log")
+                    calls.logRemovals.append(people)
+                }
+            },
             openMeetingsSettings: { calls.openedMeetings += 1 },
             now: { Self.now },
             calendar: Self.utc
@@ -243,5 +285,109 @@ struct PeopleModelTests {
         model.openMeetingsSettings()
 
         #expect(calls.openedMeetings == 1)
+    }
+
+    // MARK: - Forget (Stage 20)
+
+    @Test func forgetRunsStoreThenHeldMeetingsThenStoredMeetingsThenTheLog() async throws {
+        let calls = Calls()
+        let model = await model(calls: calls)
+
+        model.requestForget(try row(model, "Alice"))
+        await model.confirm()
+
+        let ids: Set<UUID> = [Self.alice.id, Self.merged]
+        #expect(calls.steps == ["store", "held", "stored", "log"])
+        #expect(calls.forgets == [Self.alice.id])
+        #expect(calls.heldScrubs == [ids])
+        #expect(calls.storedScrubs.map(\.people) == [ids])
+        #expect(calls.storedScrubs.map(\.skipping) == [calls.held])
+        #expect(calls.logRemovals == [ids])
+        #expect(model.pending == nil)
+        #expect(model.errorMessage == nil)
+    }
+
+    @Test func forgetEveryoneClearsEverything() async {
+        let calls = Calls()
+        let model = await model(calls: calls)
+
+        model.requestForgetEveryone()
+        await model.confirm()
+
+        #expect(calls.steps == ["store", "held", "stored", "log"])
+        #expect(calls.forgets == [nil])
+        #expect(calls.heldScrubs == [nil])
+        #expect(calls.storedScrubs.map(\.people) == [nil])
+        #expect(calls.storedScrubs.map(\.skipping) == [calls.held])
+        #expect(calls.logRemovals == [nil])
+    }
+
+    @Test func aFailedStoreWriteStillScrubsAndSaysSo() async throws {
+        let calls = Calls()
+        calls.forgetFailure = DiskFull()
+        let model = await model(calls: calls)
+
+        model.requestForget(try row(model, "Bob"))
+        await model.confirm()
+
+        #expect(calls.steps == ["store", "held", "stored", "log"])
+        #expect(calls.logRemovals == [[Self.bob.id]])
+        #expect(model.errorMessage == "Could not save the remembered voices (disk full)")
+    }
+
+    @Test func theForgetDialogsCopy() async throws {
+        let model = await model()
+
+        model.requestForget(try row(model, "Alice"))
+        let one = try #require(model.pending)
+        #expect(one.title == "Forget Alice?")
+        #expect(one.message == "Their stored voice, their voice data in past meetings and their lines in the match"
+            + " log are deleted. Transcripts keep the name as text.")
+        #expect(one.confirmTitle == "Forget")
+
+        model.requestForgetEveryone()
+        let everyone = try #require(model.pending)
+        #expect(everyone.title == "Forget everyone?")
+        #expect(everyone.message == "Deletes all 4 people, the voice data kept inside every past meeting and the match"
+            + " log. Transcripts keep their names as text. This cannot be undone.")
+        #expect(everyone.confirmTitle == "Forget everyone")
+
+        let single = await self.model([Self.bob])
+        single.requestForgetEveryone()
+        #expect(single.pending?.message.hasPrefix("Deletes 1 person, the voice data") == true)
+
+        #expect(PeopleModel.forgetEveryoneTitle == "Forget everyone")
+        #expect(PeopleModel.forgetEveryoneDetail == "Deletes every remembered voice, the voice data kept inside past"
+            + " meetings and the match log. Names already written in transcripts stay.")
+        #expect(PeopleModel.forgetEveryoneAction == "Forget Everyone…")
+    }
+
+    @Test func forgetIsUnavailableWhileRecording() async throws {
+        let calls = Calls()
+        let model = await model(calls: calls)
+        model.isRecording = true
+
+        model.requestForget(try row(model, "Alice"))
+        #expect(model.pending == nil)
+        model.requestForgetEveryone()
+        #expect(model.pending == nil)
+        await model.confirm()
+
+        #expect(calls.steps.isEmpty)
+    }
+
+    @Test func theUsersEntryCanBeForgotten() async throws {
+        let calls = Calls()
+        let model = await model(calls: calls)
+
+        model.requestForget(try row(model, "Sample User"))
+        let pending = try #require(model.pending)
+        #expect(pending.title == "Forget Sample User?")
+        #expect(pending.message == "Your stored voice, your voice data in past meetings and your lines in the match"
+            + " log are deleted. Your voice is learned again in your next remote meeting while a Remember voices"
+            + " switch is on.")
+        await model.confirm()
+
+        #expect(calls.forgets == [Self.you.id])
     }
 }

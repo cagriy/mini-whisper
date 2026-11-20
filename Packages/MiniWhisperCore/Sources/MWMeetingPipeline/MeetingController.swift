@@ -607,16 +607,7 @@ public final class MeetingController {
             self.voice = nil
             return emit(.voiceData(active: false, keys: []))
         }
-        if !sidecar.keys.isEmpty {
-            do {
-                try await deps.store.writeVoices(sidecar, of: meeting.id)
-                Log.voice.info("sidecar written: \(sidecar.keys.count) key\(sidecar.keys.count == 1 ? "" : "s")")
-            } catch {
-                let reason = AnyError(error).description
-                Log.voice.error("sidecar not written: \(reason)")
-                emit(.error("Could not save this meeting's voice data (\(reason))"))
-            }
-        }
+        if !sidecar.keys.isEmpty { await saveSidecar(sidecar, of: meeting.id) }
         let before = registry.labels
         if await voice.hasUserVoice(before, minimum: settings.minimumSpeechSeconds),
            let user = await voice.user(named: meeting.userName) {
@@ -626,6 +617,47 @@ public final class MeetingController {
         await voice.markHeard(registry.labels)
         if registry.labels != before { emit(.speakers(registry.labels)) }
         emit(.voiceData(active: true, keys: voice.keys))
+    }
+
+    /// Writes the meeting's sidecar, or deletes it when there is none; a failure is shown.
+    private func saveSidecar(_ sidecar: MeetingVoices?, of id: UUID) async {
+        do {
+            if let sidecar {
+                try await deps.store.writeVoices(sidecar, of: id)
+                Log.voice.info("sidecar written: \(sidecar.keys.count) key\(sidecar.keys.count == 1 ? "" : "s")")
+            } else {
+                try await deps.store.deleteVoices(id)
+            }
+        } catch {
+            let reason = AnyError(error).description
+            Log.voice.error("sidecar not written: \(reason)")
+            emit(.error("Could not save this meeting's voice data (\(reason))"))
+        }
+    }
+
+    /// Design v8 §5 People actions, Forget (R24): the stopped meeting this session holds loses the
+    /// links, matches and rejections naming `people` (nil for everyone) and those speakers' voice
+    /// data; names stay. The sidecar is saved first, so a failed meeting write leaves the links to
+    /// scrub again.
+    public func scrubVoices(people: Set<UUID>?) async {
+        guard state == .stopped, var meeting else { return }
+        meeting.speakers = registry.labels
+        let original = meeting.speakers
+        var scrubbed = false
+        if let voice {
+            scrubbed = voice.scrub(&meeting, people: people)
+            if scrubbed { await saveSidecar(voice.sidecar, of: meeting.id) }
+        } else {
+            _ = VoiceScrubber.scrub(&meeting, voices: nil, people: people)
+            // Without a route the sidecar is absent or unreadable: no use here, and it may hold theirs.
+            let linked = original.contains { $0.person.map { people?.contains($0) ?? true } ?? false }
+            if deps.voices != nil, people == nil || linked { await saveSidecar(nil, of: meeting.id) }
+        }
+        if meeting.speakers != original {
+            registry = SpeakerRegistry(labels: meeting.speakers)
+            await applyMerge(nil)
+        }
+        if scrubbed, let voice { emit(.voiceData(active: false, keys: voice.keys)) }
     }
 
     /// Design v8 §5 Accept (R15): the speaker takes the suggested person's name, merging into a

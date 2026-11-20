@@ -112,6 +112,7 @@ private final class StubController: MeetingControlling {
     func acceptSuggestion(key: String) async {}
     func dismissSuggestion(key: String) async {}
     func rejectMatch(key: String) async {}
+    func scrubVoices(people: Set<UUID>?) async {}
 }
 
 /// Collects log messages; AppTests cannot reach `MWTestSupport`'s capturing sink.

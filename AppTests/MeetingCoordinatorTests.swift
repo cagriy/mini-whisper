@@ -128,6 +128,8 @@ struct MeetingCoordinatorTests {
         func acceptSuggestion(key: String) async { request.yield("accept \(key)") }
         func dismissSuggestion(key: String) async { request.yield("dismiss \(key)") }
         func rejectMatch(key: String) async { request.yield("reject \(key)") }
+        var scrubs: [Set<UUID>?] = []
+        func scrubVoices(people: Set<UUID>?) async { scrubs.append(people) }
     }
 
     /// Records the prompt's calls and yields each on `calls`: `.silence` does not call `changed()`.
@@ -984,6 +986,27 @@ struct MeetingCoordinatorTests {
         #expect(harness.coordinator.isOpen(finishing))
         #expect(harness.coordinator.isOpen(opened))
         #expect(harness.coordinator.isOpen(UUID()) == false)
+    }
+
+    @Test func scrubVoicesReachesEverySessionHoldingAMeetingAndReturnsTheirIds() async throws {
+        let harness = Harness()
+        let recording = try #require(await harness.recording().meeting?.id)
+        harness.coordinator.pageLeft()
+        let finishing = UUID()
+        let controller = try await harness.open(finishing)
+        let model = harness.models[1]
+        controller.send(.summary(.writing))
+        await harness.until { model.summary == .writing }
+        let opened = UUID()
+        try await harness.open(opened)
+        let alice = UUID()
+
+        let ids = await harness.coordinator.scrubVoices(people: [alice])
+
+        #expect(ids == [recording, finishing, opened])
+        #expect(harness.controllers.map(\.scrubs) == [[[alice]], [[alice]], [[alice]]])
+        #expect(await harness.coordinator.scrubVoices(people: nil) == ids)
+        #expect(harness.controllers.allSatisfy { $0.scrubs.last == .some(nil) })
     }
 
     @Test func liveModelIsCurrentsWhileActive() async {

@@ -32,6 +32,7 @@ protocol MeetingControlling: AnyObject {
     func acceptSuggestion(key: String) async
     func dismissSuggestion(key: String) async
     func rejectMatch(key: String) async
+    func scrubVoices(people: Set<UUID>?) async
 }
 
 extension MeetingController: MeetingControlling {}
@@ -243,6 +244,19 @@ final class MeetingCoordinator {
         guard let session = session(holding: id) else { return false }
         if let title = session.model.commitTitle(title) { await session.controller.retitle(title) }
         return true
+    }
+
+    /// Forget (design v8 §5 People actions): every session holding a meeting scrubs it through its
+    /// controller, whose next save would otherwise put the voices back. Returns those meetings'
+    /// ids, which the scrub of the stored meetings skips.
+    func scrubVoices(people: Set<UUID>?) async -> Set<UUID> {
+        var held = Set<UUID>()
+        for session in [current, opened].compactMap({ $0 }) + finishing {
+            guard let id = session.controller.meeting?.id else { continue }
+            held.insert(id)
+            await session.controller.scrubVoices(people: people)
+        }
+        return held
     }
 
     private func session(holding id: UUID) -> Session? {

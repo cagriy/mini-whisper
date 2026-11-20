@@ -149,9 +149,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         let controller = DictationController(deps: deps, config: configStore)
         self.controller = controller
-        // The app's one people store: People in Settings and every meeting share it (R23).
+        // The app's one people store and match log: People in Settings and every meeting share them (R23).
         let voices = VoiceStore(directory: Self.configDirectory)
+        let matchLog = MatchLog(url: Self.configDirectory.appendingPathComponent("voice-matches.jsonl"))
         let store = MeetingStore(directory: Self.configDirectory.appendingPathComponent("meetings", isDirectory: true))
+        let scrubber = VoiceScrubber(store: store)
         let exporter = MeetingExporter(generator: AgentCommand.generator)
         let export: @MainActor (MeetingExporter.Kind, UUID) -> Void = { kind, id in
             ExportPanels.export(kind, of: id, from: store, exporter: exporter)
@@ -159,7 +161,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let placement = DisplayPlacement(focused: AXFocusedWindow(), pointer: NSEventPointer(), screens: NSScreenList())
         meetings = makeMeetings(
             audio: audio, secrets: secrets, configStore: configStore, usage: usage, prompts: prompts,
-            store: store, placement: placement, export: export
+            store: store, placement: placement, export: export,
+            voices: VoiceDependencies(store: voices, embedder: voiceEmbedder, log: matchLog)
         )
 
         if let statusItem {
@@ -238,6 +241,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 changes: voices.changes,
                 rename: { try await voices.rename($0, to: $1) },
                 merge: { try await voices.merge($0, into: $1) },
+                forget: { person in
+                    if let person { _ = try await voices.forget(person) } else { try await voices.forgetEveryone() }
+                },
+                scrubOpenMeetings: { [weak self] in await self?.meetings?.scrubVoices(people: $0) ?? [] },
+                scrubStoredMeetings: { await scrubber.scrub(people: $0, skipping: $1) },
+                removeMatches: { people in
+                    if let people { try await matchLog.remove(people: people) } else { try await matchLog.removeAll() }
+                },
                 openMeetingsSettings: { [weak self] in self?.main?.model.settings.selection = .meetings }
             )
         )
@@ -296,7 +307,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// Design §5.5: one `MeetingController` per meeting session, shown as the main window's meeting
     /// page. They share the dictation capture engine, which is free while a meeting holds it because
-    /// dictation is locked out (R19).
+    /// dictation is locked out (R19), and the voice recognition of design v8, which acts only while
+    /// the meeting's route switch is on.
     private func makeMeetings(
         audio: AudioCaptureEngine,
         secrets: KeychainStore,
@@ -305,7 +317,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         prompts: PromptFiles,
         store: MeetingStore,
         placement: DisplayPlacement,
-        export: @escaping @MainActor (MeetingExporter.Kind, UUID) -> Void
+        export: @escaping @MainActor (MeetingExporter.Kind, UUID) -> Void,
+        voices: VoiceDependencies
     ) -> MeetingCoordinator {
         let summarizer = KeyedAnthropicClient(secrets: secrets)
         return MeetingCoordinator(deps: MeetingCoordinator.Dependencies(
@@ -321,7 +334,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                         usage: usage,
                         prompts: prompts,
                         frontAppName: { frontApp },
-                        userName: { NSFullUserName() }
+                        userName: { NSFullUserName() },
+                        voices: voices
                     ),
                     config: configStore
                 )
@@ -366,7 +380,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 loadVoices: { await SystemVoices().load() },
                 index: { try store.index() },
                 readRecord: { try store.readTestCall($0) }
-            )
+            ),
+            voiceRouteEnabled: { [weak self] engine in self?.config.voice.isEnabled(engine.voiceRoute) ?? false }
         ))
     }
 

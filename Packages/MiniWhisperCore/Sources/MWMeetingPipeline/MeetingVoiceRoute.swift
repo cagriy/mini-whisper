@@ -230,6 +230,23 @@ final class MeetingVoiceRoute {
         }
     }
 
+    // MARK: - Forget
+
+    /// The sidecar to keep on disk; nil when it holds nothing.
+    var sidecar: MeetingVoices? {
+        stored.flatMap { $0.keys.isEmpty ? nil : $0 }
+    }
+
+    /// Forget (R24): `meeting` loses its links, matches and rejections naming `people` (nil for
+    /// everyone), and the sidecar the keys of the speakers linked to them. An emptied sidecar stays
+    /// empty, so nothing the recogniser embedded can teach again. True when the sidecar changed.
+    func scrub(_ meeting: inout Meeting, people: Set<UUID>?) -> Bool {
+        let scrubbed = VoiceScrubber.scrub(&meeting, voices: stored, people: people)
+        guard let held = stored, (scrubbed?.keys ?? [:]) != held.keys else { return false }
+        stored = scrubbed ?? MeetingVoices(route: held.route, model: held.model)
+        return true
+    }
+
     // MARK: - Speechmatics
 
     /// R11: each key's speech is counted, and an `mw:` label of a known person matches its key on
