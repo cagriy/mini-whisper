@@ -1124,3 +1124,7 @@ Batches run in order; a batch starts only when the previous one has fully landed
 | 15 | Stage 21 | serial | Documents what every earlier stage introduces |
 
 **Critical path:** Stage 4 → Stage 5 → Stage 6 → Stage 13 → Stage 15 → Stage 16 → Stage 17 → Stage 18 → Stage 19 → Stage 20 → Stage 21 by dependency (11 of 21 stages); by schedule 15 batches, since Stages 10, 11 and 12 are serialised by category, not by dependency.
+
+## Deviations from plan
+
+1. **Stage 3 (parallel, batch 1):** the Credits licence line uses `ViewThatFits`, so at 460 pt WeSpeaker's "Open Licence…" wraps to its own line, as the mockup's CSS does; the unfolded licence box is 150 pt (the mockup's `max-height`), the one size outside the `DS` tokens; the body reuses `smallWindowBody`, so its bottom inset is 18 pt, not the mockup's 20 px. The three quiet pills keep today's quiet style until Stage 18 applies decision 74.
