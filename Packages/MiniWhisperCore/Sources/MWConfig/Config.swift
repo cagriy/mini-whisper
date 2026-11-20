@@ -131,6 +131,7 @@ public struct Config: Equatable, Sendable {
     /// Seconds without speech before a recording meeting asks whether to stop; 0 is Off.
     public var meetingSilenceStopSeconds = 60
     public static let meetingSilenceStopChoices = [0, 60, 120, 300]
+    public var voice = VoiceSettings()
     public var pricingOverrides: [String: Double] = [:]
     public var usage: [String: DayUsage] = [:]
     public var historyRetentionDays = 7
@@ -154,6 +155,7 @@ public struct Config: Equatable, Sendable {
         if !Self.meetingSilenceStopChoices.contains(meetingSilenceStopSeconds) {
             validated.meetingSilenceStopSeconds = 60
         }
+        validated.voice = voice.validated()
         var claimed: Set<String> = []
         validated.profiles = profiles.map { profile in
             var profile = profile
@@ -215,6 +217,25 @@ extension Config: Codable {
         static let meetingUserName = "meeting_user_name"
         static let meetingSystemAudioExplained = "meeting_system_audio_explained"
         static let meetingSilenceStopSeconds = "meeting_silence_stop_seconds"
+        static let voiceLocalEnabled = "voice_local_enabled"
+        static let voiceSpeechmaticsEnabled = "voice_speechmatics_enabled"
+        static let voiceSureThreshold = "voice_sure_threshold"
+        static let voiceSuggestThreshold = "voice_suggest_threshold"
+        static let voiceMargin = "voice_margin"
+        static let voiceMinSpeechSeconds = "voice_min_speech_seconds"
+        static let voiceBufferSeconds = "voice_buffer_seconds"
+        static let voiceSpeechmaticsSensitivity = "voice_speechmatics_sensitivity"
+
+        static func voice(_ field: VoiceSettings.Field) -> String {
+            switch field {
+            case .sure: voiceSureThreshold
+            case .suggestion: voiceSuggestThreshold
+            case .margin: voiceMargin
+            case .minimumSpeech: voiceMinSpeechSeconds
+            case .buffer: voiceBufferSeconds
+            case .sensitivity: voiceSpeechmaticsSensitivity
+            }
+        }
 
         static let all: Set<String> = [
             hotkey, submitHotkey, cleanupEnabled, soundVolume, streamingEnabled, streamingEngine,
@@ -222,6 +243,8 @@ extension Config: Codable {
             speechModelPrompted, vocabulary, profiles, corrections, correctionTally,
             overlayStyle, meetingHotkey, meetingEngine, meetingKeepAudio, meetingUserName,
             meetingSystemAudioExplained, meetingSilenceStopSeconds, theme, mainWindowFrame,
+            voiceLocalEnabled, voiceSpeechmaticsEnabled, voiceSureThreshold, voiceSuggestThreshold,
+            voiceMargin, voiceMinSpeechSeconds, voiceBufferSeconds, voiceSpeechmaticsSensitivity,
         ]
     }
 
@@ -277,6 +300,13 @@ extension Config: Codable {
         mainWindowFrame = try? value(Key.mainWindowFrame)
         // `try?` for the same reason: a wrong-typed threshold reads as the default.
         if let value: Int = try? value(Key.meetingSilenceStopSeconds) { meetingSilenceStopSeconds = value }
+        if let value: Bool = try? value(Key.voiceLocalEnabled) { voice.localEnabled = value }
+        if let value: Bool = try? value(Key.voiceSpeechmaticsEnabled) { voice.speechmaticsEnabled = value }
+        for field in VoiceSettings.Field.allCases {
+            if let value: Double = try? value(Key.voice(field)) {
+                voice[keyPath: VoiceSettings.keyPath(of: field)] = value
+            }
+        }
 
         for key in container.allKeys where !Key.all.contains(key.stringValue) {
             extra[key.stringValue] = try container.decode(JSONValue.self, forKey: key)
@@ -323,6 +353,11 @@ extension Config: Codable {
             meetingSystemAudioExplained, forKey: AnyCodingKey(Key.meetingSystemAudioExplained)
         )
         try container.encode(meetingSilenceStopSeconds, forKey: AnyCodingKey(Key.meetingSilenceStopSeconds))
+        try container.encode(voice.localEnabled, forKey: AnyCodingKey(Key.voiceLocalEnabled))
+        try container.encode(voice.speechmaticsEnabled, forKey: AnyCodingKey(Key.voiceSpeechmaticsEnabled))
+        for field in VoiceSettings.Field.allCases {
+            try container.encode(voice.value(of: field), forKey: AnyCodingKey(Key.voice(field)))
+        }
 
         for (key, value) in extra where !Key.all.contains(key) {
             try container.encode(value, forKey: AnyCodingKey(key))
@@ -331,7 +366,7 @@ extension Config: Codable {
 }
 
 extension Comparable {
-    fileprivate func clamped(to range: ClosedRange<Self>) -> Self {
+    func clamped(to range: ClosedRange<Self>) -> Self {
         min(max(self, range.lowerBound), range.upperBound)
     }
 }

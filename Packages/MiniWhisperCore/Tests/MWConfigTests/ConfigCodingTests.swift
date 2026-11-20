@@ -205,6 +205,78 @@ import Testing
         #expect(try decode(#"{"meeting_silence_stop_seconds": 120}"#).extra.isEmpty)
     }
 
+    private static let voiceJSON = """
+        {"voice_local_enabled": true, "voice_speechmatics_enabled": true,
+         "voice_sure_threshold": 0.8, "voice_suggest_threshold": 0.6, "voice_margin": 0.15,
+         "voice_min_speech_seconds": 25, "voice_buffer_seconds": 240,
+         "voice_speechmatics_sensitivity": 0.95}
+        """
+
+    @Test func voiceKeysAbsentTakeTheDefaults() throws {
+        #expect(try decode("{}").voice == VoiceSettings())
+    }
+
+    @Test func voiceKeysRoundTrip() throws {
+        let config = try decode(Self.voiceJSON)
+        #expect(config.voice.localEnabled == true)
+        #expect(config.voice.speechmaticsEnabled == true)
+        #expect(config.voice.sureThreshold == 0.8)
+        #expect(config.voice.suggestionThreshold == 0.6)
+        #expect(config.voice.margin == 0.15)
+        #expect(config.voice.minimumSpeechSeconds == 25)
+        #expect(config.voice.bufferSeconds == 240)
+        #expect(config.voice.speechmaticsSensitivity == 0.95)
+
+        let saved = try saved(config)
+        #expect(saved["voice_local_enabled"] as? Bool == true)
+        #expect(saved["voice_speechmatics_enabled"] as? Bool == true)
+        #expect(saved["voice_sure_threshold"] as? Double == 0.8)
+        #expect(saved["voice_suggest_threshold"] as? Double == 0.6)
+        #expect(saved["voice_margin"] as? Double == 0.15)
+        #expect(saved["voice_min_speech_seconds"] as? Double == 25)
+        #expect(saved["voice_buffer_seconds"] as? Double == 240)
+        #expect(saved["voice_speechmatics_sensitivity"] as? Double == 0.95)
+        #expect(try decode(String(decoding: config.encoded(), as: UTF8.self)) == config)
+    }
+
+    /// A throw from `Config.init(from:)` makes `ConfigStore` back the whole file up as
+    /// corrupt, so a bad tuning value must cost that value only.
+    @Test func aWrongTypedVoiceKeyReadsAsItsDefault() throws {
+        let config = try decode(
+            #"{"hotkey": "cmd+space", "voice_sure_threshold": "high", "voice_local_enabled": 1}"#
+        )
+
+        #expect(config.voice == VoiceSettings())
+        #expect(config.hotkey == "cmd+space")
+        #expect(config.extra.isEmpty)
+    }
+
+    @Test func voiceKeysAreWrittenForANewConfig() throws {
+        let object = try saved(Config())
+
+        for key in ["voice_local_enabled", "voice_speechmatics_enabled"] {
+            #expect(CFGetTypeID(try #require(object[key] as CFTypeRef?)) == CFBooleanGetTypeID(), "\(key)")
+            #expect(object[key] as? Bool == false, "\(key)")
+        }
+        #expect(object["voice_sure_threshold"] as? Double == 0.70)
+        #expect(object["voice_suggest_threshold"] as? Double == 0.50)
+        #expect(object["voice_margin"] as? Double == 0.10)
+        #expect(object["voice_min_speech_seconds"] as? Double == 15)
+        #expect(object["voice_buffer_seconds"] as? Double == 120)
+        #expect(object["voice_speechmatics_sensitivity"] as? Double == 0.80)
+    }
+
+    @Test func voiceKeysNeverLandInExtra() throws {
+        #expect(try decode(Self.voiceJSON).extra.isEmpty)
+    }
+
+    @Test func validatedClampsTheVoiceValues() {
+        var config = Config()
+        config.voice.sureThreshold = 2
+
+        #expect(config.validated().voice.sureThreshold == 0.95)
+    }
+
     @Test func overlayStyleAbsentIsSoftMeter() throws {
         #expect(try decode("{}").overlayStyle == .softMeter)
     }
