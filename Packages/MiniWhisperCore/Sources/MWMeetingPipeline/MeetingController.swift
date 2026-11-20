@@ -107,7 +107,8 @@ public final class MeetingController {
             userName: userName, speakers: registry.labels, test: test, titleByUser: false
         )
         let voice = MeetingVoiceRoute.live(
-            deps.voices, engine: engine, mode: mode, meeting: meeting.id, isTest: test != nil, settings: config.voice
+            deps.voices, engine: engine, mode: mode, meeting: meeting.id, isTest: test != nil, settings: config.voice,
+            now: deps.now
         ) { [configStore] in await configStore.load().voice }
         let supervisor = SessionSupervisor(
             provider: deps.engines,
@@ -558,7 +559,7 @@ public final class MeetingController {
     /// is dropped when the switch is now off, or the speaker is no longer open to recognition, has
     /// rejected the person or holds the same match already (R3, R8, R9, R16).
     private func matched(_ match: MeetingVoiceRoute.Match) async {
-        guard let voice, await voiceIsOn(), let userName = meeting?.userName,
+        guard let voice, await voiceSettings() != nil, let userName = meeting?.userName,
               let label = MeetingVoiceRoute.speaker(owning: match.key, in: registry.labels),
               MeetingVoiceRoute.isOpen(label), !label.rejected.contains(match.person.id),
               !label.matches.contains(where: { $0.key == match.key && $0.person == match.person.id && !match.sure })
@@ -573,13 +574,14 @@ public final class MeetingController {
             registry.suggest(named)
             await applyMerge(nil)
         }
-        await voice.logMatch(match, at: deps.now())
+        await voice.logMatch(match)
     }
 
-    /// The meeting's route switch as it stands now (R3).
-    private func voiceIsOn() async -> Bool {
-        guard let voice, voice.isActive else { return false }
-        return await configStore.load().voice.isEnabled(voice.route)
+    /// The voice settings while the meeting's route switch is on, else nil (R3).
+    private func voiceSettings() async -> VoiceSettings? {
+        guard let voice, voice.isActive else { return nil }
+        let settings = await configStore.load().voice
+        return settings.isEnabled(voice.route) ? settings : nil
     }
 
     private func voiceModelFailed() {
@@ -587,17 +589,19 @@ public final class MeetingController {
         emit(.voiceData(active: false, keys: []))
     }
 
-    /// Design v8 §5 Stop: with the switch still on, the recogniser's voices become the sidecar.
+    /// Design v8 §5 Stop: with the switch still on, the recogniser's voices become the sidecar, the
+    /// user's speaker is linked to the user's entry when it has a voice of its own (R19), every
+    /// linked person relearns this meeting's voice and the people heard are marked.
     private func finishVoices() async {
-        guard let voice, let id = meeting?.id else { return }
+        guard let voice, let meeting else { return }
         let sidecar = await voice.finish()
-        guard await voiceIsOn() else {
+        guard let settings = await voiceSettings() else {
             self.voice = nil
             return emit(.voiceData(active: false, keys: []))
         }
         if !sidecar.keys.isEmpty {
             do {
-                try await deps.store.writeVoices(sidecar, of: id)
+                try await deps.store.writeVoices(sidecar, of: meeting.id)
                 Log.voice.info("sidecar written: \(sidecar.keys.count) key\(sidecar.keys.count == 1 ? "" : "s")")
             } catch {
                 let reason = AnyError(error).description
@@ -605,7 +609,77 @@ public final class MeetingController {
                 emit(.error("Could not save this meeting's voice data (\(reason))"))
             }
         }
-        emit(.voiceData(active: true, keys: Set(sidecar.keys.keys)))
+        let before = registry.labels
+        if await voice.hasUserVoice(before, minimum: settings.minimumSpeechSeconds),
+           let user = await voice.user(named: meeting.userName) {
+            registry.link(SpeakerRegistry.userID, person: user.id)
+        }
+        await voice.relearn(from: before, to: registry.labels, everyone: true)
+        await voice.markHeard(registry.labels)
+        if registry.labels != before { emit(.speakers(registry.labels)) }
+        emit(.voiceData(active: true, keys: voice.keys))
+    }
+
+    /// Design v8 §5 Accept (R15): the speaker takes the suggested person's name, merging into a
+    /// speaker already of that name without asking, and is linked to them.
+    public func acceptSuggestion(key: String) async {
+        let before = registry.labels
+        guard meeting != nil, let accepted = registry.accept(key: key) else { return }
+        await applyMerge(accepted.merge)
+        await learn(.accepted, key: key, person: accepted.person, since: before)
+    }
+
+    /// Dismiss (R15): the suggestion goes and its person is not offered to that speaker again.
+    public func dismissSuggestion(key: String) async {
+        guard meeting != nil, let dismissed = registry.dismiss(key: key) else { return }
+        await applyMerge(nil)
+        await learn(.dismissed, key: key, person: dismissed.person)
+    }
+
+    /// "Not <name>" on an applied name (R15): a speaker of that key alone returns to `Speaker N`;
+    /// otherwise the key moves to a new speaker with its unpinned segments.
+    public func rejectMatch(key: String) async {
+        let before = registry.labels
+        guard meeting != nil,
+              let applied = MeetingVoiceRoute.speaker(owning: key, in: before)?.matches
+                .first(where: { $0.key == key && $0.state == .applied })
+        else { return }
+        if let detach = registry.detach(key: key) {
+            await commitSpeakers(to: detach.to) { segment in
+                segment.speaker == detach.from && !segment.pinned
+                    && SpeakerRegistry.key(session: segment.session, label: segment.providerLabel) == key
+            }
+        } else {
+            await applyMerge(nil)
+        }
+        await learn(.rejected, key: key, person: applied.person, since: before)
+    }
+
+    /// With the switch on, a user's action on a match is logged, and the people whose links it
+    /// changed since `before` relearn this meeting's voice (R17, R23).
+    private func learn(_ event: MatchLog.Event, key: String, person: UUID?, since before: [SpeakerLabel]? = nil) async {
+        guard let voice, await voiceSettings() != nil else { return }
+        await voice.logAction(event, key: key, person: person)
+        if let before { await voice.relearn(from: before, to: registry.labels) }
+    }
+
+    /// Design v8 §5 Rename: with the switch on, the speaker the user named is that person, found or
+    /// created by name, or the user's own entry for the user (R17–R19); a default name, or the
+    /// switch off, clears the link. Matches standing on the speaker are logged as renamed.
+    private func link(_ id: Int, renamedFrom before: [SpeakerLabel]) async {
+        guard let voice, let userName = meeting?.userName,
+              let renamed = registry.labels.first(where: { $0.id == id })
+        else { return }
+        let learning = await voiceSettings() != nil
+        let person = learning ? await voice.person(for: renamed, userName: userName) : nil
+        let labels = registry.labels
+        // Read again: the speaker may have changed while the store was asked.
+        guard let standing = labels.first(where: { $0.id == id })?.matches else { return }
+        registry.link(id, person: person?.id)
+        if registry.labels != labels { await applyMerge(nil) }
+        guard learning else { return }
+        for match in standing { await voice.logAction(.renamed, key: match.key, person: match.person) }
+        await voice.relearn(from: before, to: registry.labels)
     }
 
     // MARK: - Speakers, notes and edits
@@ -618,15 +692,23 @@ public final class MeetingController {
         let merge = registry.rename(id, to: name)
         guard registry.labels != labels else { return }
         await applyMerge(merge)
+        await link(merge?.into ?? id, renamedFrom: labels)
     }
 
     /// After a registry change: a merge's segments follow it into the surviving speaker, then
     /// segments and `meeting.json` are saved and the speakers emitted.
     private func applyMerge(_ merge: SpeakerRegistry.Merge?) async {
+        let from = merge?.from
+        await commitSpeakers(to: merge?.into) { $0.speaker == from }
+    }
+
+    /// Moves the segments `moving` picks to `speaker`, when one is given, then saves segments and
+    /// `meeting.json` and emits.
+    private func commitSpeakers(to speaker: Int?, moving: (Segment) -> Bool) async {
         var changed: [Int] = []
-        if let merge {
-            for index in segments.indices where segments[index].speaker == merge.from {
-                segments[index].speaker = merge.into
+        if let speaker {
+            for index in segments.indices where moving(segments[index]) {
+                segments[index].speaker = speaker
                 changed.append(index)
             }
         }
@@ -730,13 +812,30 @@ public final class MeetingController {
         savedCount = segments.count
         notes = loaded.notes
         registry = SpeakerRegistry(labels: loaded.meeting.speakers)
+        if let voices = deps.voices, let sidecar = storedVoices(id) {
+            voice = MeetingVoiceRoute(
+                stored: voices, sidecar: sidecar, meeting: id, mode: loaded.meeting.mode, now: deps.now
+            )
+        }
         emit(.speakers(registry.labels))
+        if let voice { emit(.voiceData(active: false, keys: voice.keys)) }
         loaded.meeting.markers.forEach { emit(.marker($0)) }
         segments.forEach { emit(.segmentAdded($0)) }
         notes.forEach { emit(.note($0)) }
         if let summary = loaded.meeting.summary { emit(.summary(.ready(summary))) }
         if let tag = loaded.meeting.test { emit(.testScore(storedScore(id, tag: tag))) }
         setState(.stopped)
+    }
+
+    /// The meeting's sidecar; nil when it has none or it cannot be read.
+    private func storedVoices(_ id: UUID) -> MeetingVoices? {
+        do {
+            return try deps.store.readVoices(id)
+        } catch {
+            // No error text: a decoding error can quote the file, and the file holds voices.
+            Log.voice.warning("voices.json of a stored meeting is unreadable; its links learn nothing")
+            return nil
+        }
     }
 
     /// Design §3 R20: a tag without a score file is an unfinished test call, unless it carries
