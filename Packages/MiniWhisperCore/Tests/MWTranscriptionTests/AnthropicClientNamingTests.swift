@@ -208,16 +208,26 @@ private func json(_ data: Data) throws -> [String: Any] {
         await #expect(throws: expected) { try await suggest(transport) }
     }
 
-    @Test func refusalIsRefused() async throws {
-        let transport = stubbed(try Self.reply(text: "", stopReason: "refusal"))
+    /// A 200 reply that cannot be used still spent tokens, so the failure carries them.
+    private static let spent: [String: Int] = [
+        "input_tokens": 1200, "output_tokens": 8000,
+        "cache_read_input_tokens": 300, "cache_creation_input_tokens": 40,
+    ]
+    private static let spentUsage = TokenUsage(
+        inputTokens: 1200, outputTokens: 8000, cacheReadTokens: 300, cacheWriteTokens: 40
+    )
 
-        await #expect(throws: NamingError.refused) { try await suggest(transport) }
+    @Test func refusalIsRefusedWithItsUsage() async throws {
+        let transport = stubbed(try Self.reply(text: "", stopReason: "refusal", usage: Self.spent))
+
+        await #expect(throws: NamingFailure(error: .refused, usage: Self.spentUsage)) { try await suggest(transport) }
     }
 
-    @Test func maxTokensStopIsTruncated() async throws {
-        let transport = stubbed(try Self.reply(text: #"{"suggestions": [{"speaker": "S1""#, stopReason: "max_tokens"))
+    @Test func maxTokensStopIsTruncatedWithItsUsage() async throws {
+        let text = #"{"suggestions": [{"speaker": "S1""#
+        let transport = stubbed(try Self.reply(text: text, stopReason: "max_tokens", usage: Self.spent))
 
-        await #expect(throws: NamingError.truncated) { try await suggest(transport) }
+        await #expect(throws: NamingFailure(error: .truncated, usage: Self.spentUsage)) { try await suggest(transport) }
     }
 
     @Test(arguments: [
@@ -225,12 +235,13 @@ private func json(_ data: Data) throws -> [String: Any] {
         #"{"names": []}"#,
         #"{"suggestions": [{"speaker": "S1", "name": "Kate"}]}"#,
     ])
-    func unusableTextIsMalformed(_ text: String) async throws {
-        let transport = stubbed(try Self.reply(text: text))
+    func unusableTextIsMalformedWithItsUsage(_ text: String) async throws {
+        let transport = stubbed(try Self.reply(text: text, usage: Self.spent))
 
-        await #expect(throws: NamingError.malformed) { try await suggest(transport) }
+        await #expect(throws: NamingFailure(error: .malformed, usage: Self.spentUsage)) { try await suggest(transport) }
     }
 
+    /// No usage can be read from an envelope that does not decode.
     @Test func undecodableEnvelopeIsMalformed() async throws {
         let transport = stubbed("not json")
 

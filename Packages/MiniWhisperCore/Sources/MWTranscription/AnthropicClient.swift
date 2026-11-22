@@ -159,13 +159,13 @@ extension AnthropicClient: NameSuggesting {
             \(usage.outputTokens) output tokens
             """)
         switch reply.stopReason {
-        case "refusal": throw NamingError.refused
-        case "max_tokens": throw NamingError.truncated
+        case "refusal": throw NamingFailure(error: .refused, usage: usage)
+        case "max_tokens": throw NamingFailure(error: .truncated, usage: usage)
         default: break
         }
         guard let output = try? JSONDecoder().decode(NamingOutput.self, from: Data(reply.text.utf8)) else {
             Log.naming.info("\(status), suggestions could not be decoded")
-            throw NamingError.malformed
+            throw NamingFailure(error: .malformed, usage: usage)
         }
         return NamingReply(suggestions: Array(output.suggestions.prefix(Self.namingMaxSuggestions)), usage: usage)
     }

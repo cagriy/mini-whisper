@@ -2,7 +2,8 @@ import Foundation
 import MWSupport
 
 /// One naming request over the meeting so far: the fixed system prompt, the transcript
-/// blocks, and the state block last.
+/// blocks, and the state block last. Throws `NamingError`, or `NamingFailure` when the
+/// failed reply still spent tokens.
 public protocol NameSuggesting: Sendable {
     func suggestNames(_ request: NamingRequest) async throws -> NamingReply
 }
@@ -50,6 +51,18 @@ public struct NamingReply: Sendable, Equatable {
 
     public init(suggestions: [RawSuggestion], usage: TokenUsage = TokenUsage()) {
         self.suggestions = suggestions
+        self.usage = usage
+    }
+}
+
+/// A 200 reply that could not be used (refused, cut short, or unreadable suggestions) still
+/// spent its tokens, so they travel with the error to be billed.
+public struct NamingFailure: Error, Sendable, Equatable {
+    public let error: NamingError
+    public let usage: TokenUsage
+
+    public init(error: NamingError, usage: TokenUsage) {
+        self.error = error
         self.usage = usage
     }
 }
