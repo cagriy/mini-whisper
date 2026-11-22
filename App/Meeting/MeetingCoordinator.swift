@@ -32,6 +32,7 @@ protocol MeetingControlling: AnyObject {
     func acceptSuggestion(key: String) async
     func dismissSuggestion(key: String) async
     func rejectMatch(key: String) async
+    func thatsMe(key: String) async
     func scrubVoices(people: Set<UUID>?) async
 }
 
@@ -55,7 +56,7 @@ struct MeetingActions {
     /// The header's title field, as typed.
     var retitle: @MainActor (_ draft: String) -> Void
     var export: @MainActor (MeetingExporter.Kind) -> Void
-    /// The chooser's engine link: Settings at its Meetings section.
+    /// The chooser's engine link and the live naming notice: Settings at its Meetings section.
     var openSettings: @MainActor () -> Void
     /// The finished page's back pill: the page it was opened from.
     var back: @MainActor () -> Void
@@ -64,6 +65,7 @@ struct MeetingActions {
     var acceptSuggestion: @MainActor (_ key: String) -> Void = { _ in }
     var dismissSuggestion: @MainActor (_ key: String) -> Void = { _ in }
     var rejectMatch: @MainActor (_ key: String) -> Void = { _ in }
+    var thatsMe: @MainActor (_ key: String) -> Void = { _ in }
 }
 
 /// Meeting mode's entry points (design §5.5): the hotkey and menu open a chooser, Start runs a
@@ -466,7 +468,8 @@ final class MeetingCoordinator {
             },
             acceptSuggestion: Self.matchAction(of: session) { await $0.acceptSuggestion(key: $1) },
             dismissSuggestion: Self.matchAction(of: session) { await $0.dismissSuggestion(key: $1) },
-            rejectMatch: Self.matchAction(of: session) { await $0.rejectMatch(key: $1) }
+            rejectMatch: Self.matchAction(of: session) { await $0.rejectMatch(key: $1) },
+            thatsMe: Self.matchAction(of: session) { await $0.thatsMe(key: $1) }
         )
     }
 

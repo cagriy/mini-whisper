@@ -5,7 +5,8 @@ import SwiftUI
 /// still arriving. After Stop a paragraph is edited by double-click, its segments moved from its
 /// menu, and a speaker renamed from the name (R13). A remembered voice's suggestion shows as a
 /// provisional name with Accept, Edit and Dismiss, and an applied name offers "Not <name>"
-/// (design v8 §5 UI surfaces).
+/// (design v8 §5 UI surfaces). A suggestion from the conversation adds That's me and a "?" whose
+/// card quotes the line the name came from (design v9 R18).
 struct TranscriptView: View {
     let model: MeetingWindowModel
     let actions: MeetingActions
@@ -27,11 +28,21 @@ struct TranscriptView: View {
     @FocusState private var focusedReject: UUID?
     /// The column is too narrow for a suggestion's actions beside its name.
     @State private var narrow = false
+    /// The paragraph whose evidence "?" is under the pointer or has keyboard focus, the one a click
+    /// opened, and the one a click or Esc closed while still pointed at or focused.
+    @State private var evidenceHovered: UUID?
+    @FocusState private var evidenceFocused: UUID?
+    @State private var evidenceOpened: UUID?
+    @State private var evidenceClosed: UUID?
+    /// The open evidence card's height, to turn it over its "?" where the transcript ends below.
+    @State private var evidenceHeight: CGFloat = 0
 
     private static let bottom = "bottom"
     /// Below this transcript width a suggestion's actions take their own line.
     private nonisolated static let narrowWidth: CGFloat = 470
     private static let popoverWidth: CGFloat = 220
+    private static let evidenceMarkSize: CGFloat = 16
+    private static let evidenceWidth: CGFloat = 280
 
     var body: some View {
         if scrolls {
@@ -77,6 +88,13 @@ struct TranscriptView: View {
             Color.clear.frame(height: 1).id(Self.bottom)
         }
         .frame(maxWidth: DS.Size.readingColumn, alignment: .leading)
+        // Above every paragraph, which a card inside its own row would sit under.
+        .overlayPreferenceValue(EvidenceAnchor.self) { open in
+            if let open { evidenceCard(open) }
+        }
+        .onChange(of: evidenceFocused) { _, focused in
+            if focused != nil, focused == evidenceClosed { evidenceClosed = nil }
+        }
         .onGeometryChange(for: Bool.self) { $0.size.width < Self.narrowWidth } action: { narrow = $0 }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -185,6 +203,9 @@ struct TranscriptView: View {
             )) {
                 renamePopover(paragraph)
             }
+            if case .suggested(let match) = state, let card = model.evidence(of: paragraph) {
+                evidenceMark(card, for: match.name, of: paragraph.id)
+            }
             Text(paragraph.time).textStyle(.meta).monospacedDigit().foregroundStyle(DS.Colors.textTertiary)
         }
     }
@@ -195,9 +216,91 @@ struct TranscriptView: View {
             Button("Accept") { actions.acceptSuggestion(match.key) }
             Button("Edit") { beginRenaming(paragraph) }
             Button("Dismiss") { actions.dismissSuggestion(match.key) }
+            if model.showsThatsMe(of: paragraph) {
+                Button("That's me") { actions.thatsMe(match.key) }
+            }
         }
         .buttonStyle(.pill(.quietAction, size: .small))
         .fixedSize()
+    }
+
+    /// Design v9 R18: hover or keyboard focus shows the card, and a click toggles it.
+    private func evidenceMark(_ card: MeetingWindowModel.EvidenceCard, for name: String, of id: UUID) -> some View {
+        let shown = showsEvidence(id)
+        return Button { toggleEvidence(id) } label: {
+            Text("?")
+                .textStyle(.label)
+                .foregroundStyle(DS.Colors.textTertiary)
+                .frame(width: Self.evidenceMarkSize, height: Self.evidenceMarkSize)
+                .overlay(Circle().strokeBorder(DS.Colors.line, lineWidth: DS.Size.hairline))
+                .contentShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .focused($evidenceFocused, equals: id)
+        .onHover { inside in
+            if inside {
+                evidenceHovered = id
+                if evidenceClosed == id { evidenceClosed = nil }
+            } else if evidenceHovered == id {
+                evidenceHovered = nil
+            }
+        }
+        .onKeyPress(.escape) {
+            guard showsEvidence(id) else { return .ignored }
+            toggleEvidence(id)
+            return .handled
+        }
+        .onDisappear {
+            if evidenceHovered == id { evidenceHovered = nil }
+            if evidenceOpened == id { evidenceOpened = nil }
+        }
+        .accessibilityLabel("Why \(name)?")
+        .accessibilityValue("\(card.said): “\(card.quote)”")
+        .anchorPreference(key: EvidenceAnchor.self, value: .bounds) { mark in
+            shown ? EvidenceAnchor.Open(card: card, mark: mark) : nil
+        }
+    }
+
+    private func showsEvidence(_ id: UUID) -> Bool {
+        evidenceClosed != id && (evidenceOpened == id || evidenceHovered == id || evidenceFocused == id)
+    }
+
+    private func toggleEvidence(_ id: UUID) {
+        let shown = showsEvidence(id)
+        evidenceOpened = shown ? nil : id
+        evidenceClosed = shown ? id : nil
+    }
+
+    /// The dialog card under its "?", or over it where the transcript ends too soon below.
+    private func evidenceCard(_ open: EvidenceAnchor.Open) -> some View {
+        GeometryReader { proxy in
+            let mark = proxy[open.mark]
+            let width = min(Self.evidenceWidth, proxy.size.width)
+            let below = mark.maxY + DS.Space.s4
+            let above = mark.minY - DS.Space.s4 - evidenceHeight
+            VStack(alignment: .leading, spacing: DS.Space.s2) {
+                Text(open.card.said)
+                    .textStyle(.meta)
+                    .foregroundStyle(DS.Colors.textTertiary)
+                Text("“" + open.card.quote + "”")
+                    .textStyle(.body)
+                    .italic()
+                    .foregroundStyle(DS.Colors.text)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(.horizontal, DS.Space.s6 + DS.Size.hairline)
+            .padding(.vertical, DS.Space.s5 + DS.Size.hairline)
+            .frame(width: width, alignment: .leading)
+            .background(RoundedRectangle(cornerRadius: DS.Radius.card).fill(DS.Colors.card).dialogShadow())
+            .overlay(RoundedRectangle(cornerRadius: DS.Radius.card).strokeBorder(DS.Colors.line))
+            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { evidenceHeight = $0 }
+            .offset(
+                x: max(0, min(mark.minX, proxy.size.width - width)),
+                y: below + evidenceHeight > proxy.size.height && above >= 0 ? above : below
+            )
+        }
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
     }
 
     /// Kept in the layout when hidden, so hovering never moves the header.
@@ -337,6 +440,20 @@ struct TranscriptView: View {
         } else {
             actions.rename(speaker, name)
         }
+    }
+}
+
+/// The evidence card on show and its "?", read where the card is drawn over the transcript.
+private struct EvidenceAnchor: PreferenceKey {
+    struct Open {
+        let card: MeetingWindowModel.EvidenceCard
+        let mark: Anchor<CGRect>
+    }
+
+    static var defaultValue: Open? { nil }
+
+    static func reduce(value: inout Open?, nextValue: () -> Open?) {
+        value = value ?? nextValue()
     }
 }
 

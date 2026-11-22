@@ -128,6 +128,7 @@ struct MeetingCoordinatorTests {
         func acceptSuggestion(key: String) async { request.yield("accept \(key)") }
         func dismissSuggestion(key: String) async { request.yield("dismiss \(key)") }
         func rejectMatch(key: String) async { request.yield("reject \(key)") }
+        func thatsMe(key: String) async { request.yield("thatsme \(key)") }
         var scrubs: [Set<UUID>?] = []
         func scrubVoices(people: Set<UUID>?) async { scrubs.append(people) }
     }
@@ -517,7 +518,7 @@ struct MeetingCoordinatorTests {
         #expect(harness.models[0].title == "Northwind rollout sync")
     }
 
-    @Test func acceptDismissAndRejectReachTheController() async {
+    @Test func acceptDismissRejectAndThatsMeReachTheController() async {
         let harness = Harness()
         let controller = await harness.stopped()
         let actions = harness.actions[0]
@@ -525,13 +526,14 @@ struct MeetingCoordinatorTests {
         actions.acceptSuggestion("1:A")
         actions.dismissSuggestion("1:B")
         actions.rejectMatch("2:C")
+        actions.thatsMe("1:S2")
 
         var requests: [String] = []
         for await request in controller.requests {
             requests.append(request)
-            if requests.count == 3 { break }
+            if requests.count == 4 { break }
         }
-        #expect(Set(requests) == ["accept 1:A", "dismiss 1:B", "reject 2:C"])
+        #expect(Set(requests) == ["accept 1:A", "dismiss 1:B", "reject 2:C", "thatsme 1:S2"])
     }
 
     @Test func everyModelReadsTheVoiceRouteSwitch() async {

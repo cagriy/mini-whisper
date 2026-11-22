@@ -16,9 +16,14 @@ struct LivePage: View {
         VStack(spacing: 0) {
             header
             if let notice = model.notice {
-                StatusLine(notice, .info)
-                    .padding(.horizontal, 20)
-                    .padding(.top, DS.Space.s6)
+                StatusLine(notice.text, .info) {
+                    if notice.opensMeetingSettings {
+                        Button("Meetings Settings…", action: actions.openSettings)
+                            .buttonStyle(.pill(size: .small))
+                    }
+                }
+                .padding(.horizontal, 20)
+                .padding(.top, DS.Space.s6)
             }
             if let error = model.errorMessage {
                 StatusLine(error, .error)

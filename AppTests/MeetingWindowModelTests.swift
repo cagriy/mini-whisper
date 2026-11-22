@@ -980,8 +980,9 @@ import Testing
 
         model.apply(.notice("Speechmatics ignored some remembered voices. Rename those speakers to learn them again."))
 
-        #expect(model.notice
+        #expect(model.notice?.text
             == "Speechmatics ignored some remembered voices. Rename those speakers to learn them again.")
+        #expect(model.notice?.opensMeetingSettings == false)
     }
 
     @Test func editOfASuggestionTitlesThePopoverNameSpeakerN() {
@@ -1005,5 +1006,153 @@ import Testing
         ]))
 
         #expect(model.rejectTitle(of: paragraphs(model)[0]) == "Not Bob")
+    }
+
+    // MARK: - Names from the conversation
+
+    private static let saidByDan = UUID()
+
+    /// Suggested for Speaker 1's first key from what Dan said at 04:40.
+    private static func kate(
+        _ state: NameMatch.State = .suggested, name: String = "Kate", evidence segment: UUID = saidByDan
+    ) -> NameMatch {
+        NameMatch(
+            key: "1:A", name: name, person: nil, source: "conversation", state: state,
+            evidence: NameEvidence(segment: segment, time: 280, text: "Thanks \(name) for setting this up"),
+            kind: "addressed"
+        )
+    }
+
+    /// Speaker 1 ("1:A", "1:F") holds `match`. Paragraphs: Speaker 1 on "1:A", Dan saying the
+    /// evidence, then Speaker 1 on "1:F".
+    private func conversed(_ match: NameMatch = kate(), meeting: Meeting = meeting()) -> MeetingWindowModel {
+        let model = model()
+        model.show(meeting)
+        model.apply(.speakers([
+            Self.alex,
+            SpeakerLabel(id: 1, name: "Speaker 1", providerKeys: ["1:A", "1:F"], matches: [match]),
+            SpeakerLabel(id: 2, name: "Dan", providerKeys: ["1:B"]),
+        ]))
+        let lines = [(UUID(), 1, 250.0, "A"), (Self.saidByDan, 2, 280, "B"), (UUID(), 1, 300, "F")]
+        for (id, speaker, start, label) in lines {
+            model.apply(.segmentAdded(Segment(
+                id: id, speaker: speaker, start: start, end: start + 4, text: "Line.", session: 1, providerLabel: label
+            )))
+        }
+        return model
+    }
+
+    @Test func aConversationSuggestionShowsOnEveryParagraphOfItsSpeaker() {
+        let model = conversed()
+        let kate = Self.kate()
+        #expect(paragraphs(model).map(model.nameState(of:)) == [.suggested(kate), .plain, .suggested(kate)])
+    }
+
+    @Test func aMatchOnTheParagraphsKeyWinsOverTheConversation() {
+        let model = conversed()
+        let bob = NameMatch(key: "1:F", name: "Bob", person: UUID(), state: .suggested, score: 0.7)
+        model.apply(.speakers([
+            Self.alex,
+            SpeakerLabel(id: 1, name: "Speaker 1", providerKeys: ["1:A", "1:F"], matches: [Self.kate(), bob]),
+            SpeakerLabel(id: 2, name: "Dan", providerKeys: ["1:B"]),
+        ]))
+
+        #expect(model.nameState(of: paragraphs(model)[2]) == .suggested(bob))
+    }
+
+    @Test func anAppliedConversationNameShowsAsApplied() {
+        let applied = Self.kate(.applied)
+        let model = conversed(applied)
+        #expect(paragraphs(model).map(model.nameState(of:)) == [.applied(applied), .plain, .applied(applied)])
+    }
+
+    @Test func aTestCallShowsNoConversationName() {
+        let model = conversed(meeting: Self.testMeeting())
+        #expect(paragraphs(model).map(model.nameState(of:)) == [.plain, .plain, .plain])
+    }
+
+    @Test func thatsMeShowsOnlyOnAConversationSuggestionOfAnotherName() {
+        let suggested = conversed()
+        #expect(paragraphs(suggested).map(suggested.showsThatsMe(of:)) == [true, false, true])
+
+        // The user's own name, ignoring case and diacritics.
+        let own = conversed(Self.kate(name: "ÁLEX"))
+        #expect(own.showsThatsMe(of: paragraphs(own)[0]) == false)
+
+        let applied = conversed(Self.kate(.applied))
+        #expect(applied.showsThatsMe(of: paragraphs(applied)[0]) == false)
+
+        let voice = voiced()
+        #expect(voice.showsThatsMe(of: paragraphs(voice)[0]) == false)
+
+        let test = conversed(meeting: Self.testMeeting())
+        #expect(test.showsThatsMe(of: paragraphs(test)[0]) == false)
+    }
+
+    @Test func theEvidenceCardQuotesTheLineAndWhoSaidIt() {
+        let model = conversed()
+        let card = MeetingWindowModel.EvidenceCard(
+            quote: "Thanks Kate for setting this up", said: "Said at 00:04:40 by Dan"
+        )
+
+        #expect(paragraphs(model).map(model.evidence(of:)) == [card, nil, card])
+    }
+
+    @Test func theEvidenceSpeakerIsReadWhenShown() {
+        let model = conversed()
+        model.apply(.speakers([
+            Self.alex,
+            SpeakerLabel(id: 1, name: "Speaker 1", providerKeys: ["1:A", "1:F"], matches: [Self.kate()]),
+            SpeakerLabel(id: 2, name: "Daniel", providerKeys: ["1:B"]),
+        ]))
+        #expect(model.evidence(of: paragraphs(model)[0])?.said == "Said at 00:04:40 by Daniel")
+
+        // Edited and moved to the user: the quote is the stored copy, the speaker the segment's now.
+        model.apply(.segmentUpdated(Segment(
+            id: Self.saidByDan, speaker: 0, start: 280, end: 284, text: "Thanks for this.", session: 1,
+            providerLabel: "B", edited: true
+        )))
+        #expect(model.evidence(of: paragraphs(model)[0])
+            == .init(quote: "Thanks Kate for setting this up", said: "Said at 00:04:40 by Alex"))
+    }
+
+    @Test func theEvidenceCardLeavesOutTheSpeakerOfASegmentThatIsGone() {
+        let model = conversed(Self.kate(evidence: UUID()))
+        #expect(model.evidence(of: paragraphs(model)[0])
+            == .init(quote: "Thanks Kate for setting this up", said: "Said at 00:04:40"))
+    }
+
+    @Test func onlyAConversationSuggestionHasAnEvidenceCard() {
+        let applied = conversed(Self.kate(.applied))
+        #expect(applied.evidence(of: paragraphs(applied)[0]) == nil)
+
+        let voice = voiced()
+        #expect(paragraphs(voice).map(voice.evidence(of:)) == [nil, nil, nil, nil])
+    }
+
+    @Test func theNamingIntroductionLinksToMeetingsSettings() {
+        let model = conversed()
+        model.apply(.naming(.introduced))
+
+        #expect(model.notice?.text == "Mini Whisper now suggests speaker names from the conversation. The transcript"
+            + " goes to Anthropic during the meeting.")
+        #expect(model.notice?.opensMeetingSettings == true)
+    }
+
+    @Test func aNamingPauseTakesTheNoticeWithoutTheLink() {
+        let model = conversed()
+        model.apply(.naming(.introduced))
+        model.apply(.naming(.paused("the Anthropic key was refused")))
+
+        #expect(model.notice?.text == "Name suggestions paused: the Anthropic key was refused.")
+        #expect(model.notice?.opensMeetingSettings == false)
+
+        model.apply(.naming(.running))
+        model.apply(.naming(.finished(.found(2))))
+        #expect(model.notice?.text == "Name suggestions paused: the Anthropic key was refused.")
+
+        model.apply(.notice("Speechmatics ignored some remembered voices. Rename those speakers to learn them again."))
+        #expect(model.notice?.text
+            == "Speechmatics ignored some remembered voices. Rename those speakers to learn them again.")
     }
 }

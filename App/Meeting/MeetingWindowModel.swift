@@ -2,6 +2,7 @@ import Foundation
 import MWConfig
 import MWMeetingPipeline
 import MWMeetings
+import MWNaming
 import MWStreaming
 import MWSupport
 import MWTestCall
@@ -187,10 +188,17 @@ final class MeetingWindowModel {
     /// How a paragraph's speaker name is drawn (design v8 §5 UI surfaces, Transcript).
     enum NameState: Equatable {
         case plain
-        /// A provisional name with Accept, Edit and Dismiss.
+        /// A provisional name with Accept, Edit and Dismiss, and That's me from the conversation.
         case suggested(NameMatch)
         /// A plain name offering "Not <name>".
         case applied(NameMatch)
+    }
+
+    /// The "?" card of a conversation suggestion (design v9 R18).
+    struct EvidenceCard: Equatable {
+        let quote: String
+        /// "Said at 00:04:40 by Dan".
+        let said: String
     }
 
     /// R13: one entry of *Move this segment to*.
@@ -206,6 +214,10 @@ final class MeetingWindowModel {
     static let silenceHintText = "No audio from other apps yet. Check System Settings → Privacy & Security"
         + " → Screen & System Audio Recording."
     static let noSummaryYet = "No summary yet."
+    /// Design v9 R26, once, with a link to Settings › Meetings.
+    static let namingIntroduced = "Mini Whisper now suggests speaker names from the conversation. The transcript"
+        + " goes to Anthropic during the meeting."
+    private static let conversation = "conversation"
 
     static func title(of mode: MeetingMode) -> String {
         switch mode {
@@ -257,8 +269,8 @@ final class MeetingWindowModel {
     private(set) var testScore: TestScoreState?
     /// A test meeting's script and score pane.
     private(set) var testCall: TestCallPaneModel?
-    /// The live header's information line (design v8 R13).
-    private(set) var notice: String?
+    /// The live header's information line (design v8 R13); the latest wins (design v9 R27).
+    private(set) var notice: (text: String, opensMeetingSettings: Bool)?
     /// This session runs the meeting's voice route.
     private var voiceActive = false
     /// The provider keys with stored voice data.
@@ -534,14 +546,34 @@ final class MeetingWindowModel {
         if case .suggested(let match) = nameState(of: paragraph) { match.name } else { name(of: paragraph.speaker) }
     }
 
-    /// The match stored for the provider key of the paragraph's first segment; never in a test
-    /// call (R25).
+    /// The match stored for the provider key of the paragraph's first segment, else the speaker's
+    /// conversation match, which is kept on its first key only (design v9 §5); never in a test call (R25).
     func nameState(of paragraph: Paragraph) -> NameState {
-        guard !isTest, let first = paragraph.segmentIDs.first, let position = positions[first] else { return .plain }
+        guard !isTest, let first = paragraph.segmentIDs.first, let position = positions[first],
+              let label = speakers.first(where: { $0.id == paragraph.speaker })
+        else { return .plain }
         let key = SpeakerRegistry.key(session: segments[position].session, label: segments[position].providerLabel)
-        guard let match = speakers.first(where: { $0.id == paragraph.speaker })?.matches.first(where: { $0.key == key })
+        guard let match = label.matches.first(where: { $0.key == key })
+            ?? label.matches.first(where: { $0.source == Self.conversation })
         else { return .plain }
         return match.state == .suggested ? .suggested(match) : .applied(match)
+    }
+
+    /// That's me, on a conversation suggestion of a name other than the user's (design v9 R18).
+    func showsThatsMe(of paragraph: Paragraph) -> Bool {
+        guard case .suggested(let match) = nameState(of: paragraph), match.source == Self.conversation,
+              let userName = meeting?.userName
+        else { return false }
+        return NameFold.key(match.name) != NameFold.key(userName)
+    }
+
+    /// A conversation suggestion's quote and when it was said. The speaker is the evidence
+    /// segment's as it stands now, left out once the segment is gone (design v9 §5).
+    func evidence(of paragraph: Paragraph) -> EvidenceCard? {
+        guard case .suggested(let match) = nameState(of: paragraph), let evidence = match.evidence else { return nil }
+        var said = "Said at \(MeetingTime.format(evidence.time))"
+        if let position = positions[evidence.segment] { said += " by \(name(of: segments[position].speaker))" }
+        return EvidenceCard(quote: evidence.text, said: said)
     }
 
     /// "Not <name>" on an applied name.
@@ -724,11 +756,15 @@ final class MeetingWindowModel {
         case .error(let message):
             errorMessage = message
         case .notice(let text):
-            notice = text
+            notice = (text, false)
         case .voiceData(let active, let keys):
             voiceActive = active
             voiceKeys = keys
-        case .naming:
+        case .naming(.introduced):
+            notice = (Self.namingIntroduced, true)
+        case .naming(.paused(let reason)):
+            notice = ("Name suggestions paused: \(reason).", false)
+        case .naming(.running), .naming(.finished):
             break
         }
     }
