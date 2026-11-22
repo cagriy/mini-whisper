@@ -135,6 +135,11 @@ public struct Config: Equatable, Sendable {
     /// Absent means the macOS account's full name, resolved at use.
     public var meetingUserName: String?
     public var meetingSystemAudioExplained = false
+    public var meetingNamingEnabled = true
+    public var meetingNamingAutoApply = false
+    /// Spellings of the user's name as transcription mishears it.
+    public var meetingUserNameAliases: [String] = []
+    public var meetingNamingExplained = false
     /// Seconds without speech before a recording meeting asks whether to stop; 0 is Off.
     public var meetingSilenceStopSeconds = 60
     public static let meetingSilenceStopChoices = [0, 60, 120, 300]
@@ -224,6 +229,10 @@ extension Config: Codable {
         static let meetingKeepAudio = "meeting_keep_audio"
         static let meetingUserName = "meeting_user_name"
         static let meetingSystemAudioExplained = "meeting_system_audio_explained"
+        static let meetingNamingEnabled = "meeting_naming_enabled"
+        static let meetingNamingAutoApply = "meeting_naming_auto_apply"
+        static let meetingUserNameAliases = "meeting_user_name_aliases"
+        static let meetingNamingExplained = "meeting_naming_explained"
         static let meetingSilenceStopSeconds = "meeting_silence_stop_seconds"
         static let voiceLocalEnabled = "voice_local_enabled"
         static let voiceSpeechmaticsEnabled = "voice_speechmatics_enabled"
@@ -251,6 +260,7 @@ extension Config: Codable {
             speechModelPrompted, vocabulary, profiles, corrections, correctionTally,
             overlayStyle, meetingHotkey, meetingEngine, meetingKeepAudio, meetingUserName,
             meetingSystemAudioExplained, meetingSilenceStopSeconds, theme, updateChannel, mainWindowFrame,
+            meetingNamingEnabled, meetingNamingAutoApply, meetingUserNameAliases, meetingNamingExplained,
             voiceLocalEnabled, voiceSpeechmaticsEnabled, voiceSureThreshold, voiceSuggestThreshold,
             voiceMargin, voiceMinSpeechSeconds, voiceBufferSeconds, voiceSpeechmaticsSensitivity,
         ]
@@ -281,6 +291,10 @@ extension Config: Codable {
         if let value: Bool = try value(Key.meetingKeepAudio) { meetingKeepAudio = value }
         meetingUserName = try value(Key.meetingUserName)
         if let value: Bool = try value(Key.meetingSystemAudioExplained) { meetingSystemAudioExplained = value }
+        if let value: Bool = try value(Key.meetingNamingEnabled) { meetingNamingEnabled = value }
+        if let value: Bool = try value(Key.meetingNamingAutoApply) { meetingNamingAutoApply = value }
+        if let value: [String] = try value(Key.meetingUserNameAliases) { meetingUserNameAliases = value }
+        if let value: Bool = try value(Key.meetingNamingExplained) { meetingNamingExplained = value }
 
         let engine: String? = try value(Key.streamingEngine)
         streamingEngine = engine.flatMap(EngineName.init(rawValue:))
@@ -369,6 +383,10 @@ extension Config: Codable {
         try container.encode(
             meetingSystemAudioExplained, forKey: AnyCodingKey(Key.meetingSystemAudioExplained)
         )
+        try container.encode(meetingNamingEnabled, forKey: AnyCodingKey(Key.meetingNamingEnabled))
+        try container.encode(meetingNamingAutoApply, forKey: AnyCodingKey(Key.meetingNamingAutoApply))
+        try container.encode(meetingUserNameAliases, forKey: AnyCodingKey(Key.meetingUserNameAliases))
+        try container.encode(meetingNamingExplained, forKey: AnyCodingKey(Key.meetingNamingExplained))
         try container.encode(meetingSilenceStopSeconds, forKey: AnyCodingKey(Key.meetingSilenceStopSeconds))
         try container.encode(voice.localEnabled, forKey: AnyCodingKey(Key.voiceLocalEnabled))
         try container.encode(voice.speechmaticsEnabled, forKey: AnyCodingKey(Key.voiceSpeechmaticsEnabled))

@@ -173,6 +173,51 @@ import Testing
         #expect(object["meeting_system_audio_explained"] as? Bool == false)
     }
 
+    @Test func namingKeysAbsentTakeDefaults() throws {
+        let config = try decode("{}")
+
+        #expect(config.meetingNamingEnabled == true)
+        #expect(config.meetingNamingAutoApply == false)
+        #expect(config.meetingUserNameAliases == [])
+        #expect(config.meetingNamingExplained == false)
+    }
+
+    private static let namingJSON = """
+        {"meeting_naming_enabled": false, "meeting_naming_auto_apply": true,
+         "meeting_user_name_aliases": ["Chagri", "Jagri"], "meeting_naming_explained": true}
+        """
+
+    @Test func namingKeysRoundTrip() throws {
+        let config = try decode(Self.namingJSON)
+        #expect(config.meetingNamingEnabled == false)
+        #expect(config.meetingNamingAutoApply == true)
+        #expect(config.meetingUserNameAliases == ["Chagri", "Jagri"])
+        #expect(config.meetingNamingExplained == true)
+
+        let saved = try saved(config)
+        #expect(saved["meeting_naming_enabled"] as? Bool == false)
+        #expect(saved["meeting_naming_auto_apply"] as? Bool == true)
+        #expect(saved["meeting_user_name_aliases"] as? [String] == ["Chagri", "Jagri"])
+        #expect(saved["meeting_naming_explained"] as? Bool == true)
+        #expect(try decode(String(decoding: config.encoded(), as: UTF8.self)) == config)
+    }
+
+    @Test func namingKeysNeverLandInExtra() throws {
+        #expect(try decode(Self.namingJSON).extra.isEmpty)
+    }
+
+    @Test func namingKeysAreWrittenForANewConfig() throws {
+        let object = try saved(Config())
+
+        for key in ["meeting_naming_enabled", "meeting_naming_auto_apply", "meeting_naming_explained"] {
+            #expect(CFGetTypeID(try #require(object[key] as CFTypeRef?)) == CFBooleanGetTypeID(), "\(key)")
+        }
+        #expect(object["meeting_naming_enabled"] as? Bool == true)
+        #expect(object["meeting_naming_auto_apply"] as? Bool == false)
+        #expect(object["meeting_naming_explained"] as? Bool == false)
+        #expect(object["meeting_user_name_aliases"] as? [String] == [])
+    }
+
     @Test func silenceStopAbsentTakesSixty() throws {
         #expect(try decode("{}").meetingSilenceStopSeconds == 60)
     }
