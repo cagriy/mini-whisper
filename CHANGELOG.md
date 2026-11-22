@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.9.0b1] - 2026-11-22
+
 ### Added
 
 - Speaker names suggested from the conversation by Claude Haiku 5.5, each with the line it came
