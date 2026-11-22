@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.8.2] - 2026-11-22
+
 ### Added
 
 - Settings → General → Updates: choose Release or Beta versions. Beta gets new versions first;
