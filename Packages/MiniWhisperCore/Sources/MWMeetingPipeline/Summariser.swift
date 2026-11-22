@@ -99,12 +99,12 @@ public struct Summariser: Sendable {
     private static func userMessage(_ meeting: LoadedMeeting) -> String {
         let notes = meeting.notes.sorted { $0.time < $1.time }.map { note in
             "- \(MeetingTime.format(note.time)) · "
-                + escaped(note.text, closing: "notes").replacingOccurrences(of: "\n", with: "\n  ")
+                + MeetingTextEscaping.escaped(note.text, closing: "notes").replacingOccurrences(of: "\n", with: "\n  ")
         }
         return [
             "Speakers: " + speakerNames(meeting).joined(separator: ", "),
             (["<notes>"] + notes + ["</notes>"]).joined(separator: "\n"),
-            ["<transcript>", escaped(transcript(meeting), closing: "transcript"), "</transcript>"]
+            ["<transcript>", MeetingTextEscaping.escaped(transcript(meeting), closing: "transcript"), "</transcript>"]
                 .joined(separator: "\n"),
         ].joined(separator: "\n\n")
     }
@@ -131,10 +131,5 @@ public struct Summariser: Sendable {
             if !names.contains(name) { names.append(name) }
         }
         return names
-    }
-
-    /// Text inside a block cannot close it early: `</tag` becomes `<\/tag`.
-    private static func escaped(_ text: String, closing tag: String) -> String {
-        text.replacingOccurrences(of: "</\(tag)", with: "<\\/\(tag)", options: .caseInsensitive)
     }
 }
