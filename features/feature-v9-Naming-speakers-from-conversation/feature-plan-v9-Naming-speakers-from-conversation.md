@@ -802,3 +802,20 @@ None — plan matches design v9 exactly.
   - **R7 placement.** `startNaming` only spawns; the checks run at the top of `runNaming`, and again before a follow-up.
   - **People** are loaded into the route at the end of Start (`reloadPeople()`).
   - **No other exhaustive `switch` over `MeetingEvent`** exists; only `MeetingWindowModel.apply` gained a case.
+- **Stage 15.**
+  - **Disarm on both paths.** `stop` disarms the route and clears `namingAgain` on both paths. After a quit-path stop, a follow-up queued during an in-flight live request is not sent.
+  - **Pass task.** The Stop pass runs as a second task, `namingPass`, beside `namingTask`. `namingTask = nil` moved into the task `startNaming` creates, so `runNaming` returns `NamingResult?` and runs directly in the pass. `suggestNames` refuses while either task exists. `waitForNaming()` covers both.
+  - **Result counts.** `.found(n)` counts suggested plus applied actions. A pass that sends nothing after its wait ends with `.finished(.none)`.
+  - **Cost events.** Every naming request on a stopped meeting is followed by `.cost` with the stopped sum. None is emitted while `.stopping`.
+  - **Config reads.** R11's conditions are checked at Stop and again in `runNaming`. `open` reads config before its guard, for pricing overrides.
+  - **Concurrency test.** The concurrent-order test shows Stop returning with the summary written while the pass is still held. `FakeSummarizer` has no arrival barrier.
+- **Stage 16.**
+  - **Evidence card.** It is drawn inside the window, not as an `NSPopover`: the "?" publishes an anchor preference, and `TranscriptView` draws the dialog-card overlay with `overlayPreferenceValue`. An `NSPopover` brings the system arrow and background, so it cannot take the dialog card's fill, border and radius, and a hover-opened popover can flicker. The card is 280 pt, opens below the "?" or above it near the end, and is clamped to the column. Click or Esc toggles it.
+  - **Said at.** "Said at" uses `MeetingTime.format` like every paragraph header, so it reads "00:04:40".
+  - **Settings link.** "Meetings Settings…" is a small pill in the info `StatusLine`'s trailing slot. `actions.openSettings()` already opens Settings › Meetings.
+- **Stage 17.**
+  - **Scoring.** A shown name is right when its folded words begin the true name's, or the reverse; every shown name is printed for audit.
+  - **Speaker outcomes.** A speaker is right if ever shown the right name, wrong if shown only others, and missing if shown none. Wrong-person names are counted separately.
+  - **Inputs.** People, aliases and pricing overrides are empty, and auto-apply is off.
+  - **Skipped meetings.** Test calls and meetings with no named non-user speaker are skipped.
+  - **Request timing.** Each request is awaited where the trigger fired, so no follow-up fires. Fires are timed at segment ends, which can be later than the 1 s live ticker.
