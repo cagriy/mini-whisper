@@ -229,11 +229,6 @@ public struct SpeakerRegistry: Sendable, Equatable {
         return merge
     }
 
-    public mutating func withdrawConversation(speaker id: Int) {
-        guard let speaker = index(of: id) else { return }
-        dropConversation(at: speaker)
-    }
-
     /// That's me (R21): `key` is a `NameFold` key; applied names stay.
     @discardableResult
     public mutating func withdrawConversation(named key: String) -> Int {

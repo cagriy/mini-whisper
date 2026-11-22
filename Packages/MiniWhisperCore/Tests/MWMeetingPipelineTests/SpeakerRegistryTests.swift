@@ -678,10 +678,5 @@ import MWMeetingPipeline
         #expect(registry.labels[3] == applied)
         #expect(registry.labels[4] == voice)
         #expect(registry.withdrawConversation(named: NameFold.key("Kate")) == 0)
-
-        registry.withdrawConversation(speaker: 4)
-        #expect(registry.labels[4] == voice)
-        registry.withdrawConversation(speaker: 3)
-        #expect(registry.labels[3] == SpeakerLabel(id: 3, name: "Kate", providerKeys: ["1:C"]))
     }
 }

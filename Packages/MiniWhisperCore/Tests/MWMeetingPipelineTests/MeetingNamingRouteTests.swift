@@ -144,7 +144,6 @@ import Testing
         #expect(outcome.failure == nil)
         #expect(outcome.pause == nil)
         #expect(!outcome.followUp)
-        #expect(!route.inFlight)
     }
 
     @Test func currentSpeakersDecide() async {
@@ -188,36 +187,12 @@ import Testing
 
         let flight = Task { await run(route) }
         await client.waitForRequests()
-        #expect(route.inFlight)
         #expect(!route.segmentsAdded([introduction, answer], speakers: speakers, known: ["Kate"]))
         #expect(!route.segmentsAdded([Self.segment(1, 8, "Kate again."), Self.segment(2, 9, "Yes.")], speakers: speakers, known: ["Kate"]))
         client.release()
 
         #expect(await flight.value.followUp)
         #expect(await run(route).followUp == false)
-    }
-
-    @Test func waitIdleResolvesAfterTheFlight() async {
-        let client = FakeNameSuggester()
-        client.hold()
-        let route = route(client)
-        var idle = false
-
-        let flight = Task { await run(route) }
-        await client.waitForRequests()
-        let waiter = Task {
-            await route.waitIdle()
-            idle = true
-            return route.inFlight
-        }
-        for _ in 0..<5 { await Task.yield() }
-        #expect(!idle)
-        client.release()
-
-        #expect(await waiter.value == false)
-        #expect(idle)
-        _ = await flight.value
-        await route.waitIdle()
     }
 
     @Test func disarmDropsAnArmedTriggerAndAPendingFollowUp() async {

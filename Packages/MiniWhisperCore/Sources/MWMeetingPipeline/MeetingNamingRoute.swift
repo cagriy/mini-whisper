@@ -47,7 +47,6 @@ final class MeetingNamingRoute {
     private var people: [(id: UUID, name: String)] = []
     private var failures = 0
     private var pausedBy: NamingError?
-    private var idleWaiters: [CheckedContinuation<Void, Never>] = []
 
     /// `people` reads the People store without the user, who is passed separately.
     init(
@@ -65,7 +64,6 @@ final class MeetingNamingRoute {
     }
 
     var isPaused: Bool { pausedBy != nil }
-    var inFlight: Bool { trigger.inFlight }
 
     func reloadPeople() async {
         people = await readPeople()
@@ -132,16 +130,7 @@ final class MeetingNamingRoute {
             }
         }
         outcome.followUp = trigger.end()
-        let waiters = idleWaiters
-        idleWaiters = []
-        waiters.forEach { $0.resume() }
         return outcome
-    }
-
-    /// Resolves once no request is in flight.
-    func waitIdle() async {
-        guard inFlight else { return }
-        await withCheckedContinuation { idleWaiters.append($0) }
     }
 
     /// Drops an armed trigger and a pending follow-up.
