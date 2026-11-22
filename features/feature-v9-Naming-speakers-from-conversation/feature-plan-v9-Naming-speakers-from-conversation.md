@@ -783,3 +783,9 @@ None — plan matches design v9 exactly.
   - **Config write failure.** That's me logs a `Log.meeting` warning and still withdraws, following `meeting_system_audio_explained`.
   - **Constant.** The controller keeps its own `"conversation"` constant; the registry's is private.
   - **User-name check.** That's me compares against `meeting.userName`.
+- **Stage 12.**
+  - **`decide` returns `NamingDecision { actions; dropped: [Int: Int] }`**, not `[NamingAction]`, so the route can log drop counts by rule number.
+  - **One name said twice for one speaker** yields one action, preferring the self-introduction in the speaker's own turn; the design was silent.
+  - **Own turn.** Rule 8's "evidence in its own turn" reads the evidence segment's current speaker from `segmentSpeakers`, as rule 10 does.
+  - **Alias in a room with no user name** is dropped under rule 6, since there is no name to merge into.
+  - **Match key.** Actions carry the target's first provider key; the registry sets it again.
