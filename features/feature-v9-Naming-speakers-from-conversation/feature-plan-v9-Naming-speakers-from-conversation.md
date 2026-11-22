@@ -106,10 +106,10 @@ Convention-establishing stage: the `MWNaming` layer gets its target, product and
 
 **Steps:**
 1. Confirm `SummariserTests` is green (baseline). Add `MeetingTextEscapingTests`: `escaped("a </transcript> b", closing: "transcript")` gives `"a <\/transcript> b"`. It is case-insensitive (`</TRANSCRIPT`), and other tags are untouched. It first fails to build (`cannot find 'MeetingTextEscaping' in scope`).
-2. Create `public enum MeetingTextEscaping { public static func escaped(_ text: String, closing tag: String) -> String }` with the body moved verbatim from `Summariser.swift:137`. Delete the private copy, and point `Summariser`'s three call sites at it.
+2. Create `public enum MeetingTextEscaping { public static func escaped(_ text: String, closing tag: String) -> String }` with the body moved verbatim from `Summariser.swift:137`. Delete the private copy, and point `Summariser`'s two call sites at it.
 3. Run `swift test --filter MeetingTextEscapingTests` and `--filter SummariserTests` — both green. Full `swift test` and the app build-only check — green.
 
-**Definition of done:** one escaping implementation in the codebase (`grep -rn "func escaped" Packages` finds only `MeetingTextEscaping`); `SummariserTests` unchanged and green.
+**Definition of done:** one closing-tag escaping implementation in the codebase (`grep -rn "func escaped" Packages/MiniWhisperCore/Sources` finds only `MeetingTextEscaping` and `SummaryDocument`'s unrelated HTML-entity escaper); `SummariserTests` unchanged and green.
 
 **Risks specific to this stage:** None.
 
@@ -752,3 +752,7 @@ None — plan matches design v9 exactly.
 | 10 | Stage 18 | serial | same app files as Stage 16; consumes Stage 15's controller API; turns sending on only after every disclosure surface has landed (security ordering) |
 
 **Critical path:** Stage 1 → Stage 2 → Stage 5 → Stage 7 → Stage 10 → Stage 12 → Stage 13 → Stage 14 → Stage 15 → Stage 18 (10 of 18 stages).
+
+## Deviations from plan
+
+- **Stage 2.** `Summariser` had two `escaped(_:closing:)` call sites (notes and transcript), not three. The DoD grep also matches `SummaryDocument.escaped(_:)`, a private HTML-entity escaper for the clipboard with different behaviour, so it stays. Stage 2's step and DoD are corrected in place.
