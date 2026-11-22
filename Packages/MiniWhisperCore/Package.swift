@@ -25,6 +25,7 @@ let package = Package(
         .library(name: "MWAgentAccess", targets: ["MWAgentAccess"]),
         .library(name: "MWTestCall", targets: ["MWTestCall"]),
         .library(name: "MWVoices", targets: ["MWVoices"]),
+        .library(name: "MWNaming", targets: ["MWNaming"]),
     ],
     targets: [
         .target(name: "MWSupport"),
@@ -55,13 +56,14 @@ let package = Package(
             name: "MWMeetingPipeline",
             dependencies: [
                 "MWMeetings", "MWStreaming", "MWAudio", "MWConfig", "MWCorrections", "MWUsage",
-                "MWTranscription", "MWSupport", "MWTestCall", "MWVoices",
+                "MWTranscription", "MWSupport", "MWTestCall", "MWVoices", "MWNaming",
             ]
         ),
         // Read-only meeting access for the CLI and MCP server: no audio, streaming or pipeline.
         .target(name: "MWAgentAccess", dependencies: ["MWMeetings", "MWSupport"]),
         .target(name: "MWTestCall", dependencies: ["MWMeetings", "MWConfig", "MWSupport"]),
         .target(name: "MWVoices", dependencies: ["MWMeetings", "MWConfig", "MWSupport"]),
+        .target(name: "MWNaming", dependencies: ["MWMeetings", "MWSupport", "MWTranscription"]),
         .target(
             name: "MWTestSupport",
             dependencies: [
@@ -105,6 +107,7 @@ let package = Package(
             resources: [.copy("Fixtures")]
         ),
         .testTarget(name: "MWVoicesTests", dependencies: ["MWVoices", "MWTestSupport"]),
+        .testTarget(name: "MWNamingTests", dependencies: ["MWNaming", "MWTestSupport"]),
     ],
     swiftLanguageModes: [.v6]
 )
