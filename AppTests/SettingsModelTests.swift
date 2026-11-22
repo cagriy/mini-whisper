@@ -41,7 +41,8 @@ import Testing
             status: (@Sendable () async -> AssetStatus)? = nil,
             installAssets: @escaping @Sendable () async throws -> Void = {},
             prepareVoiceModel: @escaping @Sendable () async -> Bool = { true },
-            people: PeopleModel.Dependencies = PeopleModel.Dependencies()
+            people: PeopleModel.Dependencies = PeopleModel.Dependencies(),
+            appVersion: String = "0.8.2"
         ) async -> SettingsModel {
             let model = SettingsModel(
                 config: await store.load(),
@@ -75,7 +76,8 @@ import Testing
                     toolBinaryPath: "/Applications/Mini Whisper.app/Contents/MacOS/Mini Whisper",
                     copy: { [meetings] in meetings.copied.append($0) },
                     prepareVoiceModel: prepareVoiceModel,
-                    people: people
+                    people: people,
+                    appVersion: appVersion
                 )
             )
             await model.refreshSpeechModel()
@@ -640,6 +642,108 @@ import Testing
         let model = await harness.model()
 
         #expect(model.theme == .dark)
+    }
+
+    // MARK: - Update channel (design v10 §3 R3, R4, R8)
+
+    @Test func updateChannelStartsFromTheConfig() async throws {
+        let fresh = Harness()
+        defer { fresh.cleanUp() }
+        #expect(await fresh.model().updateChannel == .release)
+
+        let harness = Harness()
+        defer { harness.cleanUp() }
+        try harness.writeConfig(#"{"update_channel": "beta"}"#)
+        #expect(await harness.model().updateChannel == .beta)
+    }
+
+    @Test func choosingBetaAsksAndWritesNothing() async {
+        let harness = Harness()
+        defer { harness.cleanUp() }
+        let model = await harness.model()
+
+        await model.chooseUpdateChannel(.beta)
+
+        #expect(model.confirmingBetaChannel)
+        #expect(model.updateChannel == .release)
+        #expect(await harness.store.load().updateChannel == .release)
+    }
+
+    @Test func confirmingBetaWritesBetaAndClearsTheQuestion() async {
+        let harness = Harness()
+        defer { harness.cleanUp() }
+        let model = await harness.model()
+        await model.chooseUpdateChannel(.beta)
+
+        await model.confirmBetaChannel()
+
+        #expect(!model.confirmingBetaChannel)
+        #expect(model.updateChannel == .beta)
+        #expect(await harness.store.load().updateChannel == .beta)
+    }
+
+    /// The pill shows the stored value, so a cancelled Beta leaves it on Release.
+    @Test func cancellingBetaWritesNothing() async {
+        let harness = Harness()
+        defer { harness.cleanUp() }
+        let model = await harness.model()
+        await model.chooseUpdateChannel(.beta)
+        #expect(model.confirmingBetaChannel)
+
+        model.cancelBetaChannel()
+
+        #expect(!model.confirmingBetaChannel)
+        #expect(model.updateChannel == .release)
+        #expect(await harness.store.load().updateChannel == .release)
+    }
+
+    @Test func choosingReleaseWritesAtOnce() async throws {
+        let harness = Harness()
+        defer { harness.cleanUp() }
+        try harness.writeConfig(#"{"update_channel": "beta"}"#)
+        let model = await harness.model()
+
+        await model.chooseUpdateChannel(.release)
+
+        #expect(!model.confirmingBetaChannel)
+        #expect(model.updateChannel == .release)
+        #expect(await harness.store.load().updateChannel == .release)
+    }
+
+    @Test(arguments: UpdateChannel.allCases)
+    func choosingTheCurrentChannelDoesNothing(channel: UpdateChannel) async throws {
+        let harness = Harness()
+        defer { harness.cleanUp() }
+        try harness.writeConfig(#"{"update_channel": "\#(channel.rawValue)"}"#)
+        let model = await harness.model()
+
+        await model.chooseUpdateChannel(channel)
+
+        #expect(!model.confirmingBetaChannel)
+        #expect(await harness.store.load().updateChannel == channel)
+    }
+
+    @Test func isBetaBuildFollowsTheVersion() async {
+        let harness = Harness()
+        defer { harness.cleanUp() }
+
+        let beta = await harness.model(appVersion: "0.9.0b1")
+        #expect(beta.isBetaBuild)
+        #expect(beta.appVersion == "0.9.0b1")
+
+        let release = await harness.model(appVersion: "0.8.2")
+        #expect(!release.isBetaBuild)
+    }
+
+    @Test func refreshReadsTheUpdateChannel() async throws {
+        let harness = Harness()
+        defer { harness.cleanUp() }
+        let model = await harness.model()
+
+        try await harness.store.update { @Sendable in $0.updateChannel = .beta }
+        model.refresh(from: await harness.store.load())
+
+        #expect(model.updateChannel == .beta)
     }
 
     // MARK: - Meetings (design §3 R4, R20, R22)

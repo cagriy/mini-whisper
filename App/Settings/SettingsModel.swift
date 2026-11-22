@@ -67,6 +67,9 @@ final class SettingsModel {
         /// Loads the bundled voice model; false when it cannot be loaded on this Mac.
         var prepareVoiceModel: @Sendable () async -> Bool = { true }
         var people = PeopleModel.Dependencies()
+        /// Injected so a test can run as a beta build (design v10 R8).
+        var appVersion: String =
+            Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "?"
     }
 
     enum Section: String, CaseIterable, Identifiable {
@@ -216,9 +219,21 @@ final class SettingsModel {
         }
     }
 
-    var appVersion: String {
-        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "?"
+    /// R36: a config written elsewhere — the correction window, or the Python app —
+    /// reaches the open panes through AppDelegate's single config-change consumer (N4).
+    func refresh(from config: Config) {
+        self.config = config
+        vocabulary.replace(terms: config.vocabulary)
+        corrections.refresh(config)
+        profiles.setDefaultCleanup(config.cleanupEnabled)
     }
+
+    // MARK: - Updates (design v10)
+
+    var appVersion: String { deps.appVersion }
+
+    /// R8: the version line marks a beta build.
+    var isBetaBuild: Bool { UpdateChannelPolicy.isBeta(version: appVersion) }
 
     func setAutomaticUpdates(_ enabled: Bool) {
         deps.updates.automaticallyChecksForUpdates = enabled
@@ -229,13 +244,29 @@ final class SettingsModel {
         deps.updates.checkForUpdates()
     }
 
-    /// R36: a config written elsewhere — the correction window, or the Python app —
-    /// reaches the open panes through AppDelegate's single config-change consumer (N4).
-    func refresh(from config: Config) {
-        self.config = config
-        vocabulary.replace(terms: config.vocabulary)
-        corrections.refresh(config)
-        profiles.setDefaultCleanup(config.cleanupEnabled)
+    /// The stored channel, so a pending confirmation leaves the pill on Release.
+    var updateChannel: UpdateChannel { config.updateChannel }
+
+    /// While true, `MainView` shows the Beta dialog.
+    private(set) var confirmingBetaChannel = false
+
+    /// R3: Beta waits for the dialog. R4: Release is written at once. `AppDelegate`'s
+    /// config-change consumer hands the stored channel to Sparkle.
+    func chooseUpdateChannel(_ channel: UpdateChannel) async {
+        guard channel != updateChannel else { return }
+        switch channel {
+        case .beta: confirmingBetaChannel = true
+        case .release: await write { $0.updateChannel = .release }
+        }
+    }
+
+    func confirmBetaChannel() async {
+        confirmingBetaChannel = false
+        await write { $0.updateChannel = .beta }
+    }
+
+    func cancelBetaChannel() {
+        confirmingBetaChannel = false
     }
 
     // MARK: - General
