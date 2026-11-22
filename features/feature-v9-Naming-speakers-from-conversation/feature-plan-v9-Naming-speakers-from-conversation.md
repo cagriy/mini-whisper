@@ -795,3 +795,10 @@ None — plan matches design v9 exactly.
   - **Pause guard.** `run` returns an empty outcome without sending when paused, except for the manual scope. Pausing also disarms the trigger, so no follow-up is returned.
   - **Unreadable envelope.** A 200 reply whose envelope does not decode still throws a bare `NamingError.malformed`: no usage can be read. Refused, truncated and unreadable-suggestion replies throw `NamingFailure`.
   - **Logs.** The route's reply line repeats the token figures beside duration and cost; failures log a category, never the transport reason text.
+- **Stage 14.**
+  - **Single flight in the controller.** A fire spawns one `namingTask` that runs the R7 checks (they need the config load), sends and applies. A fire while that task exists outside the route's flight (before `begin()` or during the apply) sets `namingAgain`, folded into the follow-up with `outcome.followUp`. The route's own coalescing still covers fires during the flight.
+  - **`waitForNaming()`** (internal) resolves once no request is being prepared, sent or applied. Tests wait on it; the Stop pass in Stage 15 should await it rather than the route's `waitIdle()`, which does not cover the apply.
+  - **Aliases for spotting** are cached in `namingAliases`, read at Start and on every tick, so `add` spots and fires without a suspension.
+  - **R7 placement.** `startNaming` only spawns; the checks run at the top of `runNaming`, and again before a follow-up.
+  - **People** are loaded into the route at the end of Start (`reloadPeople()`).
+  - **No other exhaustive `switch` over `MeetingEvent`** exists; only `MeetingWindowModel.apply` gained a case.
