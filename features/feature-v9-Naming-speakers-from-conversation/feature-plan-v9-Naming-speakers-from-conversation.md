@@ -756,3 +756,5 @@ None — plan matches design v9 exactly.
 ## Deviations from plan
 
 - **Stage 2.** `Summariser` had two `escaped(_:closing:)` call sites (notes and transcript), not three. The DoD grep also matches `SummaryDocument.escaped(_:)`, a private HTML-entity escaper for the clipboard with different behaviour, so it stays. Stage 2's step and DoD are corrected in place.
+- **Stage 3.** The hand-written `Billing.encode(to:)` beside the hand-written decoder stops `CodingKeys` synthesis, so `Billing` declares `private enum CodingKeys` explicitly; the byte-identity test guards the names. `SpeakerRegistry.defaultName` keeps its own copy until Stage 8 delegates it.
+- **Stage 6.** `NamingTrigger.init(delay:)` takes the delay, defaulting to `defaultDelay` (20 s), because Stage 13's route passes the constant and cannot edit `NamingTrigger.swift`. An armed trigger keeps its first deadline when the same speaker names someone again, so one speaker's run of names cannot postpone the request; the design was silent here. Both are tested. NLTagger does not tag `"niamh can you hear me"`, `"NIÁMH?"` or `"Danger ahead"`, so those tests exercise the known-name match alone.
