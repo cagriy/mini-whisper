@@ -789,3 +789,9 @@ None — plan matches design v9 exactly.
   - **Own turn.** Rule 8's "evidence in its own turn" reads the evidence segment's current speaker from `segmentSpeakers`, as rule 10 does.
   - **Alias in a room with no user name** is dropped under rule 6, since there is no name to merge into.
   - **Match key.** Actions carry the target's first provider key; the registry sets it again.
+- **Stage 13.**
+  - **People.** The route owns them: `reloadPeople()` caches the reader's list, which the controller calls at Start and every `run` calls first. The cache feeds spotting, the request's People names and the policy: `run` replaces the context's `people` with the list the request offered. `NamingSnapshot` therefore has no People field.
+  - **Standing suggestion names** come from `segmentsAdded`'s `speakers` (every `.suggested` match), so the controller passes only the user's name and aliases as `known`.
+  - **Pause guard.** `run` returns an empty outcome without sending when paused, except for the manual scope. Pausing also disarms the trigger, so no follow-up is returned.
+  - **Unreadable envelope.** A 200 reply whose envelope does not decode still throws a bare `NamingError.malformed`: no usage can be read. Refused, truncated and unreadable-suggestion replies throw `NamingFailure`.
+  - **Logs.** The route's reply line repeats the token figures beside duration and cost; failures log a category, never the transport reason text.
