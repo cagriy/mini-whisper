@@ -1,0 +1,659 @@
+<title>Update channel control</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/* Layout: three options side by side, each the Settings › General Updates card as it is today plus the channel control; shared state switch above. */
+:root{
+  --stage:#E8E5DE; --bg:#FBFAF7; --side:#F2F0EA; --card:#FFFFFF; --hover:#ECE9E2; --line:#E1DDD3;
+  --ink:#23221F; --ink2:#6B675E; --ink3:#969084;
+  --accent:#2A6FC9; --accent-ink:#FFFFFF; --accent-soft:#E3EEFB;
+  --warn:#A56A00; --scrim:rgba(20,19,17,0.36); --shadow:0 14px 36px rgba(35,34,31,0.18);
+  --serif:ui-serif,"New York","Iowan Old Style",Georgia,serif;
+  --sans:-apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,"Segoe UI",sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --stage:#151413; --bg:#262522; --side:#1E1D1B; --card:#2F2E2A; --hover:#39372F; --line:#46443D;
+  --ink:#F1EEE7; --ink2:#B4AFA4; --ink3:#878278;
+  --accent:#7DB8F0; --accent-ink:#10202F; --accent-soft:#2A3948;
+  --warn:#E2B45E; --shadow:0 14px 36px rgba(0,0,0,0.45); color-scheme:dark}}
+:root[data-theme="dark"]{
+  --stage:#151413; --bg:#262522; --side:#1E1D1B; --card:#2F2E2A; --hover:#39372F; --line:#46443D;
+  --ink:#F1EEE7; --ink2:#B4AFA4; --ink3:#878278;
+  --accent:#7DB8F0; --accent-ink:#10202F; --accent-soft:#2A3948;
+  --warn:#E2B45E; --shadow:0 14px 36px rgba(0,0,0,0.45); color-scheme:dark}
+
+*,*::before,*::after{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;background:var(--stage);color:var(--ink);font:14px/1.5 var(--sans);-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.page{max-width:1560px;margin:0 auto;padding-block:24px 120px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  display:grid;gap:20px}
+
+/* Page chrome (not part of the app) */
+.banner{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 20px;display:grid;gap:6px}
+.banner .tag{font:600 11px/14px var(--sans);letter-spacing:.06em;text-transform:uppercase;color:var(--warn)}
+.banner h1{margin:0;font:500 24px/30px var(--serif);text-wrap:balance}
+.banner p{margin:0;color:var(--ink2);max-width:100ch}
+.banner p b{color:var(--ink);font-weight:600}
+.ctl{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 20px;display:flex;flex-wrap:wrap;gap:8px 18px;align-items:center;color:var(--ink2);font-size:13px}
+.ctl b{color:var(--ink);font-weight:600}
+.ctl label{display:inline-flex;gap:6px;align-items:center;cursor:pointer}
+.options{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,440px),1fr));gap:20px;align-items:start}
+.opt{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;display:grid;gap:12px;min-width:0}
+.opt > h2{margin:0;font:500 20px/26px var(--serif)}
+.opt > h2 code{font:500 12px/18px ui-monospace,"SF Mono",Menlo,monospace;color:var(--ink3);margin-left:6px}
+.opt > p{margin:0;color:var(--ink2)}
+.opt > p b{color:var(--ink);font-weight:600}
+
+/* App: Settings › General, Updates card */
+.win{position:relative;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:22px 22px 24px;display:grid;gap:14px;min-width:0;overflow:hidden}
+.display{margin:0;font:500 28px/34px var(--serif);letter-spacing:-.01em}
+.group{font:500 12px/16px var(--sans);color:var(--ink3);margin:0 0 -8px;padding:0 4px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:0 16px}
+.row{padding:14px 0;border-top:1px solid var(--line)}
+.row:first-child{border-top:0}
+.set{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 16px;align-items:center}
+.t{font:500 13px/18px var(--sans)}
+.d{color:var(--ink2);font:12px/17px var(--sans);max-width:52ch}
+.d.note{color:var(--ink3)}
+.toggle{width:36px;height:20px;border-radius:999px;border:0;background:var(--line);position:relative;padding:0;flex:none}
+.toggle::after{content:"";position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.25);transition:left .12s}
+.toggle[aria-pressed="true"]{background:var(--accent)}
+.toggle[aria-pressed="true"]::after{left:18px}
+.btn{display:inline-flex;align-items:center;justify-content:center;height:24px;padding:0 10px;border-radius:999px;
+  border:1px solid var(--line);background:transparent;color:var(--ink);font:500 12px/16px var(--sans);white-space:nowrap}
+.btn:hover{background:var(--hover)}
+.seg{display:inline-flex;padding:2px;border-radius:999px;background:var(--side);border:1px solid var(--line);gap:2px}
+.seg button{height:24px;padding:0 12px;border-radius:999px;border:0;background:transparent;color:var(--ink2);font:500 12px/16px var(--sans)}
+.seg button[aria-pressed="true"]{background:var(--card);color:var(--ink);box-shadow:0 0 0 1px var(--line)}
+.radio{display:grid;grid-template-columns:auto minmax(0,1fr);gap:2px 10px;align-items:start;padding:6px 0;border:0;background:transparent;width:100%;text-align:left;font:13px/18px var(--sans)}
+.radio .o{width:16px;height:16px;border-radius:50%;border:1.5px solid var(--ink3);margin-top:1px}
+.radio[aria-pressed="true"] .o{border:5px solid var(--accent)}
+.radio .d{display:block}
+.chip{display:inline-flex;align-items:center;height:18px;padding:0 7px;border-radius:999px;border:1px solid var(--line);color:var(--ink2);font:600 11px/14px var(--sans);vertical-align:1px;margin-left:4px}
+
+/* Dialog: a card over a scrim, in the window */
+.scrim{position:absolute;inset:0;background:var(--scrim);display:grid;place-items:center;padding:16px}
+.dialog{width:min(100%,340px);background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);padding:20px;display:grid;gap:10px}
+.dialog h3{margin:0;font:500 18px/24px var(--serif)}
+.dialog p{margin:0;color:var(--ink2);font:13px/18px var(--sans)}
+.dialog .acts{display:flex;justify-content:flex-end;gap:8px;margin-top:6px}
+.primary{display:inline-flex;align-items:center;height:30px;padding:0 14px;border-radius:999px;border:0;background:var(--accent);color:var(--accent-ink);font:500 13px/18px var(--sans)}
+.secondary{display:inline-flex;align-items:center;height:30px;padding:0 14px;border-radius:999px;border:1px solid var(--line);background:transparent;color:var(--ink);font:500 13px/18px var(--sans)}
+</style>
+
+<div class="page">
+
+  <header class="banner">
+    <div class="tag">Mockup — not shipping code · v10 · Update channel control · segmented chosen, revised in mockup-v10-segmented.html; switch and radio-rows not chosen</div>
+    <h1>How the Updates card offers Release or Beta</h1>
+    <p>Settings › General › Updates as it is today, plus the channel choice. All three options use the same copy and the same confirmation; they differ in <b>the control</b>: a segmented pill like Theme, a switch like the other settings, or two radio rows like the engine list.</p>
+    <p>Choosing Beta opens the confirmation over the window; Cancel keeps Release, Switch to Beta takes effect. Choosing Release again needs no confirmation. Tick <b>Running a beta</b> to see the version line on 0.9.0b1. Follows DESIGN.md: settings card with hairline rows, segmented pill switch, switch, radio row, Dialog, chip.</p>
+  </header>
+
+  <div class="ctl" role="group" aria-label="States to try">
+    <b>Try a state</b>
+    <label><input type="checkbox" id="st-beta"> Running a beta (0.9.0b1)</label>
+    <span>Then click Beta in any option to see the confirmation.</span>
+  </div>
+
+  <div class="options">
+
+    <!-- Option A -->
+    <section class="opt" id="segmented" data-mf-option="segmented">
+      <h2>Segmented pill <code>segmented</code></h2>
+      <p>A first row, "Update channel", with Release · Beta in the same pill as Theme. <b>Trade-off:</b> reads as a choice between two named channels; the row needs the longest description, since neither label explains itself.</p>
+      <div class="win" data-win>
+        <h1 class="display">General</h1>
+        <div class="group">Updates</div>
+        <div class="card">
+          <div class="row set">
+            <div><div class="t">Update channel</div><div class="d">Release gets tested versions. Beta gets new versions first, and they may have bugs. Switching back to Release keeps an installed beta until the next release.</div></div>
+            <div class="seg" role="group" aria-label="Update channel">
+              <button type="button" data-ch="release" aria-pressed="true">Release</button>
+              <button type="button" data-ch="beta" aria-pressed="false">Beta</button>
+            </div>
+          </div>
+          <div class="row set">
+            <div><div class="t">Automatically check for updates</div><div class="d" data-version>Version 0.8.2. Checked once a day; an update installs only after you approve it.</div></div>
+            <button type="button" class="toggle" aria-pressed="true" aria-label="Automatically check for updates"></button>
+          </div>
+          <div class="row set">
+            <div><div class="t">Check for an update now</div></div>
+            <button type="button" class="btn">Check Now</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Option B -->
+    <section class="opt" id="switch" data-mf-option="switch">
+      <h2>Beta switch <code>switch</code></h2>
+      <p>A row "Get beta versions" with the usual switch, after automatic checks; off is Release. <b>Trade-off:</b> matches every other on/off setting and needs no channel vocabulary; "Release" never appears as a word.</p>
+      <div class="win" data-win>
+        <h1 class="display">General</h1>
+        <div class="group">Updates</div>
+        <div class="card">
+          <div class="row set">
+            <div><div class="t">Automatically check for updates</div><div class="d" data-version>Version 0.8.2. Checked once a day; an update installs only after you approve it.</div></div>
+            <button type="button" class="toggle" aria-pressed="true" aria-label="Automatically check for updates"></button>
+          </div>
+          <div class="row set">
+            <div><div class="t">Get beta versions</div><div class="d">New versions before their release; they may have bugs. Turning this off keeps an installed beta until the next release.</div></div>
+            <button type="button" class="toggle" data-beta-switch aria-pressed="false" aria-label="Get beta versions"></button>
+          </div>
+          <div class="row set">
+            <div><div class="t">Check for an update now</div></div>
+            <button type="button" class="btn">Check Now</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Option C -->
+    <section class="opt" id="radio-rows" data-mf-option="radio-rows">
+      <h2>Radio rows <code>radio-rows</code></h2>
+      <p>"Update channel" with two radio rows, each carrying its own line, like the engine list. <b>Trade-off:</b> each choice explains itself; the card grows by two lines.</p>
+      <div class="win" data-win>
+        <h1 class="display">General</h1>
+        <div class="group">Updates</div>
+        <div class="card">
+          <div class="row">
+            <div class="t" style="margin-bottom:4px">Update channel</div>
+            <button type="button" class="radio" data-ch="release" aria-pressed="true"><span class="o"></span><span><span>Release</span><span class="d">Tested versions.</span></span></button>
+            <button type="button" class="radio" data-ch="beta" aria-pressed="false"><span class="o"></span><span><span>Beta</span><span class="d">New versions before their release. They may have bugs.</span></span></button>
+            <div class="d note" style="margin-top:4px">Switching back to Release keeps an installed beta until the next release.</div>
+          </div>
+          <div class="row set">
+            <div><div class="t">Automatically check for updates</div><div class="d" data-version>Version 0.8.2. Checked once a day; an update installs only after you approve it.</div></div>
+            <button type="button" class="toggle" aria-pressed="true" aria-label="Automatically check for updates"></button>
+          </div>
+          <div class="row set">
+            <div><div class="t">Check for an update now</div></div>
+            <button type="button" class="btn">Check Now</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</div>
+
+<template id="dialog-tpl">
+  <div class="scrim" role="presentation">
+    <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="dlg-title">
+      <h3 id="dlg-title">Switch to beta versions?</h3>
+      <p>Beta versions arrive before each release and may have bugs. You can switch back to Release at any time; an installed beta stays until the next release.</p>
+      <div class="acts">
+        <button type="button" class="secondary" data-cancel>Cancel</button>
+        <button type="button" class="primary" data-confirm>Switch to Beta</button>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script>
+(function(){
+  const tpl = document.getElementById('dialog-tpl');
+  const versionText = beta => beta
+    ? 'Version 0.9.0b1 <span class="chip">Beta</span>. Checked once a day; an update installs only after you approve it.'
+    : 'Version 0.8.2. Checked once a day; an update installs only after you approve it.';
+  document.getElementById('st-beta').addEventListener('change', e => {
+    document.querySelectorAll('[data-version]').forEach(el => { el.innerHTML = versionText(e.target.checked); });
+  });
+
+  function confirmBeta(win, apply){
+    const node = tpl.content.firstElementChild.cloneNode(true);
+    win.appendChild(node);
+    const close = () => node.remove();
+    node.querySelector('[data-cancel]').addEventListener('click', close);
+    node.querySelector('[data-confirm]').addEventListener('click', () => { apply(); close(); });
+    node.querySelector('[data-confirm]').focus();
+  }
+
+  document.querySelectorAll('[data-win]').forEach(win => {
+    const choices = win.querySelectorAll('[data-ch]');
+    const set = ch => choices.forEach(b => b.setAttribute('aria-pressed', String(b.dataset.ch === ch)));
+    choices.forEach(b => b.addEventListener('click', () => {
+      if (b.getAttribute('aria-pressed') === 'true') return;
+      if (b.dataset.ch === 'beta') confirmBeta(win, () => set('beta')); else set('release');
+    }));
+    const sw = win.querySelector('[data-beta-switch]');
+    if (sw) sw.addEventListener('click', () => {
+      if (sw.getAttribute('aria-pressed') === 'true') { sw.setAttribute('aria-pressed', 'false'); return; }
+      confirmBeta(win, () => sw.setAttribute('aria-pressed', 'true'));
+    });
+    win.querySelectorAll('.toggle:not([data-beta-switch])').forEach(t => t.addEventListener('click', () =>
+      t.setAttribute('aria-pressed', String(t.getAttribute('aria-pressed') !== 'true'))));
+  });
+})();
+</script>
+
+<!-- mockup-feedback:start -->
+<style>
+.mf-bar {
+  --mf-bg: #f6f7f9;
+  --mf-fg: #1a2127;
+  --mf-muted: #59646d;
+  --mf-line: #d3d9de;
+  --mf-field: #ffffff;
+  --mf-accent: #2f5fd0;
+  --mf-accent-fg: #ffffff;
+  --mf-ok: #1d7a4c;
+  --mf-warn: #8f5d00;
+  --mf-err: #b2322b;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .mf-bar {
+    --mf-bg: #161b20;
+    --mf-fg: #e3e8ec;
+    --mf-muted: #98a3ab;
+    --mf-line: #2d363e;
+    --mf-field: #0f1317;
+    --mf-accent: #7ea2f5;
+    --mf-accent-fg: #0b1220;
+    --mf-ok: #57c48c;
+    --mf-warn: #e2ac45;
+    --mf-err: #f08077;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] .mf-bar {
+  --mf-bg: #161b20;
+  --mf-fg: #e3e8ec;
+  --mf-muted: #98a3ab;
+  --mf-line: #2d363e;
+  --mf-field: #0f1317;
+  --mf-accent: #7ea2f5;
+  --mf-accent-fg: #0b1220;
+  --mf-ok: #57c48c;
+  --mf-warn: #e2ac45;
+  --mf-err: #f08077;
+  color-scheme: dark;
+}
+.mf-bar, .mf-bar * { box-sizing: border-box; }
+.mf-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 2147483000;
+  margin: 24px 0 0;
+  padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px));
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--mf-bg);
+  color: var(--mf-fg);
+  border-top: 1px solid var(--mf-line);
+  box-shadow: 0 -6px 18px rgba(0, 0, 0, 0.08);
+  font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  text-align: left;
+}
+.mf-bar[hidden] { display: none; }
+.mf-bar .mf-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+.mf-bar .mf-tag {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--mf-muted);
+}
+.mf-bar .mf-title { font-weight: 600; }
+.mf-bar .mf-context { color: var(--mf-muted); min-width: 0; overflow-wrap: anywhere; }
+.mf-bar .mf-toggle {
+  margin-left: auto;
+  padding: 2px 6px;
+  border: 0;
+  background: none;
+  color: var(--mf-accent);
+  font: inherit;
+  font-size: 13px;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.mf-bar .mf-body { display: flex; flex-direction: column; gap: 8px; }
+.mf-bar.mf-collapsed .mf-body { display: none; }
+.mf-bar .mf-options { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; border: 0; }
+.mf-bar .mf-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border: 1.5px solid var(--mf-line);
+  border-radius: 999px;
+  background: var(--mf-field);
+  cursor: pointer;
+}
+.mf-bar .mf-chip input { margin: 0; accent-color: var(--mf-accent); }
+.mf-bar .mf-chip:has(input:checked) { border-color: var(--mf-accent); }
+.mf-bar .mf-chip:has(input:focus-visible) { outline: 2px solid var(--mf-accent); outline-offset: 2px; }
+.mf-bar .mf-note {
+  width: 100%;
+  min-height: 38px;
+  max-height: 140px;
+  padding: 7px 10px;
+  resize: vertical;
+  font: inherit;
+  color: var(--mf-fg);
+  background: var(--mf-field);
+  border: 1.5px solid var(--mf-line);
+  border-radius: 8px;
+}
+.mf-bar .mf-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.mf-bar .mf-btn {
+  padding: 7px 12px;
+  border: 1.5px solid var(--mf-line);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--mf-fg);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.mf-bar .mf-btn.mf-primary { background: var(--mf-accent); border-color: var(--mf-accent); color: var(--mf-accent-fg); }
+.mf-bar .mf-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.mf-bar .mf-btn:focus-visible, .mf-bar .mf-toggle:focus-visible, .mf-bar .mf-note:focus-visible {
+  outline: 2px solid var(--mf-accent);
+  outline-offset: 2px;
+}
+.mf-bar .mf-channel { display: flex; align-items: center; gap: 6px; margin: 0; font-size: 13px; color: var(--mf-muted); }
+.mf-bar .mf-dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--mf-muted); }
+.mf-bar .mf-channel[data-state="available"] .mf-dot { background: var(--mf-ok); }
+.mf-bar .mf-channel[data-state="no_session"] .mf-dot,
+.mf-bar .mf-channel[data-state="writers_only"] .mf-dot { background: var(--mf-warn); }
+.mf-bar .mf-channel[data-state="blocked"] .mf-dot { background: var(--mf-err); }
+.mf-bar .mf-result { margin: 0; font-size: 13px; }
+.mf-bar .mf-result[data-kind="ok"] { color: var(--mf-ok); }
+.mf-bar .mf-result[data-kind="err"] { color: var(--mf-err); }
+.mf-bar .mf-verdict { margin: 0; font-weight: 600; }
+[data-mf-option].mf-selected { outline: 3px solid #3b6fe0; outline-offset: 4px; }
+</style>
+<aside class="mf-bar" id="mf-bar" role="region" aria-label="Mockup feedback" data-uncommentable hidden>
+  <div class="mf-head">
+    <span class="mf-tag">Feedback</span>
+    <span class="mf-title" id="mf-title"></span>
+    <span class="mf-context" id="mf-context"></span>
+    <button type="button" class="mf-toggle" id="mf-toggle" aria-expanded="true" aria-controls="mf-body">Hide</button>
+  </div>
+  <div class="mf-body" id="mf-body">
+    <p class="mf-verdict" id="mf-verdict" hidden></p>
+    <fieldset class="mf-options" id="mf-options" hidden></fieldset>
+    <textarea class="mf-note" id="mf-note" maxlength="1500" placeholder="Note for Claude (optional; required to request changes)" aria-label="Note for Claude"></textarea>
+    <div class="mf-actions" id="mf-actions"></div>
+    <p class="mf-channel" id="mf-channel" data-state="checking">
+      <span class="mf-dot" aria-hidden="true"></span>
+      <span id="mf-channel-text">Checking whether a Claude session is listening.</span>
+      <button type="button" class="mf-toggle" id="mf-recheck" hidden>Check again</button>
+    </p>
+    <p class="mf-result" id="mf-result" role="status" aria-live="polite" hidden></p>
+  </div>
+</aside>
+<script type="application/json" id="mf-config">{"set":"v10-s1","setLabel":"Update channel control","mode":"compare","options":[{"id":"segmented","label":"Segmented pill"},{"id":"switch","label":"Beta switch"},{"id":"radio-rows","label":"Radio rows"}],"this":null,"status":"closed","chosen":null}</script>
+<script>
+(function () {
+  var cfg;
+  try { cfg = JSON.parse(document.getElementById("mf-config").textContent); } catch (e) { return; }
+  if (!cfg || !cfg.options || !cfg.options.length) return;
+
+  var PREFIX = "Mockup feedback · ";
+  var CHANNEL = {
+    checking: "Checking whether a Claude session is listening.",
+    available: "A Claude session is listening. Sending wakes it.",
+    no_session: "No Claude session is listening. Reply in chat, or check again once the session is back.",
+    writers_only: "Only editors of this page can send to Claude. Reply in chat instead.",
+    off: "Sending to Claude is not offered here. Reply in chat instead.",
+    absent: "Sending works on the published page. Here, reply in chat instead.",
+    blocked: "Commenting from this page is turned off. Reply in chat instead."
+  };
+  var KNOWN = ["available", "writers_only", "no_session", "off"];
+
+  var bar = document.getElementById("mf-bar");
+  var titleEl = document.getElementById("mf-title");
+  var contextEl = document.getElementById("mf-context");
+  var toggleBtn = document.getElementById("mf-toggle");
+  var verdictEl = document.getElementById("mf-verdict");
+  var optionsEl = document.getElementById("mf-options");
+  var noteEl = document.getElementById("mf-note");
+  var actionsEl = document.getElementById("mf-actions");
+  var channelEl = document.getElementById("mf-channel");
+  var channelText = document.getElementById("mf-channel-text");
+  var recheckBtn = document.getElementById("mf-recheck");
+  var resultEl = document.getElementById("mf-result");
+
+  var comments = null;
+  var state = "checking";
+  var busy = false;
+  var sent = false;
+  var buttons = [];
+
+  function byId(list, id) {
+    for (var i = 0; i < list.length; i++) if (list[i].id === id) return list[i];
+    return null;
+  }
+  function label(id) { var o = byId(cfg.options, id); return o ? o.label : id; }
+  function root(id) { return document.querySelector('[data-mf-option="' + id + '"]'); }
+  function picked() {
+    if (cfg.mode !== "compare") return cfg.mode === "pick" ? cfg["this"] : cfg.options[0].id;
+    var r = optionsEl.querySelector("input:checked");
+    return r ? r.value : null;
+  }
+  function say(text, kind) {
+    resultEl.hidden = !text;
+    resultEl.textContent = text || "";
+    if (kind) resultEl.setAttribute("data-kind", kind);
+    else resultEl.removeAttribute("data-kind");
+  }
+  function clean(text) {
+    return text.replace(/[\u0000-\u0008\u000B-\u001F\u007F]/g, "").trim();
+  }
+
+  // Header: the set, and where this page sits in it.
+  titleEl.textContent = cfg.setLabel;
+  if (cfg.mode === "pick") {
+    var others = [];
+    var position = 0;
+    for (var i = 0; i < cfg.options.length; i++) {
+      if (cfg.options[i].id === cfg["this"]) position = i + 1;
+      else others.push(cfg.options[i].label);
+    }
+    contextEl.textContent = "Option " + position + " of " + cfg.options.length + ": " + label(cfg["this"]) +
+      ". The others are on their own pages: " + others.join(", ") + ". Choosing here rules them out.";
+  } else if (cfg.mode === "compare") {
+    contextEl.textContent = cfg.options.length + " options on this page. Pick one.";
+  } else {
+    contextEl.textContent = label(cfg.options[0].id);
+  }
+
+  toggleBtn.addEventListener("click", function () {
+    var collapsed = bar.classList.toggle("mf-collapsed");
+    toggleBtn.textContent = collapsed ? "Show" : "Hide";
+    toggleBtn.setAttribute("aria-expanded", collapsed ? "false" : "true");
+  });
+
+  // A settled page shows its verdict and nothing to act on.
+  if (cfg.status !== "open") {
+    var verdict = {
+      accepted: cfg.mode === "compare" ? "Accepted: " + label(cfg.chosen) + "." : "Accepted.",
+      "not-chosen": "Not chosen.",
+      closed: "Closed. Choices on this page are no longer read."
+    }[cfg.status] || "Closed.";
+    verdictEl.textContent = verdict;
+    verdictEl.hidden = false;
+    noteEl.hidden = true;
+    channelEl.hidden = true;
+    if (cfg.mode === "compare" && cfg.status === "accepted" && root(cfg.chosen)) root(cfg.chosen).classList.add("mf-selected");
+    bar.hidden = false;
+    return;
+  }
+
+  // Compare: one chip per option, outlining its section when picked.
+  if (cfg.mode === "compare") {
+    var legend = document.createElement("legend");
+    legend.className = "mf-tag";
+    legend.textContent = "Options";
+    optionsEl.appendChild(legend);
+    cfg.options.forEach(function (o) {
+      var chip = document.createElement("label");
+      chip.className = "mf-chip";
+      var input = document.createElement("input");
+      input.type = "radio";
+      input.name = "mf-option";
+      input.id = "mf-option-" + o.id;
+      input.value = o.id;
+      input.addEventListener("change", function () {
+        var all = document.querySelectorAll("[data-mf-option]");
+        for (var k = 0; k < all.length; k++) all[k].classList.remove("mf-selected");
+        var el = root(o.id);
+        if (el) {
+          el.classList.add("mf-selected");
+          var still = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+          el.scrollIntoView({ block: "nearest", behavior: still ? "auto" : "smooth" });
+        }
+        refresh();
+      });
+      chip.appendChild(input);
+      chip.appendChild(document.createTextNode(o.label));
+      optionsEl.appendChild(chip);
+    });
+    optionsEl.hidden = false;
+  }
+
+  // Actions per shape. needsNote: a change request must say what to change.
+  var ACTIONS = {
+    review: [
+      { action: "accept", text: "Looks right", primary: true },
+      { action: "revise", text: "Request changes", needsNote: true },
+      { action: "alternatives", text: "Show alternatives" }
+    ],
+    compare: [
+      { action: "choose", text: "Send choice", primary: true, needsPick: true },
+      { action: "none", text: "None of these", needsNote: true },
+      { action: "comment", text: "Comment on this option", needsPick: true }
+    ],
+    pick: [
+      { action: "choose", text: "Choose this one", primary: true },
+      { action: "revise", text: "Request changes", needsNote: true },
+      { action: "none", text: "None of these", needsNote: true }
+    ]
+  }[cfg.mode] || [];
+
+  ACTIONS.forEach(function (a) {
+    var b = document.createElement("button");
+    b.type = "button";
+    b.className = "mf-btn" + (a.primary ? " mf-primary" : "");
+    b.id = "mf-" + a.action;
+    b.textContent = a.text;
+    b.addEventListener("click", function () {
+      if (a.action === "comment") compose();
+      else send(a);
+    });
+    actionsEl.appendChild(b);
+    buttons.push({ el: b, spec: a });
+  });
+
+  function render() {
+    channelEl.setAttribute("data-state", state);
+    channelText.textContent = CHANNEL[state] || CHANNEL.off;
+    recheckBtn.hidden = !comments || state === "available" || state === "checking" || state === "blocked";
+    var pick = picked();
+    buttons.forEach(function (b) {
+      if (b.spec.action === "comment") {
+        b.el.disabled = !comments || !pick;
+        b.el.hidden = !comments;
+        return;
+      }
+      b.el.disabled = busy || sent || state !== "available" || (b.spec.needsPick && !pick);
+    });
+    noteEl.disabled = sent;
+  }
+
+  function refresh() {
+    if (!comments || state === "blocked") { render(); return; }
+    comments.canSendToClaude().then(function (v) {
+      return KNOWN.indexOf(v) === -1 ? "off" : v;
+    }, function () {
+      return "off";
+    }).then(function (v) {
+      if (comments && state !== "blocked") state = v;
+      render();
+    });
+  }
+
+  function fail(err) {
+    var code = err && err.code;
+    if (code === "consent_required") {
+      say("Not sent. The page was not allowed to comment as you. Your note is kept.", "err");
+    } else if (code === "forbidden") {
+      state = "blocked";
+      say("Not sent. Commenting from this page is turned off.", "err");
+    } else if (code === "claude_unavailable") {
+      say("Not sent. No Claude session could receive it. Nothing was posted.", "err");
+      refresh();
+    } else if (code === "rate_limited") {
+      say("Not sent. Too many sends in a row. Wait a moment.", "err");
+    } else if (code === "invalid" || code === "transform_error") {
+      say("Not sent. The note has characters a comment cannot carry.", "err");
+    } else if (code === "not_granted" || code === "capability_disabled" || code === "capability_removed") {
+      comments = null;
+      state = "absent";
+      say("Not sent. This view cannot post comments from the page.", "err");
+    } else {
+      say("Not sent. Comments are unavailable right now. Try once more.", "err");
+    }
+  }
+
+  function send(spec) {
+    if (!comments || busy || sent) return;
+    var option = spec.action === "choose" || spec.action === "accept" || spec.action === "revise" ? picked() : null;
+    if (spec.needsPick && !option) { say("Pick an option first.", "err"); return; }
+    var note = clean(noteEl.value);
+    if (spec.needsNote && !note) {
+      say("Add a note saying what to change.", "err");
+      noteEl.focus();
+      return;
+    }
+    var text = PREFIX + cfg.set + " · " + spec.action + (option ? " " + option : "") + (note ? "\nNote: " + note : "");
+    var target = root(option || picked() || cfg.options[0].id) || bar.parentNode;
+    busy = true;
+    say("", null);
+    render();
+    comments.anchorFor(target).then(function (anchor) {
+      return comments.sendToClaude({ anchor: anchor, text: text });
+    }).then(function () {
+      sent = true;
+      say("Sent to Claude: " + spec.text.toLowerCase() + (option ? " (" + label(option) + ")" : "") +
+        ". Claude replies in the comment thread and updates this page.", "ok");
+    }, fail).then(function () {
+      busy = false;
+      render();
+    });
+  }
+
+  function compose() {
+    var option = picked();
+    var el = option && root(option);
+    if (!comments || !el) return;
+    comments.openComposer({ element: el }).then(function (r) {
+      if (r && r.opened) say("Comment box opened on " + label(option) + ". Write your comment and press Send to Claude.", "ok");
+    }, function (err) {
+      say(err && err.code === "rate_limited" ? "Too many tries in a row. Wait a moment." : "The comment box is unavailable here.", "err");
+    });
+  }
+
+  recheckBtn.addEventListener("click", refresh);
+  window.addEventListener("focus", refresh);
+  bar.hidden = false;
+  render();
+
+  var ready = window.claude && typeof window.claude.use === "function"
+    ? window.claude.use("comments")
+    : Promise.resolve(null);
+  ready.then(function (ns) { return ns; }, function () { return null; }).then(function (ns) {
+    comments = ns;
+    if (!ns) { state = "absent"; render(); return; }
+    refresh();
+  });
+})();
+</script>
+<!-- mockup-feedback:end -->
