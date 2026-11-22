@@ -1,21 +1,34 @@
 import AppKit
+import MWConfig
 import Sparkle
 
 /// Sparkle's updater, started once at launch. The feed URL, the EdDSA public key
 /// and the daily check cadence all come from `Info.plist`, and Sparkle owns both
-/// its own preferences and its own UI, so there is nothing here but wiring.
+/// its own preferences and its own UI, so there is nothing here but wiring. The
+/// update channel is the one updater setting that comes from `config.json`.
 @MainActor
 enum AppUpdater {
     private static let userDriverSupport = UpdaterUserDriverSupport()
+    /// Sparkle holds its delegates weakly; unowned, this would vanish and every
+    /// check would fall back to the default channel without a word.
+    private static let channelDelegate = UpdaterChannelDelegate()
     private static var controller: SPUStandardUpdaterController?
+
+    /// Set by `AppDelegate.apply` from `config.json`; Sparkle reads it at every check.
+    static var channel: UpdateChannel = .release
 
     static func start() {
         guard controller == nil else { return }
         controller = SPUStandardUpdaterController(
             startingUpdater: true,
-            updaterDelegate: nil,
+            updaterDelegate: channelDelegate,
             userDriverDelegate: userDriverSupport
         )
+    }
+
+    /// R6: checks again shortly, so a newly allowed beta is found without waiting a day.
+    static func channelChanged() {
+        controller?.updater.resetUpdateCycleAfterShortDelay()
     }
 
     /// Sparkle reads and writes this itself on every scheduled check, so it is the
@@ -31,6 +44,13 @@ enum AppUpdater {
         // raised here instead.
         WindowActivation.foreground()
         controller?.checkForUpdates(nil)
+    }
+}
+
+/// R5: Sparkle asks while filtering each downloaded appcast, Check Now included.
+private final class UpdaterChannelDelegate: NSObject, SPUUpdaterDelegate {
+    func allowedChannels(for updater: SPUUpdater) -> Set<String> {
+        UpdateChannelPolicy.sparkleChannels(for: AppUpdater.channel)
     }
 }
 

@@ -47,6 +47,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var overlay: OverlayPanelController?
     private var appliedOverlayStyle: OverlayStyle?
     private var appliedTheme: AppTheme?
+    private var channelTracker = UpdateChannelPolicy.Tracker()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // The AppTests bundle is hosted by this app; starting normally there would
@@ -521,6 +522,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if appliedOverlayStyle != config.overlayStyle {
             appliedOverlayStyle = config.overlayStyle
             Log.ui.info("Overlay style: \(config.overlayStyle.rawValue)")
+        }
+        AppUpdater.channel = config.updateChannel
+        if channelTracker.apply(config.updateChannel) {
+            Log.ui.info("Update channel: \(config.updateChannel.rawValue)")
+            AppUpdater.channelChanged()
         }
         retentionDays.withLock { $0 = config.historyRetentionDays }
         let bindings = Self.bindings(from: config)
