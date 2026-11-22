@@ -3,6 +3,7 @@ import MWAudio
 import MWConfig
 import MWCorrections
 import MWMeetings
+import MWNaming
 import MWStreaming
 import MWSupport
 import MWTestCall
@@ -669,29 +670,43 @@ public final class MeetingController {
     }
 
     /// Design v8 §5 Accept (R15): the speaker takes the suggested person's name, merging into a
-    /// speaker already of that name without asking, and is linked to them.
+    /// speaker already of that name without asking, and is linked to them. A conversation
+    /// suggestion is accepted as if its name were typed (v9 R19).
     public func acceptSuggestion(key: String) async {
         let before = registry.labels
-        guard meeting != nil, let accepted = registry.accept(key: key) else { return }
+        guard meeting != nil, let suggestion = standing(key, .suggested),
+              let accepted = registry.accept(key: key)
+        else { return }
         await applyMerge(accepted.merge)
-        await learn(.accepted, key: key, person: accepted.person, since: before)
+        guard suggestion.match.source == Self.conversation else {
+            return await learn(.accepted, key: key, person: accepted.person, since: before)
+        }
+        Log.naming.info("user action: accepted")
+        await link(accepted.merge?.into ?? suggestion.speaker, renamedFrom: before)
     }
 
-    /// Dismiss (R15): the suggestion goes and its person is not offered to that speaker again.
+    /// Dismiss (R15): the suggestion goes and its person, or a conversation suggestion's name
+    /// (v9 R20), is not offered to that speaker again.
     public func dismissSuggestion(key: String) async {
         guard meeting != nil, let dismissed = registry.dismiss(key: key) else { return }
         await applyMerge(nil)
-        await learn(.dismissed, key: key, person: dismissed.person)
+        guard dismissed.source == Self.conversation else {
+            return await learn(.dismissed, key: key, person: dismissed.person)
+        }
+        Log.naming.info("user action: dismissed")
     }
 
     /// "Not <name>" on an applied name (R15): a speaker of that key alone returns to `Speaker N`;
-    /// otherwise the key moves to a new speaker with its unpinned segments.
+    /// otherwise the key moves to a new speaker with its unpinned segments. A name the
+    /// conversation applied reverts the whole speaker (v9 R23).
     public func rejectMatch(key: String) async {
         let before = registry.labels
-        guard meeting != nil,
-              let applied = MeetingVoiceRoute.speaker(owning: key, in: before)?.matches
-                .first(where: { $0.key == key && $0.state == .applied })
-        else { return }
+        guard meeting != nil, let applied = standing(key, .applied)?.match else { return }
+        if applied.source == Self.conversation {
+            guard registry.revertConversation(key: key) else { return }
+            await applyMerge(nil)
+            return Log.naming.info("user action: not")
+        }
         if let detach = registry.detach(key: key) {
             await commitSpeakers(to: detach.to) { segment in
                 segment.speaker == detach.from && !segment.pinned
@@ -746,6 +761,39 @@ public final class MeetingController {
         guard learning else { return }
         for match in standing { await voice.logAction(.renamed, key: match.key, person: match.person) }
         await relearn(voice, since: before, linked: person != nil)
+    }
+
+    // MARK: - Naming
+
+    private static let conversation = "conversation"
+
+    /// Design v9 §5 That's me (R21): the suggested name is the user's, misheard. It is kept once
+    /// as a spelling of the user's name, and no speaker of this meeting is offered it any more.
+    public func thatsMe(key: String) async {
+        guard let userName = meeting?.userName, let match = standing(key, .suggested)?.match,
+              match.source == Self.conversation
+        else { return }
+        let (name, fold) = (match.name, NameFold.key(match.name))
+        guard fold != NameFold.key(userName) else { return }
+        do {
+            try await configStore.update { @Sendable config in
+                guard !config.meetingUserNameAliases.contains(where: { NameFold.key($0) == fold }) else { return }
+                config.meetingUserNameAliases.append(name)
+            }
+        } catch {
+            log.warning("meeting_user_name_aliases not saved: \(AnyError(error).description)")
+        }
+        let withdrawn = registry.withdrawConversation(named: fold)
+        await applyMerge(nil)
+        Log.naming.info("user action: that's me, \(withdrawn) withdrawn")
+    }
+
+    /// The match in `state` standing for `key`, and the speaker holding it.
+    private func standing(_ key: String, _ state: NameMatch.State) -> (speaker: Int, match: NameMatch)? {
+        guard let label = MeetingVoiceRoute.speaker(owning: key, in: registry.labels),
+              let match = label.matches.first(where: { $0.key == key && $0.state == state })
+        else { return nil }
+        return (label.id, match)
     }
 
     // MARK: - Speakers, notes and edits
