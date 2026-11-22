@@ -966,7 +966,7 @@
         </span>
         <span class="step-label">Plan</span>
       </li>
-      <li class="step" data-stage="implement" data-state="pending">
+      <li class="step" data-stage="implement" data-state="complete">
         <span class="step-indicator" aria-hidden="true">
           <span class="step-check">&#10003;</span>
           <span class="step-number">4</span>
@@ -1259,16 +1259,66 @@
 
     <section class="panel" role="tabpanel"
              id="panel-implementation" aria-labelledby="tab-implementation" hidden>
-      <p class="section-timestamp">Awaiting /feature-implement</p>
+      <p class="section-timestamp">Updated 2026-11-22 16:43 UTC</p>
       <!-- usage:IMPLEMENTATION_USAGE_CHIP --><!-- /usage:IMPLEMENTATION_USAGE_CHIP -->
       <article class="panel-section">
         <h2 class="section-label">Highlights</h2>
-        <div class="bullets"><p class="empty">Not yet filled — pending /feature-implement.</p></div>
+        <div class="bullets"><ul>
+<li>Stages completed: 6/6, one commit each on main, not pushed</li>
+<li>Tests: core 1311/1311, app 531/531, scripts 26/26</li>
+<li>Design coverage: 15/15 requirements delivered; host-testable parts all under test</li>
+<li>Pre-existing failures excluded: none</li>
+<li>Dead-code orphans removed: none found (periphery 3.8.0 vs the run's baseline)</li>
+<li>Deviations from plan: none in behaviour; two implementation notes</li>
+<li>Parallelism: Stages 1∥2 and 3∥4 built in worktrees; 5–6 one serial unit</li>
+<li>Pending human checks: the Settings UI and Dialog, the beta-build look, the Sparkle channel check, R11 on real tags</li>
+<li>Seen once: an idle hang in the core MWTestCallTests bundle (passes 30/30 alone)</li>
+<li>Final stage commit: 8fe95c6</li>
+</ul></div>
         <!-- usage:IMPLEMENTATION_USAGE --><!-- /usage:IMPLEMENTATION_USAGE -->
       </article>
       <article class="panel-section">
         <h2 class="section-label">Detail</h2>
-        <div class="prose"><p class="empty">Not yet filled — pending /feature-implement.</p></div>
+        <div class="prose"><h3>Stages completed</h3>
+<ul>
+<li>Stage 1 — <code>update_channel</code> in <code>Config</code> — 47ee2ed (parallel, batch 1)</li>
+<li>Stage 2 — Beta versions and channels in <code>appcast.py</code> — b41030a (parallel, batch 1)</li>
+<li>Stage 3 — Sparkle channel filter and change reset — 5e39ca7 (parallel, batch 2)</li>
+<li>Stage 4 — Release pipeline per channel, and its runbook — 35b74bc (parallel, batch 2)</li>
+<li>Stage 5 — Channel choice in <code>SettingsModel</code> — c138bc5</li>
+<li>Stage 6 — Updates card, Beta dialog, CHANGELOG — 8fe95c6</li>
+</ul>
+<h3>Tests &amp; lint</h3>
+<p>Core <code>swift test</code>: 18 runs, 1,311 tests (baseline 1,305). App: 531 tests in 51 suites (baseline 519). Scripts: 26 (baseline 14). No pre-existing failures. No linter or formatter is configured; the Swift 6 compiler is the type check. Periphery 3.8.0 against the run's baseline found no orphan from this feature; its 18 differences are in files v10 never touched and name no v10 symbol (index-store drift).</p>
+<p>One full <code>swift test</code> after Stage 1 hung idle in the <code>MWTestCallTests</code> bundle (main run loop waiting, no CPU). The bundle passed 30/30 alone and every later full run passed, so it is an intermittent flake unrelated to v10.</p>
+<h3>Design coverage</h3>
+<table>
+<thead><tr><th>Requirement</th><th>Verified by</th></tr></thead>
+<tbody>
+<tr><td>R1 Update channel row</td><td>SettingsModelTests (model); Updates card checked by hand</td></tr>
+<tr><td>R2 Storage</td><td>ConfigCodingTests: six update_channel cases</td></tr>
+<tr><td>R3 Beta needs confirmation</td><td>SettingsModelTests: choosingBetaAsksAndWritesNothing, confirmingBeta…, cancellingBetaWritesNothing; Dialog checked by hand</td></tr>
+<tr><td>R4 Release is immediate</td><td>SettingsModelTests: choosingReleaseWritesAtOnce, choosingTheCurrentChannelDoesNothing</td></tr>
+<tr><td>R5 Channel filter</td><td>UpdateChannelPolicyTests: sparkleChannelsFollowTheChannel; live Sparkle check by hand</td></tr>
+<tr><td>R6 Change takes effect</td><td>UpdateChannelPolicyTests: trackerReportsOnlyChangesAfterTheFirst; cycle reset checked by hand</td></tr>
+<tr><td>R7 No downgrade</td><td>Sparkle's own comparison; row copy in GeneralSection; live check by hand</td></tr>
+<tr><td>R8 Beta build marker</td><td>UpdateChannelPolicyTests: isBeta…; SettingsModelTests: isBetaBuildFollowsTheVersion; beta-build plist checked (0.9.0b1)</td></tr>
+<tr><td>R9 Version format</td><td>test_appcast: TestChannelOf, TestPrintChannel; "Resolve version" simulated for four refs</td></tr>
+<tr><td>R10 Appcast items</td><td>test_appcast: TestChannel, TestPrintChannel, TestReleaseItemBytes</td></tr>
+<tr><td>R11 CI per channel</td><td>build.yml gates; confirmed on the real v0.8.2 and v0.9.0b1 tags</td></tr>
+<tr><td>R12 Release notes</td><td>CLAUDE.md convention</td></tr>
+<tr><td>R13 Rollout order</td><td>Gate: main carries none of v9-naming's 32 commits; rebase and tag are operator steps</td></tr>
+<tr><td>R14 Logging</td><td>AppDelegate.apply; log line checked by hand</td></tr>
+<tr><td>R15 Documentation</td><td>CHANGELOG [Unreleased] entry; CLAUDE.md release section</td></tr>
+</tbody>
+</table>
+<h3>Deviations from plan</h3>
+<p>None in behaviour. Two implementation notes are recorded in the plan: Stage 3's tracker test binds results to locals, because a mutating call does not compile inside <code>#expect</code>; Stage 6's first Updates row uses the new view-builder <code>SettingRow</code> initialiser for release builds too, and renders the same text as before.</p>
+<h3>Notes</h3>
+<ul>
+<li>main is 8 commits ahead of origin/main; nothing pushed.</li>
+<li>Pending human verification: plan Stage 6 step 5 (Settings UI, Dialog, log lines, beta-build look against the mockup), plan Verification step 4 (Sparkle channel check against a doctored appcast), and R11 on the real tags.</li>
+</ul></div>
       </article>
     </section>
 

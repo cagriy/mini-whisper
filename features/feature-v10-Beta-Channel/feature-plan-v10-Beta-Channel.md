@@ -539,6 +539,16 @@ Once all stages have landed:
 
 None — plan matches design v10 exactly.
 
+## Deviations from plan
+
+None in behaviour. Implementation notes from `/feature-implement`:
+
+1. Stage 3: `trackerReportsOnlyChangesAfterTheFirst` binds each `apply` result to a local before
+   `#expect`, because a mutating call inside `#expect`'s closure does not compile.
+2. Stage 6: the first Updates row uses the new view-builder `SettingRow` initialiser for release
+   builds too, so the Toggle is written once. A release build still renders the single line
+   "Version X. Checked once a day; an update installs only after you approve it."
+
 ## Execution schedule
 
 Batches run in order; a batch starts only when the previous one has fully landed. Stages inside a *parallel* batch are independent and may be built concurrently; a *serial* batch holds one stage. `/feature-implement` follows this table and demotes any batch it cannot verify to serial.
