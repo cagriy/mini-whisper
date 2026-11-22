@@ -728,6 +728,8 @@ final class MeetingWindowModel {
         case .voiceData(let active, let keys):
             voiceActive = active
             voiceKeys = keys
+        case .naming:
+            break
         }
     }
 

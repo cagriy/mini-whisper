@@ -464,6 +464,7 @@ final class MeetingHarness {
     let config: ConfigStore
     /// The people store and match log in `directory`, when the harness was given an embedder.
     let voices: VoiceDependencies?
+    let namer: FakeNameSuggester?
     let controller: MeetingController
     /// Every event pulled so far, oldest first.
     private(set) var seen: [MeetingEvent] = []
@@ -474,9 +475,11 @@ final class MeetingHarness {
         tap: FakeSystemAudioTap? = FakeSystemAudioTap(),
         summarizer: FakeSummarizer = FakeSummarizer(result: SummaryResult(text: "## Summary\n\nShipped.")),
         voices embedder: FakeVoiceEmbedder? = nil,
+        namer: FakeNameSuggester? = nil,
         _ configure: @escaping @Sendable (inout Config) -> Void = { _ in }
     ) async throws {
         tapFactory = FakeSystemAudioTapFactory(tap: tap)
+        self.namer = namer
         self.secrets = FakeSecretStore(secrets)
         self.summarizer = summarizer
         directory = try TempDirectory()
@@ -506,7 +509,8 @@ final class MeetingHarness {
                 clock: clock,
                 now: { MeetingHarness.wallStart.addingTimeInterval(clock.now) },
                 makeAudioWriter: { [writers] in writers.make($0) },
-                voices: voices
+                voices: voices,
+                namer: namer
             ),
             config: config
         )

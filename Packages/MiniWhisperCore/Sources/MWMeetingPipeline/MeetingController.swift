@@ -74,6 +74,13 @@ public final class MeetingController {
     private var promptShown = false
     /// Nil unless the meeting's voice route is active (design v8 R2).
     private var voice: MeetingVoiceRoute?
+    /// Nil for a test call or without a naming client (design v9 §5 Control flow).
+    private var naming: MeetingNamingRoute?
+    private var namingTask: Task<Void, Never>?
+    /// A fire arrived while `namingTask` ran outside the route's flight.
+    private var namingAgain = false
+    /// The user's name as misheard, as the ticker last read it: known names for spotting.
+    private var namingAliases: [String] = []
 
     public init(deps: MeetingDependencies, config: ConfigStore) {
         self.deps = deps
@@ -160,6 +167,12 @@ public final class MeetingController {
         self.meeting = meeting
         self.supervisor = supervisor
         self.voice = voice
+        if test == nil, let namer = deps.namer {
+            naming = MeetingNamingRoute(
+                client: namer, people: namingPeople, clock: deps.clock, overrides: config.pricingOverrides
+            )
+            namingAliases = config.meetingUserNameAliases
+        }
         silence = test == nil ? SilenceWatch(threshold: config.meetingSilenceStopSeconds) : nil
         sessionEvents = Task { [weak self, events = supervisor.events] in
             for await event in events { await self?.handle(event) }
@@ -185,6 +198,18 @@ public final class MeetingController {
             } catch {
                 log.warning("meeting_system_audio_explained not saved: \(AnyError(error).description)")
             }
+        }
+        if let naming {
+            // Set even if no request is ever sent, so the notice shows once (R26).
+            if config.meetingNamingEnabled, secret(.anthropic) != nil, !config.meetingNamingExplained {
+                emit(.naming(.introduced))
+                do {
+                    try await configStore.update { @Sendable config in config.meetingNamingExplained = true }
+                } catch {
+                    log.warning("meeting_naming_explained not saved: \(AnyError(error).description)")
+                }
+            }
+            await naming.reloadPeople()
         }
     }
 
@@ -269,6 +294,11 @@ public final class MeetingController {
         await persistSegments()
         for segment in attribution.segments { emit(.segmentAdded(segment)) }
         for match in voice?.heard(attribution.segments, speakers: registry.labels) ?? [] { await matched(match) }
+        if naming?.segmentsAdded(
+            attribution.segments, speakers: registry.labels, known: [meeting.userName] + namingAliases
+        ) == true {
+            startNaming(.live)
+        }
     }
 
     /// A session's time in meeting seconds: its origin, plus every input device change it did
@@ -379,6 +409,11 @@ public final class MeetingController {
     /// The user's microphone speech, as the gate holds it.
     public var userSpeech: SpeechGate.View { audioPath?.gateView ?? SpeechGate.View() }
 
+    /// The live chip: the engine's estimate plus every naming request so far (R28).
+    private var liveCost: Double {
+        (audioPath?.billing.liveCost ?? 0) + (meeting?.billing.namingCostUSD ?? 0)
+    }
+
     private func startTicker() {
         ticker = Task { [weak self, clock = deps.clock] in
             while true {
@@ -386,10 +421,12 @@ public final class MeetingController {
                 guard let self else { return }
                 checkSystemAudio()
                 emit(.elapsed(meetingTime))
-                emit(.cost(audioPath?.billing.liveCost ?? 0))
+                emit(.cost(liveCost))
                 let config = await configStore.load()
                 checkSilence(config)
                 refreshVoice(config.voice)
+                namingAliases = config.meetingUserNameAliases
+                if naming?.tick(at: meetingTime) == true { startNaming(.live) }
             }
         }
     }
@@ -766,6 +803,88 @@ public final class MeetingController {
     // MARK: - Naming
 
     private static let conversation = "conversation"
+
+    /// Design v9 §5 Live meeting step 4: the request runs in its own task. A fire while one is
+    /// being prepared or applied, outside the route's flight, is kept as one more run (R6).
+    private func startNaming(_ scope: NamingScope) {
+        guard naming != nil else { return }
+        guard namingTask == nil else { return namingAgain = true }
+        namingTask = Task { [weak self] in await self?.runNaming(scope) }
+    }
+
+    /// Steps 4–7: the R7 checks, one request, its outcome applied, and one more run while fires
+    /// came in meanwhile.
+    private func runNaming(_ scope: NamingScope) async {
+        var again = true
+        while again, let naming, let meeting {
+            namingAgain = false
+            let config = await configStore.load()
+            guard config.meetingNamingEnabled, secret(.anthropic) != nil, !naming.isPaused,
+                  registry.labels.contains(where: SuggestionPolicy.isOpen)
+            else { break }
+            let snapshot = NamingSnapshot(
+                scope: scope, segments: segments, speakers: registry.labels, userName: meeting.userName,
+                mode: meeting.mode, aliases: config.meetingUserNameAliases
+            )
+            let outcome = await naming.run(snapshot: snapshot) { await namingContext(scope, of: meeting.id) }
+            await applyNaming(outcome)
+            again = outcome.followUp || namingAgain
+        }
+        namingTask = nil
+    }
+
+    /// The speakers and settings a reply is decided against, read when it lands: nil once live
+    /// naming is off or the meeting is no longer this one (Planning decision 7). The route fills
+    /// in People.
+    private func namingContext(_ scope: NamingScope, of id: UUID) async -> PolicyContext? {
+        let config = await configStore.load()
+        guard let meeting, meeting.id == id, scope != .live || config.meetingNamingEnabled else { return nil }
+        return PolicyContext(
+            speakers: registry.labels, people: [], userName: meeting.userName,
+            aliases: config.meetingUserNameAliases, mode: meeting.mode,
+            autoApply: config.meetingNamingEnabled && config.meetingNamingAutoApply,
+            segmentSpeakers: Dictionary(segments.map { ($0.id, $0.speaker) }) { $1 }
+        )
+    }
+
+    /// Step 6, then the pause notice (step 8). The tokens are billed even for a dropped reply.
+    private func applyNaming(_ outcome: NamingOutcome) async {
+        var merges: [SpeakerRegistry.Merge?] = []
+        for action in outcome.actions {
+            switch action {
+            case .suggest(let speaker, let match):
+                registry.suggestFromConversation(match, speaker: speaker)
+            case .apply(let speaker, let match):
+                if let merge = registry.applyFromConversation(match, speaker: speaker) { merges.append(merge) }
+            }
+        }
+        if let usage = outcome.usage {
+            meeting?.billing.namingCostUSD += outcome.cost
+            await addUsage(ProviderUsage(
+                inputTokens: usage.inputTokens + usage.cacheReadTokens + usage.cacheWriteTokens,
+                outputTokens: usage.outputTokens, costUSD: outcome.cost
+            ))
+        }
+        if !outcome.actions.isEmpty {
+            // One save and `.speakers`, or one per merge, which also moves its segments.
+            for merge in merges.isEmpty ? [nil] : merges { await applyMerge(merge) }
+        } else if outcome.usage != nil {
+            await saveMeeting()
+        }
+        if audioPath != nil { emit(.cost(liveCost)) }
+        if let pause = outcome.pause { emit(.naming(.paused(pause.reason))) }
+    }
+
+    /// Resolves once no naming request is being prepared, sent or applied.
+    func waitForNaming() async {
+        while let task = namingTask { await task.value }
+    }
+
+    /// The People store without the user, who is passed as the user (Planning decision 9).
+    private var namingPeople: @Sendable () async -> [(id: UUID, name: String)] {
+        guard let store = deps.voices?.store else { return { [] } }
+        return { await store.people().filter { !$0.isUser }.map { ($0.id, $0.name) } }
+    }
 
     /// Design v9 §5 That's me (R21): the suggested name is the user's, misheard. It is kept once
     /// as a spelling of the user's name, and no speaker of this meeting is offered it any more.

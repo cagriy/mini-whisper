@@ -43,6 +43,8 @@ public struct MeetingDependencies: Sendable {
     public var makeAudioWriter: @Sendable (URL) throws -> any AudioFileWriting
     /// Nil leaves voice recognition out of every meeting.
     public var voices: VoiceDependencies?
+    /// Nil leaves naming speakers from the conversation out of every meeting.
+    public var namer: (any NameSuggesting)?
 
     public init(
         audio: any AudioCapture,
@@ -58,7 +60,8 @@ public struct MeetingDependencies: Sendable {
         clock: any Clock = SystemClock(),
         now: @escaping @Sendable () -> Date = { Date() },
         makeAudioWriter: @escaping @Sendable (URL) throws -> any AudioFileWriting = { try AACFileWriter(url: $0) },
-        voices: VoiceDependencies? = nil
+        voices: VoiceDependencies? = nil,
+        namer: (any NameSuggesting)? = nil
     ) {
         self.audio = audio
         self.tapFactory = tapFactory
@@ -74,5 +77,6 @@ public struct MeetingDependencies: Sendable {
         self.now = now
         self.makeAudioWriter = makeAudioWriter
         self.voices = voices
+        self.namer = namer
     }
 }

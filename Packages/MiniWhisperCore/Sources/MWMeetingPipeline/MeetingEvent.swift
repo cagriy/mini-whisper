@@ -57,6 +57,23 @@ public enum SilencePrompt: Sendable, Equatable {
     case expired
 }
 
+/// Speaker names from the conversation (design v9 §5 Interfaces).
+public enum NamingEvent: Sendable, Equatable {
+    /// The one-time notice that the transcript goes to Anthropic (R26).
+    case introduced
+    /// Live naming stopped for this meeting; the reason completes "Name suggestions paused: …." (R27).
+    case paused(String)
+    case running
+    case finished(NamingResult)
+}
+
+public enum NamingResult: Sendable, Equatable {
+    /// Names suggested or applied.
+    case found(Int)
+    case none
+    case failed(String)
+}
+
 /// Everything the meeting window renders, in order (design §5.3).
 public enum MeetingEvent: Sendable, Equatable {
     case state(MeetingState)
@@ -86,6 +103,7 @@ public enum MeetingEvent: Sendable, Equatable {
     /// The provider keys with stored voice data; `active` while this session runs the route
     /// (design v8 §5 Interfaces).
     case voiceData(active: Bool, keys: Set<String>)
+    case naming(NamingEvent)
 }
 
 public enum MeetingError: Error, Equatable, LocalizedError {
