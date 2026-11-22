@@ -1410,7 +1410,7 @@
     <section class="panel" role="tabpanel"
              id="panel-implementation" aria-labelledby="tab-implementation" hidden>
       <p class="section-timestamp">Updated 2026-11-22 14:47 UTC</p>
-      <!-- usage:IMPLEMENTATION_USAGE_CHIP --><!-- /usage:IMPLEMENTATION_USAGE_CHIP -->
+      <!-- usage:IMPLEMENTATION_USAGE_CHIP --><span class="chip usage">2h 19m 53s · 943,166 out · 128.7 tok/s · $59.26</span><!-- /usage:IMPLEMENTATION_USAGE_CHIP -->
       <article class="panel-section">
         <h2 class="section-label">Highlights</h2>
         <div class="bullets"><ul>
@@ -1424,7 +1424,35 @@
           <li>Pending human checks: live replay (R30) and the manual app pass</li>
           <li>Final commit: <code>ef96273</code>; nothing pushed</li>
         </ul></div>
-        <!-- usage:IMPLEMENTATION_USAGE --><!-- /usage:IMPLEMENTATION_USAGE -->
+        <!-- usage:IMPLEMENTATION_USAGE --><div class="usage-pair">
+<table class="usage">
+<thead><tr><th>Metric</th><th>Main</th><th>Subagents</th><th>Total</th></tr></thead>
+<tbody>
+<tr class="grp"><td colspan="4">Time</td></tr>
+<tr><td>elapsed</td><td>—</td><td>—</td><td>2h 19m 53s</td></tr>
+<tr><td>run time</td><td>—</td><td>—</td><td>1h 55m 31s</td></tr>
+<tr class="grp"><td colspan="4">Requests</td></tr>
+<tr><td>model</td><td>88</td><td>648</td><td>736</td></tr>
+<tr><td>web_search</td><td>0</td><td>0</td><td>0</td></tr>
+<tr><td>web_fetch</td><td>0</td><td>0</td><td>0</td></tr>
+<tr class="grp"><td colspan="4">Throughput</td></tr>
+<tr class="tp"><td>output tok/s</td><td>—</td><td>—</td><td>128.7</td></tr>
+</tbody>
+</table>
+<table class="usage">
+<thead><tr><th>Metric</th><th>Main</th><th>Subagents</th><th>Total</th></tr></thead>
+<tbody>
+<tr class="grp"><td colspan="4">Tokens</td></tr>
+<tr><td>input_tokens</td><td>208</td><td>1,306</td><td>1,514</td></tr>
+<tr><td>output_tokens</td><td>112,713</td><td>830,453</td><td>943,166</td></tr>
+<tr class="sub"><td>thinking_tokens</td><td>19,004</td><td>439,002</td><td>458,006</td></tr>
+<tr><td>cache_write</td><td>256,309</td><td>2,613,605</td><td>2,869,914</td></tr>
+<tr class="sub"><td>ephemeral_1h</td><td>256,309</td><td>0</td><td>256,309</td></tr>
+<tr class="sub"><td>ephemeral_5m</td><td>0</td><td>2,613,605</td><td>2,613,605</td></tr>
+<tr><td>cache_read</td><td>26,259,852</td><td>100,094,892</td><td>126,354,744</td></tr>
+</tbody>
+</table>
+</div><!-- /usage:IMPLEMENTATION_USAGE -->
       </article>
       <article class="panel-section">
         <h2 class="section-label">Detail</h2>
@@ -1505,26 +1533,26 @@
 
     <section class="panel" role="tabpanel"
              id="panel-usage" aria-labelledby="tab-usage" hidden>
-      <!-- usage:CYCLE_USAGE --><p class="section-timestamp">3 of 4 stages · 3 runs</p>
-<span class="chip usage">$28.80 · 15h 30m 12s · 366,438 out</span>
+      <!-- usage:CYCLE_USAGE --><p class="section-timestamp">4 of 4 stages · 4 runs</p>
+<span class="chip usage">$88.06 · 17h 50m 05s · 1,309,604 out</span>
 <article class="panel-section">
 <h2 class="section-label">Cycle usage</h2>
 <div class="usage-scroll"><table class="usage">
 <thead><tr><th>Metric</th><th>Storm</th><th>Design</th><th>Plan</th><th>Implement</th><th>Total</th><th>Cost</th></tr></thead>
 <tbody>
 <tr class="grp"><td colspan="7">Tokens</td></tr>
-<tr><td>input</td><td>56</td><td>272</td><td>210</td><td>—</td><td>538</td><td>$0.00</td></tr>
-<tr><td>cache write 1h</td><td>61,355</td><td>881,837</td><td>30,729</td><td>—</td><td>973,921</td><td>$7.79</td></tr>
-<tr><td>cache write 5m</td><td>0</td><td>0</td><td>440,196</td><td>—</td><td>440,196</td><td>$2.20</td></tr>
-<tr><td>cache read</td><td>3,269,377</td><td>29,214,286</td><td>24,911,753</td><td>—</td><td>57,395,416</td><td>$11.48</td></tr>
-<tr><td>output</td><td>33,546</td><td>176,794</td><td>156,098</td><td>—</td><td>366,438</td><td>$7.33</td></tr>
-<tr class="sub"><td>thinking</td><td>16,219</td><td>73,248</td><td>70,480</td><td>—</td><td>159,947</td><td>—</td></tr>
-<tr><td>web searches</td><td>0</td><td>0</td><td>0</td><td>—</td><td>0</td><td>$0.00</td></tr>
-<tr class="tp"><td>cost</td><td>$1.82</td><td>$16.43</td><td>$10.55</td><td>—</td><td></td><td>$28.80</td></tr>
+<tr><td>input</td><td>56</td><td>272</td><td>210</td><td>1,514</td><td>2,052</td><td>$0.01</td></tr>
+<tr><td>cache write 1h</td><td>61,355</td><td>881,837</td><td>30,729</td><td>256,309</td><td>1,230,230</td><td>$9.84</td></tr>
+<tr><td>cache write 5m</td><td>0</td><td>0</td><td>440,196</td><td>2,613,605</td><td>3,053,801</td><td>$15.27</td></tr>
+<tr><td>cache read</td><td>3,269,377</td><td>29,214,286</td><td>24,911,753</td><td>126,354,744</td><td>183,750,160</td><td>$36.75</td></tr>
+<tr><td>output</td><td>33,546</td><td>176,794</td><td>156,098</td><td>943,166</td><td>1,309,604</td><td>$26.19</td></tr>
+<tr class="sub"><td>thinking</td><td>16,219</td><td>73,248</td><td>70,480</td><td>458,006</td><td>617,953</td><td>—</td></tr>
+<tr><td>web searches</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>$0.00</td></tr>
+<tr class="tp"><td>cost</td><td>$1.82</td><td>$16.43</td><td>$10.55</td><td>$59.26</td><td></td><td>$88.06</td></tr>
 <tr class="grp"><td colspan="7">Run</td></tr>
-<tr><td>model</td><td>opus-5-5</td><td>opus-5-5</td><td>opus-5-5</td><td>—</td><td></td><td></td></tr>
-<tr><td>runs</td><td>1</td><td>1</td><td>1</td><td>—</td><td>3</td><td></td></tr>
-<tr><td>elapsed</td><td>16m 11s</td><td>14h 50m 54s</td><td>23m 07s</td><td>—</td><td>15h 30m 12s</td><td></td></tr>
+<tr><td>model</td><td>opus-5-5</td><td>opus-5-5</td><td>opus-5-5</td><td>opus-5-5</td><td></td><td></td></tr>
+<tr><td>runs</td><td>1</td><td>1</td><td>1</td><td>1</td><td>4</td><td></td></tr>
+<tr><td>elapsed</td><td>16m 11s</td><td>14h 50m 54s</td><td>23m 07s</td><td>2h 19m 53s</td><td>17h 50m 05s</td><td></td></tr>
 </tbody>
 </table></div>
 <p class="usage-note">API list prices as of 2026-11-10, not subscription billing</p>
