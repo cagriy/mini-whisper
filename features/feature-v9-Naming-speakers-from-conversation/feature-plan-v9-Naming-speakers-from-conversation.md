@@ -589,7 +589,7 @@ Convention-establishing stage: the `MWNaming` layer gets its target, product and
 ### Stage 18 — App: Suggest names on a stopped meeting, coordinator wiring, and turning naming on
 **Goal:** The stopped meeting's naming status line and Suggest names pill, the naming cost on the chip, key presence, and coordinator handling of naming events. Then pass the keyed Anthropic client as the meeting's namer, so naming runs in the app.
 **Design references:** §5 Interfaces (Stopped meeting: Suggest names; Cost chip; Inputs; `MeetingActions`), §5 Security (Disclosure), §9 Rollout plan, `DESIGN.md` (StatusLine progress/info/warning, small pill, Copy Tone); R1, R11, R25, R26, R28
-**Touches:** `App/Meeting/MeetingWindowModel.swift`; `App/Meeting/FinishedPage.swift`; `App/Meeting/MeetingCoordinator.swift`; `App/Main/MainWindowModel.swift` (`meetingEntered` hook); `App/AppDelegate.swift` (coordinator `hasKey`, `meetingEntered` and main-window key wiring; `namer:` in `makeMeetings`); `App/KeyedAnthropicClient.swift` (`NameSuggesting` conformance); `AppTests/MeetingWindowModelTests.swift`; `AppTests/MeetingCoordinatorTests.swift`; `AppTests/TestCallSessionTests.swift`; `AppTests/MainWindowModelTests.swift`; `CHANGELOG.md` (`[Unreleased]` entry)
+**Touches:** `App/Meeting/MeetingWindowModel.swift`; `App/Meeting/FinishedPage.swift`; `App/Meeting/MeetingCoordinator.swift`; `App/Main/MainWindowModel.swift` (`meetingEntered` hook); `App/AppDelegate.swift` (coordinator `hasKey`, `meetingEntered` and main-window key wiring; `namer:` in `makeMeetings`); `App/KeyedAnthropicClient.swift` (`NameSuggesting` conformance); `AppTests/MeetingWindowModelTests.swift`; `AppTests/MeetingCoordinatorTests.swift`; `AppTests/TestCallSessionTests.swift`; `AppTests/MainWindowModelTests.swift`; `AppTests/KeyedAnthropicClientTests.swift` (create); `CHANGELOG.md` (`[Unreleased]` entry)
 
 **Category:** Hybrid. Full TDD for the window model, coordinator and main-window hook. The integration-verified remainder is checked by the app build and the manual pass in step 5:
 - the `FinishedPage` status line;
@@ -819,3 +819,8 @@ None — plan matches design v9 exactly.
   - **Inputs.** People, aliases and pricing overrides are empty, and auto-apply is off.
   - **Skipped meetings.** Test calls and meetings with no named non-user speaker are skipped.
   - **Request timing.** Each request is awaited where the trigger fired, so no follow-up fires. Fires are timed at segment ends, which can be later than the 1 s live ticker.
+- **Stage 18.**
+  - **Still has none.** "Speaker N still has none." names the one open speaker holding no suggestion. A conversation suggestion leaves its speaker open (`SuggestionPolicy.isOpen`), so counted plainly the clause could follow only auto-applied names, unlike the accepted mockup. The offer counts plain `isOpen`, as design §5 Inputs says.
+  - **Key test.** `AppTests/KeyedAnthropicClientTests.swift` (new) checks that `suggestNames` throws `MissingAPIKey` without a key.
+  - **Busy sessions.** The coordinator's `isWritingSummary` became `isBusy` (summary or naming request). One `settle` drops a finishing session after `.summary`, `.naming(.finished)` or the end of Stop.
+  - **Main-window key.** The observer takes every window's `didBecomeKeyNotification` and refreshes only when `NSApp.keyWindow`'s delegate is the `MainWindowController`, whose window is private. `MainWindowController` is unchanged.
