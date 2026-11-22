@@ -1,0 +1,701 @@
+<title>Misheard name spellings</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/* Layout: three options side by side (stacking when narrow), each the Recording and Speaker names cards with the misheard spellings of your name shown and editable; shared state switches above. */
+:root{
+  --stage:#E8E5DE; --bg:#FBFAF7; --side:#F2F0EA; --card:#FFFFFF; --hover:#ECE9E2; --line:#E1DDD3;
+  --ink:#23221F; --ink2:#6B675E; --ink3:#969084;
+  --accent:#2A6FC9; --accent-ink:#FFFFFF; --accent-soft:#E3EEFB;
+  --rec:#D2452D; --ok:#2F8A5B; --warn:#A56A00;
+  --shadow:0 14px 36px rgba(35,34,31,.18);
+  --serif:ui-serif,"New York","Iowan Old Style",Georgia,serif;
+  --sans:-apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,"Segoe UI",sans-serif;
+  --mono:ui-monospace,"SF Mono",Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --stage:#151413; --bg:#262522; --side:#1E1D1B; --card:#2F2E2A; --hover:#39372F; --line:#46443D;
+  --ink:#F1EEE7; --ink2:#B4AFA4; --ink3:#878278;
+  --accent:#7DB8F0; --accent-ink:#10202F; --accent-soft:#2A3948;
+  --rec:#F07A62; --ok:#7FC79E; --warn:#E2B45E;
+  --shadow:0 14px 36px rgba(0,0,0,.45); color-scheme:dark}}
+:root[data-theme="dark"]{
+  --stage:#151413; --bg:#262522; --side:#1E1D1B; --card:#2F2E2A; --hover:#39372F; --line:#46443D;
+  --ink:#F1EEE7; --ink2:#B4AFA4; --ink3:#878278;
+  --accent:#7DB8F0; --accent-ink:#10202F; --accent-soft:#2A3948;
+  --rec:#F07A62; --ok:#7FC79E; --warn:#E2B45E;
+  --shadow:0 14px 36px rgba(0,0,0,.45); color-scheme:dark}
+
+*,*::before,*::after{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;background:var(--stage);color:var(--ink);font:14px/1.5 var(--sans);-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.page{max-width:1760px;margin:0 auto;padding-block:24px 120px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  display:grid;gap:20px}
+
+/* Page chrome (not part of the app) */
+.banner{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 20px;display:grid;gap:6px}
+.banner .tag{font:600 11px/14px var(--sans);letter-spacing:.06em;text-transform:uppercase;color:var(--warn)}
+.banner h1{margin:0;font:500 24px/30px var(--serif);text-wrap:balance}
+.banner p{margin:0;color:var(--ink2);max-width:100ch}
+.banner p b{color:var(--ink);font-weight:600}
+.ctl{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 20px;display:flex;flex-wrap:wrap;gap:8px 18px;align-items:center;color:var(--ink2);font-size:13px}
+.ctl b{color:var(--ink);font-weight:600}
+.ctl label{display:inline-flex;gap:6px;align-items:center;cursor:pointer}
+.options{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,520px),1fr));gap:20px;align-items:start}
+.opt{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;display:grid;gap:12px;min-width:0}
+.opt > h2{margin:0;font:500 20px/26px var(--serif)}
+.opt > h2 code{font:500 13px/18px var(--mono);color:var(--ink3);margin-left:6px}
+.opt > p{margin:0;color:var(--ink2);max-width:80ch}
+.opt > p b{color:var(--ink);font-weight:600}
+.shared{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px 20px;display:grid;gap:8px}
+.shared h2{margin:0;font:500 20px/26px var(--serif)}
+.shared ul{margin:0;padding-left:20px;display:grid;gap:5px;max-width:110ch;color:var(--ink2)}
+.shared li b{color:var(--ink);font-weight:600}
+
+/* App: Settings › Meetings column */
+.win{background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:22px 26px 24px;display:grid;gap:14px;min-width:0}
+.display{margin:0;font:500 28px/34px var(--serif);letter-spacing:-.01em}
+.group{font:500 12px/16px var(--sans);color:var(--ink3);margin:0 0 -8px;padding:0 4px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:0 16px}
+.card.new{box-shadow:0 0 0 2px var(--accent-soft)}
+.row{padding:14px 0;border-top:1px solid var(--line)}
+.row:first-child{border-top:0}
+.set{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 16px;align-items:start}
+.t{font:500 13px/18px var(--sans)}
+.d{color:var(--ink2);font:12px/17px var(--sans);max-width:62ch}
+.d.note{color:var(--ink3)}
+.stub{color:var(--ink3);font:12px/17px var(--sans);font-style:italic}
+.toggle{width:36px;height:20px;border-radius:999px;border:0;background:var(--line);position:relative;padding:0;flex:none;margin-top:1px}
+.toggle::after{content:"";position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.25)}
+.toggle[aria-pressed="true"]{background:var(--accent)}
+.toggle[aria-pressed="true"]::after{left:18px}
+.field{width:220px;max-width:100%;height:26px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);padding:3px 8px;font:13px/18px var(--sans)}
+.field.small{width:180px;height:24px;font-size:12px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:24px;padding:0 10px;border-radius:999px;
+  border:1px solid var(--line);background:transparent;color:var(--ink);font:500 12px/16px var(--sans);white-space:nowrap}
+.btn:hover{background:var(--hover)}
+.btn.quiet{border-color:transparent;color:var(--ink2)}
+.btn.quiet:hover,.btn.quiet:focus-visible{color:var(--accent)}
+.link{border:0;background:transparent;padding:0;color:var(--accent);font:500 12px/16px var(--sans)}
+
+/* Option A: removable chips (a new Chip variant) */
+.chips{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:8px}
+.chips .lbl{color:var(--ink3);font:12px/17px var(--sans);margin-right:2px}
+.chip{display:inline-flex;align-items:center;gap:4px;height:20px;padding:0 4px 0 8px;border:1px solid var(--line);border-radius:999px;color:var(--ink2);font:600 11px/14px var(--sans)}
+.chip .x{width:14px;height:14px;border:0;border-radius:50%;background:transparent;padding:0;display:inline-grid;place-items:center;color:var(--ink3)}
+.chip .x:hover,.chip .x:focus-visible{background:var(--hover);color:var(--ink)}
+.chip .x svg{width:8px;height:8px;stroke:currentColor;stroke-width:1.8;stroke-linecap:round}
+
+/* Option B: rows in the Speaker names card */
+.alist{display:grid;margin-top:8px;border:1px solid var(--line);border-radius:10px;background:var(--bg)}
+.arow{display:flex;align-items:center;gap:10px;min-height:34px;padding:4px 6px 4px 12px;border-top:1px solid var(--line);font:13px/18px var(--sans)}
+.arow:first-child{border-top:0}
+.arow .n{flex:1;min-width:0}
+.arow .hov{visibility:hidden}
+.arow:hover .hov,.arow:focus-within .hov{visibility:visible}
+.arow.add{gap:8px}
+.empty{padding:9px 12px;color:var(--ink3);font:12px/17px var(--sans)}
+
+/* Option C: one line plus a popover (the dialog card) */
+.popwrap{position:relative}
+.pop{position:absolute;left:0;top:calc(100% + 6px);z-index:5;width:300px;max-width:calc(100vw - 48px);background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);padding:12px 14px;display:grid;gap:8px}
+.pop .t{font-size:13px}
+.pop .alist{margin-top:0}
+.pop .foot{display:flex;justify-content:flex-end}
+</style>
+
+<div class="page">
+
+  <header class="banner">
+    <div class="tag">Mockup — not shipping code · v9 · set 3 of 4: Settings › Meetings · Accepted 2026-11-22: B · List in the Speaker names card</div>
+    <h1>Where the misheard spellings of your name are kept</h1>
+    <p><b>That's me</b> on a suggestion records its name as a mishearing of yours ("Neve" for Niamh), so it is never suggested for anyone again. These options show where you <b>see, remove and add</b> those spellings: as removable chips under Your name, as a list in the Speaker names card chosen in set 2, or as one line under Your name that opens a popover.</p>
+    <p>Follows DESIGN.md: settings cards with hairline rows, quiet small pills, hover-revealed actions as the transcript uses, and the dialog card for popovers. Option A adds a removable variant to the Chip component; B and C reuse existing parts. Names are placeholders. Remove and add work here; press Return to add.</p>
+  </header>
+
+  <div class="ctl" role="group" aria-label="States to try">
+    <b>Try a state</b>
+    <label><input type="checkbox" id="st-empty"> No spellings yet</label>
+    <span>The Speaker names card is the one accepted in set 2, shortened.</span>
+  </div>
+
+  <div class="options">
+
+    <!-- Option A -->
+    <section class="opt" id="name-chips" data-mf-option="name-chips">
+      <h2>A · Chips under Your name <code>name-chips</code> <code>· Not chosen</code></h2>
+      <p>The spellings sit right under the name they belong to, each a chip with a ×, and "Add…" turns into a small field. With none, the line is not shown. <b>Trade-off:</b> the spellings are visible beside your name, but this adds a removable variant to the Chip component, and the Recording card grows a line.</p>
+      <div class="win">
+        <h1 class="display">Meetings</h1>
+        <div class="group">Recording</div>
+        <div class="card new">
+          <div class="row">
+            <div class="set">
+              <div><div class="t">Your name</div><div class="d">Labels your microphone in remote calls and in exports. Starts as your macOS account name.</div></div>
+              <input class="field" value="Niamh" aria-label="Your name">
+            </div>
+            <div class="chips" data-view="chips"></div>
+          </div>
+          <div class="row"><span class="stub">Keep meeting audio, Stop after silence, System Audio Recording, unchanged</span></div>
+        </div>
+        <div class="group">Speaker names</div>
+        <div class="card">
+          <div class="row set"><div><div class="t">Suggest names from the conversation</div><div class="d">During a meeting, Claude Haiku 5.5 suggests a name for a speaker when someone says it…</div></div><button class="toggle" aria-pressed="true" aria-label="Suggest names from the conversation"></button></div>
+          <div class="row set"><div><div class="t">Apply self-introductions without asking</div><div class="d">A speaker who says their own name is named straight away…</div></div><button class="toggle" aria-pressed="false" aria-label="Apply self-introductions without asking"></button></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Option B -->
+    <section class="opt" id="names-card-list" data-mf-option="names-card-list">
+      <h2>B · List in the Speaker names card <code>names-card-list</code> <code>· Accepted 2026-11-22</code></h2>
+      <p>A third row in the Speaker names card lists the spellings, each with Remove on hover, and a field to add one. It shows even with none, saying how one gets there. <b>Trade-off:</b> it sits with the feature that uses it and needs no new component, but it is a card away from Your name and the card grows by a list.</p>
+      <div class="win">
+        <h1 class="display">Meetings</h1>
+        <div class="group">Recording</div>
+        <div class="card">
+          <div class="row set"><div><div class="t">Your name</div><div class="d">Labels your microphone in remote calls and in exports. Starts as your macOS account name.</div></div><input class="field" value="Niamh" aria-label="Your name"></div>
+          <div class="row"><span class="stub">Keep meeting audio, Stop after silence, System Audio Recording, unchanged</span></div>
+        </div>
+        <div class="group">Speaker names</div>
+        <div class="card new">
+          <div class="row set"><div><div class="t">Suggest names from the conversation</div><div class="d">During a meeting, Claude Haiku 5.5 suggests a name for a speaker when someone says it…</div></div><button class="toggle" aria-pressed="true" aria-label="Suggest names from the conversation"></button></div>
+          <div class="row set"><div><div class="t">Apply self-introductions without asking</div><div class="d">A speaker who says their own name is named straight away…</div></div><button class="toggle" aria-pressed="false" aria-label="Apply self-introductions without asking"></button></div>
+          <div class="row">
+            <div class="t">Your name, as misheard</div>
+            <div class="d">Spellings treated as your name and never suggested for another speaker. <b style="font-weight:600;color:var(--ink)">That's me</b> on a suggestion adds one.</div>
+            <div class="alist" data-view="list"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Option C -->
+    <section class="opt" id="name-line" data-mf-option="name-line">
+      <h2>C · One line and a popover <code>name-line</code> <code>· Not chosen</code></h2>
+      <p>Under Your name, one grey line reads "Also heard as Neve and Neev · Edit…"; Edit opens a popover with the list, Remove and an add field. <b>Trade-off:</b> the lightest on the page and next to your name, but removing a spelling takes two clicks and the list is out of sight. The popover is shown open.</p>
+      <div class="win">
+        <h1 class="display">Meetings</h1>
+        <div class="group">Recording</div>
+        <div class="card new">
+          <div class="row">
+            <div class="set">
+              <div>
+                <div class="t">Your name</div>
+                <div class="d">Labels your microphone in remote calls and in exports. Starts as your macOS account name.</div>
+                <div class="popwrap">
+                  <div class="d note" data-view="line"></div>
+                  <div class="pop" data-pop>
+                    <div class="t">Your name, as misheard</div>
+                    <div class="d">Treated as your name and never suggested for another speaker.</div>
+                    <div class="alist" data-view="poplist"></div>
+                    <div class="foot"><button class="btn" data-close>Done</button></div>
+                  </div>
+                </div>
+              </div>
+              <input class="field" value="Niamh" aria-label="Your name">
+            </div>
+          </div>
+          <div class="row" style="padding-top:150px"><span class="stub">Keep meeting audio, Stop after silence, System Audio Recording, unchanged</span></div>
+        </div>
+        <div class="group">Speaker names</div>
+        <div class="card">
+          <div class="row set"><div><div class="t">Suggest names from the conversation</div><div class="d">During a meeting, Claude Haiku 5.5 suggests a name for a speaker when someone says it…</div></div><button class="toggle" aria-pressed="true" aria-label="Suggest names from the conversation"></button></div>
+          <div class="row set"><div><div class="t">Apply self-introductions without asking</div><div class="d">A speaker who says their own name is named straight away…</div></div><button class="toggle" aria-pressed="false" aria-label="Apply self-introductions without asking"></button></div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+  <section class="shared">
+    <h2>The same in all three options</h2>
+    <ul>
+      <li><b>How a spelling gets there:</b> That's me on a suggestion, in a live or stopped meeting, or typed here. Typing one lets you head off a mishearing you already know about.</li>
+      <li><b>Matching</b> ignores case and accents: "neve" and "Névé" match "Neve". A spelling equal to Your name, a blank, or "Speaker 3" is not added.</li>
+      <li><b>What a spelling does:</b> in a remote call it is never suggested for another speaker, since your microphone is already labelled with your name. In a room it is shown as your own name. The spellings go to Anthropic with Your name, so Claude knows them too.</li>
+      <li><b>Remove</b> takes effect at once and only for later suggestions; names already given in past meetings stay as they are.</li>
+      <li><b>Kept with your settings,</b> across meetings, and kept when you change Your name.</li>
+    </ul>
+  </section>
+
+</div>
+
+<script>
+(function(){
+  var full=["Neve","Neev"], spellings=full.slice(), popOpen=true, addingA=false;
+  var X='<svg viewBox="0 0 8 8" aria-hidden="true"><path d="M1.5 1.5l5 5M6.5 1.5l-5 5"/></svg>';
+  function esc(s){ return s.replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];}); }
+  function andList(a){ return a.length<2 ? a.join("") : a.slice(0,-1).join(", ")+" and "+a[a.length-1]; }
+  function rows(){
+    var h = spellings.length ? spellings.map(function(s){
+      return '<div class="arow"><span class="n">'+esc(s)+'</span><button class="btn quiet hov" data-remove="'+esc(s)+'">Remove</button></div>';
+    }).join("") : '<div class="empty">None yet.</div>';
+    return h+'<div class="arow add"><input class="field small" placeholder="Add a spelling" data-add aria-label="Add a spelling"></div>';
+  }
+  function paint(){
+    var chips=document.querySelector("[data-view='chips']");
+    if(!spellings.length && !addingA){ chips.innerHTML='<button class="link" data-add-a>Add a misheard spelling…</button>'; }
+    else {
+      chips.innerHTML='<span class="lbl">Also heard as</span>'+spellings.map(function(s){
+        return '<span class="chip">'+esc(s)+'<button class="x" data-remove="'+esc(s)+'" aria-label="Remove '+esc(s)+'">'+X+'</button></span>';
+      }).join("")+(addingA?'<input class="field small" placeholder="Add a spelling" data-add aria-label="Add a spelling">':'<button class="link" data-add-a>Add…</button>');
+    }
+    document.querySelector("[data-view='list']").innerHTML=rows();
+    document.querySelector("[data-view='poplist']").innerHTML=rows();
+    var line=document.querySelector("[data-view='line']");
+    line.innerHTML=(spellings.length?'Also heard as '+esc(andList(spellings))+' · ':'')+'<button class="link" data-open>'+(spellings.length?'Edit…':'Add a misheard spelling…')+'</button>';
+    document.querySelector("[data-pop]").hidden=!popOpen;
+    if(addingA){ var f=chips.querySelector("[data-add]"); if(f) f.focus(); }
+  }
+  function add(v){
+    v=v.trim(); if(!v || /^Speaker \d+$/.test(v) || v.toLowerCase()==="niamh") return;
+    var k=v.normalize("NFD").replace(/[̀-ͯ]/g,"").toLowerCase();
+    if(spellings.some(function(s){ return s.normalize("NFD").replace(/[̀-ͯ]/g,"").toLowerCase()===k; })) return;
+    spellings.push(v);
+  }
+  document.addEventListener("click", function(e){
+    var r=e.target.closest("[data-remove]"); if(r){ var n=r.getAttribute("data-remove"); spellings=spellings.filter(function(s){return s!==n;}); paint(); return; }
+    if(e.target.closest("[data-add-a]")){ addingA=true; paint(); return; }
+    if(e.target.closest("[data-open]")){ popOpen=true; paint(); return; }
+    if(e.target.closest("[data-close]")){ popOpen=false; paint(); return; }
+  });
+  document.addEventListener("keydown", function(e){
+    var f=e.target.closest && e.target.closest("[data-add]"); if(!f) return;
+    if(e.key==="Enter"){ add(f.value); var wasA=!!f.closest("[data-view='chips']"); addingA=wasA; paint(); if(!wasA){ var again=document.querySelectorAll("[data-add]"); } }
+    if(e.key==="Escape" && f.closest("[data-view='chips']")){ addingA=false; paint(); }
+  });
+  document.getElementById("st-empty").addEventListener("change", function(e){ spellings=e.target.checked?[]:full.slice(); addingA=false; paint(); });
+  paint();
+})();
+</script>
+
+<!-- mockup-feedback:start -->
+<style>
+.mf-bar {
+  --mf-bg: #f6f7f9;
+  --mf-fg: #1a2127;
+  --mf-muted: #59646d;
+  --mf-line: #d3d9de;
+  --mf-field: #ffffff;
+  --mf-accent: #2f5fd0;
+  --mf-accent-fg: #ffffff;
+  --mf-ok: #1d7a4c;
+  --mf-warn: #8f5d00;
+  --mf-err: #b2322b;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .mf-bar {
+    --mf-bg: #161b20;
+    --mf-fg: #e3e8ec;
+    --mf-muted: #98a3ab;
+    --mf-line: #2d363e;
+    --mf-field: #0f1317;
+    --mf-accent: #7ea2f5;
+    --mf-accent-fg: #0b1220;
+    --mf-ok: #57c48c;
+    --mf-warn: #e2ac45;
+    --mf-err: #f08077;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] .mf-bar {
+  --mf-bg: #161b20;
+  --mf-fg: #e3e8ec;
+  --mf-muted: #98a3ab;
+  --mf-line: #2d363e;
+  --mf-field: #0f1317;
+  --mf-accent: #7ea2f5;
+  --mf-accent-fg: #0b1220;
+  --mf-ok: #57c48c;
+  --mf-warn: #e2ac45;
+  --mf-err: #f08077;
+  color-scheme: dark;
+}
+.mf-bar, .mf-bar * { box-sizing: border-box; }
+.mf-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 2147483000;
+  margin: 24px 0 0;
+  padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px));
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--mf-bg);
+  color: var(--mf-fg);
+  border-top: 1px solid var(--mf-line);
+  box-shadow: 0 -6px 18px rgba(0, 0, 0, 0.08);
+  font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  text-align: left;
+}
+.mf-bar[hidden] { display: none; }
+.mf-bar .mf-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+.mf-bar .mf-tag {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--mf-muted);
+}
+.mf-bar .mf-title { font-weight: 600; }
+.mf-bar .mf-context { color: var(--mf-muted); min-width: 0; overflow-wrap: anywhere; }
+.mf-bar .mf-toggle {
+  margin-left: auto;
+  padding: 2px 6px;
+  border: 0;
+  background: none;
+  color: var(--mf-accent);
+  font: inherit;
+  font-size: 13px;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.mf-bar .mf-body { display: flex; flex-direction: column; gap: 8px; }
+.mf-bar.mf-collapsed .mf-body { display: none; }
+.mf-bar .mf-options { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; border: 0; }
+.mf-bar .mf-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border: 1.5px solid var(--mf-line);
+  border-radius: 999px;
+  background: var(--mf-field);
+  cursor: pointer;
+}
+.mf-bar .mf-chip input { margin: 0; accent-color: var(--mf-accent); }
+.mf-bar .mf-chip:has(input:checked) { border-color: var(--mf-accent); }
+.mf-bar .mf-chip:has(input:focus-visible) { outline: 2px solid var(--mf-accent); outline-offset: 2px; }
+.mf-bar .mf-note {
+  width: 100%;
+  min-height: 38px;
+  max-height: 140px;
+  padding: 7px 10px;
+  resize: vertical;
+  font: inherit;
+  color: var(--mf-fg);
+  background: var(--mf-field);
+  border: 1.5px solid var(--mf-line);
+  border-radius: 8px;
+}
+.mf-bar .mf-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.mf-bar .mf-btn {
+  padding: 7px 12px;
+  border: 1.5px solid var(--mf-line);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--mf-fg);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.mf-bar .mf-btn.mf-primary { background: var(--mf-accent); border-color: var(--mf-accent); color: var(--mf-accent-fg); }
+.mf-bar .mf-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.mf-bar .mf-btn:focus-visible, .mf-bar .mf-toggle:focus-visible, .mf-bar .mf-note:focus-visible {
+  outline: 2px solid var(--mf-accent);
+  outline-offset: 2px;
+}
+.mf-bar .mf-channel { display: flex; align-items: center; gap: 6px; margin: 0; font-size: 13px; color: var(--mf-muted); }
+.mf-bar .mf-dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--mf-muted); }
+.mf-bar .mf-channel[data-state="available"] .mf-dot { background: var(--mf-ok); }
+.mf-bar .mf-channel[data-state="no_session"] .mf-dot,
+.mf-bar .mf-channel[data-state="writers_only"] .mf-dot { background: var(--mf-warn); }
+.mf-bar .mf-channel[data-state="blocked"] .mf-dot { background: var(--mf-err); }
+.mf-bar .mf-result { margin: 0; font-size: 13px; }
+.mf-bar .mf-result[data-kind="ok"] { color: var(--mf-ok); }
+.mf-bar .mf-result[data-kind="err"] { color: var(--mf-err); }
+.mf-bar .mf-verdict { margin: 0; font-weight: 600; }
+[data-mf-option].mf-selected { outline: 3px solid #3b6fe0; outline-offset: 4px; }
+</style>
+<aside class="mf-bar" id="mf-bar" role="region" aria-label="Mockup feedback" data-uncommentable hidden>
+  <div class="mf-head">
+    <span class="mf-tag">Feedback</span>
+    <span class="mf-title" id="mf-title"></span>
+    <span class="mf-context" id="mf-context"></span>
+    <button type="button" class="mf-toggle" id="mf-toggle" aria-expanded="true" aria-controls="mf-body">Hide</button>
+  </div>
+  <div class="mf-body" id="mf-body">
+    <p class="mf-verdict" id="mf-verdict" hidden></p>
+    <fieldset class="mf-options" id="mf-options" hidden></fieldset>
+    <textarea class="mf-note" id="mf-note" maxlength="1500" placeholder="Note for Claude (optional; required to request changes)" aria-label="Note for Claude"></textarea>
+    <div class="mf-actions" id="mf-actions"></div>
+    <p class="mf-channel" id="mf-channel" data-state="checking">
+      <span class="mf-dot" aria-hidden="true"></span>
+      <span id="mf-channel-text">Checking whether a Claude session is listening.</span>
+      <button type="button" class="mf-toggle" id="mf-recheck" hidden>Check again</button>
+    </p>
+    <p class="mf-result" id="mf-result" role="status" aria-live="polite" hidden></p>
+  </div>
+</aside>
+<script type="application/json" id="mf-config">{"set":"v9-s3","setLabel":"Where the misheard spellings of your name are kept","mode":"compare","options":[{"id":"name-chips","label":"A · Chips under Your name"},{"id":"names-card-list","label":"B · List in the Speaker names card"},{"id":"name-line","label":"C · One line and a popover"}],"this":null,"status":"accepted","chosen":"names-card-list"}</script>
+<script>
+(function () {
+  var cfg;
+  try { cfg = JSON.parse(document.getElementById("mf-config").textContent); } catch (e) { return; }
+  if (!cfg || !cfg.options || !cfg.options.length) return;
+
+  var PREFIX = "Mockup feedback · ";
+  var CHANNEL = {
+    checking: "Checking whether a Claude session is listening.",
+    available: "A Claude session is listening. Sending wakes it.",
+    no_session: "No Claude session is listening. Reply in chat, or check again once the session is back.",
+    writers_only: "Only editors of this page can send to Claude. Reply in chat instead.",
+    off: "Sending to Claude is not offered here. Reply in chat instead.",
+    absent: "Sending works on the published page. Here, reply in chat instead.",
+    blocked: "Commenting from this page is turned off. Reply in chat instead."
+  };
+  var KNOWN = ["available", "writers_only", "no_session", "off"];
+
+  var bar = document.getElementById("mf-bar");
+  var titleEl = document.getElementById("mf-title");
+  var contextEl = document.getElementById("mf-context");
+  var toggleBtn = document.getElementById("mf-toggle");
+  var verdictEl = document.getElementById("mf-verdict");
+  var optionsEl = document.getElementById("mf-options");
+  var noteEl = document.getElementById("mf-note");
+  var actionsEl = document.getElementById("mf-actions");
+  var channelEl = document.getElementById("mf-channel");
+  var channelText = document.getElementById("mf-channel-text");
+  var recheckBtn = document.getElementById("mf-recheck");
+  var resultEl = document.getElementById("mf-result");
+
+  var comments = null;
+  var state = "checking";
+  var busy = false;
+  var sent = false;
+  var buttons = [];
+
+  function byId(list, id) {
+    for (var i = 0; i < list.length; i++) if (list[i].id === id) return list[i];
+    return null;
+  }
+  function label(id) { var o = byId(cfg.options, id); return o ? o.label : id; }
+  function root(id) { return document.querySelector('[data-mf-option="' + id + '"]'); }
+  function picked() {
+    if (cfg.mode !== "compare") return cfg.mode === "pick" ? cfg["this"] : cfg.options[0].id;
+    var r = optionsEl.querySelector("input:checked");
+    return r ? r.value : null;
+  }
+  function say(text, kind) {
+    resultEl.hidden = !text;
+    resultEl.textContent = text || "";
+    if (kind) resultEl.setAttribute("data-kind", kind);
+    else resultEl.removeAttribute("data-kind");
+  }
+  function clean(text) {
+    return text.replace(/[\u0000-\u0008\u000B-\u001F\u007F]/g, "").trim();
+  }
+
+  // Header: the set, and where this page sits in it.
+  titleEl.textContent = cfg.setLabel;
+  if (cfg.mode === "pick") {
+    var others = [];
+    var position = 0;
+    for (var i = 0; i < cfg.options.length; i++) {
+      if (cfg.options[i].id === cfg["this"]) position = i + 1;
+      else others.push(cfg.options[i].label);
+    }
+    contextEl.textContent = "Option " + position + " of " + cfg.options.length + ": " + label(cfg["this"]) +
+      ". The others are on their own pages: " + others.join(", ") + ". Choosing here rules them out.";
+  } else if (cfg.mode === "compare") {
+    contextEl.textContent = cfg.options.length + " options on this page. Pick one.";
+  } else {
+    contextEl.textContent = label(cfg.options[0].id);
+  }
+
+  toggleBtn.addEventListener("click", function () {
+    var collapsed = bar.classList.toggle("mf-collapsed");
+    toggleBtn.textContent = collapsed ? "Show" : "Hide";
+    toggleBtn.setAttribute("aria-expanded", collapsed ? "false" : "true");
+  });
+
+  // A settled page shows its verdict and nothing to act on.
+  if (cfg.status !== "open") {
+    var verdict = {
+      accepted: cfg.mode === "compare" ? "Accepted: " + label(cfg.chosen) + "." : "Accepted.",
+      "not-chosen": "Not chosen.",
+      closed: "Closed. Choices on this page are no longer read."
+    }[cfg.status] || "Closed.";
+    verdictEl.textContent = verdict;
+    verdictEl.hidden = false;
+    noteEl.hidden = true;
+    channelEl.hidden = true;
+    if (cfg.mode === "compare" && cfg.status === "accepted" && root(cfg.chosen)) root(cfg.chosen).classList.add("mf-selected");
+    bar.hidden = false;
+    return;
+  }
+
+  // Compare: one chip per option, outlining its section when picked.
+  if (cfg.mode === "compare") {
+    var legend = document.createElement("legend");
+    legend.className = "mf-tag";
+    legend.textContent = "Options";
+    optionsEl.appendChild(legend);
+    cfg.options.forEach(function (o) {
+      var chip = document.createElement("label");
+      chip.className = "mf-chip";
+      var input = document.createElement("input");
+      input.type = "radio";
+      input.name = "mf-option";
+      input.id = "mf-option-" + o.id;
+      input.value = o.id;
+      input.addEventListener("change", function () {
+        var all = document.querySelectorAll("[data-mf-option]");
+        for (var k = 0; k < all.length; k++) all[k].classList.remove("mf-selected");
+        var el = root(o.id);
+        if (el) {
+          el.classList.add("mf-selected");
+          var still = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+          el.scrollIntoView({ block: "nearest", behavior: still ? "auto" : "smooth" });
+        }
+        refresh();
+      });
+      chip.appendChild(input);
+      chip.appendChild(document.createTextNode(o.label));
+      optionsEl.appendChild(chip);
+    });
+    optionsEl.hidden = false;
+  }
+
+  // Actions per shape. needsNote: a change request must say what to change.
+  var ACTIONS = {
+    review: [
+      { action: "accept", text: "Looks right", primary: true },
+      { action: "revise", text: "Request changes", needsNote: true },
+      { action: "alternatives", text: "Show alternatives" }
+    ],
+    compare: [
+      { action: "choose", text: "Send choice", primary: true, needsPick: true },
+      { action: "none", text: "None of these", needsNote: true },
+      { action: "comment", text: "Comment on this option", needsPick: true }
+    ],
+    pick: [
+      { action: "choose", text: "Choose this one", primary: true },
+      { action: "revise", text: "Request changes", needsNote: true },
+      { action: "none", text: "None of these", needsNote: true }
+    ]
+  }[cfg.mode] || [];
+
+  ACTIONS.forEach(function (a) {
+    var b = document.createElement("button");
+    b.type = "button";
+    b.className = "mf-btn" + (a.primary ? " mf-primary" : "");
+    b.id = "mf-" + a.action;
+    b.textContent = a.text;
+    b.addEventListener("click", function () {
+      if (a.action === "comment") compose();
+      else send(a);
+    });
+    actionsEl.appendChild(b);
+    buttons.push({ el: b, spec: a });
+  });
+
+  function render() {
+    channelEl.setAttribute("data-state", state);
+    channelText.textContent = CHANNEL[state] || CHANNEL.off;
+    recheckBtn.hidden = !comments || state === "available" || state === "checking" || state === "blocked";
+    var pick = picked();
+    buttons.forEach(function (b) {
+      if (b.spec.action === "comment") {
+        b.el.disabled = !comments || !pick;
+        b.el.hidden = !comments;
+        return;
+      }
+      b.el.disabled = busy || sent || state !== "available" || (b.spec.needsPick && !pick);
+    });
+    noteEl.disabled = sent;
+  }
+
+  function refresh() {
+    if (!comments || state === "blocked") { render(); return; }
+    comments.canSendToClaude().then(function (v) {
+      return KNOWN.indexOf(v) === -1 ? "off" : v;
+    }, function () {
+      return "off";
+    }).then(function (v) {
+      if (comments && state !== "blocked") state = v;
+      render();
+    });
+  }
+
+  function fail(err) {
+    var code = err && err.code;
+    if (code === "consent_required") {
+      say("Not sent. The page was not allowed to comment as you. Your note is kept.", "err");
+    } else if (code === "forbidden") {
+      state = "blocked";
+      say("Not sent. Commenting from this page is turned off.", "err");
+    } else if (code === "claude_unavailable") {
+      say("Not sent. No Claude session could receive it. Nothing was posted.", "err");
+      refresh();
+    } else if (code === "rate_limited") {
+      say("Not sent. Too many sends in a row. Wait a moment.", "err");
+    } else if (code === "invalid" || code === "transform_error") {
+      say("Not sent. The note has characters a comment cannot carry.", "err");
+    } else if (code === "not_granted" || code === "capability_disabled" || code === "capability_removed") {
+      comments = null;
+      state = "absent";
+      say("Not sent. This view cannot post comments from the page.", "err");
+    } else {
+      say("Not sent. Comments are unavailable right now. Try once more.", "err");
+    }
+  }
+
+  function send(spec) {
+    if (!comments || busy || sent) return;
+    var option = spec.action === "choose" || spec.action === "accept" || spec.action === "revise" ? picked() : null;
+    if (spec.needsPick && !option) { say("Pick an option first.", "err"); return; }
+    var note = clean(noteEl.value);
+    if (spec.needsNote && !note) {
+      say("Add a note saying what to change.", "err");
+      noteEl.focus();
+      return;
+    }
+    var text = PREFIX + cfg.set + " · " + spec.action + (option ? " " + option : "") + (note ? "\nNote: " + note : "");
+    var target = root(option || picked() || cfg.options[0].id) || bar.parentNode;
+    busy = true;
+    say("", null);
+    render();
+    comments.anchorFor(target).then(function (anchor) {
+      return comments.sendToClaude({ anchor: anchor, text: text });
+    }).then(function () {
+      sent = true;
+      say("Sent to Claude: " + spec.text.toLowerCase() + (option ? " (" + label(option) + ")" : "") +
+        ". Claude replies in the comment thread and updates this page.", "ok");
+    }, fail).then(function () {
+      busy = false;
+      render();
+    });
+  }
+
+  function compose() {
+    var option = picked();
+    var el = option && root(option);
+    if (!comments || !el) return;
+    comments.openComposer({ element: el }).then(function (r) {
+      if (r && r.opened) say("Comment box opened on " + label(option) + ". Write your comment and press Send to Claude.", "ok");
+    }, function (err) {
+      say(err && err.code === "rate_limited" ? "Too many tries in a row. Wait a moment." : "The comment box is unavailable here.", "err");
+    });
+  }
+
+  recheckBtn.addEventListener("click", refresh);
+  window.addEventListener("focus", refresh);
+  bar.hidden = false;
+  render();
+
+  var ready = window.claude && typeof window.claude.use === "function"
+    ? window.claude.use("comments")
+    : Promise.resolve(null);
+  ready.then(function (ns) { return ns; }, function () { return null; }).then(function (ns) {
+    comments = ns;
+    if (!ns) { state = "absent"; render(); return; }
+    refresh();
+  });
+})();
+</script>
+<!-- mockup-feedback:end -->

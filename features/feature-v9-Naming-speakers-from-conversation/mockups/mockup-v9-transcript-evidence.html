@@ -1,0 +1,649 @@
+<title>Name suggestion evidence</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/* Layout: three options stacked, each showing the transcript at reading width beside the narrowest live column; shared pieces below. */
+:root{
+  --stage:#E8E5DE; --bg:#FBFAF7; --side:#F2F0EA; --card:#FFFFFF; --hover:#ECE9E2; --line:#E1DDD3;
+  --ink:#23221F; --ink2:#6B675E; --ink3:#969084;
+  --accent:#2A6FC9; --accent-ink:#FFFFFF; --accent-soft:#E3EEFB;
+  --rec:#D2452D; --ok:#2F8A5B; --warn:#A56A00;
+  --sp1:#7A4FD0; --sp2:#1A808F; --sp3:#B3661C;
+  --shadow:0 14px 36px rgba(35,34,31,.18);
+  --serif:ui-serif,"New York","Iowan Old Style",Georgia,serif;
+  --sans:-apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,"Segoe UI",sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --stage:#151413; --bg:#262522; --side:#1E1D1B; --card:#2F2E2A; --hover:#39372F; --line:#46443D;
+  --ink:#F1EEE7; --ink2:#B4AFA4; --ink3:#878278;
+  --accent:#7DB8F0; --accent-ink:#10202F; --accent-soft:#2A3948;
+  --rec:#F07A62; --ok:#7FC79E; --warn:#E2B45E;
+  --sp1:#B79CF0; --sp2:#6CC5D1; --sp3:#E0A565;
+  --shadow:0 14px 36px rgba(0,0,0,.45); color-scheme:dark}}
+:root[data-theme="dark"]{
+  --stage:#151413; --bg:#262522; --side:#1E1D1B; --card:#2F2E2A; --hover:#39372F; --line:#46443D;
+  --ink:#F1EEE7; --ink2:#B4AFA4; --ink3:#878278;
+  --accent:#7DB8F0; --accent-ink:#10202F; --accent-soft:#2A3948;
+  --rec:#F07A62; --ok:#7FC79E; --warn:#E2B45E;
+  --sp1:#B79CF0; --sp2:#6CC5D1; --sp3:#E0A565;
+  --shadow:0 14px 36px rgba(0,0,0,.45); color-scheme:dark}
+
+*,*::before,*::after{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;background:var(--stage);color:var(--ink);font:14px/1.5 var(--sans);-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.page{max-width:1180px;margin:0 auto;padding-block:24px 40px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  display:grid;gap:20px}
+
+/* Page chrome (not part of the app) */
+.banner,.sect{background:var(--card);border:1px solid var(--line);border-radius:14px}
+.banner{padding:16px 20px;display:grid;gap:6px}
+.banner .tag{font:600 11px/14px var(--sans);letter-spacing:.06em;text-transform:uppercase;color:var(--warn)}
+.banner h1{margin:0;font:500 24px/30px var(--serif);text-wrap:balance}
+.banner p{margin:0;color:var(--ink2);max-width:96ch}
+.banner p b{color:var(--ink);font-weight:600}
+.sect{padding:18px 20px;display:grid;gap:12px;min-width:0}
+.sect > h2{margin:0;font:500 20px/26px var(--serif)}
+.sect > h2 small{font:500 12px/16px var(--sans);color:var(--ink3);margin-left:8px;letter-spacing:.02em}
+.sect > p{margin:0;color:var(--ink2);max-width:96ch}
+.sect ul{margin:0;padding-left:20px;display:grid;gap:5px;max-width:104ch;color:var(--ink2)}
+.sect li b{color:var(--ink);font-weight:600}
+.views{display:grid;grid-template-columns:minmax(0,640px) minmax(0,400px);gap:20px;align-items:start}
+@media (max-width:1120px){.views{grid-template-columns:minmax(0,1fr)}}
+.cap{margin:0 0 6px;color:var(--ink3);font:500 12px/16px var(--sans)}
+.pair{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,330px),1fr));gap:16px;align-items:start}
+
+/* App atoms */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:24px;padding:0 10px;border-radius:999px;
+  border:1px solid var(--line);background:transparent;color:var(--ink);font:500 12px/16px var(--sans);white-space:nowrap}
+.btn:hover{background:var(--hover)}
+.btn.quiet{border-color:transparent;color:var(--ink2)}
+.btn.quiet:hover,.btn.quiet:focus-visible{color:var(--accent)}
+.link{border:0;background:transparent;padding:0;color:var(--accent);font:500 12px/16px var(--sans)}
+
+/* App: transcript slice */
+.win{background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:16px 20px 6px;min-width:0;container-type:inline-size}
+.meta{color:var(--ink3);font:12px/16px var(--sans);margin-bottom:14px}
+.para{position:relative;display:grid;gap:2px;margin-bottom:14px;min-width:0}
+.head{display:flex;align-items:center;gap:4px 8px;min-height:24px;min-width:0}
+.name{border:0;background:transparent;padding:0;font:600 13px/18px var(--sans);white-space:nowrap}
+.prov{border-bottom:1.5px dashed currentColor;padding-bottom:1px}
+.was{color:var(--ink3);font:12px/16px var(--sans);white-space:nowrap}
+.time{color:var(--ink3);font:12px/16px var(--sans);font-variant-numeric:tabular-nums;white-space:nowrap}
+.acts{display:flex;gap:6px;margin-left:auto}
+.para p{margin:0;font:14px/22px var(--sans)}
+@container (max-width:470px){.head.sug{flex-wrap:wrap}.head.sug .acts{margin-left:0;flex-basis:100%;padding:2px 0 4px}}
+.hov{visibility:hidden}
+.para:hover .hov,.para:focus-within .hov{visibility:visible}
+
+/* Option A: quote line */
+.quote{display:flex;gap:6px;align-items:baseline;color:var(--ink2);font:12px/17px var(--sans);margin:1px 0 3px;min-width:0}
+.quote q{font-style:italic;quotes:"\201C" "\201D";overflow-wrap:anywhere}
+.quote .time{flex:none}
+.quote svg{width:12px;height:12px;flex:none;align-self:center;fill:none;stroke:var(--ink3);stroke-width:1.6;stroke-linecap:round}
+
+/* Option B: hover card */
+.tipwrap{position:relative;display:inline-flex}
+.tip{position:absolute;left:0;top:24px;z-index:4;width:280px;background:var(--card);border:1px solid var(--line);border-radius:14px;
+  box-shadow:var(--shadow);padding:10px 12px;display:grid;gap:4px;visibility:hidden}
+.tipwrap:hover .tip,.tipwrap:focus-within .tip,.tip.pinned{visibility:visible}
+.tip .lbl{color:var(--ink3);font:12px/16px var(--sans)}
+.tip q{font:italic 13px/18px var(--sans);color:var(--ink);quotes:"\201C" "\201D"}
+.why{width:16px;height:16px;border-radius:50%;border:1px solid var(--line);color:var(--ink3);font:600 10px/14px var(--sans);
+  display:inline-grid;place-items:center;background:transparent;padding:0}
+
+/* Option C: source link + marked words */
+mark.ev{background:var(--accent-soft);color:inherit;border-radius:3px;padding:0 2px;box-decoration-break:clone;-webkit-box-decoration-break:clone}
+.src{border:0;background:transparent;padding:0;color:var(--accent);font:12px/16px var(--sans);white-space:nowrap}
+.flash{outline:2px solid var(--accent);outline-offset:3px;border-radius:6px}
+
+/* Status line */
+.status{display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border-radius:10px;background:var(--accent-soft);color:var(--ink);font:13px/18px var(--sans)}
+.status svg{width:15px;height:15px;flex:none;margin-top:2px;fill:none;stroke:var(--accent);stroke-width:1.7;stroke-linecap:round}
+.status.warnline svg{stroke:var(--warn)}
+</style>
+
+<div class="page">
+
+  <header class="banner">
+    <div class="tag">Mockup — not shipping code · v9 · set 1 of 4: the transcript · Accepted 2026-11-22: B · Hover card</div>
+    <h1>Where a name suggested from the conversation shows its evidence</h1>
+    <p>All three options keep v8's provisional name ("Kate?", dashed underline, "Speaker 1" beside it) and its quiet actions, adding <b>That's me</b> as a fourth. They differ on one axis: <b>how the quoted line that supports the name is shown</b> — as a line under the name, in a card on hover, or as the words marked in the transcript itself with a link to them.</p>
+    <p>Follows DESIGN.md (speaker colours, 13 px semibold names over 14 px transcript text, quiet small pills, status line, the dialog card for popovers). Your name in these examples is <b>Niamh</b>; the speech recogniser hears it as "Neve". All names and text are placeholders. Hover a paragraph to see hover controls.</p>
+  </header>
+
+  <!-- Option A -->
+  <section class="sect" id="quote-line" data-mf-option="quote-line">
+    <h2>A · Quote line <small>most visible, one extra line per paragraph · Not chosen</small></h2>
+    <p>The supporting words sit on a grey line under the name, with the time they were said. Every paragraph of that speaker carries it until you answer. Trade-off: the most direct evidence, at the cost of one more line on each of that speaker's paragraphs.</p>
+    <div class="views">
+      <div><p class="cap">Reading width, 640 px</p><div class="win" data-view="A"></div></div>
+      <div><p class="cap">Narrowest live column, about 400 px: actions drop under the name</p><div class="win" data-view="A"></div></div>
+    </div>
+  </section>
+
+  <!-- Option B -->
+  <section class="sect" id="hover-card" data-mf-option="hover-card">
+    <h2>B · Hover card <small>densest, evidence one hover away · Accepted 2026-11-22</small></h2>
+    <p>A small "?" after "Speaker 1" opens a card with the quote and its time, on hover or keyboard focus; clicking the provisional name still opens the rename popover. Trade-off: the transcript looks as it does in v8, but you have to reach for the evidence. One card is shown open below.</p>
+    <div class="views">
+      <div><p class="cap">Reading width, 640 px (card pinned open on the first suggestion)</p><div class="win" data-view="B"></div></div>
+      <div><p class="cap">Narrowest live column, about 400 px</p><div class="win" data-view="B"></div></div>
+    </div>
+  </section>
+
+  <!-- Option C -->
+  <section class="sect" id="marked-words" data-mf-option="marked-words">
+    <h2>C · Marked words <small>evidence in place · Not chosen</small></h2>
+    <p>The quoted words are tinted where they were said, for as long as the suggestion stands, and the header says "said at 04:12" as a link that scrolls there. Trade-off: the evidence is read in context, with nothing duplicated, but a hand-off said by someone else ("Kate, you're next") is tinted in another speaker's paragraph, away from the name.</p>
+    <div class="views">
+      <div><p class="cap">Reading width, 640 px</p><div class="win" data-view="C"></div></div>
+      <div><p class="cap">Narrowest live column, about 400 px</p><div class="win" data-view="C"></div></div>
+    </div>
+  </section>
+
+  <section class="sect">
+    <h2>Shared by all three options</h2>
+    <div class="pair">
+      <div>
+        <p class="cap">Under the live header, the first meeting after the update, once</p>
+        <div class="status"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.3"/><path d="M8 7.2v4M8 4.9v.2"/></svg><span>Mini Whisper now suggests speaker names from the conversation. The transcript goes to Anthropic during the meeting. <button class="link">Meetings Settings…</button></span></div>
+        <p class="cap" style="margin-top:14px">Under the live header, after an invalid key or three failures in a row</p>
+        <div class="status"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.3"/><path d="M8 7.2v4M8 4.9v.2"/></svg><span>Name suggestions paused: the Anthropic key was refused.</span></div>
+      </div>
+      <div>
+        <ul>
+          <li><b>Accept</b> names the speaker as if you had typed it, merging into a speaker already of that name, and teaches the voice when Remember voices is on.</li>
+          <li><b>Edit</b> opens v8's rename popover with the suggested name selected.</li>
+          <li><b>Dismiss</b> returns to Speaker N; that name is not suggested for this speaker again.</li>
+          <li><b>That's me</b> records the name as a mishearing of your own ("Neve" for Niamh); it is never suggested for anyone again, in any meeting. Shown only on conversation suggestions, never on a voice suggestion or one already showing your name.</li>
+          <li><b>Applied self-introduction</b> (when that switch is on): a plain name, with v8's hover "Not Dan".</li>
+          <li><b>Voice suggestions</b> look as in v8, with no quote.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script>
+(function(){
+  var LINES = [
+    {who:"me", t:"03:58", text:"Morning all. Quick round of intros since we have a few new faces today."},
+    {who:"s1", t:"04:12", text:"Hi, I'm Kate, I look after the migration. We moved the first two services last night.", ev:"I'm Kate, I look after the migration"},
+    {who:"s2", t:"04:31", text:"And I'm Dan, platform team. Nothing blocking from our side."},
+    {who:"s2", t:"04:40", text:"Thanks Neve for setting this up, by the way."},
+    {who:"s4", t:"04:44", text:"Happy to help, it was mostly copying last week's agenda.", ev:"Thanks Neve for setting this up", evIn:3},
+    {who:"me", t:"04:49", text:"Great. Kate, how did the cut-over go?"},
+    {who:"s1", t:"04:55", text:"Smoothly. One job needed a restart, otherwise it was on time."}
+  ];
+  var COLOR = {me:"var(--accent)", s1:"var(--sp1)", s2:"var(--sp2)", s4:"var(--sp3)"};
+  var SUG = {s1:{name:"Kate", was:"Speaker 1", t:"04:12", q:"I’m Kate, I look after the migration", by:"this speaker"},
+             s4:{name:"Neve", was:"Speaker 4", t:"04:40", q:"Thanks Neve for setting this up", by:"Dan"}};
+  function esc(s){ return String(s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];}); }
+  function nameBtn(label, who, cls){ return '<button class="name '+(cls||"")+'" style="color:'+COLOR[who]+'">'+esc(label)+'</button>'; }
+  function time(t){ return '<span class="time">'+t+'</span>'; }
+  var ACTS = '<span class="acts"><button class="btn quiet">Accept</button><button class="btn quiet">Edit</button><button class="btn quiet">Dismiss</button><button class="btn quiet">That’s me</button></span>';
+  var QICON = '<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5h2.2v2.3c0 1.2-.7 2-1.8 2.2M7 4.5h2.2v2.3c0 1.2-.7 2-1.8 2.2"/></svg>';
+
+  function para(opt, line, i, pinned){
+    var w=line.who, head, extra='', text=esc(line.text);
+    if(w==="me") head='<div class="head">'+nameBtn("Niamh","me")+time(line.t)+'</div>';
+    else if(w==="s2") head='<div class="head">'+nameBtn("Dan","s2")+time(line.t)+'<button class="btn quiet hov">Not Dan</button></div>';
+    else {
+      var s=SUG[w];
+      var inner = nameBtn(s.name+"?", w, "prov")+'<span class="was">'+s.was+'</span>';
+      if(opt==="B") inner += '<span class="tipwrap"><button class="why" aria-label="Why '+s.name+'?">?</button><span class="tip'+(pinned?' pinned':'')+'"><span class="lbl">Said at '+s.t+' by '+s.by+'</span><q>'+esc(s.q)+'</q></span></span>';
+      inner += time(line.t);
+      if(opt==="C") inner += '<button class="src">said at '+s.t+'</button>';
+      head='<div class="head sug">'+inner+ACTS+'</div>';
+      if(opt==="A") extra='<div class="quote">'+QICON+'<q>'+esc(s.q)+'</q><span class="time">'+s.t+'</span></div>';
+    }
+    if(opt==="C"){
+      // mark evidence words where they were said
+      LINES.forEach(function(l, j){ if(l.ev && (l.evIn===undefined ? j : l.evIn)===i){
+        var ev=esc(l.ev); if(text.indexOf(ev)>=0) text=text.replace(ev,'<mark class="ev">'+ev+'</mark>');
+      }});
+    }
+    return '<div class="para" tabindex="0">'+head+extra+'<p>'+text+'</p></div>';
+  }
+  document.querySelectorAll("[data-view]").forEach(function(view, v){
+    var opt=view.getAttribute("data-view"), html='<div class="meta">Remote call · AssemblyAI Universal-Streaming · English</div>';
+    var pinnedDone=false;
+    LINES.forEach(function(line, i){
+      var pin = opt==="B" && !pinnedDone && line.who==="s1" && v%2===0;
+      if(pin) pinnedDone=true;
+      html+=para(opt, line, i, pin);
+    });
+    view.innerHTML=html;
+  });
+})();
+</script>
+
+<!-- mockup-feedback:start -->
+<style>
+.mf-bar {
+  --mf-bg: #f6f7f9;
+  --mf-fg: #1a2127;
+  --mf-muted: #59646d;
+  --mf-line: #d3d9de;
+  --mf-field: #ffffff;
+  --mf-accent: #2f5fd0;
+  --mf-accent-fg: #ffffff;
+  --mf-ok: #1d7a4c;
+  --mf-warn: #8f5d00;
+  --mf-err: #b2322b;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .mf-bar {
+    --mf-bg: #161b20;
+    --mf-fg: #e3e8ec;
+    --mf-muted: #98a3ab;
+    --mf-line: #2d363e;
+    --mf-field: #0f1317;
+    --mf-accent: #7ea2f5;
+    --mf-accent-fg: #0b1220;
+    --mf-ok: #57c48c;
+    --mf-warn: #e2ac45;
+    --mf-err: #f08077;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] .mf-bar {
+  --mf-bg: #161b20;
+  --mf-fg: #e3e8ec;
+  --mf-muted: #98a3ab;
+  --mf-line: #2d363e;
+  --mf-field: #0f1317;
+  --mf-accent: #7ea2f5;
+  --mf-accent-fg: #0b1220;
+  --mf-ok: #57c48c;
+  --mf-warn: #e2ac45;
+  --mf-err: #f08077;
+  color-scheme: dark;
+}
+.mf-bar, .mf-bar * { box-sizing: border-box; }
+.mf-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 2147483000;
+  margin: 24px 0 0;
+  padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px));
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--mf-bg);
+  color: var(--mf-fg);
+  border-top: 1px solid var(--mf-line);
+  box-shadow: 0 -6px 18px rgba(0, 0, 0, 0.08);
+  font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  text-align: left;
+}
+.mf-bar[hidden] { display: none; }
+.mf-bar .mf-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+.mf-bar .mf-tag {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--mf-muted);
+}
+.mf-bar .mf-title { font-weight: 600; }
+.mf-bar .mf-context { color: var(--mf-muted); min-width: 0; overflow-wrap: anywhere; }
+.mf-bar .mf-toggle {
+  margin-left: auto;
+  padding: 2px 6px;
+  border: 0;
+  background: none;
+  color: var(--mf-accent);
+  font: inherit;
+  font-size: 13px;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.mf-bar .mf-body { display: flex; flex-direction: column; gap: 8px; }
+.mf-bar.mf-collapsed .mf-body { display: none; }
+.mf-bar .mf-options { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; border: 0; }
+.mf-bar .mf-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border: 1.5px solid var(--mf-line);
+  border-radius: 999px;
+  background: var(--mf-field);
+  cursor: pointer;
+}
+.mf-bar .mf-chip input { margin: 0; accent-color: var(--mf-accent); }
+.mf-bar .mf-chip:has(input:checked) { border-color: var(--mf-accent); }
+.mf-bar .mf-chip:has(input:focus-visible) { outline: 2px solid var(--mf-accent); outline-offset: 2px; }
+.mf-bar .mf-note {
+  width: 100%;
+  min-height: 38px;
+  max-height: 140px;
+  padding: 7px 10px;
+  resize: vertical;
+  font: inherit;
+  color: var(--mf-fg);
+  background: var(--mf-field);
+  border: 1.5px solid var(--mf-line);
+  border-radius: 8px;
+}
+.mf-bar .mf-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.mf-bar .mf-btn {
+  padding: 7px 12px;
+  border: 1.5px solid var(--mf-line);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--mf-fg);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.mf-bar .mf-btn.mf-primary { background: var(--mf-accent); border-color: var(--mf-accent); color: var(--mf-accent-fg); }
+.mf-bar .mf-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.mf-bar .mf-btn:focus-visible, .mf-bar .mf-toggle:focus-visible, .mf-bar .mf-note:focus-visible {
+  outline: 2px solid var(--mf-accent);
+  outline-offset: 2px;
+}
+.mf-bar .mf-channel { display: flex; align-items: center; gap: 6px; margin: 0; font-size: 13px; color: var(--mf-muted); }
+.mf-bar .mf-dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--mf-muted); }
+.mf-bar .mf-channel[data-state="available"] .mf-dot { background: var(--mf-ok); }
+.mf-bar .mf-channel[data-state="no_session"] .mf-dot,
+.mf-bar .mf-channel[data-state="writers_only"] .mf-dot { background: var(--mf-warn); }
+.mf-bar .mf-channel[data-state="blocked"] .mf-dot { background: var(--mf-err); }
+.mf-bar .mf-result { margin: 0; font-size: 13px; }
+.mf-bar .mf-result[data-kind="ok"] { color: var(--mf-ok); }
+.mf-bar .mf-result[data-kind="err"] { color: var(--mf-err); }
+.mf-bar .mf-verdict { margin: 0; font-weight: 600; }
+[data-mf-option].mf-selected { outline: 3px solid #3b6fe0; outline-offset: 4px; }
+</style>
+<aside class="mf-bar" id="mf-bar" role="region" aria-label="Mockup feedback" data-uncommentable hidden>
+  <div class="mf-head">
+    <span class="mf-tag">Feedback</span>
+    <span class="mf-title" id="mf-title"></span>
+    <span class="mf-context" id="mf-context"></span>
+    <button type="button" class="mf-toggle" id="mf-toggle" aria-expanded="true" aria-controls="mf-body">Hide</button>
+  </div>
+  <div class="mf-body" id="mf-body">
+    <p class="mf-verdict" id="mf-verdict" hidden></p>
+    <fieldset class="mf-options" id="mf-options" hidden></fieldset>
+    <textarea class="mf-note" id="mf-note" maxlength="1500" placeholder="Note for Claude (optional; required to request changes)" aria-label="Note for Claude"></textarea>
+    <div class="mf-actions" id="mf-actions"></div>
+    <p class="mf-channel" id="mf-channel" data-state="checking">
+      <span class="mf-dot" aria-hidden="true"></span>
+      <span id="mf-channel-text">Checking whether a Claude session is listening.</span>
+      <button type="button" class="mf-toggle" id="mf-recheck" hidden>Check again</button>
+    </p>
+    <p class="mf-result" id="mf-result" role="status" aria-live="polite" hidden></p>
+  </div>
+</aside>
+<script type="application/json" id="mf-config">{"set":"v9-s1","setLabel":"How a suggestion shows its evidence","mode":"compare","options":[{"id":"quote-line","label":"A · Quote line"},{"id":"hover-card","label":"B · Hover card"},{"id":"marked-words","label":"C · Marked words"}],"this":null,"status":"accepted","chosen":"hover-card"}</script>
+<script>
+(function () {
+  var cfg;
+  try { cfg = JSON.parse(document.getElementById("mf-config").textContent); } catch (e) { return; }
+  if (!cfg || !cfg.options || !cfg.options.length) return;
+
+  var PREFIX = "Mockup feedback · ";
+  var CHANNEL = {
+    checking: "Checking whether a Claude session is listening.",
+    available: "A Claude session is listening. Sending wakes it.",
+    no_session: "No Claude session is listening. Reply in chat, or check again once the session is back.",
+    writers_only: "Only editors of this page can send to Claude. Reply in chat instead.",
+    off: "Sending to Claude is not offered here. Reply in chat instead.",
+    absent: "Sending works on the published page. Here, reply in chat instead.",
+    blocked: "Commenting from this page is turned off. Reply in chat instead."
+  };
+  var KNOWN = ["available", "writers_only", "no_session", "off"];
+
+  var bar = document.getElementById("mf-bar");
+  var titleEl = document.getElementById("mf-title");
+  var contextEl = document.getElementById("mf-context");
+  var toggleBtn = document.getElementById("mf-toggle");
+  var verdictEl = document.getElementById("mf-verdict");
+  var optionsEl = document.getElementById("mf-options");
+  var noteEl = document.getElementById("mf-note");
+  var actionsEl = document.getElementById("mf-actions");
+  var channelEl = document.getElementById("mf-channel");
+  var channelText = document.getElementById("mf-channel-text");
+  var recheckBtn = document.getElementById("mf-recheck");
+  var resultEl = document.getElementById("mf-result");
+
+  var comments = null;
+  var state = "checking";
+  var busy = false;
+  var sent = false;
+  var buttons = [];
+
+  function byId(list, id) {
+    for (var i = 0; i < list.length; i++) if (list[i].id === id) return list[i];
+    return null;
+  }
+  function label(id) { var o = byId(cfg.options, id); return o ? o.label : id; }
+  function root(id) { return document.querySelector('[data-mf-option="' + id + '"]'); }
+  function picked() {
+    if (cfg.mode !== "compare") return cfg.mode === "pick" ? cfg["this"] : cfg.options[0].id;
+    var r = optionsEl.querySelector("input:checked");
+    return r ? r.value : null;
+  }
+  function say(text, kind) {
+    resultEl.hidden = !text;
+    resultEl.textContent = text || "";
+    if (kind) resultEl.setAttribute("data-kind", kind);
+    else resultEl.removeAttribute("data-kind");
+  }
+  function clean(text) {
+    return text.replace(/[\u0000-\u0008\u000B-\u001F\u007F]/g, "").trim();
+  }
+
+  // Header: the set, and where this page sits in it.
+  titleEl.textContent = cfg.setLabel;
+  if (cfg.mode === "pick") {
+    var others = [];
+    var position = 0;
+    for (var i = 0; i < cfg.options.length; i++) {
+      if (cfg.options[i].id === cfg["this"]) position = i + 1;
+      else others.push(cfg.options[i].label);
+    }
+    contextEl.textContent = "Option " + position + " of " + cfg.options.length + ": " + label(cfg["this"]) +
+      ". The others are on their own pages: " + others.join(", ") + ". Choosing here rules them out.";
+  } else if (cfg.mode === "compare") {
+    contextEl.textContent = cfg.options.length + " options on this page. Pick one.";
+  } else {
+    contextEl.textContent = label(cfg.options[0].id);
+  }
+
+  toggleBtn.addEventListener("click", function () {
+    var collapsed = bar.classList.toggle("mf-collapsed");
+    toggleBtn.textContent = collapsed ? "Show" : "Hide";
+    toggleBtn.setAttribute("aria-expanded", collapsed ? "false" : "true");
+  });
+
+  // A settled page shows its verdict and nothing to act on.
+  if (cfg.status !== "open") {
+    var verdict = {
+      accepted: cfg.mode === "compare" ? "Accepted: " + label(cfg.chosen) + "." : "Accepted.",
+      "not-chosen": "Not chosen.",
+      closed: "Closed. Choices on this page are no longer read."
+    }[cfg.status] || "Closed.";
+    verdictEl.textContent = verdict;
+    verdictEl.hidden = false;
+    noteEl.hidden = true;
+    channelEl.hidden = true;
+    if (cfg.mode === "compare" && cfg.status === "accepted" && root(cfg.chosen)) root(cfg.chosen).classList.add("mf-selected");
+    bar.hidden = false;
+    return;
+  }
+
+  // Compare: one chip per option, outlining its section when picked.
+  if (cfg.mode === "compare") {
+    var legend = document.createElement("legend");
+    legend.className = "mf-tag";
+    legend.textContent = "Options";
+    optionsEl.appendChild(legend);
+    cfg.options.forEach(function (o) {
+      var chip = document.createElement("label");
+      chip.className = "mf-chip";
+      var input = document.createElement("input");
+      input.type = "radio";
+      input.name = "mf-option";
+      input.id = "mf-option-" + o.id;
+      input.value = o.id;
+      input.addEventListener("change", function () {
+        var all = document.querySelectorAll("[data-mf-option]");
+        for (var k = 0; k < all.length; k++) all[k].classList.remove("mf-selected");
+        var el = root(o.id);
+        if (el) {
+          el.classList.add("mf-selected");
+          var still = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+          el.scrollIntoView({ block: "nearest", behavior: still ? "auto" : "smooth" });
+        }
+        refresh();
+      });
+      chip.appendChild(input);
+      chip.appendChild(document.createTextNode(o.label));
+      optionsEl.appendChild(chip);
+    });
+    optionsEl.hidden = false;
+  }
+
+  // Actions per shape. needsNote: a change request must say what to change.
+  var ACTIONS = {
+    review: [
+      { action: "accept", text: "Looks right", primary: true },
+      { action: "revise", text: "Request changes", needsNote: true },
+      { action: "alternatives", text: "Show alternatives" }
+    ],
+    compare: [
+      { action: "choose", text: "Send choice", primary: true, needsPick: true },
+      { action: "none", text: "None of these", needsNote: true },
+      { action: "comment", text: "Comment on this option", needsPick: true }
+    ],
+    pick: [
+      { action: "choose", text: "Choose this one", primary: true },
+      { action: "revise", text: "Request changes", needsNote: true },
+      { action: "none", text: "None of these", needsNote: true }
+    ]
+  }[cfg.mode] || [];
+
+  ACTIONS.forEach(function (a) {
+    var b = document.createElement("button");
+    b.type = "button";
+    b.className = "mf-btn" + (a.primary ? " mf-primary" : "");
+    b.id = "mf-" + a.action;
+    b.textContent = a.text;
+    b.addEventListener("click", function () {
+      if (a.action === "comment") compose();
+      else send(a);
+    });
+    actionsEl.appendChild(b);
+    buttons.push({ el: b, spec: a });
+  });
+
+  function render() {
+    channelEl.setAttribute("data-state", state);
+    channelText.textContent = CHANNEL[state] || CHANNEL.off;
+    recheckBtn.hidden = !comments || state === "available" || state === "checking" || state === "blocked";
+    var pick = picked();
+    buttons.forEach(function (b) {
+      if (b.spec.action === "comment") {
+        b.el.disabled = !comments || !pick;
+        b.el.hidden = !comments;
+        return;
+      }
+      b.el.disabled = busy || sent || state !== "available" || (b.spec.needsPick && !pick);
+    });
+    noteEl.disabled = sent;
+  }
+
+  function refresh() {
+    if (!comments || state === "blocked") { render(); return; }
+    comments.canSendToClaude().then(function (v) {
+      return KNOWN.indexOf(v) === -1 ? "off" : v;
+    }, function () {
+      return "off";
+    }).then(function (v) {
+      if (comments && state !== "blocked") state = v;
+      render();
+    });
+  }
+
+  function fail(err) {
+    var code = err && err.code;
+    if (code === "consent_required") {
+      say("Not sent. The page was not allowed to comment as you. Your note is kept.", "err");
+    } else if (code === "forbidden") {
+      state = "blocked";
+      say("Not sent. Commenting from this page is turned off.", "err");
+    } else if (code === "claude_unavailable") {
+      say("Not sent. No Claude session could receive it. Nothing was posted.", "err");
+      refresh();
+    } else if (code === "rate_limited") {
+      say("Not sent. Too many sends in a row. Wait a moment.", "err");
+    } else if (code === "invalid" || code === "transform_error") {
+      say("Not sent. The note has characters a comment cannot carry.", "err");
+    } else if (code === "not_granted" || code === "capability_disabled" || code === "capability_removed") {
+      comments = null;
+      state = "absent";
+      say("Not sent. This view cannot post comments from the page.", "err");
+    } else {
+      say("Not sent. Comments are unavailable right now. Try once more.", "err");
+    }
+  }
+
+  function send(spec) {
+    if (!comments || busy || sent) return;
+    var option = spec.action === "choose" || spec.action === "accept" || spec.action === "revise" ? picked() : null;
+    if (spec.needsPick && !option) { say("Pick an option first.", "err"); return; }
+    var note = clean(noteEl.value);
+    if (spec.needsNote && !note) {
+      say("Add a note saying what to change.", "err");
+      noteEl.focus();
+      return;
+    }
+    var text = PREFIX + cfg.set + " · " + spec.action + (option ? " " + option : "") + (note ? "\nNote: " + note : "");
+    var target = root(option || picked() || cfg.options[0].id) || bar.parentNode;
+    busy = true;
+    say("", null);
+    render();
+    comments.anchorFor(target).then(function (anchor) {
+      return comments.sendToClaude({ anchor: anchor, text: text });
+    }).then(function () {
+      sent = true;
+      say("Sent to Claude: " + spec.text.toLowerCase() + (option ? " (" + label(option) + ")" : "") +
+        ". Claude replies in the comment thread and updates this page.", "ok");
+    }, fail).then(function () {
+      busy = false;
+      render();
+    });
+  }
+
+  function compose() {
+    var option = picked();
+    var el = option && root(option);
+    if (!comments || !el) return;
+    comments.openComposer({ element: el }).then(function (r) {
+      if (r && r.opened) say("Comment box opened on " + label(option) + ". Write your comment and press Send to Claude.", "ok");
+    }, function (err) {
+      say(err && err.code === "rate_limited" ? "Too many tries in a row. Wait a moment." : "The comment box is unavailable here.", "err");
+    });
+  }
+
+  recheckBtn.addEventListener("click", refresh);
+  window.addEventListener("focus", refresh);
+  bar.hidden = false;
+  render();
+
+  var ready = window.claude && typeof window.claude.use === "function"
+    ? window.claude.use("comments")
+    : Promise.resolve(null);
+  ready.then(function (ns) { return ns; }, function () { return null; }).then(function (ns) {
+    comments = ns;
+    if (!ns) { state = "absent"; render(); return; }
+    refresh();
+  });
+})();
+</script>
+<!-- mockup-feedback:end -->
