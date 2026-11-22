@@ -422,6 +422,53 @@ import Testing
         #expect(config.extra.isEmpty)
     }
 
+    @Test func updateChannelAbsentIsReleaseAndIsWritten() throws {
+        let config = try decode("{}")
+        #expect(config.updateChannel == .release)
+
+        #expect(try saved(config)["update_channel"] as? String == "release")
+        let text = String(decoding: try Config().encoded(), as: UTF8.self)
+        #expect(text.contains(#""update_channel" : "release""#))
+    }
+
+    @Test func updateChannelRoundTripsEachValue() throws {
+        #expect(UpdateChannel.allCases.map(\.rawValue) == ["release", "beta"])
+
+        for channel in UpdateChannel.allCases {
+            let config = try decode(#"{"update_channel": "\#(channel.rawValue)"}"#)
+            #expect(config.updateChannel == channel)
+            #expect(try saved(config)["update_channel"] as? String == channel.rawValue)
+        }
+    }
+
+    @Test func unknownUpdateChannelReadsAsReleaseAndSurvivesASave() throws {
+        let config = try decode(#"{"update_channel": "nightly"}"#)
+        #expect(config.updateChannel == .release)
+        // Kept as the channel's own raw value, not as an unknown key.
+        #expect(config.extra.isEmpty)
+
+        #expect(try saved(config)["update_channel"] as? String == "nightly")
+    }
+
+    /// `.release` included: it is what an unrecognised value already reads as, and choosing
+    /// it must still replace the raw value.
+    @Test func settingUpdateChannelClearsTheUnrecognisedValue() throws {
+        for channel in UpdateChannel.allCases {
+            var config = try decode(#"{"update_channel": "nightly"}"#)
+            config.updateChannel = channel
+
+            #expect(try saved(config)["update_channel"] as? String == channel.rawValue)
+        }
+    }
+
+    @Test func wrongTypedUpdateChannelThrows() {
+        #expect(throws: (any Error).self) { try decode(#"{"update_channel": 1}"#) }
+    }
+
+    @Test func updateChannelNeverLandsInExtra() throws {
+        #expect(try decode(#"{"update_channel": "beta"}"#).extra.isEmpty)
+    }
+
     @Test func duplicateBundleIDKeepsFirstProfile() throws {
         let json = """
             {"profiles": [

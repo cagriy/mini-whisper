@@ -116,6 +116,13 @@ public struct Config: Equatable, Sendable {
     /// Raw `theme` value that this build does not recognise, kept only so that saving
     /// round-trips it. Never honoured at runtime.
     var unrecognisedTheme: String?
+    /// Like `theme`: an absent key means the default, which is written back.
+    public var updateChannel: UpdateChannel = .release {
+        didSet { unrecognisedUpdateChannel = nil }
+    }
+    /// Raw `update_channel` value that this build does not recognise, kept only so that
+    /// saving round-trips it. Never honoured at runtime.
+    var unrecognisedUpdateChannel: String?
     /// Absent until the main window's frame is first saved.
     public var mainWindowFrame: WindowFrame?
     public var meetingHotkey = "ctrl+alt+cmd+m"
@@ -200,6 +207,7 @@ extension Config: Codable {
         static let streamingEngine = "streaming_engine"
         static let overlayStyle = "overlay_style"
         static let theme = "theme"
+        static let updateChannel = "update_channel"
         static let mainWindowFrame = "main_window_frame"
         static let pricingOverrides = "pricing_overrides"
         static let usage = "usage"
@@ -242,7 +250,7 @@ extension Config: Codable {
             pricingOverrides, usage, historyRetentionDays, idleStopSeconds, toggleMaxSeconds,
             speechModelPrompted, vocabulary, profiles, corrections, correctionTally,
             overlayStyle, meetingHotkey, meetingEngine, meetingKeepAudio, meetingUserName,
-            meetingSystemAudioExplained, meetingSilenceStopSeconds, theme, mainWindowFrame,
+            meetingSystemAudioExplained, meetingSilenceStopSeconds, theme, updateChannel, mainWindowFrame,
             voiceLocalEnabled, voiceSpeechmaticsEnabled, voiceSureThreshold, voiceSuggestThreshold,
             voiceMargin, voiceMinSpeechSeconds, voiceBufferSeconds, voiceSpeechmaticsSensitivity,
         ]
@@ -295,6 +303,11 @@ extension Config: Codable {
         theme = knownTheme ?? .system
         unrecognisedTheme = knownTheme == nil ? rawTheme : nil
 
+        let rawChannel: String? = try value(Key.updateChannel)
+        let knownChannel = rawChannel.flatMap(UpdateChannel.init(rawValue:))
+        updateChannel = knownChannel ?? .release
+        unrecognisedUpdateChannel = knownChannel == nil ? rawChannel : nil
+
         // `try?`: a throw here would have `ConfigStore` back the whole file up as corrupt
         // over a value that only places a window.
         mainWindowFrame = try? value(Key.mainWindowFrame)
@@ -340,6 +353,10 @@ extension Config: Codable {
             forKey: AnyCodingKey(Key.overlayStyle)
         )
         try container.encode(unrecognisedTheme ?? theme.rawValue, forKey: AnyCodingKey(Key.theme))
+        try container.encode(
+            unrecognisedUpdateChannel ?? updateChannel.rawValue,
+            forKey: AnyCodingKey(Key.updateChannel)
+        )
         try container.encodeIfPresent(mainWindowFrame, forKey: AnyCodingKey(Key.mainWindowFrame))
         try container.encode(meetingHotkey, forKey: AnyCodingKey(Key.meetingHotkey))
         if let meetingEngine {
