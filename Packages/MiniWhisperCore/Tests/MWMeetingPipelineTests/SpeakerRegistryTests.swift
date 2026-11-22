@@ -1,5 +1,6 @@
 import Foundation
 import MWMeetings
+import MWNaming
 import MWTestSupport
 import Testing
 
@@ -447,5 +448,240 @@ import MWMeetingPipeline
             id: 0, name: "Alex", isUser: true, providerKeys: ["1:A", "1:B"], person: alice,
             matches: [match("1:B", "Bob", bob)], rejected: [carol, dave]
         ))
+    }
+
+    // MARK: Conversation matches
+
+    private let quote = NameEvidence(
+        segment: UUID(uuidString: "6A5B4C3D-2E1F-4A0B-9C8D-7E6F5A4B3C2D")!, time: 42.5, text: "Hi, I'm Kate"
+    )
+
+    private func heard(_ name: String, key: String = "1:A", _ state: NameMatch.State = .suggested) -> NameMatch {
+        NameMatch(
+            key: key, name: name, person: nil, source: "conversation", state: state,
+            evidence: quote, kind: "self_introduction"
+        )
+    }
+
+    @Test func conversationSuggestKeysTheMatchToTheSpeakersFirstKey() {
+        var registry = SpeakerRegistry(labels: [
+            user, SpeakerLabel(id: 1, name: "Speaker 1", providerKeys: ["1:A", "2:A"]),
+        ])
+
+        // Whatever key and state it arrives with.
+        registry.suggestFromConversation(heard("Kate", key: "9:Z", .applied), speaker: 1)
+        #expect(registry.labels == [
+            user, SpeakerLabel(id: 1, name: "Speaker 1", providerKeys: ["1:A", "2:A"], matches: [heard("Kate")]),
+        ])
+    }
+
+    @Test func conversationSuggestReplacesAnEarlierConversationMatchWhateverItsKey() {
+        var registry = SpeakerRegistry(labels: [
+            user,
+            SpeakerLabel(id: 1, name: "Speaker 1", providerKeys: ["1:A", "2:A"], matches: [heard("Kat", key: "2:A")]),
+        ])
+
+        registry.suggestFromConversation(heard("Kate"), speaker: 1)
+        #expect(registry.labels[1].matches == [heard("Kate")])
+        registry.suggestFromConversation(heard("Katie"), speaker: 1)
+        #expect(registry.labels[1].matches == [heard("Katie")])
+    }
+
+    @Test func conversationSuggestIgnoresAClosedSpeaker() {
+        let labels = [
+            SpeakerLabel(id: 0, name: "Alex", isUser: true, providerKeys: ["1:U"]),
+            SpeakerLabel(id: 1, name: "Marta", providerKeys: ["1:A"]),
+            SpeakerLabel(id: 2, name: "Speaker 2", providerKeys: ["1:B"], person: bob),
+            SpeakerLabel(id: 3, name: "Speaker 3", providerKeys: ["1:C"], matches: [match("1:C", "Carol", carol)]),
+            // Without a key a match has nothing to be filed under.
+            SpeakerLabel(id: 4, name: "Speaker 4"),
+        ]
+        var registry = SpeakerRegistry(labels: labels)
+
+        for id in [0, 1, 2, 3, 4, 9] { registry.suggestFromConversation(heard("Kate"), speaker: id) }
+        #expect(registry.labels == labels)
+    }
+
+    @Test func conversationApplyRenamesThroughRenameAndLinksNoOne() {
+        var registry = numbered("A", "B", "C")
+        registry.suggestFromConversation(heard("Kat"), speaker: 1)
+
+        #expect(registry.applyFromConversation(heard("Kate", key: "9:Z"), speaker: 1) == nil)
+        #expect(registry.labels[1] == SpeakerLabel(
+            id: 1, name: "Kate", providerKeys: ["1:A"], matches: [heard("Kate", .applied)]
+        ))
+
+        // Onto an existing name the two merge, and the match stays on the survivor.
+        registry.rename(3, to: "Marta")
+        #expect(registry.applyFromConversation(heard("Marta"), speaker: 2) == SpeakerRegistry.Merge(from: 2, into: 3))
+        #expect(registry.labels == [
+            user,
+            SpeakerLabel(id: 1, name: "Kate", providerKeys: ["1:A"], matches: [heard("Kate", .applied)]),
+            SpeakerLabel(
+                id: 3, name: "Marta", providerKeys: ["1:C", "1:B"], matches: [heard("Marta", key: "1:B", .applied)]
+            ),
+        ])
+
+        // A closed speaker is left alone.
+        let before = registry.labels
+        for id in [0, 1, 3, 9] { #expect(registry.applyFromConversation(heard("Dana"), speaker: id) == nil) }
+        #expect(registry.labels == before)
+    }
+
+    @Test func voiceSuggestAndApplyDropConversationMatchesButNotTheReverse() {
+        var registry = SpeakerRegistry(labels: [
+            user,
+            SpeakerLabel(id: 1, name: "Speaker 1", providerKeys: ["1:A", "2:A"], matches: [heard("Kate")]),
+            SpeakerLabel(id: 2, name: "Speaker 2", providerKeys: ["1:B", "2:B"], matches: [heard("Bob", key: "1:B")]),
+        ])
+
+        // On the speaker's other key: voice outranks conversation by speaker, not by key.
+        registry.suggest(match("2:A", "Alice", alice))
+        #expect(registry.labels[1].matches == [match("2:A", "Alice", alice)])
+
+        let sure = match("2:B", "Bobby", bob, .applied)
+        #expect(registry.apply(sure, userName: nil) == nil)
+        #expect(registry.labels[2] == SpeakerLabel(
+            id: 2, name: "Bobby", providerKeys: ["1:B", "2:B"], matches: [sure]
+        ))
+
+        let before = registry.labels
+        registry.suggestFromConversation(heard("Kate"), speaker: 1)
+        #expect(registry.labels == before)
+    }
+
+    @Test func renameToANonDefaultNameDropsTheSurvivorsConversationMatches() {
+        var registry = SpeakerRegistry(labels: [
+            user,
+            SpeakerLabel(
+                id: 1, name: "Speaker 1", providerKeys: ["1:A", "2:A"],
+                matches: [match("1:A", "Alice", alice), heard("Kate", key: "2:A")]
+            ),
+            SpeakerLabel(id: 2, name: "Speaker 2", providerKeys: ["1:B"], matches: [heard("Bob", key: "1:B")]),
+            SpeakerLabel(id: 3, name: "Dana", providerKeys: ["1:C"]),
+            SpeakerLabel(id: 4, name: "Speaker 4", providerKeys: ["1:D"], matches: [heard("Kate", key: "1:D")]),
+        ])
+
+        // Back to its own default name, a suggestion stands.
+        #expect(registry.rename(2, to: "Speaker 2") == nil)
+        #expect(registry.labels[2].matches == [heard("Bob", key: "1:B")])
+
+        // Voice matches stay.
+        #expect(registry.rename(1, to: "Alicia") == nil)
+        #expect(registry.labels[1].matches == [match("1:A", "Alice", alice)])
+
+        #expect(registry.rename(2, to: "Speaker 3") == nil)
+        #expect(registry.labels[2].matches.isEmpty)
+
+        // Merged, the absorbed speaker's go too.
+        #expect(registry.rename(4, to: "Dana") == SpeakerRegistry.Merge(from: 4, into: 3))
+        #expect(registry.labels[3] == SpeakerLabel(id: 3, name: "Dana", providerKeys: ["1:C", "1:D"]))
+    }
+
+    @Test func aMergeJoinsRejectedNamesFoldDeduped() {
+        var registry = SpeakerRegistry(labels: [
+            user,
+            SpeakerLabel(id: 1, name: "Kate", providerKeys: ["1:A"], rejectedNames: ["Zoë"]),
+            SpeakerLabel(id: 2, name: "Speaker 2", providerKeys: ["1:B"], rejectedNames: ["ZOE ", "Ann"]),
+        ])
+
+        #expect(registry.rename(2, to: "Kate") == SpeakerRegistry.Merge(from: 2, into: 1))
+        #expect(registry.labels == [
+            user, SpeakerLabel(id: 1, name: "Kate", providerKeys: ["1:A", "1:B"], rejectedNames: ["Zoë", "Ann"]),
+        ])
+    }
+
+    @Test func acceptOfAConversationMatchRenamesAndLeavesNoMatch() throws {
+        var registry = numbered("A", "B", "C")
+        registry.suggestFromConversation(heard("Kate"), speaker: 1)
+        registry.suggestFromConversation(heard("Kate", key: "1:B"), speaker: 2)
+
+        let firstResult = registry.accept(key: "1:A")
+        let first = try #require(firstResult)
+        #expect(first.person == nil)
+        #expect(first.merge == nil)
+        #expect(registry.labels[1] == SpeakerLabel(id: 1, name: "Kate", providerKeys: ["1:A"]))
+
+        let secondResult = registry.accept(key: "1:B")
+        let second = try #require(secondResult)
+        #expect(second.person == nil)
+        #expect(second.merge == SpeakerRegistry.Merge(from: 2, into: 1))
+        #expect(registry.labels == [
+            user,
+            SpeakerLabel(id: 1, name: "Kate", providerKeys: ["1:A", "1:B"]),
+            SpeakerLabel(id: 3, name: "Speaker 3", providerKeys: ["1:C"]),
+        ])
+    }
+
+    @Test func dismissOfAConversationMatchRejectsItsNameOnce() {
+        var registry = numbered("A")
+        registry.suggestFromConversation(heard("Zoë"), speaker: 1)
+
+        #expect(registry.dismiss(key: "1:A") == heard("Zoë"))
+        #expect(registry.labels[1] == SpeakerLabel(
+            id: 1, name: "Speaker 1", providerKeys: ["1:A"], rejectedNames: ["Zoë"]
+        ))
+
+        registry.suggestFromConversation(heard("ZOE"), speaker: 1)
+        #expect(registry.dismiss(key: "1:A") == heard("ZOE"))
+        #expect(registry.labels[1].rejectedNames == ["Zoë"])
+
+        // A voice dismiss still rejects the person, not the name.
+        registry.suggest(match("1:A", "Alice", alice))
+        registry.dismiss(key: "1:A")
+        #expect(registry.labels[1] == SpeakerLabel(
+            id: 1, name: "Speaker 1", providerKeys: ["1:A"], rejected: [alice], rejectedNames: ["Zoë"]
+        ))
+    }
+
+    @Test func revertConversationReturnsAnUnlinkedSpeakerToItsDefaultName() {
+        var registry = numbered("A")
+        _ = registry.applyFromConversation(heard("Kate"), speaker: 1)
+
+        #expect(registry.revertConversation(key: "1:A") == true)
+        #expect(registry.labels[1] == SpeakerLabel(
+            id: 1, name: "Speaker 1", providerKeys: ["1:A"], rejectedNames: ["Kate"]
+        ))
+        #expect(registry.revertConversation(key: "1:A") == false)
+    }
+
+    @Test func revertConversationLeavesTheUserALinkedSpeakerAndOtherMatchesAlone() {
+        let labels = [
+            SpeakerLabel(
+                id: 0, name: "Alex", isUser: true, providerKeys: ["1:U"], matches: [heard("Alex", key: "1:U", .applied)]
+            ),
+            SpeakerLabel(id: 1, name: "Kate", providerKeys: ["1:A"], person: alice, matches: [heard("Kate", .applied)]),
+            SpeakerLabel(id: 2, name: "Speaker 2", providerKeys: ["1:B"], matches: [heard("Bob", key: "1:B")]),
+            SpeakerLabel(
+                id: 3, name: "Carol", providerKeys: ["1:C"], matches: [match("1:C", "Carol", carol, .applied)]
+            ),
+        ]
+        var registry = SpeakerRegistry(labels: labels)
+
+        for key in ["1:U", "1:A", "1:B", "1:C", "9:Z"] { #expect(registry.revertConversation(key: key) == false) }
+        #expect(registry.labels == labels)
+    }
+
+    @Test func withdrawConversationBySpeakerAndByName() {
+        var registry = numbered("A", "B", "C", "D")
+        registry.suggestFromConversation(heard("Kate"), speaker: 1)
+        registry.suggestFromConversation(heard("KATE"), speaker: 2)
+        _ = registry.applyFromConversation(heard("Kate"), speaker: 3)
+        registry.suggest(match("1:D", "Kate", alice))
+        let applied = registry.labels[3]
+        let voice = registry.labels[4]
+
+        // Suggestions only, and conversation ones only.
+        #expect(registry.withdrawConversation(named: NameFold.key("Kate")) == 2)
+        #expect(registry.labels[1].matches.isEmpty)
+        #expect(registry.labels[2].matches.isEmpty)
+        #expect(registry.labels[3] == applied)
+        #expect(registry.labels[4] == voice)
+        #expect(registry.withdrawConversation(named: NameFold.key("Kate")) == 0)
+
+        registry.withdrawConversation(speaker: 4)
+        #expect(registry.labels[4] == voice)
+        registry.withdrawConversation(speaker: 3)
+        #expect(registry.labels[3] == SpeakerLabel(id: 3, name: "Kate", providerKeys: ["1:C"]))
     }
 }

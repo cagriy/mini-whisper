@@ -216,6 +216,50 @@ import MWVoices
         #expect(try snapshot(fixture.file("meeting.json", of: unvoiced.id)) == unvoicedMeeting)
     }
 
+    @Test func everyoneKeepsConversationMatchesAndRejectedNames() async throws {
+        let quote = NameEvidence(
+            segment: UUID(uuidString: "6A5B4C3D-2E1F-4A0B-9C8D-7E6F5A4B3C2D")!, time: 42.5, text: "Hi, I'm Kate"
+        )
+        let heard = NameMatch(
+            key: "2:A", name: "Kate", person: nil, source: "conversation", state: .suggested,
+            evidence: quote, kind: "self_introduction"
+        )
+        let named = NameMatch(
+            key: "1:D", name: "Dana", person: nil, source: "conversation", state: .applied,
+            evidence: quote, kind: "self_introduction"
+        )
+        let original = plain([
+            SpeakerLabel(id: 0, name: "Alex", isUser: true, person: you),
+            SpeakerLabel(
+                id: 1, name: "Speaker 1", providerKeys: ["1:A", "2:A"],
+                matches: [NameMatch(key: "1:A", name: "Alice", person: alice, state: .suggested, score: 0.61), heard],
+                rejected: [bob], rejectedNames: ["Zoë"]
+            ),
+            SpeakerLabel(
+                id: 2, name: "Bob", providerKeys: ["1:B"], person: bob,
+                matches: [NameMatch(key: "1:B", name: "Bob", person: bob, state: .applied, score: 0.9)]
+            ),
+            SpeakerLabel(id: 3, name: "Dana", providerKeys: ["1:D"], matches: [named], rejectedNames: ["Dan"]),
+        ])
+        var expected = original
+        expected.speakers = [
+            SpeakerLabel(id: 0, name: "Alex", isUser: true),
+            SpeakerLabel(id: 1, name: "Speaker 1", providerKeys: ["1:A", "2:A"], matches: [heard], rejectedNames: ["Zoë"]),
+            SpeakerLabel(id: 2, name: "Bob", providerKeys: ["1:B"]),
+            original.speakers[3],
+        ]
+
+        var meeting = original
+        #expect(VoiceScrubber.scrub(&meeting, voices: nil, people: nil) == nil)
+        #expect(meeting == expected)
+
+        let fixture = try Fixture()
+        try await fixture.put(original, voices: MeetingVoices(route: .local, model: "wespeaker_v2", keys: ["1:A": entry(1)]))
+        await fixture.scrubber.scrub(people: nil, skipping: [])
+        #expect(try fixture.meeting(original.id) == expected)
+        #expect(try fixture.store.readVoices(original.id) == nil)
+    }
+
     @Test func namesInTheTranscriptStay() async throws {
         let fixture = try Fixture()
         let original = mixed()

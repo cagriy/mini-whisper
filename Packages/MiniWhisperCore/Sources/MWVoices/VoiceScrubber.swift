@@ -35,9 +35,10 @@ public struct VoiceScrubber: Sendable {
     /// the keys of the speakers linked to them: nil once that empties it, or for everyone.
     public static func scrub(_ meeting: inout Meeting, voices: MeetingVoices?, people: Set<UUID>?) -> MeetingVoices? {
         guard let people else {
+            // Conversation matches and rejected names hold no voice data.
             for index in meeting.speakers.indices {
                 meeting.speakers[index].person = nil
-                meeting.speakers[index].matches = []
+                meeting.speakers[index].matches.removeAll { $0.source == "voice" }
                 meeting.speakers[index].rejected = []
             }
             return nil

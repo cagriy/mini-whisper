@@ -1,5 +1,6 @@
 import Foundation
 import MWMeetings
+import MWNaming
 
 /// Maps `(session, provider label)` to stable speaker numbers (design §5.3, R11).
 ///
@@ -78,6 +79,7 @@ public struct SpeakerRegistry: Sendable, Equatable {
         guard let renamed = index(of: id) else { return nil }
         guard let existing = labels.firstIndex(where: { $0.id != id && $0.name == name }) else {
             labels[renamed].name = name
+            dropConversationIfNamed(at: renamed)
             return nil
         }
         let (from, into) = id == Self.userID ? (existing, renamed) : (renamed, existing)
@@ -88,6 +90,8 @@ public struct SpeakerRegistry: Sendable, Equatable {
         labels[into].person = labels[into].person ?? absorbed.person
         for match in absorbed.matches { store(match, at: into) }
         for person in absorbed.rejected { reject(person, at: into) }
+        for rejectedName in absorbed.rejectedNames { rejectName(rejectedName, at: into) }
+        dropConversationIfNamed(at: into)
         for key in absorbed.providerKeys { owners[key] = merge.into }
         labels.remove(at: from)
         return merge
@@ -115,6 +119,7 @@ public struct SpeakerRegistry: Sendable, Equatable {
         guard let speaker = index(owning: match.key) else { return }
         var suggestion = match
         suggestion.state = .suggested
+        dropConversation(at: speaker)
         store(suggestion, at: speaker)
     }
 
@@ -126,6 +131,7 @@ public struct SpeakerRegistry: Sendable, Equatable {
         guard let speaker = index(owning: match.key) else { return nil }
         let label = labels[speaker]
         guard label.name == Self.defaultName(label.id), label.person == nil, !label.isUser else { return nil }
+        dropConversation(at: speaker)
         let merge = rename(label.id, to: userName ?? match.name)
         var applied = match
         applied.state = .applied
@@ -149,14 +155,19 @@ public struct SpeakerRegistry: Sendable, Equatable {
         return (match.person, merge)
     }
 
-    /// Drops the suggestion standing for `key`; its person is not offered to that speaker again.
+    /// Drops the suggestion standing for `key`; its person, or a conversation match's name, is
+    /// not offered to that speaker again.
     @discardableResult
     public mutating func dismiss(key: String) -> NameMatch? {
         guard let speaker = index(owning: key), let position = position(of: key, .suggested, at: speaker) else {
             return nil
         }
         let match = labels[speaker].matches.remove(at: position)
-        reject(match.person, at: speaker)
+        if match.source == Self.conversation {
+            rejectName(match.name, at: speaker)
+        } else {
+            reject(match.person, at: speaker)
+        }
         return match
     }
 
@@ -194,7 +205,65 @@ public struct SpeakerRegistry: Sendable, Equatable {
         for match in removed where match.person != person { reject(match.person, at: speaker) }
     }
 
+    // MARK: Conversation matches
+
+    /// In place of any earlier conversation match on the speaker, whichever key it held (R17).
+    public mutating func suggestFromConversation(_ match: NameMatch, speaker id: Int) {
+        guard let target = conversationTarget(id) else { return }
+        var suggestion = match
+        suggestion.key = target.key
+        suggestion.state = .suggested
+        dropConversation(at: target.speaker)
+        store(suggestion, at: target.speaker)
+    }
+
+    /// Through `rename`, so a speaker already of that name absorbs this one. No person is linked:
+    /// an applied name teaches no voice (R22).
+    public mutating func applyFromConversation(_ match: NameMatch, speaker id: Int) -> Merge? {
+        guard let target = conversationTarget(id) else { return nil }
+        let merge = rename(id, to: match.name)
+        var applied = match
+        applied.key = target.key
+        applied.state = .applied
+        if let survivor = index(of: merge?.into ?? id) { store(applied, at: survivor) }
+        return merge
+    }
+
+    public mutating func withdrawConversation(speaker id: Int) {
+        guard let speaker = index(of: id) else { return }
+        dropConversation(at: speaker)
+    }
+
+    /// That's me (R21): `key` is a `NameFold` key; applied names stay.
+    @discardableResult
+    public mutating func withdrawConversation(named key: String) -> Int {
+        var removed = 0
+        for speaker in labels.indices {
+            let count = labels[speaker].matches.count
+            labels[speaker].matches.removeAll {
+                $0.source == Self.conversation && $0.state == .suggested && NameFold.key($0.name) == key
+            }
+            removed += count - labels[speaker].matches.count
+        }
+        return removed
+    }
+
+    /// "Not <name>" on a name the conversation applied (R23). Unlike `detach`, the whole speaker
+    /// reverts: the conversation named the speaker, not one of its keys.
+    public mutating func revertConversation(key: String) -> Bool {
+        guard let speaker = index(owning: key), let position = position(of: key, .applied, at: speaker),
+              labels[speaker].matches[position].source == Self.conversation,
+              labels[speaker].person == nil, !labels[speaker].isUser
+        else { return false }
+        let match = labels[speaker].matches.remove(at: position)
+        labels[speaker].name = Self.defaultName(labels[speaker].id)
+        rejectName(match.name, at: speaker)
+        return true
+    }
+
     // MARK: Helpers
+
+    private static let conversation = "conversation"
 
     /// One above the highest id in use.
     private var nextID: Int {
@@ -202,7 +271,7 @@ public struct SpeakerRegistry: Sendable, Equatable {
     }
 
     static func defaultName(_ id: Int) -> String {
-        "Speaker \(id)"
+        SpeakerLabel.defaultName(id)
     }
 
     private func index(of id: Int) -> Int? {
@@ -229,5 +298,29 @@ public struct SpeakerRegistry: Sendable, Equatable {
     private mutating func reject(_ person: UUID?, at speaker: Int) {
         guard let person, !labels[speaker].rejected.contains(person) else { return }
         labels[speaker].rejected.append(person)
+    }
+
+    private mutating func rejectName(_ name: String, at speaker: Int) {
+        let key = NameFold.key(name)
+        guard !labels[speaker].rejectedNames.contains(where: { NameFold.key($0) == key }) else { return }
+        labels[speaker].rejectedNames.append(name)
+    }
+
+    /// A speaker without a key is skipped: Accept, Dismiss and the window find matches by key.
+    private func conversationTarget(_ id: Int) -> (speaker: Int, key: String)? {
+        guard let speaker = index(of: id), SuggestionPolicy.isOpen(labels[speaker]),
+              let key = labels[speaker].providerKeys.first
+        else { return nil }
+        return (speaker, key)
+    }
+
+    private mutating func dropConversation(at speaker: Int) {
+        labels[speaker].matches.removeAll { $0.source == Self.conversation }
+    }
+
+    /// Any name but the speaker's default outranks a conversation match (R17).
+    private mutating func dropConversationIfNamed(at speaker: Int) {
+        guard labels[speaker].name != Self.defaultName(labels[speaker].id) else { return }
+        dropConversation(at: speaker)
     }
 }
