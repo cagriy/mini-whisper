@@ -650,6 +650,26 @@ Convention-establishing stage: the `MWNaming` layer gets its target, product and
 - **Stale key presence.** Key presence can go stale if a key changes while the meeting page stays visible. It is refreshed on stop, on every navigation to the meeting page and on main-window key. `suggestNames()` re-checks the Keychain itself, so a stale line never sends without a key.
 - **Sending starts here.** It begins only after every disclosure surface (Stages 9 and 16) has landed. The wiring sits in this stage, not in one of its own, so the Suggest names pill never lands inert (Planning decision 1).
 
+### Stage 19 — Dead-code cleanup
+**Goal:** Remove the orphans the final dead-code sweep found.
+**Design references:** §5 Architecture (`MeetingNamingRoute`, `SpeakerRegistry` extensions)
+**Touches:** `Packages/MiniWhisperCore/Sources/MWMeetingPipeline/MeetingNamingRoute.swift`; `Packages/MiniWhisperCore/Sources/MWMeetingPipeline/SpeakerRegistry.swift`; `Packages/MiniWhisperCore/Tests/MWMeetingPipelineTests/MeetingNamingRouteTests.swift`; `Packages/MiniWhisperCore/Tests/MWMeetingPipelineTests/SpeakerRegistryTests.swift`
+
+**Category:** Behaviour-preserving refactor / deletion. Nothing in production calls the removed members; their tests exercised only themselves.
+
+**Steps:**
+1. Run `periphery scan` against the Step 3 baseline. It finds `MeetingNamingRoute.waitIdle()` and `inFlight`, and `SpeakerRegistry.withdrawConversation(speaker:)`, with no production caller. The controller's `waitForNaming()` replaced the first two (Stage 14 deviation).
+2. Drop their self-tests, then the members, and the route's idle-waiter list.
+3. Run the full core suite and the app build-only check; both are green.
+
+**Kept, though periphery lists them:**
+- `MeetingController.waitForNaming()`, the controller tests' sync point (periphery does not scan package tests);
+- `RawSuggestion`'s memberwise init, used by tests across modules;
+- `NameMatch.kind`, a serialised field;
+- the redundant `public` on `EvidenceCheck` and `NameSanitiser`, the codebase convention (208 such findings in the baseline).
+
+**Definition of done:** periphery shows no new orphan beyond those kept; suites green.
+
 ## Cross-cutting concerns
 
 - **Security:**
@@ -750,8 +770,9 @@ None — plan matches design v9 exactly.
 | 8 | Stage 14 | serial | consumes the route; adds a `MeetingEvent` case (exhaustive switch site) |
 | 9 | Stage 15, Stage 16, Stage 17 | parallel | **Disjoint files:** `MeetingController.swift` plus a new controller test file; `App/Meeting` and `AppTests` files; one new package test file. **No symbol or string-keyed dependency:** Stage 16 needs Stage 14's `.naming` events and Stage 11's `thatsMe`, not Stage 15's `suggestNames`, which arrives in the app in Stage 18. Stage 17 uses only the route, registry and client, which neither sibling changes. **No shared registration:** no manifest, exhaustive switch or shared fixture edited by two of them. **Same base state:** each is green against Batch 8. **Categories:** Stage 17 is integration-verified, not an excluded category. **Security ordering:** nothing sends data, since the app has no namer before Stage 18. **No shared test resource:** only Stage 16 launches the app test host, and Stage 17 is skipped without its variables. |
 | 10 | Stage 18 | serial | same app files as Stage 16; consumes Stage 15's controller API; turns sending on only after every disclosure surface has landed (security ordering) |
+| 11 | Stage 19 | serial | dead-code cleanup after the final sweep; touches route and registry files from earlier stages |
 
-**Critical path:** Stage 1 → Stage 2 → Stage 5 → Stage 7 → Stage 10 → Stage 12 → Stage 13 → Stage 14 → Stage 15 → Stage 18 (10 of 18 stages).
+**Critical path:** Stage 1 → Stage 2 → Stage 5 → Stage 7 → Stage 10 → Stage 12 → Stage 13 → Stage 14 → Stage 15 → Stage 18 → Stage 19 (11 of 19 stages).
 
 ## Deviations from plan
 
@@ -824,3 +845,4 @@ None — plan matches design v9 exactly.
   - **Key test.** `AppTests/KeyedAnthropicClientTests.swift` (new) checks that `suggestNames` throws `MissingAPIKey` without a key.
   - **Busy sessions.** The coordinator's `isWritingSummary` became `isBusy` (summary or naming request). One `settle` drops a finishing session after `.summary`, `.naming(.finished)` or the end of Stop.
   - **Main-window key.** The observer takes every window's `didBecomeKeyNotification` and refreshes only when `NSApp.keyWindow`'s delegate is the `MainWindowController`, whose window is private. `MainWindowController` is unchanged.
+- **Stage 19 (added by the final sweep).** `MeetingNamingRoute.waitIdle()` and `inFlight`, and `SpeakerRegistry.withdrawConversation(speaker:)`, from design §5's interface sketch, had no production caller and are removed. The controller's own `namingTask` and `waitForNaming()` cover what `waitIdle` was for.
