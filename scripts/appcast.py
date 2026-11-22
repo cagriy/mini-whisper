@@ -6,10 +6,12 @@
 Inserts (or replaces) one <item> in appcast.xml at the repo root, which Sparkle
 reads over raw.githubusercontent.com. The EdDSA signature and byte length come
 from Sparkle's sign_update, run by .github/workflows/build.yml after stapling.
+A beta (X.Y.ZbN) item carries <sparkle:channel>beta</sparkle:channel>.
 
 Usage:
-  uv run scripts/appcast.py --appcast <path> --version X.Y.Z \
+  uv run scripts/appcast.py --appcast <path> --version <X.Y.Z|X.Y.ZbN> \
     --signature <edSignature> --length <bytes> --notes-file <section.md>
+  uv run scripts/appcast.py --print-channel <version>   # release or beta; exit 2 otherwise
 
 Tests: uv run --no-project --with pytest pytest scripts/tests/
 """
@@ -29,12 +31,23 @@ DOWNLOAD_URL = (
     "v{version}/MiniWhisper-{version}-arm64.dmg"
 )
 MINIMUM_SYSTEM_VERSION = "14.0"
+# No hyphenated suffix: Sparkle stops comparing at a "-", so 0.9.0-beta.1 and
+# 0.9.0 would compare equal.
+VERSION_PATTERN = re.compile(r"\d+\.\d+\.\d+(b[1-9]\d*)?")
 
 ET.register_namespace("sparkle", SPARKLE_NS)
 
 
 def sparkle(tag: str) -> str:
     return f"{{{SPARKLE_NS}}}{tag}"
+
+
+def channel_of(version: str) -> str:
+    """'beta' for X.Y.ZbN, 'release' for X.Y.Z; ValueError for any other form."""
+    match = VERSION_PATTERN.fullmatch(version)
+    if match is None:
+        raise ValueError(f"version '{version}' is not X.Y.Z or X.Y.ZbN")
+    return "beta" if match.group(1) else "release"
 
 
 def markdown_to_html(markdown: str) -> str:
@@ -92,6 +105,8 @@ def build_item(version: str, signature: str, length: int, notes_html: str,
     ET.SubElement(item, sparkle("version")).text = version
     ET.SubElement(item, sparkle("shortVersionString")).text = version
     ET.SubElement(item, sparkle("minimumSystemVersion")).text = MINIMUM_SYSTEM_VERSION
+    if channel_of(version) == "beta":
+        ET.SubElement(item, sparkle("channel")).text = "beta"
     ET.SubElement(item, "description").text = notes_html
     ET.SubElement(item, "pubDate").text = email.utils.format_datetime(pub_date)
     ET.SubElement(item, "enclosure", {
@@ -123,15 +138,30 @@ def add_version(tree: ET.ElementTree, version: str, signature: str, length: int,
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--appcast", required=True, type=Path)
-    parser.add_argument("--version", required=True)
-    parser.add_argument("--signature", required=True)
-    parser.add_argument("--length", required=True, type=int)
-    parser.add_argument("--notes-file", required=True, type=Path)
+    parser.add_argument("--print-channel", metavar="VERSION")
+    # Required unless --print-channel is given, so checked below, not by argparse.
+    insert_options = [
+        parser.add_argument("--appcast", type=Path),
+        parser.add_argument("--version"),
+        parser.add_argument("--signature"),
+        parser.add_argument("--length", type=int),
+        parser.add_argument("--notes-file", type=Path),
+    ]
     args = parser.parse_args(argv)
 
-    if not re.fullmatch(r"\d+\.\d+\.\d+", args.version):
-        parser.error(f"version '{args.version}' is not X.Y.Z")
+    printing = args.print_channel is not None
+    if not printing:
+        missing = [o.option_strings[0] for o in insert_options if getattr(args, o.dest) is None]
+        if missing:
+            parser.error(f"the following arguments are required: {', '.join(missing)}")
+    try:
+        channel = channel_of(args.print_channel if printing else args.version)
+    except ValueError as error:
+        parser.error(str(error))
+    if printing:
+        print(channel)
+        return 0
+
     if not args.signature.strip():
         parser.error("signature is empty")
     if not args.appcast.is_file():
