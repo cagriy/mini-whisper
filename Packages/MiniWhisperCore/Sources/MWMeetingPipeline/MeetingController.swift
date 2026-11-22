@@ -77,6 +77,8 @@ public final class MeetingController {
     /// Nil for a test call or without a naming client (design v9 §5 Control flow).
     private var naming: MeetingNamingRoute?
     private var namingTask: Task<Void, Never>?
+    /// The Stop pass or Suggest names, from its `.naming(.running)` to its `.finished`.
+    private var namingPass: Task<Void, Never>?
     /// A fire arrived while `namingTask` ran outside the route's flight.
     private var namingAgain = false
     /// The user's name as misheard, as the ticker last read it: known names for spotting.
@@ -167,12 +169,8 @@ public final class MeetingController {
         self.meeting = meeting
         self.supervisor = supervisor
         self.voice = voice
-        if test == nil, let namer = deps.namer {
-            naming = MeetingNamingRoute(
-                client: namer, people: namingPeople, clock: deps.clock, overrides: config.pricingOverrides
-            )
-            namingAliases = config.meetingUserNameAliases
-        }
+        naming = namingRoute(test: test, config)
+        namingAliases = config.meetingUserNameAliases
         silence = test == nil ? SilenceWatch(threshold: config.meetingSilenceStopSeconds) : nil
         sessionEvents = Task { [weak self, events = supervisor.events] in
             for await event in events { await self?.handle(event) }
@@ -544,6 +542,7 @@ public final class MeetingController {
     // MARK: - Stop
 
     /// Design §5.6 Stop. `summarise: false` is the quit path; the summary can be asked for later.
+    /// With a summary, the naming Stop pass runs before it or beside it (v9 R11).
     public func stop(summarise: Bool = true) async {
         guard state == .recording || state.isPaused, let audioPath else { return }
         report(silence?.suspend(), reason: "stopped")
@@ -577,13 +576,25 @@ public final class MeetingController {
 
         meeting?.endedAt = endedAt
         meeting?.durationSeconds = duration
+        // Naming is billed on the meeting as it goes; the engine's totals know nothing of it.
+        let namingCost = meeting?.billing.namingCostUSD ?? 0
         meeting?.billing = billing.totals
+        meeting?.billing.namingCostUSD = namingCost
         meeting?.speakers = registry.labels
+        // The pass covers the whole meeting, so no live request follows the one in flight.
+        naming?.disarm()
+        namingAgain = false
         await saveMeeting()
         if billing.engineSeconds > 0 { await addUsage(billing.finalUsage()) }
         log.info("meeting stopped after \(Int(duration)) s")
         setState(.stopped)
-        if summarise { await self.summarise() }
+        guard summarise else { return }
+        if namingAllowed(.stop, config) {
+            let pass = startPass(.stop)
+            // Only an applied name changes what the summary should say.
+            if config.meetingNamingAutoApply { await pass.value }
+        }
+        await self.summarise()
     }
 
     /// Releasing the hold schedules nothing, so the idle stop is armed here or the
@@ -804,33 +815,74 @@ public final class MeetingController {
 
     private static let conversation = "conversation"
 
+    /// Nil for a test call or without a naming client. A stored meeting's route only runs
+    /// Suggest names: nothing arms its trigger.
+    private func namingRoute(test: TestCallTag?, _ config: Config) -> MeetingNamingRoute? {
+        guard test == nil, let namer = deps.namer else { return nil }
+        return MeetingNamingRoute(
+            client: namer, people: namingPeople, clock: deps.clock, overrides: config.pricingOverrides
+        )
+    }
+
+    /// R7: a request for `scope` would be of use. Suggest names runs with the switch off and
+    /// while live naming is paused (R25).
+    private func namingAllowed(_ scope: NamingScope, _ config: Config) -> Bool {
+        guard let naming, secret(.anthropic) != nil, registry.labels.contains(where: SuggestionPolicy.isOpen)
+        else { return false }
+        return scope == .manual || config.meetingNamingEnabled && !naming.isPaused
+    }
+
     /// Design v9 §5 Live meeting step 4: the request runs in its own task. A fire while one is
     /// being prepared or applied, outside the route's flight, is kept as one more run (R6).
     private func startNaming(_ scope: NamingScope) {
         guard naming != nil else { return }
         guard namingTask == nil else { return namingAgain = true }
-        namingTask = Task { [weak self] in await self?.runNaming(scope) }
+        namingTask = Task { [weak self] in
+            await self?.runNaming(scope)
+            self?.namingTask = nil
+        }
+    }
+
+    /// The Stop pass or Suggest names (R11, R25): shown running until its result, and sent once
+    /// the live request in flight, if any, has been applied.
+    private func startPass(_ scope: NamingScope) -> Task<Void, Never> {
+        emit(.naming(.running))
+        let pass = Task { [weak self] in
+            guard let self else { return }
+            while let live = namingTask { await live.value }
+            let result = await runNaming(scope)
+            emit(.naming(.finished(result ?? NamingResult.none)))
+            namingPass = nil
+        }
+        namingPass = pass
+        return pass
     }
 
     /// Steps 4–7: the R7 checks, one request, its outcome applied, and one more run while fires
-    /// came in meanwhile.
-    private func runNaming(_ scope: NamingScope) async {
+    /// came in meanwhile. Returns the last request's result, nil when none was sent.
+    @discardableResult
+    private func runNaming(_ scope: NamingScope) async -> NamingResult? {
+        var result: NamingResult?
         var again = true
         while again, let naming, let meeting {
             namingAgain = false
             let config = await configStore.load()
-            guard config.meetingNamingEnabled, secret(.anthropic) != nil, !naming.isPaused,
-                  registry.labels.contains(where: SuggestionPolicy.isOpen)
-            else { break }
+            guard namingAllowed(scope, config) else { break }
             let snapshot = NamingSnapshot(
                 scope: scope, segments: segments, speakers: registry.labels, userName: meeting.userName,
                 mode: meeting.mode, aliases: config.meetingUserNameAliases
             )
             let outcome = await naming.run(snapshot: snapshot) { await namingContext(scope, of: meeting.id) }
             await applyNaming(outcome)
+            result = Self.result(of: outcome)
             again = outcome.followUp || namingAgain
         }
-        namingTask = nil
+        return result
+    }
+
+    private static func result(of outcome: NamingOutcome) -> NamingResult {
+        if let failure = outcome.failure { return .failed(failure.reason) }
+        return outcome.actions.isEmpty ? .none : .found(outcome.actions.count)
     }
 
     /// The speakers and settings a reply is decided against, read when it lands: nil once live
@@ -871,13 +923,30 @@ public final class MeetingController {
         } else if outcome.usage != nil {
             await saveMeeting()
         }
-        if audioPath != nil { emit(.cost(liveCost)) }
+        if audioPath != nil {
+            emit(.cost(liveCost))
+        } else if state == .stopped {
+            emit(.cost(stoppedCost))
+        }
         if let pause = outcome.pause { emit(.naming(.paused(pause.reason))) }
+    }
+
+    /// A stopped meeting's chip; its current summary is shown apart (R28).
+    private var stoppedCost: Double {
+        guard let billing = meeting?.billing else { return 0 }
+        return billing.costUSD + billing.replacedSummaryCostUSD + billing.namingCostUSD
+    }
+
+    /// Design v9 §5 Suggest names (R25): one request over a stopped meeting, while none runs.
+    public func suggestNames() async {
+        let config = await configStore.load()
+        guard state == .stopped, namingTask == nil, namingPass == nil, namingAllowed(.manual, config) else { return }
+        await startPass(.manual).value
     }
 
     /// Resolves once no naming request is being prepared, sent or applied.
     func waitForNaming() async {
-        while let task = namingTask { await task.value }
+        while let task = namingPass ?? namingTask { await task.value }
     }
 
     /// The People store without the user, who is passed as the user (Planning decision 9).
@@ -1038,6 +1107,8 @@ public final class MeetingController {
     /// A stored meeting, into `.stopped` for reading, editing and a later summary
     /// (*Planning decisions taken* #22).
     public func open(_ id: UUID) async throws {
+        // Read before the guard: from the guard on, opening runs without a suspension.
+        let config = await configStore.load()
         guard state == .idle else { return }
         let loaded = try deps.store.load(id)
         meeting = loaded.meeting
@@ -1050,6 +1121,7 @@ public final class MeetingController {
                 stored: voices, sidecar: sidecar, meeting: id, mode: loaded.meeting.mode, now: deps.now
             )
         }
+        naming = namingRoute(test: loaded.meeting.test, config)
         emit(.speakers(registry.labels))
         if let voice { emit(.voiceData(active: false, keys: voice.keys)) }
         loaded.meeting.markers.forEach { emit(.marker($0)) }
