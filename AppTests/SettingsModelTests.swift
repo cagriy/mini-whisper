@@ -1267,6 +1267,106 @@ import Testing
         #expect(SettingsModel.voiceReadOut(.margin, of: voice.setting(.margin, to: 0.0749)) == "0.07")
     }
 
+    // MARK: - Speaker names (design v9 §3 R1–R3, R24)
+
+    @Test func namingShowsOffAndLockedWithoutAnAnthropicKeyAndKeepsTheStoredValue() async {
+        let harness = Harness()
+        defer { harness.cleanUp() }
+        let model = await harness.model()
+        #expect(model.config.meetingNamingEnabled)
+        #expect(model.namingBlocked)
+        #expect(!model.namingEnabled)
+
+        await model.setNamingEnabled(false)
+        #expect(await harness.store.load().meetingNamingEnabled)
+
+        harness.secrets.stored[.anthropic] = "sk-ant-placeholder"
+        model.refreshKeys()
+        #expect(!model.namingBlocked)
+        #expect(model.namingEnabled)
+    }
+
+    @Test func theNamingSwitchWritesItsKey() async {
+        let harness = Harness()
+        defer { harness.cleanUp() }
+        harness.secrets.stored[.anthropic] = "sk-ant-placeholder"
+        let model = await harness.model()
+
+        await model.setNamingEnabled(false)
+        #expect(!model.namingEnabled)
+        #expect(await harness.store.load().meetingNamingEnabled == false)
+
+        await model.setNamingEnabled(true)
+        #expect(model.namingEnabled)
+        #expect(await harness.store.load().meetingNamingEnabled)
+    }
+
+    @Test func autoApplyShowsOffAndLockedWhileNamingIsOffOrKeyless() async throws {
+        let harness = Harness()
+        defer { harness.cleanUp() }
+        try harness.writeConfig(#"{"meeting_naming_auto_apply": true}"#)
+        let model = await harness.model()
+        #expect(model.autoApplyLocked)
+        #expect(!model.namingAutoApply)
+        await model.setNamingAutoApply(false)
+        #expect(await harness.store.load().meetingNamingAutoApply)
+
+        harness.secrets.stored[.anthropic] = "sk-ant-placeholder"
+        model.refreshKeys()
+        #expect(!model.autoApplyLocked)
+        #expect(model.namingAutoApply)
+
+        await model.setNamingEnabled(false)
+        #expect(model.autoApplyLocked)
+        #expect(!model.namingAutoApply)
+        await model.setNamingAutoApply(false)
+        #expect(await harness.store.load().meetingNamingAutoApply)
+
+        await model.setNamingEnabled(true)
+        await model.setNamingAutoApply(false)
+        #expect(!model.namingAutoApply)
+        #expect(await harness.store.load().meetingNamingAutoApply == false)
+    }
+
+    @Test func addNameAliasRefusesBlanksDefaultLabelsDuplicatesAndTheUserName() async throws {
+        let harness = Harness()
+        defer { harness.cleanUp() }
+        try harness.writeConfig(#"{"meeting_user_name": "Niamh"}"#)
+        let model = await harness.model()
+        #expect(model.nameAliases.isEmpty)
+
+        #expect(await model.addNameAlias("Neve"))
+        for refused in ["", "  ", "Speaker 3", "NEVE", "névé", "niamh", " NÍAMH "] {
+            #expect(await model.addNameAlias(refused) == false, "\(refused)")
+        }
+        #expect(model.nameAliases == ["Neve"])
+
+        #expect(await model.addNameAlias("  Neev "))
+        #expect(model.nameAliases == ["Neve", "Neev"])
+        #expect(await harness.store.load().meetingUserNameAliases == ["Neve", "Neev"])
+    }
+
+    @Test func theAccountNameCountsAsTheUserNameWhenNoneIsSet() async {
+        let harness = Harness()
+        defer { harness.cleanUp() }
+        let model = await harness.model()
+
+        #expect(await model.addNameAlias("alex  MORGAN") == false)
+        #expect(await harness.store.load().meetingUserNameAliases.isEmpty)
+    }
+
+    @Test func removeNameAliasRemovesIt() async {
+        let harness = Harness()
+        defer { harness.cleanUp() }
+        let model = await harness.model()
+        await model.addNameAlias("Neve")
+        await model.addNameAlias("Neev")
+
+        await model.removeNameAlias("Neve")
+        #expect(model.nameAliases == ["Neev"])
+        #expect(await harness.store.load().meetingUserNameAliases == ["Neev"])
+    }
+
     private static func entry(audioBytes: Int) -> IndexEntry {
         IndexEntry(
             id: UUID(), title: "Standup", startedAt: Date(timeIntervalSince1970: 1_794_236_400), endedAt: nil,

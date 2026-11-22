@@ -1,18 +1,20 @@
 import MWConfig
 import SwiftUI
 
-/// R20's Meetings section, as the overview mockup lays it out: engine, recording, summary
-/// prompt, storage, then the command-line tool and the agents.
+/// R20's Meetings section, as the overview mockup lays it out: engine, recording, speaker names,
+/// summary prompt, storage, then the command-line tool and the agents.
 struct MeetingsSection: View {
     @Bindable var model: SettingsModel
 
     @State private var userName = ""
     @FocusState private var editingName: Bool
+    @State private var aliasDraft = ""
 
     var body: some View {
         VStack(alignment: .leading, spacing: DS.Space.s8) {
             engines
             recording
+            speakerNames
             summaryPrompt
             storage
             agents
@@ -196,11 +198,96 @@ struct MeetingsSection: View {
                     ErrorLine(error)
                 }
                 SettingsFootnote("Claude Sonnet 5.5 writes the summary when a meeting stops.")
-                if let hint = model.summaryKeyHint {
-                    Text(hint).textStyle(.meta).foregroundStyle(DS.Colors.warn)
-                }
+                anthropicKeyHint
             }
         }
+    }
+
+    @ViewBuilder private var anthropicKeyHint: some View {
+        if let hint = model.summaryKeyHint {
+            Text(hint).textStyle(.meta).foregroundStyle(DS.Colors.warn)
+        }
+    }
+
+    private var speakerNames: some View {
+        Card("Speaker names") {
+            SettingRow(
+                "Suggest names from the conversation",
+                description: "During a meeting, Claude Haiku 5.5 suggests a name for a speaker when someone says it,"
+                    + " with the line it came from. The transcript so far, your name and the names in People go to"
+                    + " Anthropic several times a meeting. About 3 cents a meeting, on the meeting's cost line."
+            ) {
+                Toggle(
+                    "Suggest names from the conversation",
+                    isOn: settingsBinding(model.namingEnabled) { await model.setNamingEnabled($0) }
+                )
+                .toggleStyle(.ds)
+                .disabled(model.namingBlocked)
+            }
+            SettingRow(
+                "Apply self-introductions without asking",
+                description: "A speaker who says their own name, as in “I’m Kate”, is named straight away; “Not Kate”"
+                    + " undoes it. Off, it is a suggestion like any other."
+            ) {
+                Toggle(
+                    "Apply self-introductions without asking",
+                    isOn: settingsBinding(model.namingAutoApply) { await model.setNamingAutoApply($0) }
+                )
+                .toggleStyle(.ds)
+                .disabled(model.autoApplyLocked)
+            }
+            .opacity(model.autoApplyLocked ? 0.5 : 1)
+            SettingRow.full("Your name, as misheard") {
+                (Text("Spellings treated as your name and never suggested for another speaker. ")
+                    + Text("That's me").fontWeight(.semibold).foregroundStyle(DS.Colors.text)
+                    + Text(" on a suggestion adds one."))
+                    .textStyle(.meta)
+                    .foregroundStyle(DS.Colors.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                aliasList.padding(.top, DS.Space.s4)
+            }
+            SettingRow.full {
+                SettingsFootnote(
+                    "Names you or your voices settings already gave are never replaced. Suggest names on a stopped"
+                        + " meeting works with this off."
+                )
+                anthropicKeyHint
+            }
+        }
+    }
+
+    private var aliasList: some View {
+        let hairline = Rectangle().fill(DS.Colors.line).frame(height: DS.Size.hairline)
+        return VStack(alignment: .leading, spacing: 0) {
+            if model.nameAliases.isEmpty {
+                Text("None yet.")
+                    .textStyle(.meta)
+                    .foregroundStyle(DS.Colors.textTertiary)
+                    .spellingRow()
+            } else {
+                ForEach(Array(model.nameAliases.enumerated()), id: \.element) { index, alias in
+                    if index > 0 { hairline }
+                    AliasRow(alias: alias) { Task { await model.removeNameAlias(alias) } }
+                }
+            }
+            hairline
+            TextField("Add a spelling", text: $aliasDraft, prompt: Text(""))
+                .labelsHidden()
+                .fieldPlaceholder("Add a spelling", shown: aliasDraft.isEmpty)
+                .dsField()
+                .onSubmit(commitAlias)
+                .frame(width: 180)
+                .spellingRow()
+        }
+        .padding(DS.Size.hairline)
+        .background(RoundedRectangle(cornerRadius: DS.Radius.row).fill(DS.Colors.canvas))
+        .overlay(RoundedRectangle(cornerRadius: DS.Radius.row).strokeBorder(DS.Colors.line))
+    }
+
+    private func commitAlias() {
+        let alias = aliasDraft
+        aliasDraft = ""
+        Task { await model.addNameAlias(alias) }
     }
 
     private var storage: some View {
@@ -273,6 +360,45 @@ struct MeetingsSection: View {
             await model.setMeetingUserName(userName)
             userName = model.meetingUserName
         }
+    }
+}
+
+/// A misheard spelling of the user's name, with Remove in reserved space on hover or focus.
+private struct AliasRow: View {
+    let alias: String
+    let remove: () -> Void
+
+    @State private var hovered = false
+    @FocusState private var focused: Bool
+
+    private var active: Bool { hovered || focused }
+
+    var body: some View {
+        HStack(spacing: DS.Space.s5) {
+            Text(alias)
+                .textStyle(.body)
+                .foregroundStyle(DS.Colors.text)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            // Kept in the layout when hidden, so hovering never moves the row.
+            Button("Remove", action: remove)
+                .buttonStyle(.pill(.quietAction, size: .small))
+                .focused($focused)
+                .opacity(active ? 1 : 0)
+                .allowsHitTesting(active)
+                .accessibilityLabel("Remove \(alias)")
+        }
+        .spellingRow()
+        .contentShape(Rectangle())
+        .onHover { hovered = $0 }
+    }
+}
+
+extension View {
+    fileprivate func spellingRow() -> some View {
+        frame(minHeight: DS.Size.controlSmall)
+            .padding(.vertical, DS.Space.s2)
+            .padding(.leading, DS.Space.s6)
+            .padding(.trailing, DS.Space.s3)
     }
 }
 

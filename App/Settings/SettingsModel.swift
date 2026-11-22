@@ -2,6 +2,7 @@ import Foundation
 import MWConfig
 import MWHotkeys
 import MWMeetings
+import MWNaming
 import MWOverlaySim
 import MWStreaming
 import MWSupport
@@ -693,6 +694,41 @@ final class SettingsModel {
 
     private static func isSeconds(_ field: VoiceSettings.Field) -> Bool {
         field == .minimumSpeech || field == .buffer
+    }
+
+    // MARK: - Speaker names (design v9 §3 R1–R3, R24)
+
+    /// A switch that cannot be moved shows off and writes nothing, so its stored value returns with a key.
+    var namingBlocked: Bool { !hasKey(.anthropic) }
+    var namingEnabled: Bool { config.meetingNamingEnabled && !namingBlocked }
+    var autoApplyLocked: Bool { !namingEnabled }
+    var namingAutoApply: Bool { config.meetingNamingAutoApply && !autoApplyLocked }
+    var nameAliases: [String] { config.meetingUserNameAliases }
+
+    func setNamingEnabled(_ enabled: Bool) async {
+        guard !namingBlocked else { return }
+        await write { $0.meetingNamingEnabled = enabled }
+    }
+
+    func setNamingAutoApply(_ enabled: Bool) async {
+        guard !autoApplyLocked else { return }
+        await write { $0.meetingNamingAutoApply = enabled }
+    }
+
+    /// Appended to the stored list rather than replacing it, so a spelling That's me added meanwhile stays.
+    @discardableResult
+    func addNameAlias(_ alias: String) async -> Bool {
+        let trimmed = alias.trimmingCharacters(in: .whitespacesAndNewlines)
+        let key = NameFold.key(trimmed)
+        guard PeopleModel.acceptsName(trimmed), key != NameFold.key(meetingUserName),
+            !nameAliases.contains(where: { NameFold.key($0) == key })
+        else { return false }
+        await write { $0.meetingUserNameAliases.append(trimmed) }
+        return true
+    }
+
+    func removeNameAlias(_ alias: String) async {
+        await write { $0.meetingUserNameAliases.removeAll { $0 == alias } }
     }
 
     // MARK: - Appearance (R8)
