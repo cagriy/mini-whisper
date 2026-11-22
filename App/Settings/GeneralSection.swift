@@ -2,7 +2,7 @@ import MWConfig
 import SwiftUI
 
 /// Live transcript, the engine list with its gating (F23, F24), the two engine-lifetime
-/// steppers, the theme (R8), and updates.
+/// steppers, the theme (R8), and updates with their channel (design v10).
 struct GeneralSection: View {
     let model: SettingsModel
 
@@ -61,11 +61,7 @@ struct GeneralSection: View {
             }
 
             Card("Updates") {
-                SettingRow(
-                    "Automatically check for updates",
-                    description: "Version \(model.appVersion). Checked once a day; an update installs"
-                        + " only after you approve it."
-                ) {
+                SettingRow("Automatically check for updates", description: { versionLine }) {
                     // Not `settingsBinding`: Sparkle owns this preference and rewrites it
                     // on every scheduled check, so config.json never holds a copy.
                     Toggle(
@@ -77,6 +73,17 @@ struct GeneralSection: View {
                     )
                     .toggleStyle(.ds)
                 }
+                SettingRow(
+                    "Update channel",
+                    description: "Release gets tested versions. Beta gets new versions first, and they may have"
+                        + " bugs. Switching back to Release keeps an installed beta until the next release."
+                ) {
+                    // Beta asks first, and the pill shows the stored value until it is confirmed.
+                    SegmentedPill(
+                        selection: settingsBinding(model.updateChannel) { await model.chooseUpdateChannel($0) },
+                        options: [(.release, "Release"), (.beta, "Beta")]
+                    )
+                }
                 SettingRow("Check for an update now") {
                     Button("Check Now") { model.checkForUpdatesNow() }
                         .buttonStyle(.pill(size: .small))
@@ -84,6 +91,22 @@ struct GeneralSection: View {
             }
         }
         .task { await model.refreshSpeechModel() }
+    }
+
+    /// R8: a beta build's version carries the Beta chip. `Text` cannot hold a view, so the
+    /// sentence moves to its own line.
+    @ViewBuilder private var versionLine: some View {
+        let version = "Version \(model.appVersion)"
+        let checks = "Checked once a day; an update installs only after you approve it."
+        if model.isBetaBuild {
+            HStack(spacing: DS.Space.s3) {
+                Text(version).textStyle(.meta)
+                Chip("Beta")
+            }
+            Text(checks).textStyle(.meta)
+        } else {
+            Text(version + ". " + checks).textStyle(.meta)
+        }
     }
 
     private func engineRow(_ row: SettingsModel.EngineRow) -> some View {

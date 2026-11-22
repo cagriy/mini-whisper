@@ -19,8 +19,11 @@ struct MainView: View {
         .background(DS.Colors.canvas)
         .ignoresSafeArea()
         .overlay { dialog }
-        // A confirmation belongs to the meeting page it was asked on.
-        .onChange(of: model.navigation.destination) { meetingDialog = nil }
+        // A confirmation belongs to the page it was asked on.
+        .onChange(of: model.navigation.destination) {
+            meetingDialog = nil
+            model.settings.cancelBetaChannel()
+        }
         .onChange(of: model.presented.map { ObjectIdentifier($0.model) }) { meetingDialog = nil }
     }
 
@@ -81,6 +84,15 @@ struct MainView: View {
                 confirmTitle: confirmation.confirmTitle,
                 confirm: { Task { await model.settings.people.confirm() } },
                 cancel: model.settings.people.cancelConfirmation
+            )
+        } else if model.settings.confirmingBetaChannel {
+            DSDialog(
+                title: "Switch to beta versions?",
+                message: "Beta versions arrive before each release and may have bugs. You can switch back to"
+                    + " Release at any time; an installed beta stays until the next release.",
+                confirmTitle: "Switch to Beta",
+                confirm: { Task { await model.settings.confirmBetaChannel() } },
+                cancel: model.settings.cancelBetaChannel
             )
         } else if confirmingSettingsClear {
             DSDialog(

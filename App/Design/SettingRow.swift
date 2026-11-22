@@ -3,7 +3,7 @@ import SwiftUI
 /// One row of a card, with a hairline above it that the card's edge covers on the first row.
 struct SettingRow<Content: View>: View {
     private let title: String?
-    private let description: String?
+    private let description: AnyView?
     private let error: String?
     private let spacing: CGFloat?
     private let content: Content
@@ -13,7 +13,18 @@ struct SettingRow<Content: View>: View {
     init(
         _ title: String, description: String? = nil, error: String? = nil, @ViewBuilder control: () -> Content
     ) {
-        self.init(title: title, description: description, error: error, spacing: nil, content: control())
+        let text = description.map { AnyView(Text($0).textStyle(.meta)) }
+        self.init(title: title, description: text, error: error, spacing: nil, content: control())
+    }
+
+    /// As above, for a description a string cannot hold, such as a line with a chip. Its lines
+    /// stack as a wrapped description does and take the description's colour.
+    init(
+        _ title: String, error: String? = nil, @ViewBuilder description: () -> some View,
+        @ViewBuilder control: () -> Content
+    ) {
+        let lines = AnyView(VStack(alignment: .leading, spacing: 0, content: description))
+        self.init(title: title, description: lines, error: error, spacing: nil, content: control())
     }
 
     /// An editor, list or preview across the card's width, under an optional name.
@@ -23,7 +34,7 @@ struct SettingRow<Content: View>: View {
         SettingRow(title: title, description: nil, error: nil, spacing: spacing, content: content())
     }
 
-    private init(title: String?, description: String?, error: String?, spacing: CGFloat?, content: Content) {
+    private init(title: String?, description: AnyView?, error: String?, spacing: CGFloat?, content: Content) {
         self.title = title
         self.description = description
         self.error = error
@@ -44,8 +55,7 @@ struct SettingRow<Content: View>: View {
                     VStack(alignment: .leading, spacing: 0) {
                         name
                         if let description {
-                            Text(description)
-                                .textStyle(.meta)
+                            description
                                 .foregroundStyle(DS.Colors.textSecondary)
                                 .frame(maxWidth: 414, alignment: .leading)
                         }

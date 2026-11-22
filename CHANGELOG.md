@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+### Added
+
+- Settings → General → Updates: choose Release or Beta versions. Beta gets new versions first;
+  switching back to Release keeps an installed beta until the next release.
+
 ## [0.8.1] - 2026-11-20
 
 ### Fixed
