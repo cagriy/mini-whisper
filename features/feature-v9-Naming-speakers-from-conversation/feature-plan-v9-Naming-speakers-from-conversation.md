@@ -762,3 +762,24 @@ None — plan matches design v9 exactly.
 - **Stage 7 → Stage 13 (billing gap).** A 200 reply that ends in `refusal` or `max_tokens`, or carries malformed JSON, has spent tokens, but `NamingError` carries no usage. R28 bills every request, and the design's `NamingOutcome` already pairs `failure` with `usage`, so Stage 13 adds `NamingFailure { error: NamingError; usage: TokenUsage }`, thrown by the client for those three cases, and the route bills it. Stage 13's Touches gain `NameSuggesting.swift`, `AnthropicClient.swift` and `AnthropicClientNamingTests.swift`.
 - **Stage 8.** `suggestFromConversation` and `applyFromConversation` ignore a speaker with no provider key (after `bindToUser` or `detach`), since Accept, Dismiss and the window find matches by key; the design was silent. `SuggestionPolicy.isOpen` is `MeetingVoiceRoute.isOpen` plus "no voice match"; MWNaming cannot import MWMeetingPipeline, so the shared part stays in two places, both on `SpeakerLabel.defaultName`. The registry calls `SuggestionPolicy.isOpen`.
 - **Stage 9.** The "Add a spelling" field uses the standard field style (30 pt tall), since no small field variant is recorded in `DESIGN.md`. The Remove pill turns accent on hover, as the accepted mockup shows, not destructive red: a removed spelling can be added again. "That's me" in row 3's description is semibold primary, as in the mockup. `addNameAlias` reuses `PeopleModel.acceptsName` and appends inside the store's update.
+- **Stage 10.**
+  - **`render(segments:)`.** It has no `speakers:` parameter; turns carry only anonymous `S<id>` labels.
+  - **`Turn.segments`.** It is `[Turn.Span]` (`id`, `start`, `range`) rather than a tuple array, so `Turn` and `Rendered` stay `Equatable`.
+  - **`SpeakerState`.** It is `{id, status: open | suggested(name) | named(name) | user, dismissed}`, with `init(_ label: SpeakerLabel)` mapping snapshot labels:
+    - user → `you` line;
+    - own name or person → `named`;
+    - a standing suggested match of either source → `suggested`;
+    - else `open`;
+    - `rejectedNames` → `dismissed`.
+  - **Mode.** `MeetingMode.inRoom` (raw `in-room`) is written `in_room` as the design shows.
+  - **Edge cases.**
+    - An empty `userName` counts as absent.
+    - Empty lists keep their headings.
+    - The newest turn is always kept under the cap.
+    - Turn numbers stay meeting-wide after truncation.
+    - `(earlier turns omitted)` is the first line inside `<transcript>`.
+- **Stage 11.**
+  - **Fold-equal alias.** "A second call with a fold-equal name adds nothing" is tested with a spelling already in config, since the first call withdraws every fold-equal suggestion.
+  - **Config write failure.** That's me logs a `Log.meeting` warning and still withdraws, following `meeting_system_audio_explained`.
+  - **Constant.** The controller keeps its own `"conversation"` constant; the registry's is private.
+  - **User-name check.** That's me compares against `meeting.userName`.
