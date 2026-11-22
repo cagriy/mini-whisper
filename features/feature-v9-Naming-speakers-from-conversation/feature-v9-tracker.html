@@ -966,7 +966,7 @@
         </span>
         <span class="step-label">Plan</span>
       </li>
-      <li class="step" data-stage="implement" data-state="pending">
+      <li class="step" data-stage="implement" data-state="complete">
         <span class="step-indicator" aria-hidden="true">
           <span class="step-check">&#10003;</span>
           <span class="step-number">4</span>
@@ -1409,16 +1409,97 @@
 
     <section class="panel" role="tabpanel"
              id="panel-implementation" aria-labelledby="tab-implementation" hidden>
-      <p class="section-timestamp">Awaiting /feature-implement</p>
+      <p class="section-timestamp">Updated 2026-11-22 14:47 UTC</p>
       <!-- usage:IMPLEMENTATION_USAGE_CHIP --><!-- /usage:IMPLEMENTATION_USAGE_CHIP -->
       <article class="panel-section">
         <h2 class="section-label">Highlights</h2>
-        <div class="bullets"><p class="empty">Not yet filled — pending /feature-implement.</p></div>
+        <div class="bullets"><ul>
+          <li>Stages completed: 19/19 (18 planned, plus Stage 19 dead-code cleanup)</li>
+          <li>Tests: core 1,484/1,484 (19 targets, 1 opt-in replay skipped), app 552/552</li>
+          <li>Design coverage: 30/30 requirements have tests</li>
+          <li>Pre-existing failures excluded: none</li>
+          <li>Dead-code orphans removed: 3 (route <code>waitIdle</code>/<code>inFlight</code>, <code>withdrawConversation(speaker:)</code>)</li>
+          <li>Parallelism: 12 stages built in 4 parallel batches, no conflicts or reconciliation</li>
+          <li>Deviations from plan: recorded per stage; one scope addition, refused, truncated and malformed replies billed (R28)</li>
+          <li>Pending human checks: live replay (R30) and the manual app pass</li>
+          <li>Final commit: <code>ef96273</code>; nothing pushed</li>
+        </ul></div>
         <!-- usage:IMPLEMENTATION_USAGE --><!-- /usage:IMPLEMENTATION_USAGE -->
       </article>
       <article class="panel-section">
         <h2 class="section-label">Detail</h2>
-        <div class="prose"><p class="empty">Not yet filled — pending /feature-implement.</p></div>
+        <div class="prose">
+          <h3>Stages completed</h3>
+          <ul>
+            <li>Stage 1 — MWNaming module with NameFold and NameSanitiser — <code>fd20ead</code></li>
+            <li>Stage 2 — Shared transcript escaping (<code>MeetingTextEscaping</code>) — <code>7b4401b</code></li>
+            <li>Stage 3 — Meeting data model: evidence, kind, rejected names, naming cost — <code>b350a20</code> (parallel, batch 3)</li>
+            <li>Stage 4 — Config keys for naming — <code>593155d</code> (parallel, batch 3)</li>
+            <li>Stage 5 — Cache token accounting, Haiku pricing and the naming log category — <code>fc9ec2c</code> (parallel, batch 3)</li>
+            <li>Stage 6 — Name spotter and live trigger — <code>5006174</code> (parallel, batch 3)</li>
+            <li>Stage 7 — Naming client seam and the Anthropic naming request — <code>7f2a5f7</code> (parallel, batch 4)</li>
+            <li>Stage 8 — Conversation matches in the registry; Forget keeps them — <code>540eba2</code> (parallel, batch 4)</li>
+            <li>Stage 9 — Settings › Meetings: Speaker names card — <code>ed3781b</code> (parallel, batch 4)</li>
+            <li>Stage 10 — Transcript rendering and the naming prompt — <code>7a4f404</code> (parallel, batch 5)</li>
+            <li>Stage 11 — Controller: user actions on conversation matches — <code>7c4c93f</code> (parallel, batch 5)</li>
+            <li>Stage 12 — Evidence check and suggestion policy — <code>c638993</code></li>
+            <li>Stage 13 — <code>MeetingNamingRoute</code> — <code>ccbda89</code></li>
+            <li>Stage 14 — Controller: live naming — <code>187c218</code></li>
+            <li>Stage 15 — Controller: Stop pass and Suggest names — <code>ef1a00c</code> (parallel, batch 9)</li>
+            <li>Stage 16 — App: transcript suggestions, evidence and live notices — <code>1b6d322</code> (parallel, batch 9)</li>
+            <li>Stage 17 — Replay test (R30) — <code>ba3da90</code> (parallel, batch 9)</li>
+            <li>Stage 18 — App: Suggest names on a stopped meeting, coordinator wiring, and turning naming on — <code>ddabddb</code></li>
+            <li>Stage 19 — Dead-code cleanup — <code>ef96273</code></li>
+          </ul>
+          <h3>Tests &amp; lint</h3>
+          <ul>
+            <li>Core <code>swift test</code>: 19 targets, 1,484 tests, 0 failures (baseline 1,305, 18 targets). <code>NamingReplayTests</code> is skipped unless <code>MW_INTEGRATION</code>, <code>ANTHROPIC_API_KEY</code> and <code>MW_NAMING_REPLAY_DIR</code> are set.</li>
+            <li>App <code>xcodebuild test</code>: 552 tests in 51 suites (baseline 519 in 50).</li>
+            <li>No baseline failures to exclude. No lint, format or type-check tooling is configured.</li>
+            <li>Dead code: 10 new findings from periphery 3.8.0 against the run's baseline. 3 orphans were removed in Stage 19. These 7 were kept:
+              <ul>
+                <li><code>waitForNaming()</code>, the test sync seam;</li>
+                <li><code>RawSuggestion</code>'s init, used by tests;</li>
+                <li><code>NameMatch.kind</code>, which is serialised;</li>
+                <li>4 redundant <code>public</code> modifiers, following the codebase convention.</li>
+              </ul>
+            </li>
+          </ul>
+          <h3>Design coverage</h3>
+          <table>
+            <thead><tr><th>Requirements</th><th>Verifying tests</th></tr></thead>
+            <tbody>
+              <tr><td>R1–R3, R24</td><td><code>ConfigCodingTests</code>, <code>SettingsModelTests</code>, <code>MeetingControllerNamingTests</code></td></tr>
+              <tr><td>R4–R7</td><td><code>NamingTriggerTests</code>, <code>NameSpotterTests</code>, <code>MeetingNamingRouteTests</code>, <code>MeetingControllerNamingTests</code></td></tr>
+              <tr><td>R8–R10</td><td><code>NamingTranscriptTests</code>, <code>NamingPromptTests</code>, <code>AnthropicClientNamingTests</code></td></tr>
+              <tr><td>R11, R25</td><td><code>MeetingControllerNamingStopTests</code>, <code>MeetingWindowModelTests</code>, <code>MeetingCoordinatorTests</code></td></tr>
+              <tr><td>R12–R17, R22</td><td><code>EvidenceCheckTests</code>, <code>SuggestionPolicyTests</code>, <code>NameFoldTests</code>, <code>NameSanitiserTests</code>, <code>SpeakerRegistryTests</code></td></tr>
+              <tr><td>R18–R21, R23</td><td><code>MeetingControllerNamingActionsTests</code>, <code>SpeakerRegistryTests</code>, <code>MeetingWindowModelTests</code></td></tr>
+              <tr><td>R26–R27</td><td><code>MeetingControllerNamingTests</code>, <code>MeetingNamingRouteTests</code>, <code>MeetingWindowModelTests</code></td></tr>
+              <tr><td>R28–R29</td><td><code>PricingTests</code>, <code>TokenUsageTests</code>, <code>MeetingModelTests</code>, <code>LogTests</code>, route, client and controller log captures</td></tr>
+              <tr><td>R30</td><td><code>NamingReplayTests</code> (opt-in, human-run)</td></tr>
+            </tbody>
+          </table>
+          <h3>Deviations from plan</h3>
+          <p>Recorded stage by stage in the plan's <em>Deviations from plan</em> section. The main ones:</p>
+          <ul>
+            <li><strong>Billing gap (R28).</strong> Refused, truncated and malformed 200 replies are billed through a new <code>NamingFailure</code>. This was added to Stage 13's Touches.</li>
+            <li><strong>Evidence card.</strong> It is drawn in-window in the dialog-card style, not as an <code>NSPopover</code>.</li>
+            <li><strong>Stop pass.</strong> It waits on the controller's <code>waitForNaming()</code>, which covers the apply, not on the route's <code>waitIdle</code>, which was removed.</li>
+            <li><strong>Stage 19.</strong> Added by the dead-code sweep.</li>
+          </ul>
+          <h3>Notes</h3>
+          <ul>
+            <li><code>main</code> is ahead of <code>origin/main</code> by 31 commits. Nothing was pushed.</li>
+            <li>Pending human verification:
+              <ul>
+                <li>the live replay test (R30, release gate ≥20/35 right, ≤1 wrong);</li>
+                <li>the Stage 18 manual app pass;</li>
+                <li>visual checks of the Speaker names card, the transcript evidence and the Suggest names line in light and dark mode.</li>
+              </ul>
+            </li>
+          </ul>
+        </div>
       </article>
     </section>
 
