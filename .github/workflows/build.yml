@@ -71,7 +71,11 @@ jobs:
           else
             version=$(grep -m1 'MARKETING_VERSION:' project.yml | sed -E 's/.*"(.*)".*/\1/')
           fi
+          # A plain assignment, so bash -e stops here on a malformed version (exit 2).
+          channel=$(python3 scripts/appcast.py --print-channel "$version")
           echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "channel=$channel" >> "$GITHUB_OUTPUT"
+          echo "Version \`$version\`, channel \`$channel\`" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Build (Release, unsigned)
         run: |
@@ -284,10 +288,12 @@ jobs:
           files: ${{ env.dmg_path }}
           body_path: ${{ env.notes_path }}
           draft: false
-          prerelease: ${{ contains(github.ref, '-beta') || contains(github.ref, '-rc') }}
+          prerelease: ${{ steps.version.outputs.channel == 'beta' }}
 
       - name: Update Homebrew tap
-        if: startsWith(github.ref, 'refs/tags/v') && (github.event_name == 'push' || github.event.inputs.sign == 'true')
+        if: >-
+          startsWith(github.ref, 'refs/tags/v') && (github.event_name == 'push' || github.event.inputs.sign == 'true')
+          && steps.version.outputs.channel == 'release'
         env:
           HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
           APP_VERSION: ${{ steps.version.outputs.version }}

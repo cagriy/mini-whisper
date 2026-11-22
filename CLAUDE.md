@@ -104,10 +104,30 @@ moving the `[Unreleased]` CHANGELOG entries into a `## [X.Y.Z] - YYYY-MM-DD` sec
 (Sparkle's nested helpers inside-out, then the app), verify every `@rpath` resolves, DMG,
 notarize, staple, `sign_update`, GitHub release, Homebrew tap bump, then the appcast commit.
 
+A beta is cut the same way, with `X.Y.ZbN` (N ≥ 1) in place of `X.Y.Z`: `MARKETING_VERSION`,
+`CURRENT_PROJECT_VERSION`, the CHANGELOG heading and the tag `vX.Y.ZbN`. Sparkle orders
+`0.8.2 < 0.9.0b1 < 0.9.0b2 < 0.9.0`. No other suffix: Sparkle stops comparing at a `-`, so
+`0.9.0-beta.1` would equal `0.9.0`, and "Resolve version" fails the build before signing on any
+version `scripts/appcast.py --print-channel` rejects (`-beta.1`, `rc1`). Three steps differ by
+channel:
+
+| | Release tag `vX.Y.Z` | Beta tag `vX.Y.ZbN` |
+|---|---|---|
+| GitHub release | not a prerelease | prerelease |
+| Homebrew cask | bumped | not touched |
+| Appcast item | default channel | `beta` channel |
+
+- Each beta gets its own `## [X.Y.ZbN] - YYYY-MM-DD` CHANGELOG section with the changes since the
+  previous beta, or since the last release for the first. The final `## [X.Y.Z]` lists everything
+  since the previous release, so Release users get complete notes.
+- Pulling a bad beta: remove its `<item>` from `appcast.xml` on `main`, or ship `bN+1`. Users
+  already on it stay there until the next beta or release; Sparkle never downgrades.
+
 The updater is Sparkle 2.9.6, reading `appcast.xml` from this repo's `main` over
 `raw.githubusercontent.com`, with the DMG on the GitHub release as the enclosure. `App/AppUpdater.swift`
-is the whole client side. `SUFeedURL` and `SUPublicEDKey` live in `App/Info.plist`; the daily
-cadence is Sparkle's default, deliberately unset.
+is the whole client side, with its channel rules in `App/UpdateChannelPolicy.swift`. `SUFeedURL`
+and `SUPublicEDKey` live in `App/Info.plist`; the daily cadence is Sparkle's default, deliberately
+unset.
 
 - The EdDSA **private** key is in the login Keychain under its own account
   (`generate_keys --account mini-whisper`, kept separate from other apps' keys) and in the
@@ -115,6 +135,9 @@ cadence is Sparkle's default, deliberately unset.
 - `CURRENT_PROJECT_VERSION` must track `MARKETING_VERSION`: Sparkle compares `CFBundleVersion`.
 - Sparkle owns its own preferences (`SUEnableAutomaticChecks`, `SULastCheckTime`) in
   `UserDefaults`. That is the one piece of app state outside `config.json`; don't mirror it.
+  The update channel is not one of them: it is `update_channel` in `config.json` (`release` or
+  `beta`), which `AppDelegate.apply` hands to `AppUpdater`. Its delegate answers Sparkle's
+  `allowedChannels(for:)` with `[]` or `["beta"]`, and a change after launch resets the update cycle.
 - The Homebrew cask carries `auto_updates true`, so `brew upgrade` leaves the app alone.
 - A tagged release makes CI commit the appcast to `main`, so `main` moves on its own. Pull before
   committing anything after a release, or the next push is a non-fast-forward.
@@ -130,6 +153,8 @@ cadence is Sparkle's default, deliberately unset.
 - Test an update without publishing: serve a doctored appcast locally, then
   `defaults write com.ips.mini-whisper SUFeedURL http://localhost:8000/appcast.xml` and
   `defaults delete com.ips.mini-whisper SULastCheckTime`. Clean up with `defaults delete`.
+  A beta item needs `<sparkle:channel>beta</sparkle:channel>` (`scripts/appcast.py` writes it for
+  `X.Y.ZbN`) and the app set to Beta in Settings › General › Updates; on Release Sparkle skips it.
 
 ## Rules
 
