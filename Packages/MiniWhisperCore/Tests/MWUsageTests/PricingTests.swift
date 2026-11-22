@@ -179,6 +179,70 @@ private func close(_ lhs: Double, _ rhs: Double, tolerance: Double = 1e-9) -> Bo
         #expect(Pricing.perHour(.assemblyaiPro, overrides: [:]) == 0.57)
     }
 
+    // MARK: - Speaker naming (Haiku)
+
+    @Test func haikuRatesPerMTok() {
+        #expect(Pricing.perMTok["claude-haiku-5-5_in"] == 0.10)
+        #expect(Pricing.perMTok["claude-haiku-5-5_out"] == 0.50)
+        #expect(Pricing.perMTok["claude-haiku-5-5_in_long"] == 0.50)
+        #expect(Pricing.perMTok["claude-haiku-5-5_out_long"] == 2.50)
+    }
+
+    @Test func namingCostAtBaseRates() {
+        let cost = Pricing.namingCost(TokenUsage(inputTokens: 100_000, outputTokens: 10_000), overrides: [:])
+
+        #expect(close(cost, 0.1 * 0.10 + 0.01 * 0.50))
+    }
+
+    @Test func namingCacheReadIsATenthAndCacheWriteOneAndAQuarterOfTheInputRate() {
+        let read = Pricing.namingCost(TokenUsage(cacheReadTokens: 50_000), overrides: [:])
+        let write = Pricing.namingCost(TokenUsage(cacheWriteTokens: 40_000), overrides: [:])
+
+        #expect(close(read, 0.05 * 0.10 * 0.1))
+        #expect(close(write, 0.04 * 0.10 * 1.25))
+    }
+
+    /// Input, cache read and cache write together decide the rate card, for output too.
+    @Test func namingLongRatesApplyAbove100kPromptTokens() {
+        let atLimit = Pricing.namingCost(
+            TokenUsage(inputTokens: 50_000, outputTokens: 100_000, cacheReadTokens: 40_000, cacheWriteTokens: 10_000),
+            overrides: [:]
+        )
+        let overLimit = Pricing.namingCost(
+            TokenUsage(inputTokens: 50_001, outputTokens: 100_000, cacheReadTokens: 40_000, cacheWriteTokens: 10_000),
+            overrides: [:]
+        )
+
+        #expect(close(atLimit, 0.05 * 0.10 + 0.04 * 0.01 + 0.01 * 0.125 + 0.1 * 0.50))
+        #expect(close(overLimit, 0.050001 * 0.50 + 0.04 * 0.05 + 0.01 * 0.625 + 0.1 * 2.50, tolerance: 1e-6))
+    }
+
+    @Test func namingCostHonoursOverridesAndCacheMultipliersFollowThem() {
+        let overrides = [
+            "claude-haiku-5-5_in": 1.00,
+            "claude-haiku-5-5_out": 3.00,
+            "claude-haiku-5-5_in_long": 4.00,
+            "claude-haiku-5-5_out_long": 6.00,
+        ]
+
+        let base = Pricing.namingCost(
+            TokenUsage(inputTokens: 10_000, outputTokens: 10_000, cacheReadTokens: 20_000, cacheWriteTokens: 40_000),
+            overrides: overrides
+        )
+        let long = Pricing.namingCost(
+            TokenUsage(inputTokens: 100_000, outputTokens: 10_000, cacheReadTokens: 200_000, cacheWriteTokens: 400_000),
+            overrides: overrides
+        )
+
+        #expect(close(base, 0.01 * 1.00 + 0.02 * 0.10 + 0.04 * 1.25 + 0.01 * 3.00))
+        #expect(close(long, 0.1 * 4.00 + 0.2 * 0.40 + 0.4 * 5.00 + 0.01 * 6.00))
+    }
+
+    @Test func namingCostRoundedToMicros() {
+        #expect(Pricing.namingCost(TokenUsage(inputTokens: 1), overrides: [:]) == 0)
+        #expect(Pricing.namingCost(TokenUsage(inputTokens: 7), overrides: [:]) == 0.000001)
+    }
+
     // MARK: - Usage table and menu rows (F31, R21)
 
     /// `minutes` of audio over two engines.

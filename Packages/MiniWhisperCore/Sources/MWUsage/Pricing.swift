@@ -26,10 +26,20 @@ public enum Pricing {
         "gpt-4o-mini_out": 0.60,
         "claude-sonnet-5-5_in": 2.00,
         "claude-sonnet-5-5_out": 10.00,
+        "claude-haiku-5-5_in": 0.10,
+        "claude-haiku-5-5_out": 0.50,
+        "claude-haiku-5-5_in_long": 0.50,
+        "claude-haiku-5-5_out_long": 2.50,
     ]
 
     /// Model whose `perMTok` rates bill a meeting summary.
     private static let summaryModel = "claude-sonnet-5-5"
+
+    /// Model whose `perMTok` rates bill speaker naming.
+    private static let namingModel = "claude-haiku-5-5"
+
+    /// Prompt tokens (input, cache read and cache write) above which the `_long` rates apply.
+    private static let namingLongPromptTokens = 100_000
 
     /// Engine names whose rate-table key differs from the name.
     private static let engineRateKeys: [EngineName: String] = [.openai: "openai_realtime"]
@@ -84,6 +94,21 @@ public enum Pricing {
     public static func perHour(_ engine: MeetingEngine, overrides: [String: Double]) -> Double {
         let hour = meetingCost(engine: engine, seconds: 3600, tokens: TokenUsage(), overrides: overrides)
         return (hour * 100).rounded() / 100
+    }
+
+    /// One naming request at the Haiku rates: cache reads at 0.1× and 5-minute cache writes at
+    /// 1.25× the input rate, and the long-prompt rate card for input and output alike.
+    public static func namingCost(_ tokens: TokenUsage, overrides: [String: Double]) -> Double {
+        let promptTokens = tokens.inputTokens + tokens.cacheReadTokens + tokens.cacheWriteTokens
+        let card = promptTokens > namingLongPromptTokens ? "_long" : ""
+        let inputRate = rate(perMTok, key: "\(namingModel)_in\(card)", overrides: overrides)
+        let outputRate = rate(perMTok, key: "\(namingModel)_out\(card)", overrides: overrides)
+        let weightedInput = Double(tokens.inputTokens)
+            + 0.1 * Double(tokens.cacheReadTokens)
+            + 1.25 * Double(tokens.cacheWriteTokens)
+        let cost = weightedInput / 1_000_000 * inputRate
+            + Double(tokens.outputTokens) / 1_000_000 * outputRate
+        return roundedToMicros(cost)
     }
 
     private static func tokenCost(

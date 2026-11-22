@@ -68,4 +68,15 @@ import MWTestSupport
         )
         #expect(Log.subsystem == "com.ips.mini-whisper")
     }
+
+    @Test func namingHasItsOwnCategory() async {
+        let sink = CapturingLogSink()
+
+        await Log.withSinks(debug: false, sinks: [sink]) {
+            Log.naming.info("reply status=200")
+        }
+
+        #expect(sink.records.map(\.category) == ["naming"])
+        #expect(sink.lines == ["INFO naming reply status=200"])
+    }
 }
