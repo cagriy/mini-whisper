@@ -70,7 +70,20 @@ public struct VoiceVector: Codable, Sendable, Equatable {
     }
 }
 
-/// A name the app attached to a provider key from a known person's voice.
+/// Where the conversation said a name: the segment, its start in meeting seconds, and the quote.
+public struct NameEvidence: Codable, Sendable, Equatable {
+    public var segment: UUID
+    public var time: Double
+    public var text: String
+
+    public init(segment: UUID, time: Double, text: String) {
+        self.segment = segment
+        self.time = time
+        self.text = text
+    }
+}
+
+/// A name the app attached to a provider key, from a known person's voice or from the conversation.
 public struct NameMatch: Codable, Sendable, Equatable {
     public enum State: String, Codable, Sendable { case suggested, applied }
 
@@ -78,15 +91,26 @@ public struct NameMatch: Codable, Sendable, Equatable {
     public var key: String
     /// The person's name when matched.
     public var name: String
-    /// Nil only for a future non-voice source.
+    /// Nil for a conversation match.
     public var person: UUID?
     public var source: String
     public var state: State
     /// Nil on the Speechmatics route.
     public var score: Double?
+    /// Conversation matches only.
+    public var evidence: NameEvidence?
+    /// Conversation matches only: `self_introduction`, `addressed`, `handoff` or `other`.
+    public var kind: String?
 
     public init(
-        key: String, name: String, person: UUID?, source: String = "voice", state: State, score: Double? = nil
+        key: String,
+        name: String,
+        person: UUID?,
+        source: String = "voice",
+        state: State,
+        score: Double? = nil,
+        evidence: NameEvidence? = nil,
+        kind: String? = nil
     ) {
         self.key = key
         self.name = name
@@ -94,6 +118,8 @@ public struct NameMatch: Codable, Sendable, Equatable {
         self.source = source
         self.state = state
         self.score = score
+        self.evidence = evidence
+        self.kind = kind
     }
 }
 

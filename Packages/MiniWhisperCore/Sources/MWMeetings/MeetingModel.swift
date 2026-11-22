@@ -140,6 +140,8 @@ public struct SpeakerLabel: Codable, Sendable, Equatable, Identifiable {
     public var matches: [NameMatch]
     /// People never offered for this speaker again.
     public var rejected: [UUID]
+    /// Names the conversation never suggests for this speaker again.
+    public var rejectedNames: [String]
 
     public init(
         id: Int,
@@ -148,7 +150,8 @@ public struct SpeakerLabel: Codable, Sendable, Equatable, Identifiable {
         providerKeys: [String] = [],
         person: UUID? = nil,
         matches: [NameMatch] = [],
-        rejected: [UUID] = []
+        rejected: [UUID] = [],
+        rejectedNames: [String] = []
     ) {
         self.id = id
         self.name = name
@@ -157,10 +160,15 @@ public struct SpeakerLabel: Codable, Sendable, Equatable, Identifiable {
         self.person = person
         self.matches = matches
         self.rejected = rejected
+        self.rejectedNames = rejectedNames
+    }
+
+    public static func defaultName(_ id: Int) -> String {
+        "Speaker \(id)"
     }
 
     private enum CodingKeys: String, CodingKey {
-        case id, name, isUser, providerKeys, person, matches, rejected
+        case id, name, isUser, providerKeys, person, matches, rejected, rejectedNames
     }
 
     public init(from decoder: any Decoder) throws {
@@ -173,9 +181,10 @@ public struct SpeakerLabel: Codable, Sendable, Equatable, Identifiable {
         person = try container.decodeIfPresent(UUID.self, forKey: .person)
         matches = try container.decodeIfPresent([NameMatch].self, forKey: .matches) ?? []
         rejected = try container.decodeIfPresent([UUID].self, forKey: .rejected) ?? []
+        rejectedNames = try container.decodeIfPresent([String].self, forKey: .rejectedNames) ?? []
     }
 
-    /// The voice fields only when set, so a meeting without recognition is written as before.
+    /// The voice and naming fields only when set, so a meeting without them is written as before.
     public func encode(to encoder: any Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(id, forKey: .id)
@@ -185,6 +194,7 @@ public struct SpeakerLabel: Codable, Sendable, Equatable, Identifiable {
         try container.encodeIfPresent(person, forKey: .person)
         if !matches.isEmpty { try container.encode(matches, forKey: .matches) }
         if !rejected.isEmpty { try container.encode(rejected, forKey: .rejected) }
+        if !rejectedNames.isEmpty { try container.encode(rejectedNames, forKey: .rejectedNames) }
     }
 }
 
@@ -194,17 +204,25 @@ public struct Billing: Codable, Sendable, Equatable {
     public var costUSD: Double
     /// The summed cost of the summaries a regenerate replaced.
     public var replacedSummaryCostUSD: Double
+    /// The summed cost of every request for speaker names.
+    public var namingCostUSD: Double
 
     public init(
         engineSeconds: Double = 0,
         diarizationSeconds: Double = 0,
         costUSD: Double = 0,
-        replacedSummaryCostUSD: Double = 0
+        replacedSummaryCostUSD: Double = 0,
+        namingCostUSD: Double = 0
     ) {
         self.engineSeconds = engineSeconds
         self.diarizationSeconds = diarizationSeconds
         self.costUSD = costUSD
         self.replacedSummaryCostUSD = replacedSummaryCostUSD
+        self.namingCostUSD = namingCostUSD
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case engineSeconds, diarizationSeconds, costUSD, replacedSummaryCostUSD, namingCostUSD
     }
 
     public init(from decoder: any Decoder) throws {
@@ -214,6 +232,17 @@ public struct Billing: Codable, Sendable, Equatable {
         costUSD = try container.decode(Double.self, forKey: .costUSD)
         // Absent from files written before summaries could be regenerated.
         replacedSummaryCostUSD = try container.decodeIfPresent(Double.self, forKey: .replacedSummaryCostUSD) ?? 0
+        namingCostUSD = try container.decodeIfPresent(Double.self, forKey: .namingCostUSD) ?? 0
+    }
+
+    /// The naming cost only when set, so a meeting without naming is written as before.
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(engineSeconds, forKey: .engineSeconds)
+        try container.encode(diarizationSeconds, forKey: .diarizationSeconds)
+        try container.encode(costUSD, forKey: .costUSD)
+        try container.encode(replacedSummaryCostUSD, forKey: .replacedSummaryCostUSD)
+        if namingCostUSD != 0 { try container.encode(namingCostUSD, forKey: .namingCostUSD) }
     }
 }
 
@@ -303,9 +332,9 @@ public struct Meeting: Codable, Sendable, Equatable, Identifiable {
         return true
     }
 
-    /// Transcription, the current summary and every summary it replaced.
+    /// Transcription, naming, the current summary and every summary it replaced.
     public var totalCostUSD: Double {
-        billing.costUSD + billing.replacedSummaryCostUSD + (summary?.costUSD ?? 0)
+        billing.costUSD + billing.replacedSummaryCostUSD + billing.namingCostUSD + (summary?.costUSD ?? 0)
     }
 }
 

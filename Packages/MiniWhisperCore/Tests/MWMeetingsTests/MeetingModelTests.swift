@@ -94,13 +94,35 @@ import MWMeetings
         #expect(try MeetingCoding.decoder().decode(Billing.self, from: data) == billing)
     }
 
-    @Test func totalCostAddsBillingReplacedAndSummary() {
+    @Test func billingWithoutNamingCostEncodesAsToday() throws {
+        let data = try MeetingCoding.encoder().encode(Billing(engineSeconds: 60, costUSD: 0.4, replacedSummaryCostUSD: 0.03106))
+
+        #expect(String(decoding: data, as: UTF8.self)
+            == #"{"costUSD":0.4,"diarizationSeconds":0,"engineSeconds":60,"replacedSummaryCostUSD":0.03106}"#)
+    }
+
+    @Test func billingWithoutNamingCostDecodesAsZero() throws {
+        let data = Data(#"{"engineSeconds":60,"diarizationSeconds":0,"costUSD":0.4,"replacedSummaryCostUSD":0.03106}"#.utf8)
+
+        #expect(try MeetingCoding.decoder().decode(Billing.self, from: data).namingCostUSD == 0)
+    }
+
+    @Test func billingWritesAndRoundTripsANamingCost() throws {
+        let billing = Billing(engineSeconds: 60, costUSD: 0.4, replacedSummaryCostUSD: 0.03106, namingCostUSD: 0.0125)
+        let data = try MeetingCoding.encoder().encode(billing)
+
+        #expect(try object(data)["namingCostUSD"] as? Double == 0.0125)
+        #expect(try MeetingCoding.decoder().decode(Billing.self, from: data) == billing)
+    }
+
+    @Test func totalCostAddsBillingReplacedNamingAndSummary() {
         var meeting = MeetingFixtures.northwind().meeting
         meeting.billing.replacedSummaryCostUSD = 0.02
+        meeting.billing.namingCostUSD = 0.0125
 
-        #expect(abs(meeting.totalCostUSD - (0.3665 + 0.02 + 0.03106)) < 1e-9)
+        #expect(abs(meeting.totalCostUSD - (0.3665 + 0.02 + 0.0125 + 0.03106)) < 1e-9)
         meeting.summary = nil
-        #expect(abs(meeting.totalCostUSD - (0.3665 + 0.02)) < 1e-9)
+        #expect(abs(meeting.totalCostUSD - (0.3665 + 0.02 + 0.0125)) < 1e-9)
     }
 
     // MARK: - Title
@@ -218,6 +240,63 @@ import MWMeetings
             """)
         #expect(try MeetingCoding.decoder().decode(NameMatch.self, from: data) == match)
         #expect(NameMatch(key: "1:A", name: "Alice", person: alice, state: .applied).source == "voice")
+    }
+
+    // MARK: - Naming
+
+    private let segment = UUID(uuidString: "5C1D2E3F-4A5B-4C6D-8E7F-9A0B1C2D3E4F")!
+
+    @Test func aConversationMatchRoundTripsWithEvidenceAndKind() throws {
+        let match = NameMatch(
+            key: "1:B", name: "Kate", person: nil, source: "conversation", state: .suggested,
+            evidence: NameEvidence(segment: segment, time: 42.5, text: "Hi, I'm Kate from finance."),
+            kind: "self_introduction"
+        )
+        let data = try MeetingCoding.encoder().encode(match)
+
+        #expect(try MeetingCoding.decoder().decode(NameMatch.self, from: data) == match)
+        let json = try object(data)
+        #expect(json["kind"] as? String == "self_introduction")
+        let evidence = try #require(json["evidence"] as? [String: Any])
+        #expect(evidence["segment"] as? String == segment.uuidString)
+        #expect(evidence["time"] as? Double == 42.5)
+        #expect(evidence["text"] as? String == "Hi, I'm Kate from finance.")
+    }
+
+    @Test func aMatchWithoutEvidenceOmitsItAndDecodesAnOlderLine() throws {
+        let json = try object(MeetingCoding.encoder().encode(
+            NameMatch(key: "1:A", name: "Alice", person: alice, state: .applied, score: 0.83)
+        ))
+        #expect(json.keys.contains("evidence") == false)
+        #expect(json.keys.contains("kind") == false)
+
+        let older = Data("""
+            {"key":"1:A","name":"Alice","person":"\(alice.uuidString)","score":0.62,"source":"voice","state":"suggested"}
+            """.utf8)
+        let decoded = try MeetingCoding.decoder().decode(NameMatch.self, from: older)
+        #expect(decoded.evidence == nil)
+        #expect(decoded.kind == nil)
+        #expect(decoded == NameMatch(key: "1:A", name: "Alice", person: alice, state: .suggested, score: 0.62))
+    }
+
+    @Test func rejectedNamesAreEmptyWhenAbsentAndOmittedWhenEmpty() throws {
+        let older = Data(#"{"id":1,"isUser":false,"name":"Speaker 1","providerKeys":["1:A"]}"#.utf8)
+        #expect(try MeetingCoding.decoder().decode(SpeakerLabel.self, from: older).rejectedNames == [])
+
+        let data = try MeetingCoding.encoder().encode(SpeakerLabel(id: 1, name: "Speaker 1", providerKeys: ["1:A"], rejectedNames: []))
+        #expect(try object(data).keys.contains("rejectedNames") == false)
+    }
+
+    @Test func rejectedNamesRoundTrip() throws {
+        let label = SpeakerLabel(id: 2, name: "Speaker 2", providerKeys: ["1:B"], rejectedNames: ["Kate", "Siân"])
+        let data = try MeetingCoding.encoder().encode(label)
+
+        #expect(try object(data)["rejectedNames"] as? [String] == ["Kate", "Siân"])
+        #expect(try MeetingCoding.decoder().decode(SpeakerLabel.self, from: data) == label)
+    }
+
+    @Test func defaultNameIsSpeakerAndTheID() {
+        #expect(SpeakerLabel.defaultName(3) == "Speaker 3")
     }
 
     @Test func meetingVoicesDecodesTheDesignsTwoShapes() throws {
