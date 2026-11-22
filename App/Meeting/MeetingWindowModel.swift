@@ -201,6 +201,36 @@ final class MeetingWindowModel {
         let said: String
     }
 
+    /// The stopped Transcript tab's line (design v9 R25).
+    enum NamingLine: Equatable {
+        /// With Suggest names.
+        case offer(open: Int)
+        case running
+        /// `stillOpen` is the one speaker left with neither a name nor a suggestion.
+        case found(count: Int, stillOpen: String?)
+        case none
+        /// With Suggest names again.
+        case failed(String)
+        case needsKey(open: Int)
+
+        var text: String {
+            switch self {
+            case .offer(let open): Self.noName(open)
+            case .running: "Suggesting names from the transcript…"
+            case .found(let count, let stillOpen):
+                (count == 1 ? "1 name suggested." : "\(count) names suggested.")
+                    + (stillOpen.map { " \($0) still has none." } ?? "")
+            case .none: "No new names found."
+            case .failed(let reason): "Names not suggested: \(reason)."
+            case .needsKey(let open): Self.noName(open) + " Suggest names needs an Anthropic key under Keys."
+            }
+        }
+
+        private static func noName(_ open: Int) -> String {
+            open == 1 ? "1 speaker has no name." : "\(open) speakers have no name."
+        }
+    }
+
     /// R13: one entry of *Move this segment to*.
     struct ReassignChoice: Equatable, Identifiable {
         let id: Int
@@ -271,6 +301,14 @@ final class MeetingWindowModel {
     private(set) var testCall: TestCallPaneModel?
     /// The live header's information line (design v8 R13); the latest wins (design v9 R27).
     private(set) var notice: (text: String, opensMeetingSettings: Bool)?
+    /// Set by the coordinator from the Keychain: Suggest names needs the key (design v9 R25).
+    var anthropicKeyPresent = false
+    /// A Stop pass or Suggest names is under way.
+    private(set) var isSuggestingNames = false
+    /// The last naming request's result, until the next one starts.
+    private var namingResult: NamingResult?
+    /// The request under way was asked for with Suggest names.
+    @ObservationIgnored private var namesRequested = false
     /// This session runs the meeting's voice route.
     private var voiceActive = false
     /// The provider keys with stored voice data.
@@ -388,7 +426,7 @@ final class MeetingWindowModel {
 
     var elapsedText: String { MeetingTime.format(elapsed) }
 
-    /// Live: the engine so far. Stopped: the engine, the replaced summaries and the current one (R18).
+    /// Live: the engine and naming so far. Stopped: also the replaced summaries and the current one (R18).
     var costText: String {
         Pricing.dollars(cost + (shownSummary?.costUSD ?? 0))
     }
@@ -576,6 +614,31 @@ final class MeetingWindowModel {
         return EvidenceCard(quote: evidence.text, said: said)
     }
 
+    /// Nil while live, in a test call, or with no open speaker and no result to show (design v9 R25).
+    var namingLine: NamingLine? {
+        guard state == .stopped, !isTest else { return nil }
+        if isSuggestingNames { return .running }
+        let open = speakers.filter(SuggestionPolicy.isOpen)
+        if let namingResult {
+            switch namingResult {
+            case .found(let count):
+                // A suggestion leaves its speaker open.
+                let unsuggested = open.filter { !$0.matches.contains { $0.state == .suggested } }
+                return .found(count: count, stillOpen: unsuggested.count == 1 ? unsuggested[0].name : nil)
+            case .none: return NamingLine.none
+            case .failed(let reason): return .failed(reason)
+            }
+        }
+        guard !open.isEmpty else { return nil }
+        return anthropicKeyPresent ? .offer(open: open.count) : .needsKey(open: open.count)
+    }
+
+    /// Suggest names was pressed: whatever it finds is shown, and the last result goes.
+    func suggestNamesRequested() {
+        namesRequested = true
+        namingResult = nil
+    }
+
     /// "Not <name>" on an applied name.
     func rejectTitle(of paragraph: Paragraph) -> String {
         "Not \(name(of: paragraph.speaker))"
@@ -644,7 +707,7 @@ final class MeetingWindowModel {
         if let endedAt = meeting.endedAt {
             self.endedAt = endedAt
             elapsed = meeting.durationSeconds
-            cost = meeting.billing.costUSD + meeting.billing.replacedSummaryCostUSD
+            cost = meeting.billing.costUSD + meeting.billing.replacedSummaryCostUSD + meeting.billing.namingCostUSD
         }
     }
 
@@ -764,8 +827,17 @@ final class MeetingWindowModel {
             notice = (Self.namingIntroduced, true)
         case .naming(.paused(let reason)):
             notice = ("Name suggestions paused: \(reason).", false)
-        case .naming(.running), .naming(.finished):
-            break
+        case .naming(.running):
+            isSuggestingNames = true
+            namingResult = nil
+        case .naming(.finished(let result)):
+            isSuggestingNames = false
+            switch result {
+            case .found: namingResult = result
+            // A Stop pass that names no one leaves the offer as its retry (R11).
+            case .none, .failed: namingResult = namesRequested ? result : nil
+            }
+            namesRequested = false
         }
     }
 

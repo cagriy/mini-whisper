@@ -52,6 +52,8 @@ struct MeetingCoordinatorTests {
         var stopGate: Gate?
         /// Sent after `.state(.stopped)` by a stop that summarises, as `MeetingController.stop` does.
         var summaryOnStop: SummaryState?
+        /// A stop that summarises starts the naming Stop pass first, as `MeetingController.stop` does.
+        var namingOnStop = false
         var failsToOpen = false
         /// The page's stopped-state requests, in arrival order.
         let requests: AsyncStream<String>
@@ -92,6 +94,7 @@ struct MeetingCoordinatorTests {
             meeting?.endedAt = MeetingCoordinatorTests.now.addingTimeInterval(2932)
             meeting?.durationSeconds = 2932
             send(.state(.stopped))
+            if summarise, namingOnStop { send(.naming(.running)) }
             if summarise, let summaryOnStop { send(.summary(summaryOnStop)) }
             await stopGate?.wait()
         }
@@ -129,6 +132,7 @@ struct MeetingCoordinatorTests {
         func dismissSuggestion(key: String) async { request.yield("dismiss \(key)") }
         func rejectMatch(key: String) async { request.yield("reject \(key)") }
         func thatsMe(key: String) async { request.yield("thatsme \(key)") }
+        func suggestNames() async { request.yield("suggest names") }
         var scrubs: [Set<UUID>?] = []
         func scrubVoices(people: Set<UUID>?) async { scrubs.append(people) }
     }
@@ -240,6 +244,8 @@ struct MeetingCoordinatorTests {
         var startsWhenDictationEnded: [Int] = []
         /// The engines whose voice route switch is on.
         var voiceRoutes: Set<MeetingEngine> = []
+        /// The keys the Keychain holds.
+        var keys: Set<KeyAccount> = []
         lazy var coordinator: MeetingCoordinator = MeetingCoordinator(deps: MeetingCoordinator.Dependencies(
             makeController: { [unowned self] frontApp in
                 frontApps.append(frontApp)
@@ -292,7 +298,8 @@ struct MeetingCoordinatorTests {
                 index: { [store] in store.index() },
                 readRecord: { [store] in store.read($0) }
             ),
-            voiceRouteEnabled: { [unowned self] in voiceRoutes.contains($0) }
+            voiceRouteEnabled: { [unowned self] in voiceRoutes.contains($0) },
+            hasKey: { [unowned self] in keys.contains($0) }
         ))
 
         init() {
@@ -1328,5 +1335,95 @@ struct MeetingCoordinatorTests {
         #expect(controller.stops == [true])
         #expect(controller.finishTests == 0)
         #expect(harness.conductors.isEmpty)
+    }
+
+    // MARK: - Suggest names
+
+    @Test func suggestNamesMarksTheModelAndReachesTheController() async {
+        let harness = Harness()
+        let controller = await harness.stopped()
+        let model = harness.models[0]
+        var requests = controller.requests.makeAsyncIterator()
+
+        harness.actions[0].suggestNames()
+
+        #expect(await requests.next() == "suggest names")
+        // Marked as asked for: a request that finds nothing says so.
+        controller.send(.naming(.running))
+        controller.send(.naming(.finished(.none)))
+        await harness.until { model.namingLine == MeetingWindowModel.NamingLine.none }
+        #expect(model.namingLine == MeetingWindowModel.NamingLine.none)
+    }
+
+    @Test func keyPresenceIsReadOnStopOnShowingAMeetingAndOnEnteringThePage() async throws {
+        let harness = Harness()
+        let controller = await harness.recording()
+        let model = harness.models[0]
+        #expect(model.anthropicKeyPresent == false)
+
+        harness.keys = [.anthropic]
+        await harness.coordinator.stop()
+        await harness.until { controller.state == .stopped && model.state == .stopped }
+        #expect(model.anthropicKeyPresent)
+
+        harness.keys = []
+        harness.coordinator.refreshKeyPresence()
+        #expect(model.anthropicKeyPresent == false)
+
+        harness.keys = [.anthropic]
+        try await harness.open(UUID())
+        #expect(harness.shownModel?.anthropicKeyPresent == true)
+    }
+
+    @Test func aSessionStoppedOffThePageIsKeptUntilItsStopPassEnds() async throws {
+        let harness = Harness()
+        let controller = await harness.recording()
+        let id = try #require(controller.meeting?.id)
+        let model = harness.models[0]
+        harness.coordinator.pageLeft()
+        let gate = Gate()
+        controller.stopGate = gate
+        controller.namingOnStop = true
+        controller.summaryOnStop = .writing
+
+        let stopping = Task { await harness.coordinator.stop() }
+        await harness.until { model.summary == .writing }
+        gate.open()
+        await stopping.value
+        controller.send(.summary(.ready(Self.summary)))
+        await harness.until { model.summary == .ready(Self.summary) }
+
+        // The summary is written; the Stop pass still runs.
+        #expect(harness.coordinator.isOpen(id))
+        controller.send(.naming(.finished(.found(1))))
+        await harness.until { !harness.coordinator.isOpen(id) }
+        #expect(harness.coordinator.isOpen(id) == false)
+    }
+
+    @Test func aStoredMeetingLeftWhileNamingIsKeptUntilTheRequestEnds() async throws {
+        let harness = Harness()
+        let id = UUID()
+        let controller = try await harness.open(id)
+        let model = harness.models[0]
+        controller.send(.naming(.running))
+        await until { model.isSuggestingNames }
+
+        harness.coordinator.pageLeft()
+
+        #expect(harness.coordinator.isOpen(id))
+        controller.send(.naming(.finished(.none)))
+        await harness.until { !harness.coordinator.isOpen(id) }
+        #expect(harness.coordinator.isOpen(id) == false)
+    }
+
+    @Test func aFinishedNamingRequestNotifiesTheListAndUsage() async {
+        let harness = Harness()
+        let controller = await harness.stopped()
+        let before = harness.changeCount
+
+        controller.send(.naming(.finished(.found(2))))
+
+        await harness.until { harness.changeCount > before }
+        #expect(harness.changeCount == before + 1)
     }
 }

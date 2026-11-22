@@ -1155,4 +1155,130 @@ import Testing
         #expect(model.notice?.text
             == "Speechmatics ignored some remembered voices. Rename those speakers to learn them again.")
     }
+
+    // MARK: - Suggest names on a stopped meeting
+
+    /// A stopped meeting where Speaker 1 and Speaker 2 have no name and Dan has one.
+    private func unnamed(key: Bool = true, meeting: Meeting = meeting(ended: true)) -> MeetingWindowModel {
+        let model = model()
+        model.show(meeting)
+        model.apply(.speakers([
+            Self.alex,
+            SpeakerLabel(id: 1, name: "Speaker 1", providerKeys: ["1:A"]),
+            SpeakerLabel(id: 2, name: "Speaker 2", providerKeys: ["1:B"]),
+            SpeakerLabel(id: 3, name: "Dan", providerKeys: ["1:C"]),
+        ]))
+        model.apply(.state(.stopped))
+        model.anthropicKeyPresent = key
+        return model
+    }
+
+    @Test func theOfferCountsTheSpeakersWithNoName() {
+        let model = unnamed()
+        #expect(model.namingLine == .offer(open: 2))
+        #expect(model.namingLine?.text == "2 speakers have no name.")
+
+        model.apply(.speakers([Self.alex, SpeakerLabel(id: 1, name: "Speaker 1"), SpeakerLabel(id: 2, name: "Kate")]))
+        #expect(model.namingLine == .offer(open: 1))
+        #expect(model.namingLine?.text == "1 speaker has no name.")
+    }
+
+    @Test func withoutAKeyTheLineSaysSuggestNamesNeedsOne() {
+        let model = unnamed(key: false)
+        #expect(model.namingLine == .needsKey(open: 2))
+        #expect(model.namingLine?.text == "2 speakers have no name. Suggest names needs an Anthropic key under Keys.")
+    }
+
+    @Test func aRequestShowsTheRunningLine() {
+        let model = unnamed()
+        model.apply(.naming(.running))
+
+        #expect(model.isSuggestingNames)
+        #expect(model.namingLine == .running)
+        #expect(model.namingLine?.text == "Suggesting names from the transcript…")
+    }
+
+    @Test func foundNamesAreCountedAndTheOneSpeakerLeftWithoutIsNamed() {
+        let model = unnamed()
+        model.apply(.naming(.running))
+        model.apply(.naming(.finished(.found(3))))
+        #expect(model.isSuggestingNames == false)
+        #expect(model.namingLine == .found(count: 3, stillOpen: nil))
+        #expect(model.namingLine?.text == "3 names suggested.")
+
+        // Speaker 1 holds a suggestion, so Speaker 2 is the one left with none.
+        model.apply(.speakers([
+            Self.alex,
+            SpeakerLabel(id: 1, name: "Speaker 1", providerKeys: ["1:A"], matches: [Self.kate()]),
+            SpeakerLabel(id: 2, name: "Speaker 2", providerKeys: ["1:B"]),
+        ]))
+        model.apply(.naming(.running))
+        model.apply(.naming(.finished(.found(1))))
+        #expect(model.namingLine == .found(count: 1, stillOpen: "Speaker 2"))
+        #expect(model.namingLine?.text == "1 name suggested. Speaker 2 still has none.")
+    }
+
+    @Test func aManualRequestShowsWhenNothingWasFoundOrItFailed() {
+        let model = unnamed()
+        model.suggestNamesRequested()
+        model.apply(.naming(.running))
+        model.apply(.naming(.finished(.none)))
+        #expect(model.namingLine == MeetingWindowModel.NamingLine.none)
+        #expect(model.namingLine?.text == "No new names found.")
+
+        model.suggestNamesRequested()
+        model.apply(.naming(.running))
+        model.apply(.naming(.finished(.failed("no internet connection"))))
+        #expect(model.namingLine == .failed("no internet connection"))
+        #expect(model.namingLine?.text == "Names not suggested: no internet connection.")
+    }
+
+    @Test(arguments: [NamingResult.none, .failed("Anthropic did not answer in time")])
+    func aStopPassThatSuggestsNothingReturnsToTheOffer(_ result: NamingResult) {
+        let model = unnamed()
+        model.apply(.naming(.running))
+        model.apply(.naming(.finished(result)))
+
+        #expect(model.namingLine == .offer(open: 2))
+    }
+
+    @Test func aNewRequestClearsTheOutcome() {
+        let model = unnamed()
+        model.apply(.naming(.running))
+        model.apply(.naming(.finished(.found(2))))
+
+        model.suggestNamesRequested()
+        #expect(model.namingLine == .offer(open: 2))
+        model.apply(.naming(.running))
+        #expect(model.namingLine == .running)
+    }
+
+    @Test func noLineInATestCallWithEveryoneNamedOrWhileLive() {
+        let test = unnamed(meeting: Self.testMeeting())
+        #expect(test.namingLine == nil)
+        test.apply(.naming(.finished(.found(1))))
+        #expect(test.namingLine == nil)
+
+        let named = unnamed()
+        named.apply(.speakers([Self.alex, SpeakerLabel(id: 1, name: "Kate"), SpeakerLabel(id: 2, name: "Dan")]))
+        #expect(named.namingLine == nil)
+
+        let live = model()
+        live.show(Self.meeting())
+        live.apply(.speakers([Self.alex, SpeakerLabel(id: 1, name: "Speaker 1")]))
+        live.apply(.state(.recording))
+        live.anthropicKeyPresent = true
+        #expect(live.namingLine == nil)
+    }
+
+    @Test func aStoppedMeetingsCostIncludesNaming() {
+        var meeting = Self.meeting(ended: true)
+        meeting.billing.replacedSummaryCostUSD = 0.03106
+        meeting.billing.namingCostUSD = 0.0284
+        let model = model()
+
+        model.show(meeting)
+
+        #expect(model.costText == Pricing.dollars(0.3665 + 0.03106 + 0.0284))
+    }
 }

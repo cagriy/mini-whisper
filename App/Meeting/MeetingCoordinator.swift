@@ -33,6 +33,7 @@ protocol MeetingControlling: AnyObject {
     func dismissSuggestion(key: String) async
     func rejectMatch(key: String) async
     func thatsMe(key: String) async
+    func suggestNames() async
     func scrubVoices(people: Set<UUID>?) async
 }
 
@@ -66,6 +67,8 @@ struct MeetingActions {
     var dismissSuggestion: @MainActor (_ key: String) -> Void = { _ in }
     var rejectMatch: @MainActor (_ key: String) -> Void = { _ in }
     var thatsMe: @MainActor (_ key: String) -> Void = { _ in }
+    /// The stopped Transcript tab's Suggest names.
+    var suggestNames: @MainActor () -> Void = {}
 }
 
 /// Meeting mode's entry points (design §5.5): the hotkey and menu open a chooser, Start runs a
@@ -98,6 +101,8 @@ final class MeetingCoordinator {
         var silencePrompt: any SilencePrompting
         var testCalls: TestCallDependencies
         var voiceRouteEnabled: @MainActor (MeetingEngine) -> Bool = { _ in false }
+        /// Whether the Keychain holds a key for the account.
+        var hasKey: @MainActor (KeyAccount) -> Bool = { _ in false }
     }
 
     @MainActor
@@ -119,8 +124,11 @@ final class MeetingCoordinator {
 
         var state: MeetingState { controller.state }
 
-        var isWritingSummary: Bool {
-            switch model.summary {
+        /// Its summary is being written or names are being suggested: what a stopped session
+        /// is kept off screen for.
+        var isBusy: Bool {
+            if model.isSuggestingNames { return true }
+            return switch model.summary {
             case .writing?, .rewriting?: true
             default: false
             }
@@ -132,7 +140,7 @@ final class MeetingCoordinator {
     private var current: Session?
     /// A stored meeting opened from the list or search.
     private var opened: Session?
-    /// Stopped sessions kept off screen while their summary is written.
+    /// Stopped sessions kept off screen while they are busy.
     private var finishing: [Session] = []
     /// Which of `current` and `opened` is on the meeting page.
     private var shown: Session?
@@ -271,6 +279,16 @@ final class MeetingCoordinator {
         present(current)
     }
 
+    /// Suggest names needs the Anthropic key, which may have changed while the page was away
+    /// (design v9 R25).
+    func refreshKeyPresence() {
+        if let shown { readKey(for: shown) }
+    }
+
+    private func readKey(for session: Session) {
+        session.model.anthropicKeyPresent = deps.hasKey(.anthropic)
+    }
+
     /// The window stopped showing the meeting page.
     func pageLeft() {
         guard let session = shown else { return }
@@ -354,8 +372,8 @@ final class MeetingCoordinator {
         session.isStopping = true
         await call(session)
         session.isStopping = false
-        // Stopped off the page with no summary under way, as at quit.
-        if finishing.contains(where: { $0 === session }), !session.isWritingSummary { drop(session) }
+        // Stopped off the page with nothing under way, as at quit.
+        settle(session)
     }
 
     private static func isStoppable(_ state: MeetingState) -> Bool {
@@ -372,6 +390,7 @@ final class MeetingCoordinator {
             leave(previous)
         }
         shown = session
+        readKey(for: session)
         deps.present(session.model, actions(for: session))
     }
 
@@ -385,11 +404,12 @@ final class MeetingCoordinator {
         }
     }
 
-    /// A stopped session leaves its slot, and is kept off screen while its summary is being
-    /// written or its Stop has not returned (`.summary(.writing)` follows `.state(.stopped)`).
+    /// A stopped session leaves its slot, and is kept off screen while it is busy or its Stop has
+    /// not returned (`.summary(.writing)` follows `.state(.stopped)`). A naming request still
+    /// running would otherwise race a reopened copy of the meeting on `meeting.json`.
     private func release(_ session: Session) {
         drop(session)
-        if session.isWritingSummary || session.isStopping { finishing.append(session) }
+        if session.isBusy || session.isStopping { finishing.append(session) }
     }
 
     private func drop(_ session: Session) {
@@ -403,8 +423,9 @@ final class MeetingCoordinator {
         if current === session, shown !== session { release(session) }
     }
 
-    private func summaryChanged(_ session: Session) {
-        if finishing.contains(where: { $0 === session }), !session.isWritingSummary { drop(session) }
+    /// A finishing session goes once nothing keeps it.
+    private func settle(_ session: Session) {
+        if finishing.contains(where: { $0 === session }), !session.isBusy { drop(session) }
     }
 
     private func actions(for session: Session) -> MeetingActions {
@@ -469,7 +490,13 @@ final class MeetingCoordinator {
             acceptSuggestion: Self.matchAction(of: session) { await $0.acceptSuggestion(key: $1) },
             dismissSuggestion: Self.matchAction(of: session) { await $0.dismissSuggestion(key: $1) },
             rejectMatch: Self.matchAction(of: session) { await $0.rejectMatch(key: $1) },
-            thatsMe: Self.matchAction(of: session) { await $0.thatsMe(key: $1) }
+            thatsMe: Self.matchAction(of: session) { await $0.thatsMe(key: $1) },
+            suggestNames: { [weak session] in
+                guard let session else { return }
+                session.model.suggestNamesRequested()
+                let controller = session.controller
+                Task { await controller.suggestNames() }
+            }
         )
     }
 
@@ -498,11 +525,13 @@ final class MeetingCoordinator {
                     if state == .stopped {
                         // The header's end time, duration and engine cost.
                         if let meeting = session.controller.meeting { session.model.show(meeting) }
+                        self?.readKey(for: session)
                         self?.stopped(session)
                     }
                     self?.deps.changed()
-                case .summary:
-                    self?.summaryChanged(session)
+                case .summary, .naming(.finished):
+                    self?.settle(session)
+                    // The list and the usage totals take the summary's or the naming cost.
                     self?.deps.changed()
                 case .silence(let prompt):
                     self?.silence(prompt, of: session)

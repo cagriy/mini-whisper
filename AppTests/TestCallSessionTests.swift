@@ -113,6 +113,7 @@ private final class StubController: MeetingControlling {
     func dismissSuggestion(key: String) async {}
     func rejectMatch(key: String) async {}
     func thatsMe(key: String) async {}
+    func suggestNames() async {}
     func scrubVoices(people: Set<UUID>?) async {}
 }
 

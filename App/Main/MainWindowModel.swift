@@ -15,6 +15,8 @@ final class MainWindowModel {
         var showLiveMeeting: @MainActor () -> Void = {}
         /// The window stopped showing the meeting page.
         var meetingPageLeft: @MainActor () -> Void = {}
+        /// The meeting page was navigated to.
+        var meetingEntered: @MainActor () -> Void = {}
     }
 
     /// The session on the meeting page, as last presented.
@@ -109,7 +111,8 @@ final class MainWindowModel {
         case .dictations: loading = Task { await dictations.reload() }
         // A key saved or removed elsewhere changes what the engine lists offer.
         case .settings: settings.refreshKeys()
-        case .search, .meeting: break
+        case .meeting: deps.meetingEntered()
+        case .search: break
         }
     }
 }

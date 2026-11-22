@@ -40,6 +40,7 @@ import Testing
         var opened: [UUID] = []
         var openFails = false
         var pagesLeft = 0
+        var pagesEntered = 0
         var liveShown = 0
         lazy var model: MainWindowModel = {
             var calendar = Calendar(identifier: .gregorian)
@@ -105,7 +106,8 @@ import Testing
                         opened.append(id)
                     },
                     showLiveMeeting: { [unowned self] in liveShown += 1 },
-                    meetingPageLeft: { [unowned self] in pagesLeft += 1 }
+                    meetingPageLeft: { [unowned self] in pagesLeft += 1 },
+                    meetingEntered: { [unowned self] in pagesEntered += 1 }
                 )
             )
         }()
@@ -298,6 +300,17 @@ import Testing
         #expect(harness.model.navigation.destination == .dictations)
         #expect(harness.model.presented == nil)
         #expect(harness.pagesLeft == 1)
+    }
+
+    @Test func enteringTheMeetingPageTellsTheMeetings() {
+        let harness = Harness()
+        defer { harness.cleanUp() }
+
+        harness.model.showMeeting(Self.meeting(), actions: Self.noActions)
+        #expect(harness.pagesEntered == 1)
+
+        harness.model.navigation.go(.dictations)
+        #expect(harness.pagesEntered == 1)
     }
 
     @Test func presentingAnotherSessionOnTheMeetingPageDoesNotLeaveIt() {

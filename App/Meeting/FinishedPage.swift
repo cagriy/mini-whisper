@@ -2,7 +2,8 @@ import SwiftUI
 
 /// A stopped meeting (design §5.9 *Finished meeting*): the top bar with the back pill, Copy
 /// summary, Regenerate and Export ▾; the title, chips and the Summary · Transcript · Notes switch.
-/// A test call's transcript shares the page with its Score pane.
+/// A test call's transcript shares the page with its Score pane; any other's has the Suggest
+/// names line above it.
 struct FinishedPage: View {
     @Bindable var model: MeetingWindowModel
     let actions: MeetingActions
@@ -83,10 +84,26 @@ struct FinishedPage: View {
                 SummaryView(panel: panel, summarise: actions.summarise)
             }
         case .transcript:
+            if let line = model.namingLine { naming(line) }
             TranscriptView(model: model, actions: actions, dialog: $dialog, scrolls: false)
         case .notes:
             NotesList(notes: model.notes)
         }
+    }
+
+    /// Design v9 R25: Suggest names, its progress and its outcome.
+    @ViewBuilder private func naming(_ line: MeetingWindowModel.NamingLine) -> some View {
+        switch line {
+        case .running: StatusLine(line.text)
+        case .offer: StatusLine(line.text, .info) { suggestNames }
+        case .found, .none: StatusLine(line.text, .info)
+        case .failed: StatusLine(line.text, .warning) { suggestNames }
+        case .needsKey: StatusLine(line.text, .warning)
+        }
+    }
+
+    private var suggestNames: some View {
+        Button("Suggest names", action: actions.suggestNames).buttonStyle(.pill(size: .small))
     }
 
     /// The score once Stop has read or computed it; until then the script.

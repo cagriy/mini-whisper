@@ -292,6 +292,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             config: config
         )
         main?.model.usage = totals
+        // Never removed: the window lives as long as the app. A key changed while the window was
+        // in the background is read again for Suggest names when it comes forward.
+        NotificationCenter.default.addObserver(
+            forName: NSWindow.didBecomeKeyNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated {
+                guard let self, NSApp.keyWindow?.delegate === self.main else { return }
+                self.meetings?.refreshKeyPresence()
+            }
+        }
 
         configTask = Task { [weak self] in
             for await updated in configStore.changes {
@@ -321,7 +331,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         export: @escaping @MainActor (MeetingExporter.Kind, UUID) -> Void,
         voices: VoiceDependencies
     ) -> MeetingCoordinator {
-        let summarizer = KeyedAnthropicClient(secrets: secrets)
+        let anthropic = KeyedAnthropicClient(secrets: secrets)
+        let hasKey: @Sendable (KeyAccount) -> Bool = { (try? secrets.secret(for: $0))?.isEmpty == false }
         return MeetingCoordinator(deps: MeetingCoordinator.Dependencies(
             makeController: { frontApp in
                 MeetingController(
@@ -331,12 +342,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                         engines: EngineFactory(),
                         secrets: secrets,
                         store: store,
-                        summarizer: summarizer,
+                        summarizer: anthropic,
                         usage: usage,
                         prompts: prompts,
                         frontAppName: { frontApp },
                         userName: { NSFullUserName() },
-                        voices: voices
+                        voices: voices,
+                        namer: anthropic
                     ),
                     config: configStore
                 )
@@ -352,7 +364,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     config: self?.config ?? Config(),
                     platform: PlatformInfo(),
                     accountName: NSFullUserName(),
-                    hasKey: { (try? secrets.secret(for: $0))?.isEmpty == false }
+                    hasKey: hasKey
                 )
             },
             present: { [weak self] model, actions in self?.main?.showMeeting(model, actions: actions) },
@@ -382,7 +394,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 index: { try store.index() },
                 readRecord: { try store.readTestCall($0) }
             ),
-            voiceRouteEnabled: { [weak self] engine in self?.config.voice.isEnabled(engine.voiceRoute) ?? false }
+            voiceRouteEnabled: { [weak self] engine in self?.config.voice.isEnabled(engine.voiceRoute) ?? false },
+            hasKey: hasKey
         ))
     }
 
@@ -403,7 +416,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             deps: MainWindowModel.Dependencies(
                 openMeeting: { [weak self] in try await self?.meetings?.open($0) },
                 showLiveMeeting: { [weak self] in self?.meetings?.show() },
-                meetingPageLeft: { [weak self] in self?.meetings?.pageLeft() }
+                meetingPageLeft: { [weak self] in self?.meetings?.pageLeft() },
+                meetingEntered: { [weak self] in self?.meetings?.refreshKeyPresence() }
             )
         )
         return MainWindowController(model: model, store: configStore, savedFrame: config.mainWindowFrame)

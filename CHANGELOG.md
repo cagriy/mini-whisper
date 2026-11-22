@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### Added
+
+- Speaker names suggested from the conversation by Claude Haiku 5.5, each with the line it came
+  from; stopped meetings offer Suggest names. The transcript goes to Anthropic during the
+  meeting, about 3 cents a meeting. Needs an Anthropic key; turn off under Settings → Meetings.
+
 ## [0.8.2] - 2026-11-22
 
 ### Added
