@@ -29,6 +29,11 @@ public struct AnthropicClient: Summarizing {
     public static let maxTokens = 16000
     public static let effort = "low"
     public static let timeout = Duration.seconds(180)
+    public static let namingModel = "claude-haiku-5-5"
+    public static let namingEffort = "medium"
+    public static let namingMaxTokens = 8000
+    public static let namingTimeout = Duration.seconds(60)
+    private static let namingMaxSuggestions = 50
 
     private let apiKey: String
     private let transport: any HTTPTransport
@@ -50,20 +55,14 @@ public struct AnthropicClient: Summarizing {
             "messages": [["role": "user", "content": user]],
         ] as [String: Any])
 
-        var request = URLRequest(url: Self.messagesURL)
-        request.httpMethod = "POST"
-        request.setValue(apiKey, forHTTPHeaderField: "x-api-key")
-        request.setValue(Self.apiVersion, forHTTPHeaderField: "anthropic-version")
-        request.setValue(Self.fallbackBeta, forHTTPHeaderField: "anthropic-beta")
-        request.setValue("application/json", forHTTPHeaderField: "content-type")
-        request.httpBody = body
-
         // Log lines carry sizes, status and token counts only (R27).
         let sent = "summary request \(body.count) bytes"
         let data: Data
         let response: HTTPURLResponse
         do {
-            (data, response) = try await transport.send(request, timeout: Self.timeout)
+            (data, response) = try await transport.send(
+                messagesRequest(body, beta: Self.fallbackBeta), timeout: Self.timeout
+            )
         } catch {
             log.info("\(sent) failed: \(AnyError(error).description)")
             throw APIError.transport(error)
@@ -80,22 +79,111 @@ public struct AnthropicClient: Summarizing {
             throw APIError.transport(error)
         }
 
-        let usage = TokenUsage(
-            inputTokens: reply.usage?.inputTokens ?? 0,
-            outputTokens: reply.usage?.outputTokens ?? 0
-        )
+        let usage = reply.tokenUsage
         log.info("\(sent), HTTP \(response.statusCode), \(usage.inputTokens) input / \(usage.outputTokens) output tokens")
         return SummaryResult(
-            text: reply.content.filter { $0.type == "text" }.compactMap(\.text).joined(),
+            text: reply.text,
             usage: usage,
             // The category may be null; a refusal must still read as one.
             refusalCategory: reply.stopReason == "refusal"
                 ? (reply.stopDetails?.category ?? "unspecified") : nil
         )
     }
+
+    private func messagesRequest(_ body: Data, beta: String? = nil) -> URLRequest {
+        var request = URLRequest(url: Self.messagesURL)
+        request.httpMethod = "POST"
+        request.setValue(apiKey, forHTTPHeaderField: "x-api-key")
+        request.setValue(Self.apiVersion, forHTTPHeaderField: "anthropic-version")
+        if let beta { request.setValue(beta, forHTTPHeaderField: "anthropic-beta") }
+        request.setValue("application/json", forHTTPHeaderField: "content-type")
+        request.httpBody = body
+        return request
+    }
+}
+
+/// The naming call: Haiku 5.5 at medium effort with schema-constrained output, a cache
+/// breakpoint on the system prompt and on the last closed transcript block, 60 s, no
+/// fallback and no retry.
+extension AnthropicClient: NameSuggesting {
+    public func suggestNames(_ request: NamingRequest) async throws -> NamingReply {
+        let ephemeral = ["type": "ephemeral"]
+        var content: [[String: Any]] = request.blocks.enumerated().map { index, text in
+            index == request.cacheBlocks - 1
+                ? ["type": "text", "text": text, "cache_control": ephemeral]
+                : ["type": "text", "text": text]
+        }
+        content.append(["type": "text", "text": request.state])
+        // No thinking/temperature: Haiku 5.5 thinks adaptively by default, and API version
+        // 2026-10-21 rejects sampling parameters.
+        let body = try JSONSerialization.data(withJSONObject: [
+            "model": Self.namingModel,
+            "max_tokens": Self.namingMaxTokens,
+            "output_config": [
+                "effort": Self.namingEffort,
+                "format": ["type": "json_schema", "schema": try JSONSerialization.jsonObject(with: request.schema)],
+            ] as [String: Any],
+            "system": [["type": "text", "text": request.system, "cache_control": ephemeral]],
+            "messages": [["role": "user", "content": content]],
+        ] as [String: Any])
+
+        // Log lines carry bytes, status and token counts only (R29).
+        let sent = "naming request \(body.count) bytes"
+        let data: Data
+        let response: HTTPURLResponse
+        do {
+            (data, response) = try await transport.send(messagesRequest(body), timeout: Self.namingTimeout)
+        } catch {
+            let code = error as NSError
+            Log.naming.info("\(sent) failed: \(code.domain) \(code.code)")
+            throw NamingError.transport(Self.transportReason(error))
+        }
+        let status = "\(sent), HTTP \(response.statusCode)"
+        guard (200..<300).contains(response.statusCode) else {
+            Log.naming.info(status)
+            switch response.statusCode {
+            case 401, 403: throw NamingError.unauthorized
+            case 429: throw NamingError.rateLimited
+            default: throw NamingError.server(response.statusCode)
+            }
+        }
+        guard let reply = try? JSONDecoder().decode(MessagesResponse.self, from: data) else {
+            Log.naming.info("\(status), reply could not be decoded")
+            throw NamingError.malformed
+        }
+
+        let usage = reply.tokenUsage
+        Log.naming.info("""
+            \(status), stop \(reply.stopReason ?? "none"), \(usage.inputTokens) input / \
+            \(usage.cacheReadTokens) cache-read / \(usage.cacheWriteTokens) cache-write / \
+            \(usage.outputTokens) output tokens
+            """)
+        switch reply.stopReason {
+        case "refusal": throw NamingError.refused
+        case "max_tokens": throw NamingError.truncated
+        default: break
+        }
+        guard let output = try? JSONDecoder().decode(NamingOutput.self, from: Data(reply.text.utf8)) else {
+            Log.naming.info("\(status), suggestions could not be decoded")
+            throw NamingError.malformed
+        }
+        return NamingReply(suggestions: Array(output.suggestions.prefix(Self.namingMaxSuggestions)), usage: usage)
+    }
+
+    private static func transportReason(_ error: any Error) -> String {
+        switch (error as? URLError)?.code {
+        case .notConnectedToInternet?, .networkConnectionLost?: "no internet connection"
+        case .timedOut?: "Anthropic did not answer in time"
+        default: AnyError(error).description
+        }
+    }
 }
 
 // MARK: - Wire shapes
+
+private struct NamingOutput: Decodable {
+    var suggestions: [RawSuggestion]
+}
 
 private struct MessagesResponse: Decodable {
     struct Block: Decodable {
@@ -110,10 +198,14 @@ private struct MessagesResponse: Decodable {
     struct Usage: Decodable {
         var inputTokens: Int?
         var outputTokens: Int?
+        var cacheReadTokens: Int?
+        var cacheWriteTokens: Int?
 
         enum CodingKeys: String, CodingKey {
             case inputTokens = "input_tokens"
             case outputTokens = "output_tokens"
+            case cacheReadTokens = "cache_read_input_tokens"
+            case cacheWriteTokens = "cache_creation_input_tokens"
         }
     }
 
@@ -127,5 +219,19 @@ private struct MessagesResponse: Decodable {
         case stopReason = "stop_reason"
         case stopDetails = "stop_details"
         case usage
+    }
+
+    /// A reply may open with `thinking` blocks; only `text` blocks carry the answer.
+    var text: String {
+        content.filter { $0.type == "text" }.compactMap(\.text).joined()
+    }
+
+    var tokenUsage: TokenUsage {
+        TokenUsage(
+            inputTokens: usage?.inputTokens ?? 0,
+            outputTokens: usage?.outputTokens ?? 0,
+            cacheReadTokens: usage?.cacheReadTokens ?? 0,
+            cacheWriteTokens: usage?.cacheWriteTokens ?? 0
+        )
     }
 }

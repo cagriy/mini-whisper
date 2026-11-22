@@ -96,6 +96,20 @@ private func json(_ data: Data) throws -> [String: Any] {
         ))
     }
 
+    @Test func readsCacheUsage() async throws {
+        let transport = stubbed(#"""
+            {"content": [{"type": "text", "text": "## Summary"}], "stop_reason": "end_turn",
+             "usage": {"input_tokens": 1200, "output_tokens": 340,
+                       "cache_read_input_tokens": 800, "cache_creation_input_tokens": 50}}
+            """#)
+
+        let result = try await summarise(transport)
+
+        #expect(result.usage == TokenUsage(
+            inputTokens: 1200, outputTokens: 340, cacheReadTokens: 800, cacheWriteTokens: 50
+        ))
+    }
+
     @Test func refusalCarriesTheCategory() async throws {
         let transport = stubbed(#"""
             {"content": [], "stop_reason": "refusal",
