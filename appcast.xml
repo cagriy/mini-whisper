@@ -5,6 +5,17 @@
     <link>https://raw.githubusercontent.com/cagriy/mini-whisper/main/appcast.xml</link>
     <language>en</language>
     <item>
+      <title>Mini Whisper 0.9.0b1</title>
+      <sparkle:version>0.9.0b1</sparkle:version>
+      <sparkle:shortVersionString>0.9.0b1</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <sparkle:channel>beta</sparkle:channel>
+      <description>&lt;h3&gt;Added&lt;/h3&gt;
+&lt;ul&gt;&lt;li&gt;Speaker names suggested from the conversation by Claude Haiku 5.5, each with the line it came from; stopped meetings offer Suggest names. The transcript goes to Anthropic during the meeting, about 3 cents a meeting. Needs an Anthropic key; turn off under Settings → Meetings.&lt;/li&gt;&lt;/ul&gt;</description>
+      <pubDate>Sun, 22 Nov 2026 19:05:22 +0000</pubDate>
+      <enclosure url="https://github.com/cagriy/mini-whisper/releases/download/v0.9.0b1/MiniWhisper-0.9.0b1-arm64.dmg" sparkle:edSignature="50hS4nHeltiQoF5lpeLvFubNtKEVl/KtuXkcmv+Uj1pDmvrP/b/UfjZdV3UBBrWZho3nny9EO9eKmaOVQcVeAw==" length="16475769" type="application/octet-stream" />
+    </item>
+    <item>
       <title>Mini Whisper 0.8.2</title>
       <sparkle:version>0.8.2</sparkle:version>
       <sparkle:shortVersionString>0.8.2</sparkle:shortVersionString>
