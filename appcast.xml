@@ -5,6 +5,17 @@
     <link>https://raw.githubusercontent.com/cagriy/mini-whisper/main/appcast.xml</link>
     <language>en</language>
     <item>
+      <title>Mini Whisper 0.9.0b3</title>
+      <sparkle:version>0.9.0b3</sparkle:version>
+      <sparkle:shortVersionString>0.9.0b3</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <sparkle:channel>beta</sparkle:channel>
+      <description>&lt;h3&gt;Fixed&lt;/h3&gt;
+&lt;ul&gt;&lt;li&gt;Quit from the menu bar hung once the main window had been opened that session.&lt;/li&gt;&lt;/ul&gt;</description>
+      <pubDate>Mon, 23 Nov 2026 10:55:04 +0000</pubDate>
+      <enclosure url="https://github.com/cagriy/mini-whisper/releases/download/v0.9.0b3/MiniWhisper-0.9.0b3-arm64.dmg" sparkle:edSignature="ClYKkqe5/xBQetwSZbA1vjgcUMJJW3aY0uRjd5pJXKbb1WNk6MKHsgN48stmr0dYqDhtTOdVvIS6kCcFKJ7fAg==" length="16477744" type="application/octet-stream" />
+    </item>
+    <item>
       <title>Mini Whisper 0.9.0b2</title>
       <sparkle:version>0.9.0b2</sparkle:version>
       <sparkle:shortVersionString>0.9.0b2</sparkle:shortVersionString>
