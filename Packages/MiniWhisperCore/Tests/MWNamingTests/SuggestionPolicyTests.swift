@@ -121,11 +121,18 @@ import MWNaming
 
     // Rule 2
 
-    @Test func likelyAndUnknownKindsAreDropped() {
-        let decision = decide([raw(confidence: "likely"), raw(confidence: "CERTAIN"), raw(kind: "nickname")])
+    @Test func unknownConfidencesAndKindsAreDropped() {
+        let decision = decide([raw(confidence: "CERTAIN"), raw(confidence: "possible"), raw(kind: "nickname")])
 
         #expect(decision.actions.isEmpty)
         #expect(decision.dropped == [2: 3])
+    }
+
+    @Test func likelyIsKept() {
+        let decision = decide([raw(confidence: "likely")])
+
+        #expect(decision.actions == [suggestKate])
+        #expect(decision.dropped.isEmpty)
     }
 
     @Test(arguments: ["self_introduction", "addressed", "handoff", "other"])
@@ -307,6 +314,28 @@ import MWNaming
         #expect(elsewhere.dropped == [8: 2])
     }
 
+    @Test func likelyGivesWayToCertainForTheSameSpeaker() {
+        let decision = decide([
+            raw("S2", "Kate", confidence: "likely", kind: "addressed", turn: 2, quote: "Thanks Kate"),
+            raw("S2", "Dan", turn: 2, quote: "I'm Dan"),
+        ])
+
+        let evidence = NameEvidence(segment: meeting[1].id, time: 5, text: "I'm Dan")
+        #expect(decision.actions == [.suggest(speaker: 2, match("Dan", speaker: 2, evidence))])
+        #expect(decision.dropped == [8: 1])
+    }
+
+    @Test func likelyGivesWayToCertainForTheSameName() {
+        let decision = decide([
+            raw("S3", "Kate", confidence: "likely", kind: "other", turn: 2, quote: "Thanks Kate"),
+            raw("S1", "Kate", kind: "addressed", turn: 2, quote: "Thanks Kate"),
+        ])
+
+        let evidence = NameEvidence(segment: meeting[1].id, time: 5, text: "Thanks Kate")
+        #expect(decision.actions == [.suggest(speaker: 1, match("Kate", speaker: 1, evidence, kind: "addressed"))])
+        #expect(decision.dropped == [8: 1])
+    }
+
     // Rule 9
 
     @Test func sameStandingNameEmitsNothing() {
@@ -332,6 +361,10 @@ import MWNaming
 
     @Test func selfIntroductionIsAppliedWhenEveryConditionHolds() {
         #expect(decide([raw()]) { $0.autoApply = true }.actions == [applyKate])
+    }
+
+    @Test func likelySelfIntroductionIsOnlySuggested() {
+        #expect(decide([raw(confidence: "likely")]) { $0.autoApply = true }.actions == [suggestKate])
     }
 
     @Test func autoApplyOffSuggests() {

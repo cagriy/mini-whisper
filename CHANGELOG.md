@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+### Changed
+
+- Speaker names Claude is less sure of are suggested too, instead of dropped; only a certain
+  self-introduction is applied without asking.
+
 ## [0.9.0b1] - 2026-11-22
 
 ### Added

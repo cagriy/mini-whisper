@@ -49,6 +49,8 @@ public struct NamingDecision: Sendable, Equatable {
 public enum SuggestionPolicy {
     private static let source = "conversation"
     private static let selfIntroduction = "self_introduction"
+    private static let certain = "certain"
+    private static let confidences: Set = [certain, "likely"]
     private static let kinds: Set = [selfIntroduction, "addressed", "handoff", "other"]
     private static let maxSuggestions = 50
 
@@ -80,8 +82,9 @@ public enum SuggestionPolicy {
                 dropped[9, default: 0] += 1
                 continue
             }
-            // Rule 10. A name another speaker holds is only suggested: Accept merges the two.
-            let applies = context.autoApply && candidate.introducesItself && !candidate.isUser
+            // Rule 10. A likely name, or one another speaker holds, is only suggested: Accept
+            // merges the two.
+            let applies = context.autoApply && candidate.isCertain && candidate.introducesItself && !candidate.isUser
                 && !context.speakers.contains { $0.id != candidate.speaker && NameFold.key($0.name) == candidate.key }
             let match = NameMatch(
                 key: target.providerKeys.first ?? "", name: candidate.name, person: nil, source: source,
@@ -98,6 +101,7 @@ public enum SuggestionPolicy {
         /// `NameFold` key of `name`.
         var key: String
         var kind: String
+        var isCertain: Bool
         var evidence: NameEvidence
         /// The user's name or a misheard spelling of it.
         var isUser: Bool
@@ -118,7 +122,7 @@ public enum SuggestionPolicy {
         guard let match = raw.speaker.wholeMatch(of: /S(\d+)/), let id = Int(match.1),
               let target = context.speakers.first(where: { $0.id == id })
         else { return .failure(Drop(rule: 1)) }
-        guard raw.confidence == "certain", kinds.contains(raw.kind) else { return .failure(Drop(rule: 2)) }
+        guard confidences.contains(raw.confidence), kinds.contains(raw.kind) else { return .failure(Drop(rule: 2)) }
         guard let clean = NameSanitiser.clean(raw.name) else { return .failure(Drop(rule: 3)) }
         var checked = raw
         checked.name = clean
@@ -144,13 +148,22 @@ public enum SuggestionPolicy {
         else { return .failure(Drop(rule: 7)) }
 
         return .success(Candidate(
-            target: target, name: name, key: canonical, kind: raw.kind, evidence: evidence, isUser: isUser,
+            target: target, name: name, key: canonical, kind: raw.kind, isCertain: raw.confidence == certain,
+            evidence: evidence, isUser: isUser,
             introducesItself: raw.kind == selfIntroduction && context.segmentSpeakers[evidence.segment] == id
         ))
     }
 
     /// Rule 8, keeping the reply's order.
-    private static func resolveConflicts(_ candidates: [Candidate], dropped: inout [Int: Int]) -> [Candidate] {
+    private static func resolveConflicts(_ all: [Candidate], dropped: inout [Int: Int]) -> [Candidate] {
+        // A likely name gives way to a certain one for the same speaker or the same name.
+        let candidates = all.filter { candidate in
+            guard !candidate.isCertain, all.contains(where: {
+                $0.isCertain && ($0.speaker == candidate.speaker) != ($0.key == candidate.key)
+            }) else { return true }
+            dropped[8, default: 0] += 1
+            return false
+        }
         // One speaker with two names: neither. One name said twice for a speaker: one.
         var perSpeaker: [Candidate] = []
         for (index, candidate) in candidates.enumerated() {

@@ -348,9 +348,9 @@ import Testing
         let sink = CapturingLogSink()
         var unknown = Self.kate
         unknown.speaker = "S9"
-        var likely = Self.kate
-        likely.confidence = "likely"
-        let route = route(FakeNameSuggester([Self.reply([unknown, unknown, likely])]))
+        var nickname = Self.kate
+        nickname.kind = "nickname"
+        let route = route(FakeNameSuggester([Self.reply([unknown, unknown, nickname])]))
 
         try await logging(to: sink) { _ = await run(route) }
 
