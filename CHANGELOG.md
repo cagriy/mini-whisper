@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.9.0b3] - 2026-11-23
+
 ### Fixed
 
 - Quit from the menu bar hung once the main window had been opened that session.
