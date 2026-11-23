@@ -5,6 +5,17 @@
     <link>https://raw.githubusercontent.com/cagriy/mini-whisper/main/appcast.xml</link>
     <language>en</language>
     <item>
+      <title>Mini Whisper 0.9.0b2</title>
+      <sparkle:version>0.9.0b2</sparkle:version>
+      <sparkle:shortVersionString>0.9.0b2</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <sparkle:channel>beta</sparkle:channel>
+      <description>&lt;h3&gt;Changed&lt;/h3&gt;
+&lt;ul&gt;&lt;li&gt;Speaker names Claude is less sure of are suggested too, instead of dropped; only a certain self-introduction is applied without asking.&lt;/li&gt;&lt;/ul&gt;</description>
+      <pubDate>Mon, 23 Nov 2026 10:30:46 +0000</pubDate>
+      <enclosure url="https://github.com/cagriy/mini-whisper/releases/download/v0.9.0b2/MiniWhisper-0.9.0b2-arm64.dmg" sparkle:edSignature="+1Vm6vAZK6WpzBb1lc2H3GyzOFLPbb/txNPIXyOuVFreDyifzpB3RGfTDy5WAU0V7Ci276MCK5ynZPJi9xPPBQ==" length="16477787" type="application/octet-stream" />
+    </item>
+    <item>
       <title>Mini Whisper 0.9.0b1</title>
       <sparkle:version>0.9.0b1</sparkle:version>
       <sparkle:shortVersionString>0.9.0b1</sparkle:shortVersionString>
