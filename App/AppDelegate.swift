@@ -48,6 +48,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var appliedOverlayStyle: OverlayStyle?
     private var appliedTheme: AppTheme?
     private var channelTracker = UpdateChannelPolicy.Tracker()
+    /// Set by the menu's Quit once it has stopped and saved everything.
+    private var quitPrepared = false
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // The AppTests bundle is hosted by this app; starting normally there would
@@ -607,8 +609,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// window's frame is stored on the way out.
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         let stopping = meetings?.needsQuitConfirmation ?? false
-        guard stopping || main != nil else { return .terminateNow }
-        if stopping, !Self.confirmQuitDuringMeeting() { return .terminateCancel }
+        switch QuitPolicy.reply(
+            prepared: quitPrepared, recording: stopping, hasMainWindow: main != nil,
+            confirm: Self.confirmQuitDuringMeeting
+        ) {
+        case .now: return .terminateNow
+        case .cancel: return .terminateCancel
+        case .afterCleanup: break
+        }
         Task { [meetings, main] in
             if stopping { await meetings?.stop(summarise: false) }
             await main?.hide().value
@@ -641,6 +649,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             router?.stop()
             listener?.stop()
             await audio?.stop()
+            quitPrepared = true
             NSApp.terminate(nil)
         }
     }
