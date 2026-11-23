@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.9.0b2] - 2026-11-23
+
 ### Changed
 
 - Speaker names Claude is less sure of are suggested too, instead of dropped; only a certain
