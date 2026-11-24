@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.9.0b4] - 2026-11-24
+
 ### Added
 
 - A numbers-only record of meetings, dictations and estimated spend, kept for life under
