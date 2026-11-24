@@ -243,6 +243,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 try? await history.clear()
                 await self?.dictationsChanged()
             },
+            resetStatistics: {
+                await stats.reset(await Self.makeSeed(history: history, configStore: configStore, store: store))
+                await reconciler.reconcile()
+            },
             openCorrection: { [weak self] source in self?.openCorrection(source) },
             meetingIndex: { (try? store.index()) ?? [] },
             showMeetingsFolder: { Self.showInFinder(store) },

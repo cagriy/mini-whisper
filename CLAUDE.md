@@ -53,7 +53,7 @@ empty XCTest bundle, not the result. Read the `✔/✘ Test run with N tests in 
 
 | Module | Responsibility | Depends on |
 |---|---|---|
-| `MWSupport` | Clock/Sleeper protocols, `Log` facade, `AnyError` mapping | — |
+| `MWSupport` | Clock/Sleeper protocols, `Log` facade, `AnyError` mapping, `PrivateFile` | — |
 | `MWConfig` | `Config`, `ConfigStore`, `PromptFiles`, `KeychainStore` | MWSupport, MWOverlaySim |
 | `MWCorrections` | Correction rules, matching, hints | MWConfig |
 | `MWHotkeys` | `HotkeyCombo`, `HotkeyMatcher` | — |
@@ -65,14 +65,15 @@ empty XCTest bundle, not the result. Read the `✔/✘ Test run with N tests in 
 | `MWProfiles` | `ProfileResolver`, `PromptComposer` | MWConfig |
 | `MWPaste` | `Paster` | MWSupport |
 | `MWOverlaySim` | `ConstellationSimulation`, `CaptionModel`, `OverlayStyle` | — |
-| `MWPipeline` | `StreamSink`, `ProcessingJob`, `DictationController` | all of the above |
+| `MWPipeline` | `StreamSink`, `ProcessingJob`, `DictationController` | all of the above, MWStats |
 | `MWMeetings` | Meeting model, `MeetingStore`, `MeetingMarkdown`, `MeetingSearch`, `SummaryDocument`, `SearchExcerpt`, `TitleSanitizer` | MWConfig, MWSupport |
 | `MWVoices` | `Person`, `SampleSet`, `VoiceMatcher`, `VoiceWindow`, `VoiceEmbedding`, `CoreMLVoiceEmbedder`, `SpeechmaticsEnrolment`, `VoiceStore`, `MatchLog`, `VoiceScrubber` | MWMeetings, MWConfig, MWSupport |
 | `MWNaming` | `NameFold`, `NameSpotter`, `NamingTrigger`, `NamingTranscript`, `NamingPrompt`, `EvidenceCheck`, `NameSanitiser`, `SuggestionPolicy` | MWMeetings, MWSupport, MWTranscription |
-| `MWMeetingPipeline` | `SpeechGate`, `AudioMixer`, `SystemAudioRing`, `SystemAudioLeveller`, `SpeakerAttributor`, `SpeakerRegistry`, `SessionSupervisor`, `MeetingRecorder`, `MeetingBilling`, `Summariser`, `SilenceWatch`, `VoiceAudioBuffer`, `VoiceRecogniser`, `MeetingVoiceRoute`, `MeetingNamingRoute`, `MeetingController` | MWMeetings, MWStreaming, MWAudio, MWConfig, MWCorrections, MWUsage, MWTranscription, MWSupport, MWTestCall, MWVoices, MWNaming |
+| `MWMeetingPipeline` | `SpeechGate`, `AudioMixer`, `SystemAudioRing`, `SystemAudioLeveller`, `SpeakerAttributor`, `SpeakerRegistry`, `SessionSupervisor`, `MeetingRecorder`, `MeetingBilling`, `Summariser`, `SilenceWatch`, `VoiceAudioBuffer`, `VoiceRecogniser`, `MeetingVoiceRoute`, `MeetingNamingRoute`, `MeetingController` | MWMeetings, MWStreaming, MWAudio, MWConfig, MWCorrections, MWUsage, MWTranscription, MWSupport, MWTestCall, MWVoices, MWNaming, MWStats |
 | `MWAgentAccess` | `MeetingsCLI`, `MCPServer`, `MeetingID` | MWMeetings, MWSupport |
 | `MWTestCall` | `TestScenario`, `ScenarioLibrary`, `VoiceCatalog`, `TranscriptNormalizer`, `WordAligner`, `TestCallConductor`, `TestCallScorer`, `TestRunHistory` | MWMeetings, MWConfig, MWSupport |
-| `MWTestSupport` | Fakes and helpers shared across test targets | all except MWPipeline, MWMeetings included |
+| `MWStats` | `StatsTime`, `JSONLFile`, `WordCount`, `StatsRecording` seams, `StatsRows`, `StatsStore`, `StatsSeed`, `RecordedUsage`, `MeetingFigures`, `MeetingReconciler` | MWMeetings, MWUsage, MWHistory, MWConfig, MWSupport |
+| `MWTestSupport` | Fakes and helpers shared across test targets | all except MWPipeline; MWMeetings and MWStats included |
 
 Dependencies flow downwards only; nothing depends on `MWPipeline` or `MWMeetingPipeline`.
 

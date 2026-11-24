@@ -15,7 +15,7 @@ struct HistorySection: View {
         Card {
             SettingRow(
                 "Keep dictations for",
-                description: "0 days turns history off and writes nothing. Maximum 30 days."
+                description: "0 days turns history off and keeps no dictation text. Maximum 30 days."
                     + " Stored only on this Mac."
             ) {
                 HStack(spacing: DS.Space.s5) {
@@ -36,6 +36,12 @@ struct HistorySection: View {
             SettingRow("Delete every stored dictation") {
                 Button("Clear History") { confirmingClear = true }
                     .buttonStyle(.pill(size: .small, tint: DS.Colors.recording))
+            }
+            SettingRow.full {
+                SettingsFootnote(
+                    "Numbers about each dictation (time, app, length, word count) are kept for Timeline whatever"
+                        + " this is set to, never the text. Reset statistics erases them."
+                )
             }
         }
         .onAppear { days = Double(model.config.historyRetentionDays) }

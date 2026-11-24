@@ -52,6 +52,8 @@ final class SettingsModel {
         /// Applies the new retention and prunes; retention 0 deletes the file (F29).
         var pruneHistory: @Sendable (Int) async -> Void
         var clearHistory: @Sendable () async -> Void
+        /// Erases the statistics record and rebuilds it from what is stored (R12).
+        var resetStatistics: @Sendable () async -> Void = {}
         /// R35: the tally's Remember… seeds the correction window rather than adding a
         /// second rule-entry form.
         var openCorrection: @MainActor (CorrectionSource) -> Void
@@ -74,7 +76,7 @@ final class SettingsModel {
     }
 
     enum Section: String, CaseIterable, Identifiable {
-        case general, hotkeys, keys, cleanup, vocabulary, history, meetings, people, overlay, sound
+        case general, hotkeys, keys, cleanup, vocabulary, history, meetings, people, statistics, overlay, sound
 
         var id: String { rawValue }
 
@@ -88,6 +90,7 @@ final class SettingsModel {
             case .history: "Dictations"
             case .meetings: "Meetings"
             case .people: "People"
+            case .statistics: "Statistics"
             case .overlay: "Overlay"
             case .sound: "Sound"
             }
@@ -103,6 +106,7 @@ final class SettingsModel {
             case .history: "clock.arrow.circlepath"
             case .meetings: "person.2.wave.2"
             case .people: "person.crop.circle"
+            case .statistics: "chart.bar"
             case .overlay: "sparkles.rectangle.stack"
             case .sound: "speaker.wave.2"
             }
@@ -425,6 +429,26 @@ final class SettingsModel {
 
     func clearHistory() async {
         await deps.clearHistory()
+    }
+
+    // MARK: - Statistics (design v11 R27, R29)
+
+    /// While true, `MainView` shows the Reset dialog.
+    private(set) var confirmingReset = false
+
+    func requestReset() {
+        confirmingReset = true
+    }
+
+    /// Cleared before the reset runs, so a second confirm finds no question to answer.
+    func confirmReset() async {
+        guard confirmingReset else { return }
+        confirmingReset = false
+        await deps.resetStatistics()
+    }
+
+    func cancelReset() {
+        confirmingReset = false
     }
 
     // MARK: - Meetings (design v4 §3 R4, R20, R22)

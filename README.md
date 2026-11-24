@@ -257,7 +257,7 @@ summarised like any meeting and marked TEST on the Meetings page.
   engines send nothing off the machine.
 - Dictation history is stored **locally only**, in `~/.config/mini-whisper/history.jsonl`
   (file mode 0600), for `history_retention_days` days — default 7, maximum 30. Set it to
-  **0** to disable history entirely: the file is deleted and nothing further is written.
+  **0** to disable history entirely: the file is deleted and no further text is written.
 - Correction rules and the tally of phrases you have corrected are stored **locally only**,
   in `~/.config/mini-whisper/config.json`. They leave the machine only as recognition hints,
   to the engine you selected.
@@ -271,6 +271,12 @@ summarised like any meeting and marked TEST on the Meetings page.
   identifiers go back only to Speechmatics, under an opaque label, never a name. Settings →
   People → Forget, or Forget everyone, deletes them. The MCP server and command line never see
   them.
+- Statistics are numbers only: counts, lengths, word counts and estimated costs, plus which app
+  each dictation went to; never text, titles or names of people. They are stored **locally
+  only**, in `~/.config/mini-whisper/stats/` (folder 0700, files 0600): a dictation's figures for
+  13 months whatever the history setting, everything else until Settings → Statistics →
+  **Reset Statistics** erases the record and rebuilds it from the meetings and dictations still
+  stored.
 - There is no telemetry or analytics of any kind.
 
 ## Development

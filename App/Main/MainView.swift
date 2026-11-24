@@ -23,6 +23,7 @@ struct MainView: View {
         .onChange(of: model.navigation.destination) {
             meetingDialog = nil
             model.settings.cancelBetaChannel()
+            model.settings.cancelReset()
         }
         .onChange(of: model.presented.map { ObjectIdentifier($0.model) }) { meetingDialog = nil }
     }
@@ -93,6 +94,15 @@ struct MainView: View {
                 confirmTitle: "Switch to Beta",
                 confirm: { Task { await model.settings.confirmBetaChannel() } },
                 cancel: model.settings.cancelBetaChannel
+            )
+        } else if model.settings.confirmingReset {
+            DSDialog(
+                title: "Reset statistics?",
+                message: "Totals, records and milestones are erased and rebuilt from what is still stored. Figures"
+                    + " from deleted meetings and from dictations already pruned cannot be recovered.",
+                confirmTitle: "Reset Statistics",
+                confirm: { Task { await model.settings.confirmReset() } },
+                cancel: model.settings.cancelReset
             )
         } else if confirmingSettingsClear {
             DSDialog(

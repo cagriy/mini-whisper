@@ -19,6 +19,10 @@ import Testing
         var foldersShown = 0
     }
 
+    private final class ResetProbe: @unchecked Sendable {
+        var calls = 0
+    }
+
     private struct Harness {
         let directory: URL
         let store: ConfigStore
@@ -27,6 +31,7 @@ import Testing
         let sounds = FakeSounds()
         let updates = FakeUpdater()
         let meetings = MeetingHooks()
+        let resets = ResetProbe()
 
         init() {
             directory = FileManager.default.temporaryDirectory
@@ -64,6 +69,7 @@ import Testing
                     apps: StubApps(),
                     pruneHistory: { _ in },
                     clearHistory: {},
+                    resetStatistics: { [resets] in resets.calls += 1 },
                     openCorrection: { _ in },
                     accountName: "Alex Morgan",
                     meetingIndex: { [meetings] in meetings.entries },
@@ -566,7 +572,8 @@ import Testing
 
     @Test func overlaySectionSitsBetweenHistoryAndSound() {
         #expect(SettingsModel.Section.allCases == [
-            .general, .hotkeys, .keys, .cleanup, .vocabulary, .history, .meetings, .people, .overlay, .sound,
+            .general, .hotkeys, .keys, .cleanup, .vocabulary, .history, .meetings, .people, .statistics, .overlay,
+            .sound,
         ])
         #expect(SettingsModel.Section.overlay.title == "Overlay")
         #expect(SettingsModel.Section.overlay.symbolName == "sparkles.rectangle.stack")
@@ -760,6 +767,58 @@ import Testing
         #expect(sections.firstIndex(of: .people) == sections.firstIndex(of: .meetings).map { $0 + 1 })
         #expect(SettingsModel.Section.people.title == "People")
         #expect(SettingsModel.Section.people.symbolName == "person.crop.circle")
+    }
+
+    // MARK: - Statistics (design v11 R27, R29)
+
+    @Test func sectionsListStatisticsAfterPeople() {
+        let sections = SettingsModel.Section.allCases
+        #expect(sections.firstIndex(of: .statistics) == sections.firstIndex(of: .people).map { $0 + 1 })
+    }
+
+    @Test func statisticsIsTitledWithChartBar() {
+        #expect(SettingsModel.Section.statistics.title == "Statistics")
+        #expect(SettingsModel.Section.statistics.symbolName == "chart.bar")
+    }
+
+    @Test func resetAsksFirst() async {
+        let harness = Harness()
+        defer { harness.cleanUp() }
+        let model = await harness.model()
+        #expect(!model.confirmingReset)
+
+        model.requestReset()
+
+        #expect(model.confirmingReset)
+        #expect(harness.resets.calls == 0)
+    }
+
+    /// A second confirm, such as Return pressed twice, finds the question gone.
+    @Test func confirmingResetCallsTheDependencyOnce() async {
+        let harness = Harness()
+        defer { harness.cleanUp() }
+        let model = await harness.model()
+        model.requestReset()
+
+        await model.confirmReset()
+        await model.confirmReset()
+
+        #expect(!model.confirmingReset)
+        #expect(harness.resets.calls == 1)
+    }
+
+    @Test func cancellingResetCallsNothing() async {
+        let harness = Harness()
+        defer { harness.cleanUp() }
+        let model = await harness.model()
+        model.requestReset()
+        #expect(model.confirmingReset)
+
+        model.cancelReset()
+        await model.confirmReset()
+
+        #expect(!model.confirmingReset)
+        #expect(harness.resets.calls == 0)
     }
 
     @Test func thePeopleModelIsBuiltFromItsDependencies() async {
