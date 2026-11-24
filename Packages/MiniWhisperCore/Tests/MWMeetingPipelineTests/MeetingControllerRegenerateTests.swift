@@ -82,7 +82,9 @@ import MWUsage
         #expect(stored.billing == Billing(engineSeconds: 2932, costUSD: 0.3665, replacedSummaryCostUSD: old.costUSD))
         #expect(stored.totalCostUSD == 0.3665 + old.costUSD + new.costUSD)
         #expect(stored == harness.controller.meeting)
-        #expect(harness.usage.added == [ProviderUsage(inputTokens: 1200, outputTokens: 300, costUSD: new.costUSD)])
+        #expect(harness.usage.added == [
+            ProviderUsage(purpose: .summary, inputTokens: 1200, outputTokens: 300, costUSD: new.costUSD),
+        ])
         #expect(harness.summarizer.calls.count == 1)
     }
 

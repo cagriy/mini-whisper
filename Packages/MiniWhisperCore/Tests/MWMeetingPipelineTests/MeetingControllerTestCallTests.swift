@@ -8,6 +8,8 @@ import MWStreaming
 import MWSupport
 import MWTestCall
 import MWTestSupport
+import MWTranscription
+import MWUsage
 
 private let sprintPlanning = TestCallTag(scenarioID: "sprint-planning", revision: 1, scenarioTitle: "Sprint planning")
 
@@ -229,6 +231,23 @@ private let sprintPlanning = TestCallTag(scenarioID: "sprint-planning", revision
         #expect(stored.summary?.text == "## Summary\n\nShipped.")
         #expect(stored.test?.wer != nil)
         #expect(harness.usage.added.count == 2)
+    }
+
+    /// Spend on a test call stays out of the statistics. A test call never names, so its naming
+    /// trigger bills nothing under any purpose.
+    @Test func aTestCallsUsageIsTestCall() async throws {
+        let namer = FakeNameSuggester(otherwise: .reply(NamingReply(
+            suggestions: [], usage: TokenUsage(inputTokens: 100, outputTokens: 10)
+        )))
+        let harness = try await MeetingHarness.withNamer(namer)
+        try await harness.startTest()
+        harness.feed(MeetingHarness.quiet(1))
+        try await harness.introduceKate()
+
+        await harness.controller.stop()
+
+        #expect(namer.requests.isEmpty)
+        #expect(harness.usage.added.map(\.purpose) == [.testCall, .testCall])
     }
 
     /// Design §5.6: the score still shows for this session; a later open cannot read it.

@@ -29,13 +29,14 @@ import MWUsage
         let store = try store(directory)
 
         var entry = try await store.add(ProviderUsage(
-            inputTokens: 10, outputTokens: 5, streamedSeconds: ["on_device": 30], costUSD: 0.02
+            purpose: .dictation, inputTokens: 10, outputTokens: 5, streamedSeconds: ["on_device": 30], costUSD: 0.02
         ))
         #expect(entry == DayEntry(
             inputTokens: 10, outputTokens: 5, streamedSeconds: ["on_device": 30], costUSD: 0.02
         ))
 
         entry = try await store.add(ProviderUsage(
+            purpose: .meeting,
             inputTokens: 3,
             outputTokens: 2,
             streamedSeconds: ["on_device": 10, "elevenlabs": 5],
@@ -51,7 +52,7 @@ import MWUsage
     @Test func addDefaultsMissingFields() async throws {
         let directory = try TempDirectory()
 
-        let entry = try await store(directory).add(ProviderUsage(inputTokens: 4, outputTokens: 6))
+        let entry = try await store(directory).add(ProviderUsage(purpose: .dictation, inputTokens: 4, outputTokens: 6))
 
         #expect(entry == DayEntry(inputTokens: 4, outputTokens: 6))
     }
@@ -59,11 +60,35 @@ import MWUsage
     @Test func addWritesThroughToConfigJSON() async throws {
         let directory = try TempDirectory()
 
-        _ = try await store(directory).add(ProviderUsage(inputTokens: 4, costUSD: 0.5))
+        _ = try await store(directory).add(ProviderUsage(purpose: .summary, inputTokens: 4, costUSD: 0.5))
 
         let data = try Data(contentsOf: directory.file("config.json"))
         let config = try JSONDecoder().decode(Config.self, from: data)
         #expect(config.usage["2026-09-15"] == DayEntry(inputTokens: 4, costUSD: 0.5))
+    }
+
+    /// The purpose is for the statistics record only: `config.json` is written as it was before.
+    @Test func purposeLeavesTheDayEntryAsBefore() async throws {
+        let dictation = ProviderUsage(purpose: .dictation, inputTokens: 4, streamedSeconds: ["openai": 3], costUSD: 0.5)
+        let meeting = ProviderUsage(purpose: .meeting, streamedSeconds: ["speechmatics": 60], costUSD: 0.25)
+        let first = try TempDirectory()
+        let second = try TempDirectory()
+
+        _ = try await store(first).add(dictation)
+        _ = try await store(first).add(meeting)
+        for usage in [dictation, meeting] {
+            var other = usage
+            other.purpose = .summary
+            _ = try await store(second).add(other)
+        }
+
+        let data = try Data(contentsOf: first.file("config.json"))
+        #expect(data == (try Data(contentsOf: second.file("config.json"))))
+        #expect(!String(decoding: data, as: UTF8.self).contains("purpose"))
+        let config = try JSONDecoder().decode(Config.self, from: data)
+        #expect(config.usage["2026-09-15"] == DayEntry(
+            inputTokens: 4, streamedSeconds: ["openai": 3, "speechmatics": 60], costUSD: 0.75
+        ))
     }
 
     @Test func addPrunesPreviousMonthKeepsCurrent() async throws {
@@ -77,7 +102,7 @@ import MWUsage
         let fixed = try date("2026-09-15")
         let store = UsageStore(config: config, today: { fixed })
 
-        _ = try await store.add(ProviderUsage(inputTokens: 1, outputTokens: 1))
+        _ = try await store.add(ProviderUsage(purpose: .dictation, inputTokens: 1, outputTokens: 1))
 
         let usage = await config.load().usage
         #expect(usage["2026-08-31"] == nil)
@@ -158,7 +183,7 @@ import MWUsage
         await withTaskGroup(of: Void.self) { group in
             for _ in 0..<20 {
                 group.addTask {
-                    _ = try? await store.add(ProviderUsage(inputTokens: 1, outputTokens: 1, costUSD: 0.01))
+                    _ = try? await store.add(ProviderUsage(purpose: .naming, inputTokens: 1, outputTokens: 1, costUSD: 0.01))
                 }
             }
         }

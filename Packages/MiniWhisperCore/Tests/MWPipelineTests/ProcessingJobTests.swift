@@ -259,7 +259,7 @@ import MWPipeline
         #expect(harness.transcriber.calls.isEmpty)
         #expect(harness.paster.calls.isEmpty)
         #expect(harness.usage.added == [
-            ProviderUsage(streamedSeconds: ["openai": 3], costUSD: 0.00085),
+            ProviderUsage(purpose: .dictation, streamedSeconds: ["openai": 3], costUSD: 0.00085),
         ])
     }
 
@@ -274,7 +274,7 @@ import MWPipeline
         #expect(harness.sounds.played == [.off])
         #expect(harness.recorder.events.contains(.idle))
         #expect(harness.usage.added == [
-            ProviderUsage(streamedSeconds: ["openai": 3], costUSD: 0.00085),
+            ProviderUsage(purpose: .dictation, streamedSeconds: ["openai": 3], costUSD: 0.00085),
         ])
     }
 
@@ -480,7 +480,7 @@ import MWPipeline
         #expect(harness.sounds.played == [.off])
         #expect(harness.recorder.events.contains(.idle))
         #expect(harness.usage.added == [
-            ProviderUsage(streamedSeconds: ["openai": 3], costUSD: 0.00085),
+            ProviderUsage(purpose: .dictation, streamedSeconds: ["openai": 3], costUSD: 0.00085),
         ])
     }
 
@@ -498,7 +498,7 @@ import MWPipeline
         #expect(harness.paster.calls.isEmpty)
         #expect(harness.recorder.events.contains(.idle))
         #expect(harness.usage.added == [
-            ProviderUsage(streamedSeconds: ["openai": 3], costUSD: 0.00085),
+            ProviderUsage(purpose: .dictation, streamedSeconds: ["openai": 3], costUSD: 0.00085),
         ])
     }
 
@@ -517,7 +517,7 @@ import MWPipeline
         #expect(harness.recorder.events.contains(.idle))
         #expect(!harness.recorder.events.contains(where: { if case .result = $0 { true } else { false } }))
         #expect(harness.usage.added == [
-            ProviderUsage(streamedSeconds: ["openai": 3], costUSD: 0.00085),
+            ProviderUsage(purpose: .dictation, streamedSeconds: ["openai": 3], costUSD: 0.00085),
         ])
     }
 
@@ -560,6 +560,7 @@ import MWPipeline
 
         #expect(harness.usage.added == [
             ProviderUsage(
+                purpose: .dictation,
                 inputTokens: 5,
                 outputTokens: 8,
                 streamedSeconds: ["openai": 3],

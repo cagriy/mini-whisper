@@ -216,7 +216,9 @@ private let pausing: [FakeNameSuggester.Answer] = [
             id: 1, name: "Speaker 1", providerKeys: ["1:S1"], matches: [Self.suggested(Self.introduction)]
         ))
         #expect(stored.billing.namingCostUSD == 0.125 + cost)
-        #expect(harness.usage.added == [ProviderUsage(inputTokens: 1200 + 300 + 40, outputTokens: 90, costUSD: cost)])
+        #expect(harness.usage.added == [
+            ProviderUsage(purpose: .naming, inputTokens: 1200 + 300 + 40, outputTokens: 90, costUSD: cost),
+        ])
     }
 
     @Test func suggestNamesRunsAfterLiveNamingPaused() async throws {

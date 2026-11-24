@@ -585,7 +585,7 @@ public final class MeetingController {
         naming?.disarm()
         namingAgain = false
         await saveMeeting()
-        if billing.engineSeconds > 0 { await addUsage(billing.finalUsage()) }
+        if billing.engineSeconds > 0 { await addUsage(billing.finalUsage(purpose: usagePurpose(.meeting))) }
         log.info("meeting stopped after \(Int(duration)) s")
         setState(.stopped)
         guard summarise else { return }
@@ -913,6 +913,7 @@ public final class MeetingController {
         if let usage = outcome.usage {
             meeting?.billing.namingCostUSD += outcome.cost
             await addUsage(ProviderUsage(
+                purpose: usagePurpose(.naming),
                 inputTokens: usage.inputTokens + usage.cacheReadTokens + usage.cacheWriteTokens,
                 outputTokens: usage.outputTokens, costUSD: outcome.cost
             ))
@@ -1238,6 +1239,7 @@ public final class MeetingController {
         if let subject, meeting?.name(after: subject) == true, let title = meeting?.title { emit(.title(title)) }
         await saveMeeting()
         await addUsage(ProviderUsage(
+            purpose: usagePurpose(.summary),
             inputTokens: summary.inputTokens, outputTokens: summary.outputTokens, costUSD: summary.costUSD
         ))
     }
@@ -1292,6 +1294,11 @@ public final class MeetingController {
         } catch {
             log.error("meeting.json not written: \(AnyError(error).description)")
         }
+    }
+
+    /// A test call's spend is billed but kept out of the statistics.
+    private func usagePurpose(_ purpose: UsagePurpose) -> UsagePurpose {
+        meeting?.test == nil ? purpose : .testCall
     }
 
     private func addUsage(_ usage: ProviderUsage) async {

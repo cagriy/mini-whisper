@@ -209,7 +209,7 @@ private let found = FakeNameSuggester.Answer.reply(NamingReply(suggestions: [kat
 
         #expect(harness.controller.meeting?.billing.namingCostUSD == cost + cost)
         #expect(try harness.stored().meeting.billing.namingCostUSD == cost + cost)
-        let billed = ProviderUsage(inputTokens: 1200 + 300 + 40, outputTokens: 90, costUSD: cost)
+        let billed = ProviderUsage(purpose: .naming, inputTokens: 1200 + 300 + 40, outputTokens: 90, costUSD: cost)
         #expect(harness.usage.added == [billed, billed])
 
         _ = await harness.tick(to: 1)

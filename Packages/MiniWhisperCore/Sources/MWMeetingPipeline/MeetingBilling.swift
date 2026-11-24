@@ -36,12 +36,13 @@ public struct MeetingBilling: Sendable {
 
     /// The seconds go under the engine's pricing key only, with the add-on inside the cost: a
     /// second key would count the same minutes twice in the Today row.
-    public func finalUsage() -> ProviderUsage {
-        ProviderUsage(streamedSeconds: [engine.pricingKey: engineSeconds], costUSD: liveCost)
+    public func finalUsage(purpose: UsagePurpose) -> ProviderUsage {
+        ProviderUsage(purpose: purpose, streamedSeconds: [engine.pricingKey: engineSeconds], costUSD: liveCost)
     }
 
     public func summaryUsage(_ tokens: TokenUsage) -> ProviderUsage {
         ProviderUsage(
+            purpose: .summary,
             inputTokens: tokens.inputTokens,
             outputTokens: tokens.outputTokens,
             costUSD: Pricing.meetingCost(engine: engine, seconds: 0, tokens: tokens, overrides: overrides)

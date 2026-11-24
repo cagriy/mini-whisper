@@ -25,10 +25,13 @@ import MWUsage
         #expect(pro.liveCost == 0.095)  // 10 min × (0.0075 + 0.002)
     }
 
-    @Test func finalUsageRecordsSecondsOnceUnderThePricingKey() {
+    @Test func finalUsageRecordsSecondsOnceUnderThePricingKeyWithTheGivenPurpose() {
         var billing = MeetingBilling(engine: .assemblyaiStreaming, overrides: [:])
         billing.add(seconds: 1200)
-        #expect(billing.finalUsage() == ProviderUsage(streamedSeconds: ["assemblyai": 1200], costUSD: 0.09))
+        #expect(billing.finalUsage(purpose: .meeting) == ProviderUsage(
+            purpose: .meeting, streamedSeconds: ["assemblyai": 1200], costUSD: 0.09
+        ))
+        #expect(billing.finalUsage(purpose: .testCall).purpose == .testCall)
     }
 
     @Test func totalsCarryDiarizationSecondsOnlyForAssemblyAI() {
@@ -44,15 +47,15 @@ import MWUsage
         let store = FakeUsageStore()
         var billing = MeetingBilling(engine: .assemblyaiStreaming, overrides: [:])
         billing.add(seconds: 2400)
-        try await store.add(billing.finalUsage())
+        try await store.add(billing.finalUsage(purpose: .meeting))
         let rows = Pricing.formatUsageRows(await store.totals())
         #expect(rows.today == "Today: 0/0 tok · 40m · $0.18")
         #expect(rows.month == "Month: 0/0 tok · 40m · $0.18")
     }
 
-    @Test func summaryUsageCostsAtSonnetRates() {
+    @Test func summaryUsageCostsAtSonnetRatesAsASummary() {
         let tokens = TokenUsage(inputTokens: 12480, outputTokens: 610)
-        let expected = ProviderUsage(inputTokens: 12480, outputTokens: 610, costUSD: 0.03106)
+        let expected = ProviderUsage(purpose: .summary, inputTokens: 12480, outputTokens: 610, costUSD: 0.03106)
         #expect(MeetingBilling(engine: .speechmaticsStandard, overrides: [:]).summaryUsage(tokens) == expected)
         // The engine's audio and diarization rates never enter a summary's cost.
         var billing = MeetingBilling(engine: .assemblyaiPro, overrides: [:])
@@ -68,7 +71,7 @@ import MWUsage
         var assemblyAI = MeetingBilling(engine: .assemblyaiStreaming, overrides: overrides)
         assemblyAI.add(seconds: 600)
         #expect(assemblyAI.liveCost == 0.065)
-        #expect(assemblyAI.finalUsage().costUSD == 0.065)
+        #expect(assemblyAI.finalUsage(purpose: .meeting).costUSD == 0.065)
         #expect(assemblyAI.summaryUsage(TokenUsage(inputTokens: 1_000_000)).costUSD == 3.0)
     }
 }

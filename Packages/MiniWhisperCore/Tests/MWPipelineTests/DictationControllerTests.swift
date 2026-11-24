@@ -193,7 +193,7 @@ import Testing
     }
 
     private static let threeOpenAISeconds = ProviderUsage(
-        streamedSeconds: ["openai": 3], costUSD: 0.00085
+        purpose: .dictation, streamedSeconds: ["openai": 3], costUSD: 0.00085
     )
 
     // MARK: - Press (F9, N1)

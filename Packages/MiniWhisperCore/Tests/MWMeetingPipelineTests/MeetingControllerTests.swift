@@ -288,7 +288,7 @@ import MWVoices
         #expect(meeting == harness.controller.meeting)
     }
 
-    @Test func stopAddsOneUsageRecord() async throws {
+    @Test func stopAddsOneMeetingUsageRecord() async throws {
         let harness = try await MeetingHarness()
         try await harness.start(.remote)
         harness.feed(MeetingHarness.quiet(2))
@@ -297,8 +297,8 @@ import MWVoices
 
         var billing = MeetingBilling(engine: .speechmaticsStandard, overrides: [:])
         for _ in 0..<20 { billing.add(seconds: 0.1) }
-        #expect(harness.usage.added == [billing.finalUsage()])
-        #expect(billing.finalUsage().streamedSeconds.keys.sorted() == ["speechmatics"])
+        #expect(harness.usage.added == [billing.finalUsage(purpose: .meeting)])
+        #expect(billing.finalUsage(purpose: .meeting).streamedSeconds.keys.sorted() == ["speechmatics"])
     }
 
     @Test func stopWithoutAnAnthropicKeyReportsNoSummary() async throws {
@@ -339,7 +339,9 @@ import MWVoices
         #expect(try harness.stored().meeting.summary == summary)
         #expect(harness.controller.meeting?.summary == summary)
         #expect(harness.usage.added.count == 2)
-        #expect(harness.usage.added.last == ProviderUsage(inputTokens: 1200, outputTokens: 300, costUSD: summary.costUSD))
+        #expect(harness.usage.added.last == ProviderUsage(
+            purpose: .summary, inputTokens: 1200, outputTokens: 300, costUSD: summary.costUSD
+        ))
     }
 
     @Test func summaryFailureLeavesNoSummary() async throws {

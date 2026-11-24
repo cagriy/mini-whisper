@@ -142,6 +142,7 @@ public struct ProcessingJob: Sendable {
             overrides: input.config.pricingOverrides
         )
         var usage = ProviderUsage(
+            purpose: .dictation,
             inputTokens: transcribeTokens.inputTokens + cleanupTokens.inputTokens
                 + streamedTokens.inputTokens,
             outputTokens: transcribeTokens.outputTokens + cleanupTokens.outputTokens
@@ -231,6 +232,7 @@ struct StreamBilling: Sendable {
     func record(engine: EngineName?, seconds: TimeInterval, overrides: [String: Double]) async {
         guard let engine, seconds > 0 else { return }
         await add(ProviderUsage(
+            purpose: .dictation,
             streamedSeconds: [engine.rawValue: seconds],
             costUSD: Pricing.dictationCost(
                 engine: engine, seconds: seconds, tokensByModel: [:], overrides: overrides
