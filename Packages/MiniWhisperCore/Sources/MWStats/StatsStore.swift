@@ -16,7 +16,9 @@ public actor StatsStore: DictationStatsRecording {
     private let dictationsFile: JSONLFile
     private let daysFile: JSONLFile
     private let meetingsFile: JSONLFile
+    private let metaURL: URL
 
+    private var meta: StatsMeta?
     private var dictations: [DictationRow] = []
     private var days: [DayRow] = []
     private var dayIndex: [String: Int] = [:]
@@ -39,11 +41,18 @@ public actor StatsStore: DictationStatsRecording {
         dictationsFile = JSONLFile(url: directory.appendingPathComponent("dictations.jsonl"))
         daysFile = JSONLFile(url: directory.appendingPathComponent("days.jsonl"))
         meetingsFile = JSONLFile(url: directory.appendingPathComponent("meetings.jsonl"))
+        metaURL = directory.appendingPathComponent("meta.json")
         (changes, changed) = AsyncStream.makeStream(bufferingPolicy: .bufferingNewest(1))
     }
 
-    /// Loads the three files, prunes old dictation rows and rewrites any file holding lines it no
-    /// longer needs: a torn line, a superseded meeting row, more than one line a day.
+    /// True until `meta.json` exists, so a seed cut short runs again.
+    public var needsSeed: Bool {
+        !FileManager.default.fileExists(atPath: metaURL.path)
+    }
+
+    /// Loads the three files and `meta.json`, prunes old dictation rows and rewrites any file
+    /// holding lines it no longer needs: a torn line, a superseded meeting row, more than one line
+    /// a day.
     public func open() {
         let date = now()
         let calendar = self.calendar()
@@ -60,6 +69,7 @@ public actor StatsStore: DictationStatsRecording {
         dayLines = dayFile.lines
         dayLinesSinceFold = 0
         if dayLines > days.count { compactDays() }
+        meta = loadMeta(date, calendar)
 
         meetings = []
         meetingIndex = [:]
@@ -125,12 +135,51 @@ public actor StatsStore: DictationStatsRecording {
         changed.yield()
     }
 
+    /// Replaces the whole record with `seed`. `meta.json` goes first and is written back only once
+    /// every other file is in place, so seeding cut short anywhere runs again at the next launch.
+    public func seed(_ seed: StatsSeed) {
+        let date = now()
+        let calendar = self.calendar()
+        unread = []
+        let removed = [metaURL, dictationsFile.url, daysFile.url, meetingsFile.url].map { remove($0) }
+
+        dictations = seed.dictations
+        days = []
+        dayIndex = [:]
+        for line in seed.days { fold(line) }
+        meetings = []
+        meetingIndex = [:]
+        dayLines = days.count
+        dayLinesSinceFold = 0
+        prunedOn = nil
+        let written = [
+            dictations.isEmpty || rewrite(dictations, to: dictationsFile),
+            days.isEmpty || rewrite(days, to: daysFile),
+        ]
+
+        let meta = StatsMeta(
+            since: StatsTime.dayKey(date, calendar: calendar), created: StatsTime.iso(date, timeZone: .gmt)
+        )
+        self.meta = meta
+        if !(removed + written).contains(false) { writeMeta(meta) }
+        Log.stats.info(
+            "seeded \(dictations.count) dictations, \(days.count) days, \(seed.meetingsWithCost) meetings with cost"
+        )
+        changed.yield()
+    }
+
+    /// Erases and seeds in one call, so no row can land in between.
+    public func reset(_ seed: StatsSeed) {
+        Log.stats.info("reset")
+        self.seed(seed)
+    }
+
     public func meetingRows() -> [UUID: MeetingRow] {
         Dictionary(uniqueKeysWithValues: meetings.map { ($0.id, $0) })
     }
 
     public func snapshot() -> StatsSnapshot {
-        StatsSnapshot(dictations: dictations, days: days, meetings: meetings)
+        StatsSnapshot(dictations: dictations, days: days, meetings: meetings, meta: meta)
     }
 
     // MARK: - Memory
@@ -198,21 +247,53 @@ public actor StatsStore: DictationStatsRecording {
         }
     }
 
+    /// Nil when absent. One that exists but cannot be read is written anew from the earliest day
+    /// held, since the record it marks is still there.
+    private func loadMeta(_ date: Date, _ calendar: Calendar) -> StatsMeta? {
+        do {
+            return try JSONDecoder().decode(StatsMeta.self, from: Data(contentsOf: metaURL))
+        } catch let error as CocoaError where error.code == .fileReadNoSuchFile {
+            return nil
+        } catch {
+            Log.stats.warning("meta.json not read: \(AnyError(error).description)")
+            let meta = StatsMeta(
+                since: days.first?.day ?? StatsTime.dayKey(date, calendar: calendar),
+                created: StatsTime.iso(date, timeZone: .gmt)
+            )
+            writeMeta(meta)
+            return meta
+        }
+    }
+
+    private func writeMeta(_ meta: StatsMeta) {
+        write(metaURL) { try JSONLFile.writeAtomically(meta, to: metaURL) }
+    }
+
+    /// True once the file is gone, including when it never existed.
+    private func remove(_ url: URL) -> Bool {
+        write(url) {
+            do {
+                try FileManager.default.removeItem(at: url)
+            } catch let error as CocoaError where error.code == .fileNoSuchFile {}
+        }
+    }
+
     @discardableResult
     private func append(_ value: some Encodable, to file: JSONLFile) -> Bool {
-        write(file) { try file.append(value) }
+        write(file.url) { try file.append(value) }
     }
 
     private func rewrite<Row: Encodable>(_ rows: [Row], to file: JSONLFile) -> Bool {
-        !unread.contains(file.url) && write(file) { try file.rewrite(rows) }
+        !unread.contains(file.url) && write(file.url) { try file.rewrite(rows) }
     }
 
-    private func write(_ file: JSONLFile, _ body: () throws -> Void) -> Bool {
+    @discardableResult
+    private func write(_ url: URL, _ body: () throws -> Void) -> Bool {
         do {
             try body()
             return true
         } catch {
-            Log.stats.warning("\(file.url.lastPathComponent) not written: \(AnyError(error).description)")
+            Log.stats.warning("\(url.lastPathComponent) not written: \(AnyError(error).description)")
             return false
         }
     }

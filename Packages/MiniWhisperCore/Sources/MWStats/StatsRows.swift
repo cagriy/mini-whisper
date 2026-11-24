@@ -268,11 +268,16 @@ public struct StatsSnapshot: Sendable, Equatable {
     public var days: [DayRow]
     /// One per meeting.
     public var meetings: [MeetingRow]
+    /// Nil until the record is seeded.
+    public var meta: StatsMeta?
 
-    public init(dictations: [DictationRow] = [], days: [DayRow] = [], meetings: [MeetingRow] = []) {
+    public init(
+        dictations: [DictationRow] = [], days: [DayRow] = [], meetings: [MeetingRow] = [], meta: StatsMeta? = nil
+    ) {
         self.dictations = dictations
         self.days = days
         self.meetings = meetings
+        self.meta = meta
     }
 }
 
