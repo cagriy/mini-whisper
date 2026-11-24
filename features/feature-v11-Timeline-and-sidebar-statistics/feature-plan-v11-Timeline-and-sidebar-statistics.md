@@ -1177,3 +1177,9 @@ Recorded during implementation.
 - **Stage 8, `makeMeetings`** gains `recordedUsage: RecordedUsage` for `MeetingDependencies.usage`, beside `usage: UsageStore` for `meetingChanged`'s totals.
 - **Stage 8, one controller test added.** `DictationControllerTests.theWaitRunsFromTheKeyRelease`: cleanup advances the clock 2 s after a release, and the delivered attempt's wait is 2. The job test measures the wait across a paste that itself takes 0.8 s, so the reading is taken after the paste returns.
 - **Stage 8, first red** was `extra argument 'stats' in call`: the tests were written against the new signature first.
+- **Stage 9, the harness takes a probe.** `MeetingHarness(stats:)` accepts any `MeetingStatsRecording` in place of its `FakeStatsRecorder`. The stats suite's `StopProbe` takes down, at the report, the controller's state, the summary requests made so far and whether the stored meeting has ended: `.stopped`, 0 and true.
+- **Stage 9, `aTestCallTakesNoSamples`** runs the same segment in a meeting and in a test call, so it is red first.
+- **Stage 9, the summary wait** is read at the start of `requestSummary`, before its config read, so a test that sees `.summary(.writing)` or `.rewriting` can move the clock knowing the start is taken. `adopt` keeps the stored `transcriptDelay`.
+- **Stage 9, `timing` at stop** is written only when there is a sample; a meeting with none keeps `timing` nil until its summary.
+- **Stage 9, `AppDelegate`** relies on `MeetingDependencies.timeZone`'s default `{ .current }` rather than passing it.
+- **Stage 9, noted, not changed.** `meetingStopped` waits for a running pass, as the design says, so a meeting stopped during the first launch pass over a large library waits for that pass before its summary is requested.
