@@ -10,7 +10,7 @@ Notes outside the marked region are yours: /design-language-update reads them as
 |---|---|
 | Classification | established |
 | Platforms | macOS |
-| Updated | 2026-11-24 16:23 UTC |
+| Updated | 2026-11-24 19:08 UTC |
 | Specimen | https://claude.ai/artifact/WwtdFm3B6EEUxCKMZ3b4PB |
 
 ### Visual Theme & Atmosphere
@@ -160,7 +160,7 @@ Source: user: 2026-11-13
 
 - Set: SF Symbols in outline, plus the cloud-and-pulse mark of the app icon for empty states and About — user: 2026-11-13
 - Recording: the recording pill's four bars pulse while a meeting records and rest when it is paused or Reduce Motion is on — user: 2026-11-13
-- SF Symbols in outline style, one per settings section — code: App/Settings/SettingsModel.swift:96
+- SF Symbols in outline style, one per settings section — code: App/Settings/SettingsModel.swift:99
 - An app is shown as a rounded tile with its initials, coloured by a hash of its bundle ID — code: App/History/AppGlyph.swift:5
 - Motion lives in the dictation overlay, the pulse bars and the test-call level bars, and honours Reduce Motion — code: App/Design/StatusLine.swift:84
 - Timeline: on opening, a panel plays once when it first comes into view; figures count up over 0.9s and charts draw in over 0.45 to 0.7s; Reduce Motion shows final values at once — user · pending v11
