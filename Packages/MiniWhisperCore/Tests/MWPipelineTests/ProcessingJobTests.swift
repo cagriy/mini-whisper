@@ -6,6 +6,7 @@ import MWHistory
 import MWProfiles
 import MWHotkeys
 import MWPaste
+import MWStats
 import MWStreaming
 import MWSupport
 import MWTestSupport
@@ -108,6 +109,16 @@ import MWPipeline
         }
     }
 
+    /// A paste that takes `seconds` on the job's clock.
+    private struct SlowPaster: Pasting {
+        let clock: VirtualClock
+        let seconds: TimeInterval
+
+        func paste(_ text: String, into pid: pid_t, submit: SubmitKey?) async throws {
+            clock.advance(by: seconds)
+        }
+    }
+
     // MARK: - Harness
 
     private final class Harness {
@@ -115,6 +126,8 @@ import MWPipeline
         let sounds = FakeSoundPlayer()
         let usage: FakeUsageStore
         let history = FakeHistoryStore()
+        let stats = FakeStatsRecorder()
+        let clock = VirtualClock()
         let secrets: FakeSecretStore
         let transcriber: FakeTranscriber
         let cleaner: FakeCleaner
@@ -132,7 +145,9 @@ import MWPipeline
             paster: FakePaster = FakePaster(),
             usage: FakeUsageStore = FakeUsageStore(),
             transcriberOverride: (any Transcriber)? = nil,
-            cleanerOverride: (any Cleaner)? = nil
+            cleanerOverride: (any Cleaner)? = nil,
+            pasterOverride: ((VirtualClock) -> any Pasting)? = nil,
+            historyOverride: (any HistoryRecording)? = nil
         ) {
             self.transcriber = transcriber
             self.cleaner = cleaner
@@ -145,13 +160,14 @@ import MWPipeline
                 frontmost: FakeFrontmostApp(),
                 transcriber: transcriberOverride ?? transcriber,
                 cleaner: cleanerOverride ?? cleaner,
-                paster: paster,
+                paster: pasterOverride?(clock) ?? paster,
                 secrets: secrets,
                 usage: usage,
-                history: history,
+                history: historyOverride ?? history,
                 sounds: sounds,
-                prompts: StubPrompts()
-            ))
+                prompts: StubPrompts(),
+                stats: stats
+            ), clock: clock)
         }
 
         func run(
@@ -161,6 +177,7 @@ import MWPipeline
             binding: BindingName = .paste,
             target: PasteTarget = ProcessingJobTests.target,
             config: Config = ProcessingJobTests.config(),
+            releasedAt: TimeInterval = 0,
             isStale: @escaping @Sendable () -> Bool = { false }
         ) async {
             await job.run(
@@ -172,7 +189,8 @@ import MWPipeline
                     target: target,
                     binding: binding,
                     config: config,
-                    snapshot: CorrectionSnapshot(config: config)
+                    snapshot: CorrectionSnapshot(config: config),
+                    releasedAt: releasedAt
                 ),
                 isStale: isStale,
                 emit: recorder.emit
@@ -180,6 +198,28 @@ import MWPipeline
         }
 
         func makeSink() -> StreamSink { StreamSink(emit: recorder.emit) }
+
+        /// The one attempt the job recorded.
+        func attempt() throws -> DictationAttempt {
+            let attempts = stats.attempts
+            try #require(attempts.count == 1)
+            return attempts[0]
+        }
+    }
+
+    /// The attempt a job ending this way records, under the id it generated.
+    private static func attempt(
+        _ id: String,
+        engine: String? = "openai",
+        words: Int = 0,
+        outcome: DictationAttempt.Outcome,
+        wait: Double? = nil,
+        costUSD: Double
+    ) -> DictationAttempt {
+        DictationAttempt(
+            id: id, bundleID: target.bundleID, engine: engine, seconds: recording.duration, words: words,
+            outcome: outcome, wait: wait, costUSD: costUSD
+        )
     }
 
     // MARK: - Streamed vs batch (F12, F21)
@@ -675,5 +715,107 @@ import MWPipeline
 
         #expect(harness.recorder.results.map(\.text) == ["hello world"])
         #expect(harness.recorder.events.last == .usage(totals))
+    }
+
+    // MARK: - Statistics (R3)
+
+    @Test(arguments: StaleCheckpoint.allCases)
+    func aStaleJobRecordsSupersededWithTheStreamedBill(_ checkpoint: StaleCheckpoint) async throws {
+        let staleness = Staleness()
+        let harness: Harness
+        let isStale: @Sendable () -> Bool
+        switch checkpoint {
+        case .beforeBatch:
+            harness = Harness()
+            isStale = { true }
+        case .beforeCleanup:
+            harness = Harness(transcriberOverride: StalingTranscriber(staleness: staleness))
+            isStale = staleness.isStale
+        case .beforePaste:
+            harness = Harness(cleanerOverride: StalingCleaner(staleness: staleness))
+            isStale = staleness.isStale
+        }
+
+        await harness.run(
+            engine: Self.engine(.openai, text: "", ok: false, seconds: 3),
+            sink: harness.makeSink(),
+            isStale: isStale
+        )
+
+        let attempt = try harness.attempt()
+        #expect(attempt == Self.attempt(attempt.id, outcome: .superseded, costUSD: 0.00085))
+    }
+
+    @Test func noKeyAndNoStreamedTextRecordsNoKeyWithTheStreamedBill() async throws {
+        let harness = Harness(key: nil)
+
+        await harness.run(engine: Self.engine(.openai, text: "", ok: false, seconds: 3), sink: harness.makeSink())
+
+        let attempt = try harness.attempt()
+        #expect(attempt == Self.attempt(attempt.id, outcome: .noKey, costUSD: 0.00085))
+    }
+
+    @Test func anEmptyTranscriptRecordsEmptyWithTheStreamedBill() async throws {
+        let harness = Harness(transcriber: FakeTranscriber(text: "   "))
+
+        await harness.run(engine: Self.engine(.openai, text: "", ok: false, seconds: 3), sink: harness.makeSink())
+
+        let attempt = try harness.attempt()
+        #expect(attempt == Self.attempt(attempt.id, outcome: .empty, costUSD: 0.00085))
+    }
+
+    @Test(arguments: [true, false])
+    func aTranscriptionOrCleanupErrorRecordsFailedWithNoCost(inTranscription: Bool) async throws {
+        let failure = LocalisedFailure(errorDescription: "network unreachable")
+        let harness = inTranscription
+            ? Harness(transcriber: FakeTranscriber(failure: failure))
+            : Harness(cleaner: FakeCleaner(failure: failure))
+
+        await harness.run()
+
+        let attempt = try harness.attempt()
+        #expect(attempt == Self.attempt(attempt.id, engine: nil, outcome: .failed, costUSD: 0))
+    }
+
+    @Test func aPasteErrorRecordsFailedWithTheDictationsCost() async throws {
+        let harness = Harness(paster: FakePaster(failure: PasteError.targetGone))
+
+        await harness.run(engine: Self.engine(.openai, seconds: 3), sink: harness.makeSink())
+
+        let attempt = try harness.attempt()
+        #expect(attempt == Self.attempt(attempt.id, outcome: .failed, costUSD: 0.000856))
+    }
+
+    /// The wait runs from the key release to the paste returning, on the job's clock.
+    @Test func aDeliveredDictationRecordsItsWordsCostAndWait() async throws {
+        let harness = Harness(pasterOverride: { SlowPaster(clock: $0, seconds: 0.8) })
+        harness.clock.advance(by: 1.2)
+
+        await harness.run(engine: Self.engine(.openai, seconds: 3), sink: harness.makeSink(), releasedAt: 0.5)
+
+        let attempt = try harness.attempt()
+        #expect(attempt == Self.attempt(
+            attempt.id, words: 2, outcome: .delivered, wait: 1.5, costUSD: 0.000856
+        ))
+    }
+
+    @Test func theAttemptIDIsTheHistoryEntryID() async throws {
+        let harness = Harness()
+
+        await harness.run()
+
+        #expect(harness.history.appended.map(\.id) == [try harness.attempt().id])
+    }
+
+    @Test func historyRetentionZeroStillRecordsTheAttempt() async throws {
+        let temp = try TempDirectory()
+        let history = HistoryStore(url: temp.file("history.jsonl"), retention: { 0 })
+        let harness = Harness(historyOverride: history)
+
+        await harness.run(config: Self.config(cleanupEnabled: false))
+
+        #expect(await history.entries().isEmpty)
+        #expect(try harness.attempt().outcome == .delivered)
+        #expect(try harness.attempt().words == 2)
     }
 }

@@ -6,6 +6,7 @@ import MWCorrections
 import MWHotkeys
 import MWPaste
 import MWProfiles
+import MWStats
 import MWStreaming
 import MWSupport
 import MWTestSupport
@@ -97,6 +98,7 @@ import Testing
         let paster: FakePaster
         let usage = FakeUsageStore()
         let history = FakeHistoryStore()
+        let stats = FakeStatsRecorder()
         let secrets = FakeSecretStore([.openai: "sk-test"])
         let transcriber = FakeTranscriber(text: "hello world", usage: TokenUsage(inputTokens: 10))
         let cleaner: any Cleaner
@@ -130,7 +132,8 @@ import Testing
                     usage: usage,
                     history: history,
                     sounds: sounds,
-                    prompts: StubPrompts()
+                    prompts: StubPrompts(),
+                    stats: stats
                 ),
                 config: store,
                 clock: clock
@@ -357,6 +360,22 @@ import Testing
 
         #expect(harness.audio.calls.contains(.endCapture))
         #expect(harness.paster.pasted == ["Hello world."])
+    }
+
+    /// R3: a delivered dictation's wait runs from the key release, on the controller's clock.
+    @Test func theWaitRunsFromTheKeyRelease() async throws {
+        let cleaner = HookCleaner()
+        let harness = try await Harness(cleaner: cleaner)
+        cleaner.hook = { @Sendable [clock = harness.clock] in clock.advance(by: 2) }
+        harness.controller.hotkeyPressed(.paste)
+        await harness.controller.settle()
+
+        harness.clock.advance(by: 0.5)
+        harness.controller.hotkeyReleased(.paste)
+        await harness.controller.settle()
+
+        #expect(harness.stats.attempts.map(\.outcome) == [.delivered])
+        #expect(harness.stats.attempts.map(\.wait) == [2])
     }
 
     @Test func toggleCapStopsWithOffSoundAtToggleMaxSeconds() async throws {

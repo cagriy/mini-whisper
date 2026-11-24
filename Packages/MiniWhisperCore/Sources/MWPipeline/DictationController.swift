@@ -44,7 +44,7 @@ public final class DictationController {
         self.deps = deps
         configStore = config
         self.clock = clock
-        job = ProcessingJob(deps: deps)
+        job = ProcessingJob(deps: deps, clock: clock)
         billing = StreamBilling(usage: deps.usage)
         (uiEvents, continuation) = AsyncStream.makeStream()
         let continuation = self.continuation
@@ -191,10 +191,11 @@ public final class DictationController {
     // MARK: - Stop and process
 
     private func stopAndProcess(binding: BindingName) {
-        stopTask = Task { await self.stop(binding: binding) }
+        let releasedAt = clock.now
+        stopTask = Task { await self.stop(binding: binding, releasedAt: releasedAt) }
     }
 
-    private func stop(binding: BindingName) async {
+    private func stop(binding: BindingName, releasedAt: TimeInterval) async {
         guard let session = state.session else { return }
         // F17: the target is whatever was frontmost at the moment of release.
         let target = deps.frontmost.frontmost() ?? PasteTarget(pid: 0, name: "")
@@ -240,7 +241,8 @@ public final class DictationController {
             target: target,
             binding: binding,
             config: config,
-            snapshot: session.snapshot ?? CorrectionSnapshot(config: config)
+            snapshot: session.snapshot ?? CorrectionSnapshot(config: config),
+            releasedAt: releasedAt
         )
         await scheduleIdleStop(config)
         processingTask = Task { [job, generations, emit] in

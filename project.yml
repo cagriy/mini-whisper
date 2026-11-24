@@ -73,6 +73,8 @@ targets:
         product: MWVoices
       - package: MiniWhisperCore
         product: MWNaming
+      - package: MiniWhisperCore
+        product: MWStats
       - package: Sparkle
     settings:
       base:

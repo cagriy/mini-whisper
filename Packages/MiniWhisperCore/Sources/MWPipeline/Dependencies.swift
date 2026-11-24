@@ -2,6 +2,7 @@ import MWAudio
 import MWConfig
 import MWHistory
 import MWPaste
+import MWStats
 import MWStreaming
 import MWTranscription
 import MWUsage
@@ -29,6 +30,7 @@ public struct Dependencies: Sendable {
     public var history: any HistoryRecording
     public var sounds: any SoundPlaying
     public var prompts: any PromptProviding
+    public var stats: any DictationStatsRecording
 
     public init(
         audio: any AudioCapture,
@@ -41,7 +43,8 @@ public struct Dependencies: Sendable {
         usage: any UsageRecording,
         history: any HistoryRecording,
         sounds: any SoundPlaying,
-        prompts: any PromptProviding
+        prompts: any PromptProviding,
+        stats: any DictationStatsRecording
     ) {
         self.audio = audio
         self.engines = engines
@@ -54,5 +57,6 @@ public struct Dependencies: Sendable {
         self.history = history
         self.sounds = sounds
         self.prompts = prompts
+        self.stats = stats
     }
 }

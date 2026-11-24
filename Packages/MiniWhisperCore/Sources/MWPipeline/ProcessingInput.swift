@@ -1,3 +1,4 @@
+import Foundation
 import MWAudio
 import MWConfig
 import MWCorrections
@@ -17,6 +18,8 @@ public struct ProcessingInput: Sendable {
     public var config: Config
     /// R12: the rules and vocabulary taken at press, not re-read here.
     public var snapshot: CorrectionSnapshot
+    /// The controller's clock reading at key release, where a dictation's wait starts.
+    public var releasedAt: TimeInterval
 
     public init(
         recording: Recording,
@@ -26,7 +29,8 @@ public struct ProcessingInput: Sendable {
         target: PasteTarget,
         binding: BindingName,
         config: Config,
-        snapshot: CorrectionSnapshot
+        snapshot: CorrectionSnapshot,
+        releasedAt: TimeInterval
     ) {
         self.recording = recording
         self.engine = engine
@@ -36,5 +40,6 @@ public struct ProcessingInput: Sendable {
         self.binding = binding
         self.config = config
         self.snapshot = snapshot
+        self.releasedAt = releasedAt
     }
 }

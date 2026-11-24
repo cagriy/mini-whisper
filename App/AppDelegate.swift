@@ -9,6 +9,7 @@ import MWMeetings
 import MWOverlaySim
 import MWPaste
 import MWPipeline
+import MWStats
 import MWStreaming
 import MWSupport
 import MWTestCall
@@ -127,6 +128,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let audio = AudioCaptureEngine(backend: AVAudioEngineBackend())
         self.audio = audio
         let usage = UsageStore(config: configStore)
+        let store = MeetingStore(directory: Self.configDirectory.appendingPathComponent("meetings", isDirectory: true))
+        // Seeded or opened before anything can record (R2): the hotkey listener starts below.
+        let stats = StatsStore(directory: Self.configDirectory.appendingPathComponent("stats", isDirectory: true))
+        if await stats.needsSeed {
+            await stats.seed(await Self.makeSeed(history: history, configStore: configStore, store: store))
+        } else {
+            await stats.open()
+        }
+        let recordedUsage = RecordedUsage(base: usage, stats: stats)
         let openAI = KeyedOpenAIClient(secrets: secrets)
         let processes = RunningProcessCheck()
         let paster = Paster(
@@ -144,10 +154,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             cleaner: openAI,
             paster: paster,
             secrets: secrets,
-            usage: usage,
+            usage: recordedUsage,
             history: history,
             sounds: sounds,
-            prompts: prompts
+            prompts: prompts,
+            stats: stats
         )
 
         let controller = DictationController(deps: deps, config: configStore)
@@ -155,7 +166,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // The app's one people store and match log: People in Settings and every meeting share them (R23).
         let voices = VoiceStore(directory: Self.configDirectory)
         let matchLog = MatchLog(url: Self.configDirectory.appendingPathComponent("voice-matches.jsonl"))
-        let store = MeetingStore(directory: Self.configDirectory.appendingPathComponent("meetings", isDirectory: true))
         let scrubber = VoiceScrubber(store: store)
         let exporter = MeetingExporter(generator: AgentCommand.generator)
         let export: @MainActor (MeetingExporter.Kind, UUID) -> Void = { kind, id in
@@ -163,8 +173,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         let placement = DisplayPlacement(focused: AXFocusedWindow(), pointer: NSEventPointer(), screens: NSScreenList())
         meetings = makeMeetings(
-            audio: audio, secrets: secrets, configStore: configStore, usage: usage, prompts: prompts,
-            store: store, placement: placement, export: export,
+            audio: audio, secrets: secrets, configStore: configStore, usage: usage, recordedUsage: recordedUsage,
+            prompts: prompts, store: store, placement: placement, export: export,
             voices: VoiceDependencies(store: voices, embedder: voiceEmbedder, log: matchLog)
         )
 
@@ -321,12 +331,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Design §5.5: one `MeetingController` per meeting session, shown as the main window's meeting
     /// page. They share the dictation capture engine, which is free while a meeting holds it because
     /// dictation is locked out (R19), and the voice recognition of design v8, which acts only while
-    /// the meeting's route switch is on.
+    /// the meeting's route switch is on. Meetings add usage through `recordedUsage`; `usage` gives
+    /// the totals.
     private func makeMeetings(
         audio: AudioCaptureEngine,
         secrets: KeychainStore,
         configStore: ConfigStore,
         usage: UsageStore,
+        recordedUsage: RecordedUsage,
         prompts: PromptFiles,
         store: MeetingStore,
         placement: DisplayPlacement,
@@ -345,7 +357,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                         secrets: secrets,
                         store: store,
                         summarizer: anthropic,
-                        usage: usage,
+                        usage: recordedUsage,
                         prompts: prompts,
                         frontAppName: { frontApp },
                         userName: { NSFullUserName() },
@@ -399,6 +411,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             voiceRouteEnabled: { [weak self] engine in self?.config.voice.isEnabled(engine.voiceRoute) ?? false },
             hasKey: hasKey
         ))
+    }
+
+    /// The statistics record as the stored files rebuild it, from every stored meeting: the seed
+    /// itself sorts test calls and unfinished meetings out.
+    private static func makeSeed(history: HistoryStore, configStore: ConfigStore, store: MeetingStore) async -> StatsSeed {
+        let meetings = ((try? store.index()) ?? []).compactMap { try? store.meeting($0.id) }
+        return StatsSeed(
+            history: await history.entries(), usage: await configStore.load().usage, meetings: meetings,
+            now: Date(), calendar: .current
+        )
     }
 
     /// The main window and its pages (design §5.8), created hidden.

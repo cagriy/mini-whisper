@@ -4,6 +4,7 @@ import MWCorrections
 import MWHistory
 import MWHotkeys
 import MWProfiles
+import MWStats
 import MWStreaming
 import MWSupport
 import MWTranscription
@@ -12,19 +13,23 @@ import MWUsage
 /// Turns a stopped recording into a delivered dictation: finish the stream, pick the
 /// transcript, batch-transcribe and clean as needed, bill, paste and record — checking
 /// staleness before every network call and before the paste (F12–F15, F21, F26, F28,
-/// F29, F35, design §5.5).
+/// F29, F35, design §5.5). Every run, whatever ends it, records one attempt.
 ///
 /// It owns no timers, audio or hotkey state; the controller decides when to run one.
 public struct ProcessingJob: Sendable {
+    private typealias Ending = (outcome: DictationAttempt.Outcome, words: Int, cost: Double, wait: Double?)
+
     /// F21: a stream that has not finished within 5 s is unusable.
     public static let finishTimeout = Duration.seconds(5)
 
     private let deps: Dependencies
+    private let clock: any Clock
     private let billing: StreamBilling
     private let log = Log.pipeline
 
-    public init(deps: Dependencies) {
+    public init(deps: Dependencies, clock: any Clock) {
         self.deps = deps
+        self.clock = clock
         billing = StreamBilling(usage: deps.usage)
     }
 
@@ -33,6 +38,26 @@ public struct ProcessingJob: Sendable {
         isStale: @Sendable () -> Bool,
         emit: @Sendable (UIEvent) -> Void
     ) async {
+        let id = UUID().uuidString
+        let ending = await perform(input, id: id, isStale: isStale, emit: emit)
+        await deps.stats.record(DictationAttempt(
+            id: id,
+            bundleID: input.target.bundleID,
+            engine: input.engine?.name.rawValue,
+            seconds: input.recording.duration,
+            words: ending.words,
+            outcome: ending.outcome,
+            wait: ending.wait,
+            costUSD: ending.cost
+        ))
+    }
+
+    private func perform(
+        _ input: ProcessingInput,
+        id: String,
+        isStale: @Sendable () -> Bool,
+        emit: @Sendable (UIEvent) -> Void
+    ) async -> Ending {
         var streamedSeconds = 0.0
         var streamedTokens = TokenUsage()
         var rawText: String?
@@ -60,10 +85,10 @@ public struct ProcessingJob: Sendable {
         let key = (try? deps.secrets.secret(for: .openai)).flatMap { $0.isEmpty ? nil : $0 }
         // F13: without a key the streamed transcript is pasted raw, or nothing is.
         guard key != nil || rawText != nil else {
-            await bill(streamedSecondsOf: input, seconds: streamedSeconds)
+            let cost = await bill(streamedSecondsOf: input, seconds: streamedSeconds)
             deps.sounds.playOff()
             emit(.error("No API key configured"))
-            return
+            return (.noKey, 0, cost, nil)
         }
 
         let snapshot = input.snapshot
@@ -83,16 +108,16 @@ public struct ProcessingJob: Sendable {
                 rawText = text
                 transcribeTokens = tokens
             } catch {
-                return fail(error, emit: emit)
+                return fail(error, cost: 0, emit: emit)
             }
         }
 
         let raw = (rawText ?? "").trimmed
         guard !raw.isEmpty else {
-            await bill(streamedSecondsOf: input, seconds: streamedSeconds)
+            let cost = await bill(streamedSecondsOf: input, seconds: streamedSeconds)
             deps.sounds.playOff()
             emit(.idle)
-            return
+            return (.empty, 0, cost, nil)
         }
 
         var finalText = raw
@@ -111,7 +136,7 @@ public struct ProcessingJob: Sendable {
                 finalText = text
                 cleanupTokens = tokens
             } catch {
-                return fail(error, emit: emit)
+                return fail(error, cost: 0, emit: emit)
             }
         }
 
@@ -161,12 +186,14 @@ public struct ProcessingJob: Sendable {
                 submit: input.binding == .pasteSubmit ? input.profile.submitKey : nil
             )
         } catch {
-            return fail(error, emit: emit)
+            return fail(error, cost: cost, emit: emit)
         }
+        let wait = clock.now - input.releasedAt
 
         // F29: history records delivered dictations only.
         do {
             try await deps.history.append(HistoryEntry(
+                id: id,
                 text: finalText,
                 appName: input.target.name,
                 bundleID: input.target.bundleID,
@@ -187,6 +214,7 @@ public struct ProcessingJob: Sendable {
             deliveredAt: Date()
         )))
         emit(.usage(await deps.usage.totals()))
+        return (.delivered, WordCount.count(finalText), cost, wait)
     }
 
     // MARK: - Terminus paths
@@ -196,21 +224,24 @@ public struct ProcessingJob: Sendable {
         _ input: ProcessingInput,
         seconds: TimeInterval,
         emit: @Sendable (UIEvent) -> Void
-    ) async {
+    ) async -> Ending {
         log.debug("stale dictation discarded")
-        await bill(streamedSecondsOf: input, seconds: seconds)
+        let cost = await bill(streamedSecondsOf: input, seconds: seconds)
         deps.sounds.playOff()
         emit(.idle)
+        return (.superseded, 0, cost, nil)
     }
 
-    private func fail(_ error: any Error, emit: @Sendable (UIEvent) -> Void) {
+    /// `cost` is what the dictation was billed before it failed.
+    private func fail(_ error: any Error, cost: Double, emit: @Sendable (UIEvent) -> Void) -> Ending {
         let message = AnyError(error).description
         log.info("processing failed: \(message)")
         deps.sounds.playOff()
         emit(.error(message))
+        return (.failed, 0, cost, nil)
     }
 
-    private func bill(streamedSecondsOf input: ProcessingInput, seconds: TimeInterval) async {
+    private func bill(streamedSecondsOf input: ProcessingInput, seconds: TimeInterval) async -> Double {
         await billing.record(
             engine: input.engine?.name,
             seconds: seconds,
@@ -229,15 +260,13 @@ struct StreamBilling: Sendable {
         self.usage = usage
     }
 
-    func record(engine: EngineName?, seconds: TimeInterval, overrides: [String: Double]) async {
-        guard let engine, seconds > 0 else { return }
-        await add(ProviderUsage(
-            purpose: .dictation,
-            streamedSeconds: [engine.rawValue: seconds],
-            costUSD: Pricing.dictationCost(
-                engine: engine, seconds: seconds, tokensByModel: [:], overrides: overrides
-            )
-        ))
+    /// The cost billed: 0 without an engine or seconds.
+    @discardableResult
+    func record(engine: EngineName?, seconds: TimeInterval, overrides: [String: Double]) async -> Double {
+        guard let engine, seconds > 0 else { return 0 }
+        let cost = Pricing.dictationCost(engine: engine, seconds: seconds, tokensByModel: [:], overrides: overrides)
+        await add(ProviderUsage(purpose: .dictation, streamedSeconds: [engine.rawValue: seconds], costUSD: cost))
+        return cost
     }
 
     func add(_ providerUsage: ProviderUsage) async {
