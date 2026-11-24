@@ -1,11 +1,10 @@
 import Foundation
+import MWSupport
 import MWTestSupport
 import Testing
 
-@testable import MWVoices
-
-/// Voice data is biometric (design v8 §5 Security): a file holding it is owner-only from the
-/// instant it exists, not chmodded after a write the umask left readable by others.
+/// Voice data and statistics are owner-only from the instant a file exists, not chmodded after a
+/// write the umask left readable by others.
 @Suite struct PrivateFileTests {
     private func mode(of url: URL) throws -> Int {
         try #require(FileManager.default.attributesOfItem(atPath: url.path)[.posixPermissions] as? Int)

@@ -94,6 +94,9 @@ public enum Log {
     /// Counts, token figures, durations and status codes only: never a name, quote,
     /// transcript text or key.
     public static let naming = LogCategory(name: "naming")
+    /// Counts, durations, file names and error descriptions only: never a word, title, name,
+    /// bundle identifier or path.
+    public static let stats = LogCategory(name: "stats")
 
     public static func stream(_ engine: String) -> LogCategory {
         LogCategory(name: "stream.\(engine)")
