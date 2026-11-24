@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### Added
+
+- A numbers-only record of meetings, dictations and estimated spend, kept for life under
+  `~/.config/mini-whisper/stats/`: counts, lengths, word counts, costs and which app each
+  dictation went to. No text, titles or names; nothing leaves the Mac. It starts from the
+  dictations and meetings already stored, and survives clearing history and deleting meetings.
+- Settings → Statistics → Reset Statistics rebuilds the record from what is still stored.
+
 ## [0.9.0b3] - 2026-11-23
 
 ### Fixed

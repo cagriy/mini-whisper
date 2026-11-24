@@ -1183,3 +1183,12 @@ Recorded during implementation.
 - **Stage 9, `timing` at stop** is written only when there is a sample; a meeting with none keeps `timing` nil until its summary.
 - **Stage 9, `AppDelegate`** relies on `MeetingDependencies.timeZone`'s default `{ .current }` rather than passing it.
 - **Stage 9, noted, not changed.** `meetingStopped` waits for a running pass, as the design says, so a meeting stopped during the first launch pass over a large library waits for that pass before its summary is requested.
+- **Stage 10, a short quiet recording is `too_short`.** The gate tests length first, as its guard does.
+- **Stage 10, ordering.** Device change, gate, profile error and abort record before the off sound and UI event; the mic error records after its error, so a new press cannot show `.starting` before the old error.
+- **Stage 10, `theWaitRunsFromReleaseToThePaste` not added.** Stage 8's `theWaitRunsFromTheKeyRelease` covers it. With Stage 8, all fourteen termini of design §4 record exactly one attempt, each pinned by a test.
+- **Stage 11, confirm runs once.** `confirmReset()` returns unless the question is open; a second confirm calls nothing.
+- **Stage 11, README history bullet.** "nothing further is written" became "no further text is written", to match the reworded History row.
+- **Stage 11, CLAUDE.md.** The `MWStats` row sits after `MWTestCall`; `MWPipeline`, `MWMeetingPipeline` and `MWTestSupport` list it; `MWSupport` gains `PrivateFile`.
+- **Stage 11, noted, not changed.** A reset during a running reconcile pass joins that pass (single flight), so meetings that pass refreshed before the reset lose their rows until the next reconcile: next launch, a meeting stop, or, from Phase B, Timeline opening.
+- **Stages 10 and 11 ran as parallel batch 8.** Both landed without conflict. Offscreen snapshots of the Statistics section, History card and Reset dialog (light and dark) match the design's strings and the accepted mockup's structure.
+- **Phase A boundary.** The run stopped after Batch 8, as *Risks and open issues* prescribes, for the 0.9.0b4 cut. Stages 12–27 remain.
