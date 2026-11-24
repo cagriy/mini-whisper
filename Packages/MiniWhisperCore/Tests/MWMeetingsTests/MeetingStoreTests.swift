@@ -442,6 +442,58 @@ import MWMeetings
         #expect(try fixture.store.readVoices(meeting.id) == nil)
     }
 
+    // MARK: - Statistics reads
+
+    @Test func meetingReadsOnlyMeetingJSON() async throws {
+        let fixture = try Fixture()
+        var meeting = MeetingFixtures.make().meeting
+        meeting.utcOffsetSeconds = -18000
+        meeting.timing = MeetingTiming(transcriptDelay: DelayStats(median: 0.9, p90: 1.6, count: 12))
+        try await fixture.store.create(meeting)
+        try await fixture.store.append(segment("one", at: 1), to: meeting.id)
+        try FileManager.default.removeItem(at: fixture.folder(meeting.id).appendingPathComponent("segments.jsonl"))
+
+        #expect(try fixture.store.meeting(meeting.id) == meeting)
+    }
+
+    @Test func meetingOfAMissingFolderThrows() throws {
+        let fixture = try Fixture()
+
+        #expect(throws: (any Error).self) { try fixture.store.meeting(UUID()) }
+    }
+
+    @Test func modifiedIsTheNewestOfTheThreeFiles() async throws {
+        let fixture = try Fixture()
+        let meeting = MeetingFixtures.make().meeting
+        try await fixture.store.create(meeting)
+        try Data(count: 10).write(to: fixture.store.audioURL(meeting.id))
+        let base = Date(timeIntervalSince1970: 1_794_222_000)
+        func stamp(_ name: String, _ offset: TimeInterval) throws {
+            try FileManager.default.setAttributes(
+                [.modificationDate: base.addingTimeInterval(offset)],
+                ofItemAtPath: fixture.folder(meeting.id).appendingPathComponent(name).path
+            )
+        }
+
+        try stamp("audio.m4a", 900)
+        try stamp("meeting.json", 0)
+        try stamp("segments.jsonl", 300)
+        try stamp("notes.jsonl", 60)
+        #expect(fixture.store.modified(meeting.id) == base.addingTimeInterval(300))
+
+        try stamp("notes.jsonl", 600)
+        #expect(fixture.store.modified(meeting.id) == base.addingTimeInterval(600))
+
+        try stamp("meeting.json", 700)
+        #expect(fixture.store.modified(meeting.id) == base.addingTimeInterval(700))
+    }
+
+    @Test func modifiedIsNilWithoutTheFolder() throws {
+        let fixture = try Fixture()
+
+        #expect(fixture.store.modified(UUID()) == nil)
+    }
+
     @Test func audioURLIsInsideTheMeetingFolder() throws {
         let fixture = try Fixture()
         let id = UUID()

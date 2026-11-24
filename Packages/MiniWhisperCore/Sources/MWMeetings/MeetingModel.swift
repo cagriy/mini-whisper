@@ -246,6 +246,40 @@ public struct Billing: Codable, Sendable, Equatable {
     }
 }
 
+/// Seconds the live transcript ran behind the meeting.
+public struct DelayStats: Codable, Sendable, Equatable {
+    public var median: Double
+    public var p90: Double
+    public var count: Int
+
+    public init(median: Double, p90: Double, count: Int) {
+        self.median = median
+        self.p90 = p90
+        self.count = count
+    }
+
+    /// The median of an even count is the mean of the two middle values; p90 is the nearest rank.
+    public init?(samples: [Double]) {
+        guard !samples.isEmpty else { return nil }
+        let sorted = samples.sorted()
+        let middle = sorted.count / 2
+        let median = sorted.count.isMultiple(of: 2) ? (sorted[middle - 1] + sorted[middle]) / 2 : sorted[middle]
+        let rank = Int((0.9 * Double(sorted.count)).rounded(.up))
+        self.init(median: median, p90: sorted[rank - 1], count: sorted.count)
+    }
+}
+
+/// Nil fields were not measured.
+public struct MeetingTiming: Codable, Sendable, Equatable {
+    public var transcriptDelay: DelayStats?
+    public var summaryWaitSeconds: Double?
+
+    public init(transcriptDelay: DelayStats? = nil, summaryWaitSeconds: Double? = nil) {
+        self.transcriptDelay = transcriptDelay
+        self.summaryWaitSeconds = summaryWaitSeconds
+    }
+}
+
 /// `meeting.json`.
 public struct Meeting: Codable, Sendable, Equatable, Identifiable {
     public static let currentSchema = 1
@@ -272,6 +306,10 @@ public struct Meeting: Codable, Sendable, Equatable, Identifiable {
     /// True once the user has named the meeting; false while the title is the app's, the default
     /// or a summary's subject. Nil in files written before titles followed summaries.
     public var titleByUser: Bool?
+    /// The offset of the time zone the meeting started in. This and `timing` are nil in files
+    /// written before statistics, and left out of `init` so its callers stay as they are.
+    public var utcOffsetSeconds: Int?
+    public var timing: MeetingTiming?
 
     public init(
         id: UUID = UUID(),

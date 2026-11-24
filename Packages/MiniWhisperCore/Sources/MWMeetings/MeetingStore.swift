@@ -77,7 +77,7 @@ public actor MeetingStore: MeetingReading {
         // The rename below would leave an open handle appending to the replaced file.
         try? handles.removeValue(forKey: target)?.close()
         try Self.write(data, to: target)
-        try updateIndexEntry(for: readMeeting(id))
+        try updateIndexEntry(for: meeting(id))
     }
 
     public func delete(_ id: UUID) throws {
@@ -90,7 +90,7 @@ public actor MeetingStore: MeetingReading {
 
     public func deleteAudio(_ id: UUID) throws {
         try Self.removeIfPresent(audioURL(id))
-        try updateIndexEntry(for: readMeeting(id))
+        try updateIndexEntry(for: meeting(id))
     }
 
     public func writeTestCall(_ record: TestCallRecord, of id: UUID) throws {
@@ -133,10 +133,22 @@ public actor MeetingStore: MeetingReading {
     /// Skips, and counts in the log, any unreadable segment or note line.
     public nonisolated func load(_ id: UUID) throws -> LoadedMeeting {
         LoadedMeeting(
-            meeting: try readMeeting(id),
+            meeting: try meeting(id),
             segments: readLines(of: .segments, in: id),
             notes: readLines(of: .notes, in: id)
         )
+    }
+
+    /// `meeting.json` alone: no transcript or notes are read.
+    public nonisolated func meeting(_ id: UUID) throws -> Meeting {
+        try MeetingCoding.decoder().decode(Meeting.self, from: Data(contentsOf: url(.meeting, of: id)))
+    }
+
+    /// The newest modification of `meeting.json`, `segments.jsonl` and `notes.jsonl`.
+    public nonisolated func modified(_ id: UUID) -> Date? {
+        [File.meeting, .segments, .notes].compactMap {
+            try? FileManager.default.attributesOfItem(atPath: url($0, of: id).path)[.modificationDate] as? Date
+        }.max()
     }
 
     /// Nil when the meeting has no `testcall.json`.
@@ -191,10 +203,6 @@ public actor MeetingStore: MeetingReading {
         try Self.write(MeetingCoding.encoder().encode(Self.newestFirst(entries)), to: indexURL)
     }
 
-    private nonisolated func readMeeting(_ id: UUID) throws -> Meeting {
-        try MeetingCoding.decoder().decode(Meeting.self, from: Data(contentsOf: url(.meeting, of: id)))
-    }
-
     private nonisolated func readLines<Line: Decodable>(of file: File, in id: UUID) -> [Line] {
         guard let data = FileManager.default.contents(atPath: url(file, of: id).path) else { return [] }
         let decoder = MeetingCoding.decoder()
@@ -228,7 +236,7 @@ public actor MeetingStore: MeetingReading {
         for name in try FileManager.default.contentsOfDirectory(atPath: directory.path) {
             guard let id = UUID(uuidString: name) else { continue }
             do {
-                entries.append(entry(for: try readMeeting(id)))
+                entries.append(entry(for: try meeting(id)))
             } catch {
                 Log.meeting.warning("skipped meeting \(id.uuidString): \(AnyError(error).description)")
             }

@@ -125,6 +125,60 @@ import MWMeetings
         #expect(abs(meeting.totalCostUSD - (0.3665 + 0.02 + 0.0125)) < 1e-9)
     }
 
+    // MARK: - Timing
+
+    /// The id in `meeting-v0.5.json`.
+    private let v05 = UUID(uuidString: "5C0D1A2B-3E4F-4A5B-8C6D-7E8F9A0B1C2D")!
+
+    @Test func aMeetingWithoutTimingEncodesAsToday() throws {
+        let data = try MeetingCoding.encoder().encode(MeetingFixtures.make(id: v05).meeting)
+
+        #expect(String(decoding: data, as: UTF8.self) == """
+            {"app":"Zoom","billing":{"costUSD":0,"diarizationSeconds":0,"engineSeconds":0,"replacedSummaryCostUSD":0},\
+            "durationSeconds":0,"engine":"speechmatics_standard","id":"\(v05.uuidString)","markers":[],"mode":"remote",\
+            "schema":1,"speakers":[{"id":0,"isUser":true,"name":"Alex","providerKeys":[]}],\
+            "startedAt":"2026-11-09T11:00:00Z","title":"Zoom · 9 Nov 2026 11:00","userName":"Alex"}
+            """)
+    }
+
+    @Test func timingAndOffsetAbsentDecodeAsNil() throws {
+        let url = try #require(Bundle.module.url(forResource: "meeting-v0.5", withExtension: "json", subdirectory: "Fixtures"))
+        let meeting = try MeetingCoding.decoder().decode(Meeting.self, from: Data(contentsOf: url))
+
+        #expect(meeting.utcOffsetSeconds == nil)
+        #expect(meeting.timing == nil)
+        #expect(meeting == MeetingFixtures.make(id: v05).meeting)
+    }
+
+    @Test func timingAndOffsetRoundTrip() throws {
+        var meeting = MeetingFixtures.make(id: v05).meeting
+        meeting.utcOffsetSeconds = 3600
+        meeting.timing = MeetingTiming(
+            transcriptDelay: DelayStats(median: 1, p90: 2, count: 5), summaryWaitSeconds: 7.5
+        )
+        let data = try MeetingCoding.encoder().encode(meeting)
+
+        #expect(try MeetingCoding.decoder().decode(Meeting.self, from: data) == meeting)
+        let json = String(decoding: data, as: UTF8.self)
+        #expect(json.contains(#""timing":{"summaryWaitSeconds":7.5,"transcriptDelay":{"count":5,"median":1,"p90":2}}"#))
+        #expect(json.contains(#""utcOffsetSeconds":3600"#))
+
+        meeting.timing = MeetingTiming(summaryWaitSeconds: 4)
+        let waitOnly = try MeetingCoding.encoder().encode(meeting)
+        #expect(try MeetingCoding.decoder().decode(Meeting.self, from: waitOnly) == meeting)
+        #expect(String(decoding: waitOnly, as: UTF8.self).contains(#""timing":{"summaryWaitSeconds":4}"#))
+    }
+
+    @Test func delayStatsTakeTheMedianAndTheNearestRankP90() {
+        #expect(DelayStats(samples: [0.4, 1.2, 0.8, 2.0, 1.0]) == DelayStats(median: 1.0, p90: 2.0, count: 5))
+        #expect(DelayStats(samples: [1, 2, 3, 4]) == DelayStats(median: 2.5, p90: 4, count: 4))
+        #expect(DelayStats(samples: [3]) == DelayStats(median: 3, p90: 3, count: 1))
+    }
+
+    @Test func delayStatsOfNoSamplesIsNil() {
+        #expect(DelayStats(samples: []) == nil)
+    }
+
     // MARK: - Title
 
     private func meeting(title: String = "Zoom · 9 Nov 2026 11:00", byUser: Bool? = nil) -> Meeting {
