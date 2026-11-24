@@ -5,6 +5,7 @@ import MWConfig
 import MWCorrections
 import MWHotkeys
 import MWProfiles
+import MWStats
 import MWStreaming
 import MWSupport
 
@@ -101,7 +102,10 @@ public final class DictationController {
         guard let session = state.session else { return await deps.audio.stop() }
         endSession()
         await deps.audio.attachListener(nil)
-        await discard(session.engine, overrides: await configStore.load().pricingOverrides)
+        let cost = await discard(session.engine, overrides: await configStore.load().pricingOverrides)
+        await record(
+            .aborted, session: session, bundleID: session.startTarget?.bundleID, seconds: 0, cost: cost
+        )
         await deps.audio.stop()
     }
 
@@ -113,10 +117,15 @@ public final class DictationController {
             try await deps.audio.beginCapture()
         } catch {
             // F16 / design §5.7: no stream, and no idle-stop timer to schedule.
-            guard state.session?.id == id else { return }
+            guard let session = state.session, session.id == id else { return }
             endSession()
             deps.sounds.playOff()
             emit(.error("Mic error: \(AnyError(error).description)"))
+            // Recorded after the error, not before like the other termini: nothing here has
+            // suspended since the session ended, so a new press cannot start before it shows.
+            await record(
+                .micError, session: session, bundleID: session.startTarget?.bundleID, seconds: 0, cost: 0
+            )
             return
         }
         guard state.session?.id == id else { return }
@@ -173,17 +182,23 @@ public final class DictationController {
             // F19: only a capture in progress is affected; while idle the engine simply
             // restarts on the next press.
             guard let session = state.session else { return }
-            await endWithError("Audio device changed", session: session)
+            await endWithError("Audio device changed", outcome: .deviceChanged, session: session)
         case .stopped:
             break
         }
     }
 
-    private func endWithError(_ message: String, session: RecordingSession) async {
+    private func endWithError(
+        _ message: String, outcome: DictationAttempt.Outcome, session: RecordingSession
+    ) async {
         endSession()
         await deps.audio.attachListener(nil)
-        _ = await deps.audio.endCapture()
-        await discard(session.engine, overrides: await configStore.load().pricingOverrides)
+        let recording = await deps.audio.endCapture()
+        let cost = await discard(session.engine, overrides: await configStore.load().pricingOverrides)
+        await record(
+            outcome, session: session, bundleID: session.startTarget?.bundleID,
+            seconds: recording.duration, cost: cost
+        )
         deps.sounds.playOff()
         emit(.error(message))
     }
@@ -209,7 +224,11 @@ public final class DictationController {
         guard recording.duration >= Self.minRecordingSeconds,
               recording.meanRMS >= Self.silenceRMSThreshold
         else {
-            await discard(session.engine, overrides: config.pricingOverrides)
+            let cost = await discard(session.engine, overrides: config.pricingOverrides)
+            await record(
+                recording.duration < Self.minRecordingSeconds ? .tooShort : .silent,
+                session: session, bundleID: target.bundleID, seconds: recording.duration, cost: cost
+            )
             deps.sounds.playOff()
             emit(.idle)
             await scheduleIdleStop(config)
@@ -226,6 +245,9 @@ public final class DictationController {
             profile = try ProfileResolver(config: config, defaultPrompt: deps.prompts.cleanupPrompt)
                 .resolve(bundleID: target.bundleID)
         } catch {
+            await record(
+                .failed, session: session, bundleID: target.bundleID, seconds: recording.duration, cost: 0
+            )
             deps.sounds.playOff()
             emit(.error(AnyError(error).description))
             await scheduleIdleStop(config)
@@ -301,12 +323,33 @@ public final class DictationController {
         state.session = nil
     }
 
-    private func discard(_ engine: (any StreamingEngine)?, overrides: [String: Double]) async {
-        guard let engine else { return }
+    /// The cost billed for the stream's seconds: 0 without an engine.
+    private func discard(_ engine: (any StreamingEngine)?, overrides: [String: Double]) async -> Double {
+        guard let engine else { return 0 }
         let result = await engine.finish(timeout: Self.discardTimeout)
-        await billing.record(
+        return await billing.record(
             engine: engine.name, seconds: result.usage.seconds, overrides: overrides
         )
+    }
+
+    /// The one attempt of a terminus the job never sees: nothing delivered, so no words or wait.
+    private func record(
+        _ outcome: DictationAttempt.Outcome,
+        session: RecordingSession,
+        bundleID: String?,
+        seconds: TimeInterval,
+        cost: Double
+    ) async {
+        await deps.stats.record(DictationAttempt(
+            id: UUID().uuidString,
+            bundleID: bundleID,
+            engine: session.engine?.name.rawValue,
+            seconds: seconds,
+            words: 0,
+            outcome: outcome,
+            wait: nil,
+            costUSD: cost
+        ))
     }
 
     // MARK: - Test seams

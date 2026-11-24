@@ -34,6 +34,12 @@ import Testing
         func cleanupPrompt() throws -> String { "Clean up." }
     }
 
+    /// An unreadable `prompt.txt`: the release fails to resolve its profile.
+    private struct UnreadablePrompts: PromptProviding {
+        func transcribeInstructions() throws -> String { "Transcribe base." }
+        func cleanupPrompt() throws -> String { throw StubFailure(errorDescription: "prompt.txt unreadable") }
+    }
+
     private struct StubFailure: LocalizedError {
         let errorDescription: String?
     }
@@ -113,6 +119,7 @@ import Testing
             cleaner: any Cleaner = FakeCleaner(
                 text: "Hello world.", usage: TokenUsage(inputTokens: 5, outputTokens: 8)
             ),
+            prompts: any PromptProviding = StubPrompts(),
             _ configure: @escaping @Sendable (inout Config) -> Void = { _ in }
         ) async throws {
             self.paster = paster
@@ -132,7 +139,7 @@ import Testing
                     usage: usage,
                     history: history,
                     sounds: sounds,
-                    prompts: StubPrompts(),
+                    prompts: prompts,
                     stats: stats
                 ),
                 config: store,
@@ -170,6 +177,15 @@ import Testing
             await Task.yield()
         }
 
+        /// The attempts recorded, with their fresh UUIDs blanked so whole rows compare.
+        var attempts: [DictationAttempt] {
+            stats.attempts.map { attempt in
+                var blanked = attempt
+                blanked.id = ""
+                return blanked
+            }
+        }
+
         var idleStops: [Duration] {
             audio.calls.compactMap {
                 if case .scheduleIdleStop(let duration) = $0 { duration } else { nil }
@@ -198,6 +214,20 @@ import Testing
     private static let threeOpenAISeconds = ProviderUsage(
         purpose: .dictation, streamedSeconds: ["openai": 3], costUSD: 0.00085
     )
+
+    /// An undelivered attempt as `Harness.attempts` reports it.
+    private static func attempt(
+        _ outcome: DictationAttempt.Outcome,
+        app target: PasteTarget,
+        engine: String?,
+        seconds: TimeInterval,
+        cost: Double
+    ) -> DictationAttempt {
+        DictationAttempt(
+            id: "", bundleID: target.bundleID, engine: engine, seconds: seconds,
+            words: 0, outcome: outcome, wait: nil, costUSD: cost
+        )
+    }
 
     // MARK: - Press (F9, N1)
 
@@ -723,5 +753,113 @@ import Testing
         await harness.controller.settle()
 
         #expect(harness.clock.sleeps == [0.1])
+    }
+
+    // MARK: - Statistics: the termini the job never sees (R3)
+
+    @Test func micErrorRecordsNoLengthAndNoCost() async throws {
+        let harness = try await Harness()
+        harness.audio.beginFailure = StubFailure(errorDescription: "no input device")
+
+        harness.controller.hotkeyPressed(.paste)
+        await harness.controller.settle()
+
+        #expect(harness.attempts == [
+            Self.attempt(.micError, app: Self.slack, engine: nil, seconds: 0, cost: 0),
+        ])
+        #expect(harness.stats.attempts.allSatisfy { UUID(uuidString: $0.id) != nil })
+    }
+
+    /// No release: the app is the one frontmost at the press.
+    @Test func deviceChangeRecordsTheLengthAndTheDiscardBill() async throws {
+        let harness = try await Harness()
+        harness.audio.recording = Recording(wav: Data("wav".utf8), duration: 1.5, meanRMS: 0.02)
+        harness.engines.set(engine: Self.openAIEngine())
+        harness.controller.hotkeyPressed(.paste)
+        await harness.controller.settle()
+        harness.frontmost.target = Self.terminal
+
+        harness.audio.send(.deviceChanged)
+        await harness.waitFor(.error("Audio device changed"))
+
+        #expect(harness.attempts == [Self.attempt(
+            .deviceChanged, app: Self.slack, engine: "openai", seconds: 1.5,
+            cost: Self.threeOpenAISeconds.costUSD
+        )])
+    }
+
+    /// A quick tap is usually quiet too; its length decides.
+    @Test func aShortRecordingIsTooShort() async throws {
+        let harness = try await Harness()
+        harness.audio.recording = Recording(wav: Data("wav".utf8), duration: 0.1, meanRMS: 0.001)
+        harness.engines.set(engine: Self.openAIEngine())
+        harness.controller.hotkeyPressed(.paste)
+        await harness.controller.settle()
+        harness.frontmost.target = Self.terminal
+
+        harness.clock.advance(by: 0.5)
+        harness.controller.hotkeyReleased(.paste)
+        await harness.controller.settle()
+
+        #expect(harness.attempts == [Self.attempt(
+            .tooShort, app: Self.terminal, engine: "openai", seconds: 0.1,
+            cost: Self.threeOpenAISeconds.costUSD
+        )])
+    }
+
+    @Test func aQuietRecordingIsSilent() async throws {
+        let harness = try await Harness()
+        harness.audio.recording = Recording(wav: Data("wav".utf8), duration: 2, meanRMS: 0.001)
+        harness.engines.set(engine: Self.openAIEngine())
+        harness.controller.hotkeyPressed(.paste)
+        await harness.controller.settle()
+
+        harness.clock.advance(by: 0.5)
+        harness.controller.hotkeyReleased(.paste)
+        await harness.controller.settle()
+
+        #expect(harness.attempts == [Self.attempt(
+            .silent, app: Self.slack, engine: "openai", seconds: 2,
+            cost: Self.threeOpenAISeconds.costUSD
+        )])
+    }
+
+    @Test func aProfileErrorIsFailedWithNoCost() async throws {
+        let harness = try await Harness(prompts: UnreadablePrompts())
+        harness.engines.set(engine: Self.openAIEngine())
+        harness.controller.hotkeyPressed(.paste)
+        await harness.controller.settle()
+        harness.frontmost.target = Self.terminal
+
+        harness.clock.advance(by: 0.5)
+        harness.controller.hotkeyReleased(.paste)
+        await harness.controller.settle()
+
+        #expect(harness.attempts == [
+            Self.attempt(.failed, app: Self.terminal, engine: "openai", seconds: 1, cost: 0),
+        ])
+    }
+
+    @Test func abortWithASessionRecordsAbortedWithTheDiscardBill() async throws {
+        let harness = try await Harness()
+        harness.engines.set(engine: Self.openAIEngine())
+        harness.controller.hotkeyPressed(.paste)
+        await harness.controller.settle()
+        harness.frontmost.target = Self.terminal
+
+        await harness.controller.abort()
+
+        #expect(harness.attempts == [Self.attempt(
+            .aborted, app: Self.slack, engine: "openai", seconds: 0,
+            cost: Self.threeOpenAISeconds.costUSD
+        )])
+    }
+
+    @Test func abortWithoutASessionRecordsNothing() async throws {
+        let harness = try await Harness()
+
+        await harness.controller.abort()
+
+        #expect(harness.stats.attempts.isEmpty)
     }
 }
