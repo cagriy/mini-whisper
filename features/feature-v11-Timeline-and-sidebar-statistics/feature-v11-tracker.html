@@ -1443,16 +1443,68 @@
 
     <section class="panel" role="tabpanel"
              id="panel-implementation" aria-labelledby="tab-implementation" hidden>
-      <p class="section-timestamp">Awaiting /feature-implement</p>
+      <p class="section-timestamp">Updated 2026-11-24 19:00 UTC</p>
       <!-- usage:IMPLEMENTATION_USAGE_CHIP --><!-- /usage:IMPLEMENTATION_USAGE_CHIP -->
       <article class="panel-section">
         <h2 class="section-label">Highlights</h2>
-        <div class="bullets"><p class="empty">Not yet filled — pending /feature-implement.</p></div>
+        <div class="bullets"><ul>
+          <li>Stages completed: 11/27 (Phase A, the record); Stages 12–27 (Phases B and C) not started</li>
+          <li>Tests: core 1,630 passed in 20 targets; app 573 passed in 53 suites</li>
+          <li>Phase A requirements covered: R1–R15, R27 (Phase A form), R29, R30, R35–R36 for Phase A</li>
+          <li>Pre-existing failures excluded: None</li>
+          <li>Dead-code orphans: None new (periphery against the pre-run baseline)</li>
+          <li>Parallel batches: Stages 3–4, 5–6 and 10–11 built concurrently, all landed clean</li>
+          <li>Deviations from plan: 40+ refinements recorded; one open design question (reconnects count pauses)</li>
+          <li>Final stage commit: 2466ee3; ready for the 0.9.0b4 cut after the hands-on checks</li>
+        </ul></div>
         <!-- usage:IMPLEMENTATION_USAGE --><!-- /usage:IMPLEMENTATION_USAGE -->
       </article>
       <article class="panel-section">
         <h2 class="section-label">Detail</h2>
-        <div class="prose"><p class="empty">Not yet filled — pending /feature-implement.</p></div>
+        <div class="prose">
+          <h3>Stages completed (Phase A)</h3>
+          <ul>
+            <li>Stage 1 — <code>MWStats</code> module: registration, time, JSONL file, word count and recording seams — 536616c</li>
+            <li>Stage 2 — Every usage states its purpose — 8f2d681</li>
+            <li>Stage 3 — Stats rows, the store, and <code>RecordedUsage</code> — f68733f (parallel, batch 3)</li>
+            <li>Stage 4 — Meeting timing fields and two <code>MeetingStore</code> reads — 512dae9 (parallel, batch 3)</li>
+            <li>Stage 5 — Seed, <code>meta.json</code> and reset — d6a64c0 (parallel, batch 4)</li>
+            <li>Stage 6 — <code>MeetingFigures</code> — 34236cb (parallel, batch 4)</li>
+            <li>Stage 7 — <code>MeetingReconciler</code> and <code>MeetingSource</code> — 1e87269</li>
+            <li>Stage 8 — Dictation capture in the job, and the record at launch — 4c3e94c</li>
+            <li>Stage 9 — Meeting capture and the reconciler at launch — 29a2b04</li>
+            <li>Stage 10 — Dictation capture in the controller — a9d25c9 (parallel, batch 8)</li>
+            <li>Stage 11 — Settings › Statistics with Reset, the History row, and Phase A docs — 2466ee3 (parallel, batch 8)</li>
+          </ul>
+          <h3>Tests</h3>
+          <p>Core <code>swift test</code>: 1,630 tests in 20 targets passed (baseline 1,494 in 19). App <code>xcodebuild test</code>: 573 tests in 53 suites passed (baseline 568). No baseline failures. One idle hang in <code>MWTestCallTests</code> (unrelated) after landing Stage 5; it passed alone and on re-run.</p>
+          <h3>Phase A requirement coverage</h3>
+          <table>
+            <thead><tr><th>Requirement</th><th>Verified by</th></tr></thead>
+            <tbody>
+              <tr><td>R1 location and content</td><td>JSONLFileTests, StatsStoreTests (0700/0600), MeetingReconcilerTests and StatsSeedTests (no text in bytes)</td></tr>
+              <tr><td>R2 start</td><td>StatsStoreSeedTests; launch order in AppDelegate (seed before the controller)</td></tr>
+              <tr><td>R3 dictation attempts</td><td>ProcessingJobTests and DictationControllerTests: all fourteen termini, one attempt each</td></tr>
+              <tr><td>R4 day rows</td><td>StatsStoreTests, StatsRowsTests</td></tr>
+              <tr><td>R5 spend</td><td>UsageStoreTests, MeetingBillingTests, MeetingControllerTestCallTests, RecordedUsageTests</td></tr>
+              <tr><td>R6, R7 meeting rows, reconcile</td><td>MeetingFiguresTests, MeetingReconcilerTests, MeetingControllerStatsTests</td></tr>
+              <tr><td>R8, R11 retention, crash safety</td><td>StatsTimeTests, StatsStoreTests, JSONLFileTests</td></tr>
+              <tr><td>R9, R10 counting, seed</td><td>StatsRowsTests, StatsSeedTests, ProcessingJobTests (retention 0)</td></tr>
+              <tr><td>R12, R29 reset</td><td>StatsStoreSeedTests, SettingsModelTests</td></tr>
+              <tr><td>R13 meeting capture</td><td>MeetingModelTests, MeetingControllerStatsTests</td></tr>
+              <tr><td>R15 isolation</td><td>StatsStoreTests (write failure), MeetingReconcilerTests (load failure)</td></tr>
+              <tr><td>R27 (Phase A), R30</td><td>SettingsModelTests; offscreen snapshots</td></tr>
+            </tbody>
+          </table>
+          <h3>Deviations from plan</h3>
+          <p>Recorded in the plan's <em>Deviations from plan</em>. The largest: <code>PrivateFile</code> moved to <code>MWSupport</code>; the seed takes every stored meeting so test calls can be subtracted; unreadable stats files are never rewritten. Open design question: <code>reconnects</code> (distinct sessions − 1) also counts pause/resume and session rollovers; settle before Phase C.</p>
+          <h3>Notes</h3>
+          <ul>
+            <li>Run stopped at the Phase A boundary for the 0.9.0b4 cut; resume with <code>/feature-implement v11</code> (starts at Stage 12).</li>
+            <li>Hands-on checks on a dev build are pending (stats files, permissions, launch time, meeting timing, Reset).</li>
+            <li><code>main</code> is ahead of <code>origin/main</code>; nothing pushed.</li>
+          </ul>
+        </div>
       </article>
     </section>
 
