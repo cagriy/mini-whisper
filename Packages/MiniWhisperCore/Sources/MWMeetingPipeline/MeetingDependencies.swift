@@ -2,6 +2,7 @@ import Foundation
 import MWAudio
 import MWConfig
 import MWMeetings
+import MWStats
 import MWStreaming
 import MWSupport
 import MWTranscription
@@ -36,9 +37,13 @@ public struct MeetingDependencies: Sendable {
     public var frontAppName: @Sendable () -> String?
     /// The user's label when `meeting_user_name` is unset: the account's full name.
     public var userName: @Sendable () -> String
+    /// Told of each meeting once it has stopped and been saved.
+    public var stats: any MeetingStatsRecording
     public var clock: any Clock
     /// Wall time for `startedAt`, `endedAt` and note and summary stamps.
     public var now: @Sendable () -> Date
+    /// The zone a meeting starts in, for its stored UTC offset.
+    public var timeZone: @Sendable () -> TimeZone
     /// Opens `audio.m4a` when `meeting_keep_audio` is on.
     public var makeAudioWriter: @Sendable (URL) throws -> any AudioFileWriting
     /// Nil leaves voice recognition out of every meeting.
@@ -57,8 +62,10 @@ public struct MeetingDependencies: Sendable {
         prompts: any SummaryPromptProviding,
         frontAppName: @escaping @Sendable () -> String?,
         userName: @escaping @Sendable () -> String,
+        stats: any MeetingStatsRecording,
         clock: any Clock = SystemClock(),
         now: @escaping @Sendable () -> Date = { Date() },
+        timeZone: @escaping @Sendable () -> TimeZone = { .current },
         makeAudioWriter: @escaping @Sendable (URL) throws -> any AudioFileWriting = { try AACFileWriter(url: $0) },
         voices: VoiceDependencies? = nil,
         namer: (any NameSuggesting)? = nil
@@ -73,8 +80,10 @@ public struct MeetingDependencies: Sendable {
         self.prompts = prompts
         self.frontAppName = frontAppName
         self.userName = userName
+        self.stats = stats
         self.clock = clock
         self.now = now
+        self.timeZone = timeZone
         self.makeAudioWriter = makeAudioWriter
         self.voices = voices
         self.namer = namer

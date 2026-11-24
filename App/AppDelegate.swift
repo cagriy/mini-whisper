@@ -137,6 +137,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             await stats.open()
         }
         let recordedUsage = RecordedUsage(base: usage, stats: stats)
+        let reconciler = MeetingReconciler(stats: stats, source: store)
         let openAI = KeyedOpenAIClient(secrets: secrets)
         let processes = RunningProcessCheck()
         let paster = Paster(
@@ -174,7 +175,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let placement = DisplayPlacement(focused: AXFocusedWindow(), pointer: NSEventPointer(), screens: NSScreenList())
         meetings = makeMeetings(
             audio: audio, secrets: secrets, configStore: configStore, usage: usage, recordedUsage: recordedUsage,
-            prompts: prompts, store: store, placement: placement, export: export,
+            reconciler: reconciler, prompts: prompts, store: store, placement: placement, export: export,
             voices: VoiceDependencies(store: voices, embedder: voiceEmbedder, log: matchLog)
         )
 
@@ -304,6 +305,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             config: config
         )
         main?.model.usage = totals
+        Task(priority: .utility) { await reconciler.reconcile() }
         // Never removed: the window lives as long as the app. A key changed while the window was
         // in the background is read again for Suggest names when it comes forward.
         NotificationCenter.default.addObserver(
@@ -339,6 +341,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         configStore: ConfigStore,
         usage: UsageStore,
         recordedUsage: RecordedUsage,
+        reconciler: MeetingReconciler,
         prompts: PromptFiles,
         store: MeetingStore,
         placement: DisplayPlacement,
@@ -361,6 +364,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                         prompts: prompts,
                         frontAppName: { frontApp },
                         userName: { NSFullUserName() },
+                        stats: reconciler,
                         voices: voices,
                         namer: anthropic
                     ),

@@ -7,6 +7,7 @@ import MWConfig
 import MWCorrections
 import MWMeetingPipeline
 import MWMeetings
+import MWStats
 import MWStreaming
 import MWSupport
 import MWTestSupport
@@ -452,6 +453,7 @@ final class MeetingHarness {
     nonisolated static let key = "placeholder-not-a-real-key"
     nonisolated static let wallStart = Date(timeIntervalSince1970: 1_794_234_600)
     nonisolated static let title = "Zoom · 9 Nov 2026 14:30"
+    nonisolated static let zone = TimeZone(secondsFromGMT: 3600)!
 
     let clock = VirtualClock()
     let audio = FakeAudioCapture()
@@ -460,6 +462,7 @@ final class MeetingHarness {
     let secrets: FakeSecretStore
     let summarizer: FakeSummarizer
     let usage = FakeUsageStore()
+    let stats = FakeStatsRecorder()
     let writers = AudioWriterLog()
     let directory: TempDirectory
     let store: MeetingStore
@@ -478,6 +481,7 @@ final class MeetingHarness {
         summarizer: FakeSummarizer = FakeSummarizer(result: SummaryResult(text: "## Summary\n\nShipped.")),
         voices embedder: FakeVoiceEmbedder? = nil,
         namer: FakeNameSuggester? = nil,
+        stats probe: (any MeetingStatsRecording)? = nil,
         _ configure: @escaping @Sendable (inout Config) -> Void = { _ in }
     ) async throws {
         tapFactory = FakeSystemAudioTapFactory(tap: tap)
@@ -508,8 +512,10 @@ final class MeetingHarness {
                 prompts: StubSummaryPrompt(),
                 frontAppName: { "Zoom" },
                 userName: { "Alex" },
+                stats: probe ?? stats,
                 clock: clock,
                 now: { MeetingHarness.wallStart.addingTimeInterval(clock.now) },
+                timeZone: { MeetingHarness.zone },
                 makeAudioWriter: { [writers] in writers.make($0) },
                 voices: voices,
                 namer: namer

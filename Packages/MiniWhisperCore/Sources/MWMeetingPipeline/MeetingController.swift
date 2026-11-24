@@ -83,6 +83,8 @@ public final class MeetingController {
     private var namingAgain = false
     /// The user's name as misheard, as the ticker last read it: known names for spotting.
     private var namingAliases: [String] = []
+    /// Seconds from each provider segment's end to its arrival while recording; none for a test call.
+    private var delays: [Double] = []
 
     public init(deps: MeetingDependencies, config: ConfigStore) {
         self.deps = deps
@@ -112,10 +114,11 @@ public final class MeetingController {
         let userName = config.meetingUserName.flatMap { $0.trimmingCharacters(in: .whitespaces).isEmpty ? nil : $0 }
             ?? deps.userName()
         registry = SpeakerRegistry(userName: userName)
-        let meeting = Meeting(
+        var meeting = Meeting(
             title: title, startedAt: deps.now(), mode: mode, app: deps.frontAppName(), engine: engine,
             userName: userName, speakers: registry.labels, test: test, titleByUser: false
         )
+        meeting.utcOffsetSeconds = deps.timeZone().secondsFromGMT(for: meeting.startedAt)
         let voice = await MeetingVoiceRoute.live(
             deps.voices, engine: engine, mode: mode, meeting: meeting.id, isTest: test != nil, settings: config.voice,
             now: deps.now
@@ -277,6 +280,8 @@ public final class MeetingController {
         shifted.words = segment.words.map {
             TranscriptWord(text: $0.text, start: meetingTime($0.start, origin: origin), end: meetingTime($0.end, origin: origin))
         }
+        // A segment drained after Pause or Stop arrives late by the pause, not by the provider.
+        if state == .recording, meeting.test == nil { delays.append(max(0, meetingTime - shifted.end)) }
         let attribution = SpeakerAttributor.attribute(
             shifted, session: session, mode: meeting.mode, spans: audioPath?.gateView ?? SpeechGate.View(),
             registry: registry, tallies: tallies
@@ -581,6 +586,7 @@ public final class MeetingController {
         meeting?.billing = billing.totals
         meeting?.billing.namingCostUSD = namingCost
         meeting?.speakers = registry.labels
+        if let delay = DelayStats(samples: delays) { meeting?.timing = MeetingTiming(transcriptDelay: delay) }
         // The pass covers the whole meeting, so no live request follows the one in flight.
         naming?.disarm()
         namingAgain = false
@@ -588,6 +594,7 @@ public final class MeetingController {
         if billing.engineSeconds > 0 { await addUsage(billing.finalUsage(purpose: usagePurpose(.meeting))) }
         log.info("meeting stopped after \(Int(duration)) s")
         setState(.stopped)
+        if let id = meeting?.id { await deps.stats.meetingStopped(id) }
         guard summarise else { return }
         if namingAllowed(.stop, config) {
             let pass = startPass(.stop)
@@ -1166,8 +1173,8 @@ public final class MeetingController {
         defer { summarising = false }
         emit(.summary(.writing))
         switch await requestSummary(of: meeting) {
-        case .ready(let summary, let subject):
-            await adopt(summary, subject: subject)
+        case .ready(let summary, let subject, let wait):
+            await adopt(summary, subject: subject, wait: wait)
             emit(.summary(.ready(summary)))
         case .failed(let reason):
             emit(.summary(.failed(reason)))
@@ -1186,9 +1193,9 @@ public final class MeetingController {
         log.info("summary regenerate started")
         emit(.summary(.rewriting(current)))
         switch await requestSummary(of: meeting) {
-        case .ready(let summary, let subject):
+        case .ready(let summary, let subject, let wait):
             self.meeting?.billing.replacedSummaryCostUSD += current.costUSD
-            await adopt(summary, subject: subject)
+            await adopt(summary, subject: subject, wait: wait)
             log.info("summary regenerate: ready")
             emit(.summary(.ready(summary)))
         case .failed(let reason):
@@ -1199,7 +1206,8 @@ public final class MeetingController {
     }
 
     private enum SummaryAttempt {
-        case ready(Summary, subject: String?)
+        /// `wait`: seconds on `deps.clock` from the request to its answer.
+        case ready(Summary, subject: String?, wait: Double)
         /// Declined, or the request's error.
         case failed(String)
         case empty
@@ -1213,6 +1221,7 @@ public final class MeetingController {
 
     /// One summary request over the meeting as it stands; saves nothing.
     private func requestSummary(of meeting: Meeting) async -> SummaryAttempt {
+        let sent = deps.clock.now
         let summariser = Summariser(
             prompts: deps.prompts,
             client: deps.summarizer,
@@ -1221,7 +1230,7 @@ public final class MeetingController {
         )
         do {
             switch try await summariser.run(LoadedMeeting(meeting: meeting, segments: segments, notes: notes)) {
-            case .ready(let summary, let subject): return .ready(summary, subject: subject)
+            case .ready(let summary, let subject): return .ready(summary, subject: subject, wait: deps.clock.now - sent)
             case .declined(let category): return .failed("Summary declined (\(category))")
             case .empty: return .empty
             }
@@ -1232,10 +1241,12 @@ public final class MeetingController {
         }
     }
 
-    /// Stores the summary, names the meeting after its subject where the title is the app's, and
-    /// bills its tokens.
-    private func adopt(_ summary: Summary, subject: String?) async {
+    /// Stores the summary and how long it took, names the meeting after its subject where the title
+    /// is the app's, and bills its tokens.
+    private func adopt(_ summary: Summary, subject: String?, wait: Double) async {
         meeting?.summary = summary
+        let delay = meeting?.timing?.transcriptDelay
+        meeting?.timing = MeetingTiming(transcriptDelay: delay, summaryWaitSeconds: wait)
         if let subject, meeting?.name(after: subject) == true, let title = meeting?.title { emit(.title(title)) }
         await saveMeeting()
         await addUsage(ProviderUsage(
