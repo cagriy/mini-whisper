@@ -10,7 +10,7 @@ Notes outside the marked region are yours: /design-language-update reads them as
 |---|---|
 | Classification | established |
 | Platforms | macOS |
-| Updated | 2026-11-22 15:16 UTC |
+| Updated | 2026-11-24 16:23 UTC |
 | Specimen | https://claude.ai/artifact/WwtdFm3B6EEUxCKMZ3b4PB |
 
 ### Visual Theme & Atmosphere
@@ -60,8 +60,8 @@ Source: user: 2026-11-13
 | Token | Family | Weight | Size / line height | Treatment | Source |
 |---|---|---|---|---|---|
 | type.display | New York | 500 | 28px / 34px | Page and meeting titles | user: 2026-11-13 |
-| type.score | New York | 500 | 34px / 40px | A test call's word error rate | code: App/Design/DS.swift:103 |
-| type.title | New York | 500 | 22px / 28px | Small-window and empty-state titles | user: 2026-11-13 |
+| type.score | New York | 500 | 34px / 40px | A test call's word error rate and Timeline's lifetime totals | user · pending v11 |
+| type.title | New York | 500 | 22px / 28px | Small-window and empty-state titles, and the figures inside Timeline panels | user · pending v11 |
 | type.title.compact | New York | 500 | 20px / 26px | Live meeting title | user: 2026-11-13 |
 | type.title.dialog | New York | 500 | 18px / 24px | Dialog titles | user: 2026-11-13 |
 | type.heading | SF Pro Text | 600 | 16px / 24px | Summary topic headings | user: 2026-11-13 |
@@ -76,6 +76,7 @@ Source: user: 2026-11-13
 | type.label | SF Pro Text | 600 | 11px / 14px | Chips | code: App/Design/DS.swift:109 |
 | type.usage | SF Pro Text | 400 | 11px / 16px | The usage table's figures | code: App/Design/DS.swift:111 |
 | type.usage.header | SF Pro Text | 400 | 10px / 16px | The usage table's column headers | code: App/Design/DS.swift:113 |
+| type.cloud.small | New York | 400 | 13px / 18px | The smallest words in the word cloud | user · pending v11 |
 
 ### Layout Principles
 
@@ -105,6 +106,7 @@ Source: user: 2026-11-13
 | radius.card | 14px | user: 2026-11-13 |
 | radius.mark | 16px | code: App/Design/DS.swift:56 |
 | radius.pill | 999px | code: App/Design/PillButtonStyle.swift:62 |
+| radius.cell | 2px | user · pending v11 |
 
 ### Depth & Elevation
 
@@ -138,6 +140,14 @@ Source: user: 2026-11-13
 | other | Recording pill | — | radius=radius.pill; bg=color.recording.soft; bars=color.recording | code: App/Main/RecordingPill.swift:5 |
 | other | Usage table | — | fg=color.text.secondary; header=color.text.tertiary; border=color.line | code: App/Main/UsageTableView.swift:5 |
 | other | Provisional name | — | — | code: App/Design/ProvisionalName.swift:6 |
+| other | Timeline panel | — | border=color.line | user · pending v11 |
+| other | Stat figure | — | fg=color.text; label=color.text.secondary | user · pending v11 |
+| other | Heat grid | — | none=color.hover; most=color.accent | user · pending v11 |
+| other | Bar chart | — | baseline=color.line; bar=color.accent | user · pending v11 |
+| other | Split bar | — | radius=radius.field; fill=color.accent; rest=color.hover | user · pending v11 |
+| other | Word cloud | — | fg=color.text.secondary; topic=color.accent | user · pending v11 |
+| other | Milestone strand | — | rail=color.line; dot=color.accent | user · pending v11 |
+| other | Stats block | — | hover=color.hover; bars=color.accent; handle=color.sidebar; border=color.line | user · pending v11 |
 
 ### Responsive Behavior
 
@@ -150,17 +160,18 @@ Source: user: 2026-11-13
 
 - Set: SF Symbols in outline, plus the cloud-and-pulse mark of the app icon for empty states and About — user: 2026-11-13
 - Recording: the recording pill's four bars pulse while a meeting records and rest when it is paused or Reduce Motion is on — user: 2026-11-13
-- SF Symbols in outline style, one per settings section — code: App/Settings/SettingsModel.swift:88
+- SF Symbols in outline style, one per settings section — code: App/Settings/SettingsModel.swift:96
 - An app is shown as a rounded tile with its initials, coloured by a hash of its bundle ID — code: App/History/AppGlyph.swift:5
 - Motion lives in the dictation overlay, the pulse bars and the test-call level bars, and honours Reduce Motion — code: App/Design/StatusLine.swift:84
+- Timeline: on opening, a panel plays once when it first comes into view; figures count up over 0.9s and charts draw in over 0.45 to 0.7s; Reduce Motion shows final values at once — user · pending v11
 
 ### Copy Tone
 
 - Labels: field labels and group headings in sentence case, never small capitals — user: 2026-11-13
 - Plain and direct; sentence case in text, title case for menu commands — code: App/MenuModel.swift:42
 - An action that opens something ends in an ellipsis — code: App/MenuModel.swift:42
-- Footnotes explain a setting's consequence in one or two sentences — code: App/Settings/MeetingsSection.swift:38
-- An error states what happened and where to fix it — code: App/Meeting/MeetingWindowModel.swift:197
+- Footnotes explain a setting's consequence in one or two sentences — code: App/Settings/MeetingsSection.swift:56
+- An error states what happened and where to fix it — code: App/Meeting/MeetingWindowModel.swift:244
 
 ### Do's and Don'ts
 
@@ -171,6 +182,8 @@ Source: user: 2026-11-13
 - Do: take every colour, size and type style from DS, whose values appear nowhere else — code: App/Design/DS.swift:4
 - Do: derive the language from the v6 reference screenshots without copying their branding, icons, names or copy — user: 2026-11-13
 - Do: a quiet pill used as a name or row action keeps a color.text.secondary label that turns color.accent on hover or keyboard focus and color.recording when destructive — code: App/Design/PillButtonStyle.swift:12
+- Do: chart series take color.teal for dictation, color.accent for meetings, color.speaker.1 for summaries, color.speaker.3 for naming and color.text.tertiary for unsplit spend — user · pending v11
+- Do: shade a heat cell from color.hover for nothing through three mixes of color.accent to color.accent for the most — user · pending v11
 - Don't: shadows inside a window, only dialogs and menus lift — user: 2026-11-13
 - Don't: bundled fonts, display type is the system serif — user: 2026-11-13
 - Don't: restyle the dictation overlay; it keeps its own visual system — user: 2026-11-13
@@ -211,7 +224,7 @@ Source: user: 2026-11-13
 | 29 | color.speaker.2 is #1A808F light, #6CC5D1 dark | user | 2026-11-13 | active |
 | 30 | color.speaker.3 is #B3661C light, #E0A565 dark | user | 2026-11-13 | active |
 | 31 | type.display is New York 500 at 28px / 34px | user | 2026-11-13 | active |
-| 32 | type.title is New York 500 at 22px / 28px | user | 2026-11-13 | active |
+| 32 | type.title is New York 500 at 22px / 28px | user | 2026-11-13 | superseded by 86 |
 | 33 | type.heading is SF Pro Text 600 at 16px / 24px | user | 2026-11-13 | active |
 | 34 | type.reading is SF Pro Text 400 at 15px / 24px | user | 2026-11-13 | active |
 | 35 | type.rowtitle is SF Pro Text 500 at 14px / 20px | user | 2026-11-13 | active |
@@ -256,6 +269,21 @@ Source: user: 2026-11-13
 | 74 | A quiet pill used as a name or row action keeps a color.text.secondary label that turns color.accent on hover or keyboard focus and color.recording when destructive | user | 2026-11-20 | active |
 | 75 | Correction, Onboarding, About and Credits keep a standard title bar and a fixed size | user | 2026-11-20 | active |
 | 76 | Provisional name is a component: a suggested speaker name in its speaker colour with a question mark and a 1.5px dashed underline | user | 2026-11-20 | active |
+| 77 | Timeline panel is a component: an SF heading over figures and a chart, open on the canvas under a hairline, never a card | user | 2026-11-24 | pending v11 |
+| 78 | Stat figure is a component: a number in the display serif over a type.meta label, type.score for lifetime totals and type.title inside panels | user | 2026-11-24 | pending v11 |
+| 79 | Heat grid is a component: rounded cells in five steps from color.hover to color.accent, for the year calendar and the weekly rhythm | user | 2026-11-24 | pending v11 |
+| 80 | Bar chart is a component: plain bars on a hairline baseline, stacked by series, drawn from DS tokens with no chart library | user | 2026-11-24 | pending v11 |
+| 81 | Split bar is a component: one radius.field bar divided between color.accent and color.hover | user | 2026-11-24 | pending v11 |
+| 82 | Word cloud is a component: wrapped words in the display serif at four sizes, summary-topic words in color.accent | user | 2026-11-24 | pending v11 |
+| 83 | Milestone strand is a component: dated items on a hairline rail, each with a color.accent dot | user | 2026-11-24 | pending v11 |
+| 84 | Stats block is a component: the sidebar's last-30-days figures, trend and lifetime line above the usage table, folded by a pill handle on the table's top hairline | user | 2026-11-24 | pending v11 |
+| 85 | type.score is New York 500 at 34px / 40px, for a test call's word error rate and Timeline's lifetime totals | user | 2026-11-24 | pending v11 |
+| 86 | type.title is New York 500 at 22px / 28px, for small-window and empty-state titles and the figures inside Timeline panels | user | 2026-11-24 | pending v11 |
+| 87 | Timeline motion: on opening, a panel plays once when it first comes into view; figures count up over 0.9s and charts draw in over 0.45 to 0.7s; Reduce Motion shows final values at once | user | 2026-11-24 | pending v11 |
+| 88 | Chart series take color.teal for dictation, color.accent for meetings, color.speaker.1 for summaries, color.speaker.3 for naming and color.text.tertiary for unsplit spend | user | 2026-11-24 | pending v11 |
+| 89 | A heat cell shades from color.hover for nothing through three mixes of color.accent to color.accent for the most | user | 2026-11-24 | pending v11 |
+| 90 | radius.cell is 2px, for heat grid cells and the tops of chart bars | user | 2026-11-24 | pending v11 |
+| 91 | type.cloud.small is New York 400 at 13px / 18px, for the smallest words in the word cloud | user | 2026-11-24 | pending v11 |
 
 ### Drift
 
