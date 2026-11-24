@@ -115,7 +115,8 @@ Read the `✔/✘ Test run with N tests…` lines, not the XCTest `Executed 0 te
 - `Package.swift`: add the `MWStats` target (deps `MWMeetings`, `MWUsage`, `MWHistory`, `MWConfig`, `MWSupport`) and product, the `MWStatsTests` test target (deps `MWStats`, `MWTestSupport`; `resources: [.copy("Fixtures")]`), and `MWStats` in the dependencies of `MWPipeline`, `MWMeetingPipeline` and `MWTestSupport`.
 - Create in `Sources/MWStats/`: `StatsTime.swift`, `JSONLFile.swift`, `WordCount.swift`, `StatsRecording.swift`.
 - Change `Sources/MWSupport/Log.swift` (`Log.stats`). Create `Sources/MWTestSupport/FakeStatsRecorder.swift`.
-- Create in `Tests/MWStatsTests/`: `StatsTimeTests.swift`, `JSONLFileTests.swift`, `WordCountTests.swift`, `Fixtures/torn-days.jsonl`.
+- Move `Sources/MWVoices/PrivateFile.swift` to `Sources/MWSupport/PrivateFile.swift` (public) and its test to `Tests/MWSupportTests/PrivateFileTests.swift`; `Sources/MWVoices/MatchLog.swift` imports `MWSupport` (see *Deviations from plan*).
+- Create in `Tests/MWStatsTests/`: `StatsTimeTests.swift`, `JSONLFileTests.swift`, `WordCountTests.swift`, `StatsRecordingTests.swift`, `Fixtures/torn-days.jsonl`.
 
 The fixture is synthetic: two well-formed day lines and a third cut mid-object with no final newline.
 
@@ -1137,3 +1138,13 @@ None — plan matches design v11 exactly.
 | 20 | Stage 27 | serial | Consumes the full report (Stage 25) and the app wiring (Stage 26); same `AppDelegate.swift`. Ends Phase C. |
 
 **Critical path:** Stage 1 → 2 → 3 → 6 → 7 → 8 → 9 → 11 → 14 → 15 → 17 → 18 → 19 → 20 → 21 → 22 → 23 → 24 → 26 → 27 (20 of 27 stages).
+
+## Deviations from plan
+
+Recorded during implementation.
+
+- **Stage 1, `PrivateFile` moved to `MWSupport`.** `JSONLFile` needs a 0600 append and a temp-0600-rename write, which `MWVoices`' internal `PrivateFile` already provides beside a second copy in `MeetingStore.write`. A third copy was avoided by making `PrivateFile` public in `MWSupport` (its tests move to `MWSupportTests`); `MatchLog` imports `MWSupport`. Behaviour is unchanged.
+- **Stage 1, `StatsTime` without formatters.** Keys and ISO times are computed from the zone's offset at the instant over one static UTC Gregorian calendar, and `parse` reads the fixed 25-character shape byte by byte. This keeps output locale- and calendar-independent, as the `en_US_POSIX` formatter would, without a per-zone formatter cache that Swift 6 cannot share safely. Day keys are Gregorian even when the injected calendar is not (tested with a Buddhist calendar).
+- **Stage 1, `dictationCutoff` is the start of a local day.** The plan says "13 calendar months back"; the cutoff is the start of the local day 13 months before `now`, so pruning removes whole days.
+- **Stage 1, first red.** SwiftPM refuses a target with no sources (`target 'MWStats' referenced in product 'MWStats' is empty`), so `no such module 'MWStats'` cannot occur. The first red was that manifest error, then `cannot find 'DictationAttempt' in scope`, then expectation failures against the scaffold.
+- **Stage 1, `StatsRecordingTests.swift` added.** One test pins the ten `Outcome` raw values, the on-disk names Stage 1 promises.
