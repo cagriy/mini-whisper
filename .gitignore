@@ -19,6 +19,7 @@ xcuserdata/
 # Claude
 .claude/.last
 .claude/settings.local.json
+.claude/worktrees/
 
 # xcodegen output
 *.xcodeproj
