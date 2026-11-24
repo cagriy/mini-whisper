@@ -5,6 +5,17 @@
     <link>https://raw.githubusercontent.com/cagriy/mini-whisper/main/appcast.xml</link>
     <language>en</language>
     <item>
+      <title>Mini Whisper 0.9.0b4</title>
+      <sparkle:version>0.9.0b4</sparkle:version>
+      <sparkle:shortVersionString>0.9.0b4</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <sparkle:channel>beta</sparkle:channel>
+      <description>&lt;h3&gt;Added&lt;/h3&gt;
+&lt;ul&gt;&lt;li&gt;A numbers-only record of meetings, dictations and estimated spend, kept for life under &lt;code&gt;~/.config/mini-whisper/stats/&lt;/code&gt;: counts, lengths, word counts, costs and which app each dictation went to. No text, titles or names; nothing leaves the Mac. It starts from the dictations and meetings already stored, and survives clearing history and deleting meetings.&lt;/li&gt;&lt;li&gt;Settings → Statistics → Reset Statistics rebuilds the record from what is still stored.&lt;/li&gt;&lt;/ul&gt;</description>
+      <pubDate>Tue, 24 Nov 2026 19:41:48 +0000</pubDate>
+      <enclosure url="https://github.com/cagriy/mini-whisper/releases/download/v0.9.0b4/MiniWhisper-0.9.0b4-arm64.dmg" sparkle:edSignature="WlZDFBO/lOn9SFbT0icLkIV9SjpnoIA9bwbKvbuSW9qyJjoA3RUQcW8EqXglxrctc5uqYD6t8c+R/Mz1QGwZCg==" length="16845649" type="application/octet-stream" />
+    </item>
+    <item>
       <title>Mini Whisper 0.9.0b3</title>
       <sparkle:version>0.9.0b3</sparkle:version>
       <sparkle:shortVersionString>0.9.0b3</sparkle:shortVersionString>
