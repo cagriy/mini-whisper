@@ -5,7 +5,7 @@ import Observation
 @MainActor
 @Observable
 final class MainNavigationModel {
-    enum Destination: Hashable { case meetings, dictations, settings, search, meeting }
+    enum Destination: Hashable { case meetings, dictations, timeline, settings, search, meeting }
 
     struct Hooks {
         /// The destination stopped being the meeting page.
@@ -24,6 +24,8 @@ final class MainNavigationModel {
     private(set) var origin = Destination.meetings
     /// The last destination that was neither `.search` nor `.meeting`.
     private(set) var beforeSearch = Destination.meetings
+    /// True only while `back()` navigates, so a page can tell a return from an opening.
+    @ObservationIgnored private(set) var isReturning = false
 
     /// The search text. Typing shows the results; clearing it returns to the page before.
     var query = "" {
@@ -49,6 +51,7 @@ final class MainNavigationModel {
         switch origin {
         case .meetings, .meeting: "Meetings"
         case .dictations: "Dictations"
+        case .timeline: "Timeline"
         case .search: "Results"
         case .settings: "Settings"
         }
@@ -66,6 +69,8 @@ final class MainNavigationModel {
     }
 
     func back() {
+        isReturning = true
+        defer { isReturning = false }
         go(origin)
     }
 

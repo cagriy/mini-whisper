@@ -4,6 +4,7 @@ import MWHistory
 import MWMeetings
 import MWPaste
 import MWPipeline
+import MWStats
 import MWStreaming
 import MWUsage
 import Testing
@@ -42,6 +43,7 @@ import Testing
         var pagesLeft = 0
         var pagesEntered = 0
         var liveShown = 0
+        var timelineReports = 0
         lazy var model: MainWindowModel = {
             var calendar = Calendar(identifier: .gregorian)
             calendar.timeZone = TimeZone(identifier: "UTC")!
@@ -95,11 +97,22 @@ import Testing
                 clearHistory: {},
                 openCorrection: { _ in }
             ))
+            let timeline = TimelineModel(deps: TimelineModel.Dependencies(
+                report: { @MainActor [unowned self, calendar] in
+                    timelineReports += 1
+                    return MainWindowModelTests.emptyTimeline(calendar: calendar)
+                },
+                reconcile: { false },
+                progress: AsyncStream { $0.finish() },
+                openMeeting: { _ in },
+                openSettings: {}
+            ))
             return MainWindowModel(
                 meetings: meetings,
                 dictations: dictations,
                 search: search,
                 settings: settings,
+                timeline: timeline,
                 deps: MainWindowModel.Dependencies(
                     openMeeting: { [unowned self] id in
                         if openFails { throw OpenFailed() }
@@ -124,6 +137,15 @@ import Testing
         }
 
         func cleanUp() { try? FileManager.default.removeItem(at: directory) }
+    }
+
+    private nonisolated static func emptyTimeline(calendar: Calendar) -> TimelineContent {
+        TimelineContent(
+            report: TimelineStats.compute(TimelineInputs(
+                snapshot: StatsSnapshot(), kept: [:], typingWPM: 40, now: now, calendar: calendar
+            )),
+            since: nil
+        )
     }
 
     private static func entry(_ title: String) -> IndexEntry {
@@ -181,6 +203,40 @@ import Testing
         harness.model.navigation.go(.dictations)
         await harness.model.loading?.value
         #expect(harness.model.dictations.days.flatMap(\.rows).map(\.text) == ["Move the review"])
+    }
+
+    @Test func enteringTimelineReloadsWithReplay() async {
+        let harness = Harness()
+        defer { harness.cleanUp() }
+        let timeline = harness.model.timeline
+        timeline.anchor = .records
+
+        harness.model.navigation.go(.timeline)
+        await harness.model.loading?.value
+
+        #expect(timeline.playID == 1)
+        #expect(timeline.anchor == nil)
+        #expect(harness.timelineReports == 1)
+    }
+
+    @Test func returningToTimelineReloadsWithoutReplay() async {
+        let harness = Harness()
+        defer { harness.cleanUp() }
+        let timeline = harness.model.timeline
+        harness.model.navigation.go(.timeline)
+        await harness.model.loading?.value
+        timeline.anchor = .records
+        timeline.selectedYear = 2025
+        harness.model.showMeeting(Self.meeting(), actions: Self.noActions)
+
+        harness.model.navigation.back()
+        await harness.model.loading?.value
+
+        #expect(harness.model.navigation.destination == .timeline)
+        #expect(timeline.playID == 1)
+        #expect(timeline.anchor == .records)
+        #expect(timeline.selectedYear == 2025)
+        #expect(harness.timelineReports == 2)
     }
 
     @Test func aDictationResultOpensDictationsWithItsRowSelected() async throws {

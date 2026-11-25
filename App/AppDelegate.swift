@@ -70,6 +70,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             onShowMeeting: { [weak self] in self?.meetings?.show() },
             onMeetings: { [weak self] in self?.main?.show(.meetings) },
             onDictations: { [weak self] in self?.main?.show(.dictations) },
+            onTimeline: { [weak self] in self?.main?.show(.timeline) },
             onSettings: { [weak self] in self?.openSettings() },
             onAbout: { [weak self] in self?.about.show() },
             onQuit: { [weak self] in self?.quit() }
@@ -305,6 +306,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 library: store, history: history, clock: SystemClock(), now: { Date() }, calendar: .current
             )),
             settings: SettingsModel(config: await configStore.load(), deps: settingsDependencies),
+            timeline: TimelineSource(stats: stats, meetings: store, config: configStore),
+            reconciler: reconciler,
             configStore: configStore,
             config: config
         )
@@ -431,22 +434,36 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         )
     }
 
-    /// The main window and its pages (design §5.8), created hidden.
+    /// The main window and its pages (design §5.8), created hidden. Timeline reads the reconciler's
+    /// progress: nothing else may.
     private func makeMain(
         meetings: MeetingsListModel,
         dictations: HistoryListModel,
         search: SearchModel,
         settings: SettingsModel,
+        timeline: TimelineSource,
+        reconciler: MeetingReconciler,
         configStore: ConfigStore,
         config: Config
     ) -> MainWindowController {
+        let openMeeting: @MainActor (UUID) async throws -> Void = { [weak self] in try await self?.meetings?.open($0) }
         let model = MainWindowModel(
             meetings: meetings,
             dictations: dictations,
             search: search,
             settings: settings,
+            timeline: TimelineModel(deps: TimelineModel.Dependencies(
+                report: { await timeline.report() },
+                reconcile: { await reconciler.reconcile() },
+                progress: reconciler.progress,
+                openMeeting: openMeeting,
+                openSettings: { [weak self] in
+                    self?.main?.model.settings.selection = .statistics
+                    self?.openSettings()
+                }
+            )),
             deps: MainWindowModel.Dependencies(
-                openMeeting: { [weak self] in try await self?.meetings?.open($0) },
+                openMeeting: openMeeting,
                 showLiveMeeting: { [weak self] in self?.meetings?.show() },
                 meetingPageLeft: { [weak self] in self?.meetings?.pageLeft() },
                 meetingEntered: { [weak self] in self?.meetings?.refreshKeyPresence() }

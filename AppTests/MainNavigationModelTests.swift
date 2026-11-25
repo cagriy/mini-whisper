@@ -15,10 +15,15 @@ import Testing
     @MainActor
     private final class Harness {
         var events: [Event] = []
-        lazy var model = MainNavigationModel(hooks: MainNavigationModel.Hooks(
+        /// `isReturning` at each entry.
+        var returning: [Bool] = []
+        lazy var model: MainNavigationModel = MainNavigationModel(hooks: MainNavigationModel.Hooks(
             meetingPageLeft: { [unowned self] in events.append(.meetingPageLeft) },
             settingsLeft: { [unowned self] in events.append(.settingsLeft) },
-            entered: { [unowned self] in events.append(.entered($0)) },
+            entered: { [unowned self] in
+                events.append(.entered($0))
+                returning.append(model.isReturning)
+            },
             reveal: { [unowned self] in events.append(.reveal($0)) }
         ))
 
@@ -69,7 +74,7 @@ import Testing
 
     // MARK: - go
 
-    @Test(arguments: [Destination.meetings, .dictations, .settings, .search])
+    @Test(arguments: [Destination.meetings, .dictations, .timeline, .settings, .search])
     func goSetsTheDestinationAndReportsTheEntry(_ destination: MainNavigationModel.Destination) {
         let harness = Harness()
         harness.model.go(destination)
@@ -85,7 +90,7 @@ import Testing
         #expect(harness.events == [.entered(.settings)])
     }
 
-    @Test(arguments: [Destination.meetings, .dictations, .settings])
+    @Test(arguments: [Destination.meetings, .dictations, .timeline, .settings])
     func goClearsTheQuery(_ destination: MainNavigationModel.Destination) {
         let harness = Harness()
         let model = harness.at(.search)
@@ -119,7 +124,7 @@ import Testing
 
     // MARK: - showMeeting
 
-    @Test(arguments: [Destination.meetings, .dictations, .settings])
+    @Test(arguments: [Destination.meetings, .dictations, .timeline, .settings])
     func showMeetingRecordsTheOrigin(_ destination: MainNavigationModel.Destination) {
         let harness = Harness()
         let model = harness.at(destination)
@@ -161,6 +166,35 @@ import Testing
         #expect(harness.events == [.meetingPageLeft, .entered(.dictations)])
     }
 
+    @Test func showMeetingFromTimelineReturnsToTimeline() {
+        let harness = Harness()
+        let model = harness.at(.timeline)
+        model.showMeeting()
+        #expect(model.origin == .timeline)
+        #expect(model.backLabel == "Timeline")
+        harness.events = []
+        model.back()
+        #expect(model.destination == .timeline)
+        #expect(harness.events == [.meetingPageLeft, .entered(.timeline)])
+    }
+
+    /// A page tells a return from an opening only while `back()` navigates.
+    @Test func isReturningIsTrueOnlyDuringBack() {
+        let harness = Harness()
+        let model = harness.at(.timeline)
+        model.showMeeting()
+        harness.returning = []
+        model.back()
+        #expect(harness.returning == [true])
+        #expect(!model.isReturning)
+        model.go(.timeline)
+        model.query = "r"
+        model.query = ""
+        model.showMeeting()
+        model.revealDictation("d1")
+        #expect(harness.returning == [true, false, false, false, false, false])
+    }
+
     @Test func backToResultsKeepsTheQuery() {
         let harness = Harness()
         let model = harness.at(.search)
@@ -174,7 +208,7 @@ import Testing
 
     // MARK: - query
 
-    @Test(arguments: [Destination.meetings, .dictations, .settings, .meeting])
+    @Test(arguments: [Destination.meetings, .dictations, .timeline, .settings, .meeting])
     func typingAQueryGoesToSearch(_ destination: MainNavigationModel.Destination) {
         let harness = Harness()
         let model = harness.at(destination)
@@ -197,7 +231,7 @@ import Testing
         #expect(harness.events.isEmpty)
     }
 
-    @Test(arguments: [Destination.meetings, .dictations, .settings])
+    @Test(arguments: [Destination.meetings, .dictations, .timeline, .settings])
     func clearingTheQueryOnSearchReturnsToThePageBefore(_ destination: MainNavigationModel.Destination) {
         let harness = Harness()
         let model = harness.at(destination)
@@ -251,6 +285,7 @@ import Testing
         (.dictations, "Dictations"),
         (.search, "Results"),
         (.settings, "Settings"),
+        (.timeline, "Timeline"),
     ])
     func backPillIsLabelledWithTheOrigin(_ origin: MainNavigationModel.Destination, _ label: String) {
         let harness = Harness()

@@ -30,6 +30,7 @@ final class MainWindowModel {
     let dictations: HistoryListModel
     let search: SearchModel
     let settings: SettingsModel
+    let timeline: TimelineModel
     var usage = UsageTotals()
     /// What the meeting page shows; nil once the page is left.
     private(set) var presented: PresentedMeeting?
@@ -46,12 +47,14 @@ final class MainWindowModel {
         dictations: HistoryListModel,
         search: SearchModel,
         settings: SettingsModel,
+        timeline: TimelineModel,
         deps: Dependencies
     ) {
         self.meetings = meetings
         self.dictations = dictations
         self.search = search
         self.settings = settings
+        self.timeline = timeline
         self.deps = deps
         navigation.hooks.entered = { [weak self] in self?.entered($0) }
         navigation.hooks.meetingPageLeft = { [weak self] in
@@ -112,6 +115,10 @@ final class MainWindowModel {
         // A key saved or removed elsewhere changes what the engine lists offer.
         case .settings: settings.refreshKeys()
         case .meeting: deps.meetingEntered()
+        // A return keeps the reader's place, year and switches, and plays nothing (R21).
+        case .timeline:
+            let replay = !navigation.isReturning
+            loading = Task { await timeline.reload(replay: replay) }
         case .search: break
         }
     }

@@ -34,6 +34,10 @@ struct SidebarView: View {
                     model.navigation.go(.dictations)
                 }
                 .keyboardShortcut("2")
+                NavRow(title: "Timeline", symbol: "chart.bar", selected: destination == .timeline) {
+                    model.navigation.go(.timeline)
+                }
+                .keyboardShortcut("3")
                 NavRow(
                     title: "Settings", symbol: "slider.horizontal.3", chevron: true, selected: destination == .settings
                 ) {

@@ -33,6 +33,7 @@ struct MainView: View {
         case .meetings: MeetingsPage(model: model.meetings)
         case .dictations: DictationsPage(model: model.dictations, confirmingClear: $confirmingClear)
         case .search: SearchPage(model: model)
+        case .timeline: TimelinePage(model: model.timeline)
         case .settings: SettingsPage(model: model.settings, confirmingClear: $confirmingSettingsClear)
         case .meeting:
             if let meeting = model.presented {

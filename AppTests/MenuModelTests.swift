@@ -28,15 +28,17 @@ import Testing
             "Start Meeting…",
             "Meetings…",
             "Dictations…",
+            "Timeline…",
             "Settings...",
             "",
             "Check for Updates…",
             "About Mini Whisper",
             "Quit",
         ])
-        #expect(model.items.map(\.isSeparator) == [false, false, true, false, false, false, false, true, false, false, false])
+        #expect(model.items.map(\.isSeparator) == [false, false, true, false, false, false, false, false, true, false, false, false])
         #expect(model.items.map(\.action) == [
-            nil, nil, nil, .startMeeting, .meetings, .dictations, .settings, nil, .checkForUpdates, .about, .quit,
+            nil, nil, nil, .startMeeting, .meetings, .dictations, .timeline, .settings, nil, .checkForUpdates, .about,
+            .quit,
         ])
     }
 
@@ -95,6 +97,7 @@ import Testing
             "Start Meeting…",
             "Meetings…",
             "Dictations…",
+            "Timeline…",
             "Settings...",
             "",
             "Check for Updates…",

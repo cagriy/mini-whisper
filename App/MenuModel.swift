@@ -12,6 +12,7 @@ struct MenuItem: Equatable {
         case showMeeting
         case meetings
         case dictations
+        case timeline
         case settings
         case checkForUpdates
         case about
@@ -46,6 +47,7 @@ struct MenuModel {
             MenuItem(title: "Start Meeting…", action: .startMeeting),
             MenuItem(title: "Meetings…", action: .meetings),
             MenuItem(title: "Dictations…", action: .dictations),
+            MenuItem(title: "Timeline…", action: .timeline),
             MenuItem(title: "Settings...", action: .settings),
             .separator,
             MenuItem(title: "Check for Updates…", action: .checkForUpdates),
