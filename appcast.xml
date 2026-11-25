@@ -5,6 +5,17 @@
     <link>https://raw.githubusercontent.com/cagriy/mini-whisper/main/appcast.xml</link>
     <language>en</language>
     <item>
+      <title>Mini Whisper 0.9.0b6</title>
+      <sparkle:version>0.9.0b6</sparkle:version>
+      <sparkle:shortVersionString>0.9.0b6</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <sparkle:channel>beta</sparkle:channel>
+      <description>&lt;h3&gt;Changed&lt;/h3&gt;
+&lt;ul&gt;&lt;li&gt;Settings → Meetings → Suggest names from the conversation is marked Experimental.&lt;/li&gt;&lt;/ul&gt;</description>
+      <pubDate>Wed, 25 Nov 2026 18:04:56 +0000</pubDate>
+      <enclosure url="https://github.com/cagriy/mini-whisper/releases/download/v0.9.0b6/MiniWhisper-0.9.0b6-arm64.dmg" sparkle:edSignature="AyJjvuOXMklt8eDvADqK9NGhbZth3EbYUI2uwkjw5WFK8WAD4Iq24EhLIrpCwaNnayuviJpTWYZ95SdwI2wwDg==" length="17699411" type="application/octet-stream" />
+    </item>
+    <item>
       <title>Mini Whisper 0.9.0b5</title>
       <sparkle:version>0.9.0b5</sparkle:version>
       <sparkle:shortVersionString>0.9.0b5</sparkle:shortVersionString>
