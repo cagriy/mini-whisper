@@ -3,6 +3,8 @@ import SwiftUI
 /// One row of a card, with a hairline above it that the card's edge covers on the first row.
 struct SettingRow<Content: View>: View {
     private let title: String?
+    /// A plain chip beside the title, such as "Experimental".
+    let badge: String?
     private let description: AnyView?
     private let error: String?
     private let spacing: CGFloat?
@@ -11,31 +13,35 @@ struct SettingRow<Content: View>: View {
     /// The name and its description at the left, the control at the right. An error, such as a
     /// refused key, reads under the description.
     init(
-        _ title: String, description: String? = nil, error: String? = nil, @ViewBuilder control: () -> Content
+        _ title: String, badge: String? = nil, description: String? = nil, error: String? = nil,
+        @ViewBuilder control: () -> Content
     ) {
         let text = description.map { AnyView(Text($0).textStyle(.meta)) }
-        self.init(title: title, description: text, error: error, spacing: nil, content: control())
+        self.init(title: title, badge: badge, description: text, error: error, spacing: nil, content: control())
     }
 
     /// As above, for a description a string cannot hold, such as a line with a chip. Its lines
     /// stack as a wrapped description does and take the description's colour.
     init(
-        _ title: String, error: String? = nil, @ViewBuilder description: () -> some View,
+        _ title: String, badge: String? = nil, error: String? = nil, @ViewBuilder description: () -> some View,
         @ViewBuilder control: () -> Content
     ) {
         let lines = AnyView(VStack(alignment: .leading, spacing: 0, content: description))
-        self.init(title: title, description: lines, error: error, spacing: nil, content: control())
+        self.init(title: title, badge: badge, description: lines, error: error, spacing: nil, content: control())
     }
 
     /// An editor, list or preview across the card's width, under an optional name.
     static func full(
         _ title: String? = nil, spacing: CGFloat = 0, @ViewBuilder content: () -> Content
     ) -> SettingRow {
-        SettingRow(title: title, description: nil, error: nil, spacing: spacing, content: content())
+        SettingRow(title: title, badge: nil, description: nil, error: nil, spacing: spacing, content: content())
     }
 
-    private init(title: String?, description: AnyView?, error: String?, spacing: CGFloat?, content: Content) {
+    private init(
+        title: String?, badge: String?, description: AnyView?, error: String?, spacing: CGFloat?, content: Content
+    ) {
         self.title = title
+        self.badge = badge
         self.description = description
         self.error = error
         self.spacing = spacing
@@ -77,7 +83,10 @@ struct SettingRow<Content: View>: View {
 
     @ViewBuilder private var name: some View {
         if let title {
-            Text(title).textStyle(.body.weight(.medium)).foregroundStyle(DS.Colors.text)
+            HStack(spacing: DS.Space.s3) {
+                Text(title).textStyle(.body.weight(.medium)).foregroundStyle(DS.Colors.text)
+                if let badge { Chip(badge) }
+            }
         }
     }
 }

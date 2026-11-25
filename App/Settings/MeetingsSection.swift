@@ -213,6 +213,7 @@ struct MeetingsSection: View {
         Card("Speaker names") {
             SettingRow(
                 "Suggest names from the conversation",
+                badge: "Experimental",
                 description: "During a meeting, Claude Haiku 5.5 suggests a name for a speaker when someone says it,"
                     + " with the line it came from. The transcript so far, your name and the names in People go to"
                     + " Anthropic several times a meeting. About 3 cents a meeting, on the meeting's cost line."
