@@ -154,6 +154,10 @@ public struct Config: Equatable, Sendable {
     public var profiles: [Profile] = []
     public var corrections: [CorrectionRule] = []
     public var correctionTally: [CorrectionTallyEntry] = []
+    public var timelineSidebarFolded = false
+    /// Words a minute, the typing speed every "saved typing" figure is measured against.
+    public var typingWPM = 40
+    public static let typingWPMRange = 10...120
     public var extra: [String: JSONValue] = [:]
 
     public init() {}
@@ -164,6 +168,7 @@ public struct Config: Equatable, Sendable {
         validated.historyRetentionDays = historyRetentionDays.clamped(to: 0...30)
         validated.idleStopSeconds = idleStopSeconds.clamped(to: 10...600)
         validated.toggleMaxSeconds = toggleMaxSeconds.clamped(to: 60...1800)
+        validated.typingWPM = typingWPM.clamped(to: Self.typingWPMRange)
         if !Self.meetingSilenceStopChoices.contains(meetingSilenceStopSeconds) {
             validated.meetingSilenceStopSeconds = 60
         }
@@ -242,6 +247,8 @@ extension Config: Codable {
         static let voiceMinSpeechSeconds = "voice_min_speech_seconds"
         static let voiceBufferSeconds = "voice_buffer_seconds"
         static let voiceSpeechmaticsSensitivity = "voice_speechmatics_sensitivity"
+        static let timelineSidebarFolded = "timeline_sidebar_folded"
+        static let typingWPM = "typing_wpm"
 
         static func voice(_ field: VoiceSettings.Field) -> String {
             switch field {
@@ -263,6 +270,7 @@ extension Config: Codable {
             meetingNamingEnabled, meetingNamingAutoApply, meetingUserNameAliases, meetingNamingExplained,
             voiceLocalEnabled, voiceSpeechmaticsEnabled, voiceSureThreshold, voiceSuggestThreshold,
             voiceMargin, voiceMinSpeechSeconds, voiceBufferSeconds, voiceSpeechmaticsSensitivity,
+            timelineSidebarFolded, typingWPM,
         ]
     }
 
@@ -334,6 +342,8 @@ extension Config: Codable {
                 voice[keyPath: VoiceSettings.keyPath(of: field)] = value
             }
         }
+        if let value: Bool = try? value(Key.timelineSidebarFolded) { timelineSidebarFolded = value }
+        if let value: Int = try? value(Key.typingWPM) { typingWPM = value }
 
         for key in container.allKeys where !Key.all.contains(key.stringValue) {
             extra[key.stringValue] = try container.decode(JSONValue.self, forKey: key)
@@ -393,6 +403,8 @@ extension Config: Codable {
         for field in VoiceSettings.Field.allCases {
             try container.encode(voice.value(of: field), forKey: AnyCodingKey(Key.voice(field)))
         }
+        try container.encode(timelineSidebarFolded, forKey: AnyCodingKey(Key.timelineSidebarFolded))
+        try container.encode(typingWPM, forKey: AnyCodingKey(Key.typingWPM))
 
         for (key, value) in extra where !Key.all.contains(key) {
             try container.encode(value, forKey: AnyCodingKey(key))

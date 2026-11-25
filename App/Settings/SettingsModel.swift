@@ -431,7 +431,17 @@ final class SettingsModel {
         await deps.clearHistory()
     }
 
-    // MARK: - Statistics (design v11 R27, R29)
+    // MARK: - Statistics (design v11 R27, R28, R29)
+
+    static let typingSpeedRange = Config.typingWPMRange
+    static let typingSpeedStep = 5
+
+    var typingSpeedLabel: String { "\(config.typingWPM) wpm" }
+
+    func setTypingSpeed(_ wpm: Int) async {
+        let value = wpm.clamped(to: Self.typingSpeedRange)
+        await write { $0.typingWPM = value }
+    }
 
     /// While true, `MainView` shows the Reset dialog.
     private(set) var confirmingReset = false

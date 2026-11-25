@@ -514,6 +514,72 @@ import Testing
         #expect(try decode(#"{"update_channel": "beta"}"#).extra.isEmpty)
     }
 
+    private static let timelineJSON = #"{"timeline_sidebar_folded": true, "typing_wpm": 65}"#
+
+    /// An absent key means the default, which is written back.
+    @Test func timelineKeysAbsentTakeDefaults() throws {
+        let config = try decode("{}")
+        #expect(config.timelineSidebarFolded == false)
+        #expect(config.typingWPM == 40)
+
+        let saved = try saved(config)
+        #expect(saved["timeline_sidebar_folded"] as? Bool == false)
+        #expect(saved["typing_wpm"] as? Int == 40)
+    }
+
+    @Test func timelineKeysRoundTrip() throws {
+        let config = try decode(Self.timelineJSON)
+        #expect(config.timelineSidebarFolded == true)
+        #expect(config.typingWPM == 65)
+
+        let saved = try saved(config)
+        #expect(saved["timeline_sidebar_folded"] as? Bool == true)
+        #expect(saved["typing_wpm"] as? Int == 65)
+        #expect(try decode(String(decoding: config.encoded(), as: UTF8.self)) == config)
+    }
+
+    @Test func timelineKeysNeverLandInExtra() throws {
+        #expect(try decode(Self.timelineJSON).extra.isEmpty)
+    }
+
+    @Test func timelineKeysAreWrittenForANewConfig() throws {
+        let object = try saved(Config())
+
+        let folded = try #require(object["timeline_sidebar_folded"] as CFTypeRef?)
+        #expect(CFGetTypeID(folded) == CFBooleanGetTypeID())
+        #expect(object["timeline_sidebar_folded"] as? Bool == false)
+        #expect(object["typing_wpm"] as? Int == 40)
+    }
+
+    /// A throw from `Config.init(from:)` makes `ConfigStore` back the whole file up as
+    /// corrupt, so a bad typing speed must cost that value only.
+    @Test(arguments: [#""fast""#, "40.5", "true", "null"])
+    func aWrongTypedTypingSpeedReadsAsForty(value: String) throws {
+        let config = try decode(#"{"hotkey": "cmd+space", "typing_wpm": \#(value)}"#)
+
+        #expect(config.typingWPM == 40)
+        #expect(config.hotkey == "cmd+space")
+        #expect(config.extra.isEmpty)
+    }
+
+    @Test(arguments: [#""yes""#, "1", "null"])
+    func aWrongTypedFoldFlagReadsFalse(value: String) throws {
+        let config = try decode(#"{"hotkey": "cmd+space", "timeline_sidebar_folded": \#(value)}"#)
+
+        #expect(config.timelineSidebarFolded == false)
+        #expect(config.hotkey == "cmd+space")
+        #expect(config.extra.isEmpty)
+    }
+
+    @Test func validatedClampsTheTypingSpeed() {
+        for (stored, expected) in [(5, 10), (200, 120), (10, 10), (120, 120), (55, 55)] {
+            var config = Config()
+            config.typingWPM = stored
+
+            #expect(config.validated().typingWPM == expected, "\(stored)")
+        }
+    }
+
     @Test func duplicateBundleIDKeepsFirstProfile() throws {
         let json = """
             {"profiles": [

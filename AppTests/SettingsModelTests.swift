@@ -821,6 +821,44 @@ import Testing
         #expect(harness.resets.calls == 0)
     }
 
+    @Test func typingSpeedStepsByFiveFromTenToOneTwenty() async {
+        let harness = Harness()
+        defer { harness.cleanUp() }
+        let model = await harness.model()
+        #expect(SettingsModel.typingSpeedRange == 10...120)
+        #expect(SettingsModel.typingSpeedStep == 5)
+
+        await model.setTypingSpeed(5)
+        #expect(model.config.typingWPM == 10)
+
+        await model.setTypingSpeed(200)
+        #expect(model.config.typingWPM == 120)
+    }
+
+    @Test func settingTheTypingSpeedWritesTheConfig() async throws {
+        let harness = Harness()
+        defer { harness.cleanUp() }
+        let model = await harness.model()
+
+        await model.setTypingSpeed(55)
+
+        #expect(model.config.typingWPM == 55)
+        let data = try Data(contentsOf: harness.directory.appendingPathComponent("config.json"))
+        let object = try #require(try JSONSerialization.jsonObject(with: data) as? [String: Any])
+        #expect(object["typing_wpm"] as? Int == 55)
+    }
+
+    @Test func typingSpeedLabelReadsWPM() async {
+        let harness = Harness()
+        defer { harness.cleanUp() }
+        let model = await harness.model()
+        #expect(model.typingSpeedLabel == "40 wpm")
+
+        await model.setTypingSpeed(65)
+
+        #expect(model.typingSpeedLabel == "65 wpm")
+    }
+
     @Test func thePeopleModelIsBuiltFromItsDependencies() async {
         let alice = Person(name: "Alice", createdAt: Date(timeIntervalSince1970: 1_795_000_000))
         let model = await Harness().model(people: PeopleModel.Dependencies(load: { [alice] }))
