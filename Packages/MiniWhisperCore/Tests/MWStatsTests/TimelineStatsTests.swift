@@ -11,15 +11,16 @@ import MWStats
     }()
 
     private func report(
-        meetings: [MeetingRow] = [], days: [DayRow] = [], now: String = "2026-11-25T12:00:00Z",
-        zone: String = "UTC", firstWeekday: Int = 2
+        meetings: [MeetingRow] = [], days: [DayRow] = [], dictations: [DictationRow] = [],
+        kept: [UUID: TimelineInputs.KeptMeeting] = [:], typingWPM: Int = 40,
+        now: String = "2026-11-25T12:00:00Z", zone: String = "UTC", firstWeekday: Int = 2
     ) throws -> TimelineReport {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = try #require(TimeZone(identifier: zone))
         calendar.firstWeekday = firstWeekday
         return TimelineStats.compute(TimelineInputs(
-            snapshot: StatsSnapshot(days: days, meetings: meetings), kept: [:], typingWPM: 40,
-            now: try #require(ISO8601DateFormatter().date(from: now)), calendar: calendar
+            snapshot: StatsSnapshot(dictations: dictations, days: days, meetings: meetings), kept: kept,
+            typingWPM: typingWPM, now: try #require(ISO8601DateFormatter().date(from: now)), calendar: calendar
         ))
     }
 
@@ -77,6 +78,10 @@ import MWStats
         #expect(result.year == nil)
         #expect(result.rhythm == nil)
         #expect(result.talkShare == nil)
+        #expect(result.spend == nil)
+        #expect(result.dictation == nil)
+        #expect(result.records == nil)
+        #expect(result.milestones == nil)
     }
 
     // MARK: - Lifetime totals
@@ -447,5 +452,311 @@ import MWStats
 
         #expect(share.meetings == 22)
         #expect(share.recent == (2..<22).map { Double($0) / 100 })
+    }
+
+    // MARK: - Spend
+
+    @Test func spendAppearsAtOneDayWithACost() throws {
+        var costly = meeting("2026-03-02T09:00:00+00:00", seconds: 600)
+        costly.usd = MeetingRow.Costs(meeting: 0.5)
+        let free = DayRow(day: "2026-03-02", delivered: 3, spend: ["dictation": Spend(usd: 0, tokensIn: 40)])
+
+        #expect(try report(meetings: [costly], days: [free]).spend == nil)
+        // Long before the months shown.
+        let old = DayRow(day: "2024-01-05", spend: ["naming": Spend(usd: 0.01)])
+        #expect(try report(meetings: [costly], days: [free, old]).spend != nil)
+    }
+
+    // 23:30 UTC on 30 November is already 1 December in Tokyo.
+    @Test(arguments: [("UTC", 2025, 12), ("Asia/Tokyo", 2026, 1)])
+    func spendRunsTwelveMonthsEndingThisMonth(_ zone: String, _ firstYear: Int, _ firstMonth: Int) throws {
+        let spend = try #require(try report(
+            days: [DayRow(day: "2026-06-10", spend: ["meeting": Spend(usd: 1)])], now: "2026-11-30T23:30:00Z", zone: zone
+        ).spend)
+        let expected = (0..<12).map { offset in
+            let index = firstYear * 12 + firstMonth - 1 + offset
+            return [index / 12, index % 12 + 1]
+        }
+
+        #expect(spend.months.map { [$0.year, $0.month] } == expected)
+    }
+
+    @Test func aMonthStacksItsDaysByPurpose() throws {
+        let spend = try #require(try report(days: [
+            // The month before the first shown.
+            DayRow(day: "2025-11-30", spend: ["meeting": Spend(usd: 8)]),
+            DayRow(day: "2025-12-01", spend: ["dictation": Spend(usd: 0.25), "naming": Spend(usd: 0, tokensIn: 5)]),
+            DayRow(day: "2026-03-02", spend: ["meeting": Spend(usd: 1), "summary": Spend(usd: 0.5)]),
+            DayRow(day: "2026-03-31", spend: ["meeting": Spend(usd: 0.25), "naming": Spend(usd: 0.125)]),
+            DayRow(day: "2026-11-25", spend: ["unsplit": Spend(usd: 2), "dictation": Spend(usd: 0.5)]),
+        ]).spend)
+
+        try #require(spend.months.count == 12)
+        #expect(spend.months[0].amounts == [.dictation: 0.25])
+        #expect(spend.months[3].amounts == [.meeting: 1.25, .summary: 0.5, .naming: 0.125])
+        #expect(spend.months[11].amounts == [.unsplit: 2, .dictation: 0.5])
+        #expect(spend.months.count { $0.amounts.isEmpty } == 9)
+    }
+
+    @Test func theSeriesAreThosePresentInTheShownMonthsInStackingOrder() throws {
+        let spend = try #require(try report(days: [
+            DayRow(day: "2025-11-30", spend: ["summary": Spend(usd: 1), "unsplit": Spend(usd: 1)]),
+            DayRow(day: "2026-02-02", spend: ["naming": Spend(usd: 0.25)]),
+            DayRow(day: "2026-11-02", spend: ["meeting": Spend(usd: 0), "dictation": Spend(usd: 0.25)]),
+        ]).spend)
+
+        #expect(spend.series == [.dictation, .naming])
+        #expect(!spend.showsUnsplitCaption)
+    }
+
+    @Test func theUnsplitCaptionShowsWhileAShownMonthHasAnUnsplitPart() throws {
+        let shown = try #require(try report(days: [DayRow(day: "2026-11-01", spend: ["unsplit": Spend(usd: 3.1)])]).spend)
+        let earlier = try #require(try report(days: [DayRow(day: "2025-11-30", spend: ["unsplit": Spend(usd: 3.1)])]).spend)
+
+        #expect(shown.series == [.unsplit])
+        #expect(shown.showsUnsplitCaption)
+        #expect(earlier.series.isEmpty)
+        #expect(!earlier.showsUnsplitCaption)
+    }
+
+    // Tokyo is already in 2027 at 20:00 UTC on 31 December 2026.
+    @Test func spendThisYearAndAllTime() throws {
+        let days = [
+            DayRow(day: "2024-06-01", spend: ["meeting": Spend(usd: 4)]),
+            DayRow(day: "2025-12-31", spend: ["dictation": Spend(usd: 0.5)]),
+            DayRow(day: "2026-01-01", spend: ["unsplit": Spend(usd: 1), "summary": Spend(usd: 0.25)]),
+            DayRow(day: "2026-11-25", spend: ["naming": Spend(usd: 0.125)]),
+        ]
+        let spend = try #require(try report(days: days).spend)
+        let tokyo = try #require(try report(days: days, now: "2026-12-31T20:00:00Z", zone: "Asia/Tokyo").spend)
+
+        #expect(spend.thisYear == 1.375)
+        #expect(spend.allTime == 5.875)
+        #expect(tokyo.thisYear == 0)
+        #expect(tokyo.allTime == 5.875)
+    }
+
+    @Test func perRecordedHourIsEveryMeetingRowsCostOverItsHoursFromOneHour() throws {
+        func costing(_ seconds: Double, _ costs: MeetingRow.Costs) -> MeetingRow {
+            MeetingRow(id: UUID(), at: "2026-03-02T09:00:00+00:00", duration: seconds, usd: costs)
+        }
+        let day = DayRow(day: "2026-03-02", spend: ["meeting": Spend(usd: 1)])
+        let rows = [
+            costing(5_370, MeetingRow.Costs(meeting: 1, summary: 0.25, naming: 0.25)),
+            costing(1_800, MeetingRow.Costs(meeting: 0.375)),
+            // Under a minute: its time and cost still count.
+            costing(30, MeetingRow.Costs(meeting: 0.125)),
+        ]
+
+        #expect(try #require(try report(meetings: [costing(3_599, MeetingRow.Costs(meeting: 1))], days: [day]).spend).perRecordedHour == nil)
+        #expect(try #require(try report(meetings: [costing(3_600, MeetingRow.Costs(meeting: 0.5))], days: [day]).spend).perRecordedHour == 0.5)
+        #expect(try #require(try report(meetings: rows, days: [day]).spend).perRecordedHour == 1)
+    }
+
+    // MARK: - Dictation
+
+    @Test func dictationAppearsAtTwentyDelivered() throws {
+        let undelivered = DayRow(day: "2026-03-01", undelivered: ["silent": 40])
+
+        #expect(try report(days: [undelivered, DayRow(day: "2026-03-02", delivered: 19)]).dictation == nil)
+        #expect(try report(days: [
+            undelivered, DayRow(day: "2026-03-02", delivered: 12), DayRow(day: "2026-03-03", delivered: 8),
+        ]).dictation != nil)
+    }
+
+    // 1,800 timed words in 15 minutes take 45 minutes to type at 40 words a minute.
+    @Test(arguments: [(40, 1_800.0), (60, 900.0), (120, 0.0), (200, 0.0)])
+    func timeSavedIsTypingTheTimedWordsLessSayingThem(_ wpm: Int, _ saved: TimeInterval) throws {
+        let dictation = try #require(try report(days: [
+            DayRow(day: "2026-03-02", delivered: 12, words: 1_500, seconds: 600, timedWords: 1_200),
+            DayRow(day: "2026-03-03", delivered: 10, words: 900, seconds: 300, timedWords: 600),
+        ], typingWPM: wpm).dictation)
+
+        #expect(dictation.words == 2_400)
+        #expect(dictation.savedTyping == saved)
+        #expect(dictation.typingWPM == wpm)
+        #expect(dictation.wordsPerMinute == 120)
+    }
+
+    @Test func withoutTimedSpeechThereIsNoPace() throws {
+        let dictation = try #require(try report(days: [DayRow(day: "2026-03-02", delivered: 20, words: 300)]).dictation)
+
+        #expect(dictation.words == 300)
+        #expect(dictation.savedTyping == 0)
+        #expect(dictation.wordsPerMinute == nil)
+    }
+
+    // Of equal counts, the app named first.
+    @Test func theTopFiveAppsLeaveOutOther() throws {
+        let dictation = try #require(try report(days: [
+            DayRow(day: "2026-03-02", delivered: 30, apps: ["other": 30]),
+            DayRow(day: "2026-03-03", delivered: 23, apps: ["com.a": 10, "com.b": 3, "com.f": 5, "com.e": 5]),
+            DayRow(day: "2026-03-04", delivered: 20, apps: ["com.b": 5, "com.c": 7, "com.d": 6, "other": 2]),
+        ]).dictation)
+
+        #expect(dictation.apps.map(\.bundleID) == ["com.a", "com.b", "com.c", "com.d", "com.e"])
+        #expect(dictation.apps.map(\.count) == [10, 8, 7, 6, 5])
+    }
+
+    @Test func theTypicalAndLongestDictationComeFromDeliveredRows() throws {
+        func row(_ words: Int, _ outcome: DictationAttempt.Outcome = .delivered) -> DictationRow {
+            DictationRow(id: UUID().uuidString, at: "2026-03-02T09:00:00+00:00", words: words, outcome: outcome)
+        }
+        let days = [DayRow(day: "2026-03-02", delivered: 20)]
+
+        let even = try #require(try report(
+            days: days, dictations: [row(40), row(10), row(999, .failed), row(50), row(30), row(2_000, .superseded)]
+        ).dictation)
+        let odd = try #require(try report(days: days, dictations: [row(40), row(10), row(30)]).dictation)
+        let pruned = try #require(try report(days: days, dictations: [row(70, .tooShort)]).dictation)
+
+        #expect(even.typical == 35)
+        #expect(even.longest == 50)
+        #expect(odd.typical == 30)
+        #expect(odd.longest == 40)
+        #expect(pruned.typical == nil)
+        #expect(pruned.longest == nil)
+    }
+
+    // MARK: - Records
+
+    private func speakers(_ count: Int) -> [MeetingRow.Speaker] {
+        (0..<count).map { MeetingRow.Speaker(id: $0, seconds: 10) }
+    }
+
+    @Test func recordsAppearAtThreeCountedMeetings() throws {
+        let short = meeting("2026-03-05T09:00:00+00:00", seconds: 59)
+
+        #expect(try report(meetings: filler(2) + [short]).records == nil)
+        #expect(try report(meetings: filler(3) + [short]).records != nil)
+    }
+
+    @Test func theLongestMeetingCarriesItsIdAndWhetherItIsKept() throws {
+        let kept = meeting("2026-03-02T09:00:00+00:00", seconds: 7_200)
+        // 4 March in UTC.
+        let deleted = meeting("2026-03-03T23:30:00-05:00", seconds: 9_000)
+        let entry = TimelineInputs.KeptMeeting(title: "Planning", start: Date(timeIntervalSince1970: 1_772_442_000))
+
+        let first = try #require(try report(meetings: filler(2) + [kept], kept: [kept.id: entry]).records?.longestMeeting)
+        let second = try #require(try report(meetings: filler(2) + [kept, deleted], kept: [kept.id: entry]).records?.longestMeeting)
+
+        #expect(first.id == kept.id)
+        #expect(first.amount == 7_200)
+        #expect(first.day == "2026-03-02")
+        #expect(first.meeting == entry)
+        #expect(second.id == deleted.id)
+        #expect(second.amount == 9_000)
+        #expect(second.day == "2026-03-03")
+        #expect(second.meeting == nil)
+    }
+
+    @Test func aTiedMeetingRecordGoesToTheLaterMeeting() throws {
+        let earlier = MeetingRow(id: UUID(), at: "2026-03-02T09:00:00+00:00", duration: 3_600, speakers: speakers(4))
+        let later = MeetingRow(id: UUID(), at: "2026-03-02T15:00:00+00:00", duration: 3_600, speakers: speakers(4))
+
+        let records = try #require(try report(meetings: [later, earlier, meeting("2026-01-01T09:00:00+00:00")]).records)
+
+        #expect(records.longestMeeting?.id == later.id)
+        #expect(records.mostSpeakers?.id == later.id)
+    }
+
+    @Test func theBusiestDayHasTheMostCountedMeetingsThenHoursThenIsTheLater() throws {
+        func on(_ day: String, _ durations: [Double]) -> [MeetingRow] {
+            durations.enumerated().map { index, seconds in
+                meeting("\(day)T\(10 + index):00:00+00:00", seconds: seconds)
+            }
+        }
+        let meetings = on("2026-03-02", [1_200, 1_200, 1_200])
+            + on("2026-03-03", [7_200, 7_200])
+            + on("2026-03-04", [1_800, 1_800, 1_800, 30, 30])
+            + on("2026-02-27", [1_800, 1_800, 1_800])
+
+        let busiest = try #require(try report(meetings: meetings).records?.busiestDay)
+        let tied = try #require(try report(meetings: meetings + on("2026-03-06", [2_700, 1_800, 900])).records?.busiestDay)
+
+        #expect(busiest.day == "2026-03-04")
+        #expect(busiest.meetings == 3)
+        #expect(busiest.recorded == 5_400)
+        #expect(tied.day == "2026-03-06")
+    }
+
+    @Test func mostWordsInADayAddsMeetingWordsByStartDayAndWordsDictated() throws {
+        let meetings = [
+            // 3 March in UTC.
+            meeting("2026-03-02T23:30:00-05:00", words: 1_000),
+            meeting("2026-03-03T09:00:00+00:00", words: 1_400),
+            // Under a minute.
+            meeting("2026-03-03T10:00:00+00:00", seconds: 30, words: 900),
+            meeting("2026-03-04T09:00:00+00:00", words: 100),
+        ]
+        let dictated = DayRow(day: "2026-03-02", delivered: 3, words: 500)
+
+        let most = try #require(try report(meetings: meetings, days: [dictated, DayRow(day: "2026-03-05", words: 1_499)]).records?.mostWords)
+        let tied = try #require(try report(meetings: meetings, days: [dictated, DayRow(day: "2026-03-05", words: 1_500)]).records?.mostWords)
+
+        #expect(most.day == "2026-03-02")
+        #expect(most.words == 1_500)
+        #expect(tied.day == "2026-03-05")
+    }
+
+    @Test func theLongestStreakAndTheMostSpeakers() throws {
+        let crowded = MeetingRow(id: UUID(), at: "2026-03-10T09:00:00+00:00", duration: 600, speakers: speakers(5))
+        let meetings = filler(3) + [
+            crowded,
+            MeetingRow(id: UUID(), at: "2026-03-11T09:00:00+00:00", duration: 600, speakers: speakers(3)),
+            MeetingRow(id: UUID(), at: "2026-03-12T09:00:00+00:00", duration: 59, speakers: speakers(9)),
+        ]
+
+        let records = try #require(try report(meetings: meetings, days: [DayRow(day: "2026-03-09", delivered: 1)]).records)
+
+        // Three days in January and three in March: the later.
+        #expect(records.longestStreak == Streak(days: 3, first: "2026-03-09", last: "2026-03-11"))
+        #expect(records.mostSpeakers?.id == crowded.id)
+        #expect(records.mostSpeakers?.amount == 5)
+        #expect(records.mostSpeakers?.day == "2026-03-10")
+        #expect(records.mostSpeakers?.meeting == nil)
+        #expect(try report(meetings: filler(3)).records?.mostSpeakers == nil)
+    }
+
+    @Test func theNextMilestonesOfMeetingsHoursAndDictations() throws {
+        let meetings = (1...3).map { meeting(String(format: "2026-01-%02dT09:00:00+00:00", $0), seconds: 5_400) }
+
+        let records = try #require(try report(meetings: meetings).records)
+        let exhausted = try #require(try report(meetings: meetings, days: [DayRow(day: "2026-02-01", delivered: 10_000)]).records)
+
+        #expect(records.next == [
+            NextMilestone(ladder: .meetings, step: 10, total: 3),
+            NextMilestone(ladder: .hours, step: 10, total: 4.5),
+            NextMilestone(ladder: .dictations, step: 1, total: 0),
+        ])
+        #expect(exhausted.next.map(\.ladder) == [.meetings, .hours])
+    }
+
+    // MARK: - Milestones
+
+    @Test func milestonesAppearAtOneReached() throws {
+        let short = meeting("2026-03-02T09:00:00+00:00", seconds: 59)
+
+        #expect(try report(meetings: [short], days: [DayRow(day: "2026-03-02", words: 9_999)]).milestones == nil)
+        #expect(try report(meetings: [short, meeting("2026-03-03T09:00:00+00:00")]).milestones == [
+            Milestone(ladder: .meetings, value: 1, day: "2026-03-03"),
+        ])
+    }
+
+    @Test func milestonesAreTheEightLatestOldestFirst() throws {
+        let meetings = (1...25).map { meeting(String(format: "2026-01-%02dT09:00:00+00:00", $0), seconds: 3_600) }
+
+        let result = try report(meetings: meetings, days: [DayRow(day: "2026-02-01", delivered: 100)])
+
+        #expect(result.milestones == [
+            Milestone(ladder: .hours, value: 1, day: "2026-01-01"),
+            Milestone(ladder: .streak, value: 7, day: "2026-01-07"),
+            Milestone(ladder: .meetings, value: 10, day: "2026-01-10"),
+            Milestone(ladder: .hours, value: 10, day: "2026-01-10"),
+            Milestone(ladder: .meetings, value: 25, day: "2026-01-25"),
+            Milestone(ladder: .hours, value: 25, day: "2026-01-25"),
+            Milestone(ladder: .dictations, value: 1, day: "2026-02-01"),
+            Milestone(ladder: .dictations, value: 100, day: "2026-02-01"),
+        ])
     }
 }

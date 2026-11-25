@@ -53,7 +53,7 @@ public struct SidebarStats: Sendable, Equatable {
         self.meetings = meetings
         self.recorded = recorded
         self.dictations = dictations
-        self.savedTyping = typingWPM > 0 ? max(0, Double(timedWords) / Double(typingWPM) * 60 - spoken) : 0
+        self.savedTyping = TypingSpeed.saved(timedWords: timedWords, spoken: spoken, wpm: typingWPM)
         self.wordsTranscribed = wordsTranscribed
         self.wordsDictated = wordsDictated
         self.trend = trend
@@ -73,5 +73,14 @@ public struct SidebarStats: Sendable, Equatable {
             window[StatsTime.dayKey(date, calendar: calendar)] = index
         }
         return window
+    }
+}
+
+/// The sidebar's and Timeline's one rule for time saved against typing.
+enum TypingSpeed {
+    /// Typing `timedWords` at `wpm`, less the `spoken` seconds it took to say them; never below
+    /// zero, and nothing at a speed of zero or less.
+    static func saved(timedWords: Int, spoken: TimeInterval, wpm: Int) -> TimeInterval {
+        wpm > 0 ? max(0, Double(timedWords) / Double(wpm) * 60 - spoken) : 0
     }
 }
