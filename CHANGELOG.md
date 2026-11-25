@@ -2,6 +2,20 @@
 
 ## [Unreleased]
 
+### Added
+
+- Timeline: lifetime totals, the year, weekly rhythm, talk share, spend, dictation, records and
+  milestones, from the statistics record. Open it from the sidebar, ⌘3 or the menu-bar menu.
+  Costs are estimates; everything stays on the Mac.
+- The sidebar shows the last 30 days above the usage table; click it for Timeline, or fold it
+  with the handle on the table's top edge.
+- Settings → Statistics → Typing speed sets the speed "saved typing" is measured against.
+
+### Changed
+
+- While Settings is open the sidebar hides the usage table, so every section fits in the
+  smallest window.
+
 ## [0.9.0b4] - 2026-11-24
 
 ### Added

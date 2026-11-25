@@ -1443,19 +1443,20 @@
 
     <section class="panel" role="tabpanel"
              id="panel-implementation" aria-labelledby="tab-implementation" hidden>
-      <p class="section-timestamp">Updated 2026-11-24 19:00 UTC</p>
+      <p class="section-timestamp">Updated 2026-11-25 10:03 UTC</p>
       <!-- usage:IMPLEMENTATION_USAGE_CHIP --><span class="chip usage">1h 56m 51s · 618,620 out · 125.9 tok/s · $40.29</span><!-- /usage:IMPLEMENTATION_USAGE_CHIP -->
       <article class="panel-section">
         <h2 class="section-label">Highlights</h2>
         <div class="bullets"><ul>
-          <li>Stages completed: 11/27 (Phase A, the record); Stages 12–27 (Phases B and C) not started</li>
-          <li>Tests: core 1,630 passed in 20 targets; app 573 passed in 53 suites</li>
-          <li>Phase A requirements covered: R1–R15, R27 (Phase A form), R29, R30, R35–R36 for Phase A</li>
+          <li>Stages completed: 21/27 (Phase A shipped as 0.9.0b4; Phase B, Timeline and the sidebar block, complete); Stages 22–27 (Phase C) not started</li>
+          <li>Tests: core 1,720 passed in 20 targets; app 613 passed in 56 suites</li>
+          <li>Requirements covered so far: R1–R30, R32–R34 in their Phase A and B forms; R35–R36 per phase</li>
           <li>Pre-existing failures excluded: None</li>
-          <li>Dead-code orphans: None new (periphery against the pre-run baseline)</li>
-          <li>Parallel batches: Stages 3–4, 5–6 and 10–11 built concurrently, all landed clean</li>
-          <li>Deviations from plan: 40+ refinements recorded; one open design question (reconnects count pauses)</li>
-          <li>Final stage commit: 2466ee3; ready for the 0.9.0b4 cut after the hands-on checks</li>
+          <li>Dead-code orphans: None new in either phase (periphery against each run's baseline)</li>
+          <li>Parallel batches: Stages 3–4, 5–6, 10–11, 12–14 and 15–16 built concurrently, all landed clean; two follow-up refactors shared a start-day key and one day-key calendar</li>
+          <li>Design change by the user: the usage table hides while Settings shows (R25), after Stage 21's renders showed the Settings sidebar overflowing at 600 pt</li>
+          <li>Open design question before Phase C: reconnects (sessions − 1) also count pause/resume</li>
+          <li>Last commits: c1081ad (Stage 21), b2580eb (Settings fit fix); ready for the Phase B beta after the hands-on checks</li>
         </ul></div>
         <!-- usage:IMPLEMENTATION_USAGE --><div class="usage-pair">
 <table class="usage">
@@ -1504,8 +1505,24 @@
             <li>Stage 10 — Dictation capture in the controller — a9d25c9 (parallel, batch 8)</li>
             <li>Stage 11 — Settings › Statistics with Reset, the History row, and Phase A docs — 2466ee3 (parallel, batch 8)</li>
           </ul>
+          <h3>Stages completed (Phase B)</h3>
+          <ul>
+            <li>Stage 12 — Config keys and the Typing speed row — e6af7cf (parallel, batch 9)</li>
+            <li>Stage 13 — <code>StatFormat</code> and <code>SidebarStats</code> — 3449eac (parallel, batch 9)</li>
+            <li>Stage 14 — <code>Milestones</code> and <code>Streaks</code> — ce287aa (parallel, batch 9)</li>
+            <li>Refactor — one <code>MeetingRow.startDay</code> — f4055d8</li>
+            <li>Stage 15 — Timeline report I: totals, the year, weekly rhythm, talk share — 96d5842 (parallel, batch 10)</li>
+            <li>Stage 16 — DS tokens, chart components and panel playback — 8457f08 (parallel, batch 10)</li>
+            <li>Refactor — one day-key calendar in <code>StatsTime</code> — 3094f97</li>
+            <li>Stage 17 — Timeline report II: spend, dictation, records, milestones — c730d20</li>
+            <li>Stage 18 — <code>TimelineModel</code> and <code>TimelineSource</code> — 9c59e94</li>
+            <li>Stage 19 — The Timeline page and panels 1–5, 7, 8, 10 — aa082a9</li>
+            <li>Stage 20 — Navigation: the Timeline destination, sidebar row, ⌘3 and the menu row — f8199b5</li>
+            <li>Stage 21 — The sidebar stats block and its fold handle; Phase B docs — c1081ad</li>
+            <li>Fix — the usage table hides while Settings shows — b2580eb</li>
+          </ul>
           <h3>Tests</h3>
-          <p>Core <code>swift test</code>: 1,630 tests in 20 targets passed (baseline 1,494 in 19). App <code>xcodebuild test</code>: 573 tests in 53 suites passed (baseline 568). No baseline failures. One idle hang in <code>MWTestCallTests</code> (unrelated) after landing Stage 5; it passed alone and on re-run.</p>
+          <p>Core <code>swift test</code>: 1,720 tests in 20 targets passed (1,494 in 19 before v11; 1,630 after Phase A). App <code>xcodebuild test</code>: 613 tests in 56 suites passed (568 before v11; 573 after Phase A). No baseline failures in either run. One idle hang in <code>MWTestCallTests</code> (unrelated) after landing Stage 5; it passed alone and on re-run.</p>
           <h3>Phase A requirement coverage</h3>
           <table>
             <thead><tr><th>Requirement</th><th>Verified by</th></tr></thead>
@@ -1524,12 +1541,29 @@
               <tr><td>R27 (Phase A), R30</td><td>SettingsModelTests; offscreen snapshots</td></tr>
             </tbody>
           </table>
+          <h3>Phase B requirement coverage</h3>
+          <table>
+            <thead><tr><th>Requirement</th><th>Verified by</th></tr></thead>
+            <tbody>
+              <tr><td>R16 navigation</td><td>MainNavigationModelTests, MainWindowModelTests, MenuModelTests</td></tr>
+              <tr><td>R17 states</td><td>TimelineModelTests</td></tr>
+              <tr><td>R18 panels 1–5, 7, 8, 10</td><td>TimelineStatsTests (each one below and at its threshold), StreaksTests, MilestonesTests</td></tr>
+              <tr><td>R19 records</td><td>TimelineStatsTests (kept vs deleted), TimelineModelTests (open and a failed open)</td></tr>
+              <tr><td>R20 estimates, R33 design language</td><td>Offscreen renders of the page and components, light and dark; DSTests</td></tr>
+              <tr><td>R21 motion</td><td>PanelPlaybackTests, TimelineModelTests (replay and return)</td></tr>
+              <tr><td>R22 accessibility</td><td>Chart components built as one element with child values (live VoiceOver check pending)</td></tr>
+              <tr><td>R23, R25, R26 sidebar block</td><td>SidebarStatsTests, StatFormatTests, MainWindowModelTests (fold, visibility, freshness, usage hidden in Settings)</td></tr>
+              <tr><td>R24 fold</td><td>ConfigCodingTests, MainWindowModelTests</td></tr>
+              <tr><td>R27, R28 typing speed</td><td>ConfigCodingTests, SettingsModelTests, SidebarStatsTests, TimelineStatsTests</td></tr>
+              <tr><td>R32 report off the main actor</td><td>TimelineSourceTests</td></tr>
+            </tbody>
+          </table>
           <h3>Deviations from plan</h3>
-          <p>Recorded in the plan's <em>Deviations from plan</em>. The largest: <code>PrivateFile</code> moved to <code>MWSupport</code>; the seed takes every stored meeting so test calls can be subtracted; unreadable stats files are never rewritten. Open design question: <code>reconnects</code> (distinct sessions − 1) also counts pause/resume and session rollovers; settle before Phase C.</p>
+          <p>Recorded in the plan's <em>Deviations from plan</em>. The largest: <code>PrivateFile</code> moved to <code>MWSupport</code>; the seed takes every stored meeting so test calls can be subtracted; unreadable stats files are never rewritten; one <code>MeetingRow.startDay</code> and one day-key calendar shared by every figure; the opening resets before its report is built. One deviation from the design, decided by the user: the usage table hides while Settings shows (R25). Open design question: <code>reconnects</code> (distinct sessions − 1) also counts pause/resume and session rollovers; settle before Phase C.</p>
           <h3>Notes</h3>
           <ul>
-            <li>Run stopped at the Phase A boundary for the 0.9.0b4 cut; resume with <code>/feature-implement v11</code> (starts at Stage 12).</li>
-            <li>Hands-on checks on a dev build are pending (stats files, permissions, launch time, meeting timing, Reset).</li>
+            <li>Phase A shipped as 0.9.0b4. This run stopped at the Phase B boundary for the next beta; resume with <code>/feature-implement v11</code> (starts at Stage 22).</li>
+            <li>Hands-on checks on a dev build are pending: Phase A (stats files, permissions, launch time, meeting timing, Reset) and Phase B (⌘3, menu row, back pill and restore, motion and Reduce Motion, fold across a relaunch, block refresh, VoiceOver).</li>
             <li><code>main</code> is ahead of <code>origin/main</code>; nothing pushed.</li>
           </ul>
         </div>
