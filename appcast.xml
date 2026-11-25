@@ -5,6 +5,19 @@
     <link>https://raw.githubusercontent.com/cagriy/mini-whisper/main/appcast.xml</link>
     <language>en</language>
     <item>
+      <title>Mini Whisper 0.9.0b5</title>
+      <sparkle:version>0.9.0b5</sparkle:version>
+      <sparkle:shortVersionString>0.9.0b5</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <sparkle:channel>beta</sparkle:channel>
+      <description>&lt;h3&gt;Added&lt;/h3&gt;
+&lt;ul&gt;&lt;li&gt;Timeline: lifetime totals, the year, weekly rhythm, talk share, spend, dictation, records and milestones, from the statistics record. Open it from the sidebar, ⌘3 or the menu-bar menu. Costs are estimates; everything stays on the Mac.&lt;/li&gt;&lt;li&gt;The sidebar shows the last 30 days above the usage table; click it for Timeline, or fold it with the handle on the table's top edge.&lt;/li&gt;&lt;li&gt;Settings → Statistics → Typing speed sets the speed "saved typing" is measured against.&lt;/li&gt;&lt;/ul&gt;
+&lt;h3&gt;Changed&lt;/h3&gt;
+&lt;ul&gt;&lt;li&gt;While Settings is open the sidebar hides the usage table, so every section fits in the smallest window.&lt;/li&gt;&lt;/ul&gt;</description>
+      <pubDate>Wed, 25 Nov 2026 10:21:53 +0000</pubDate>
+      <enclosure url="https://github.com/cagriy/mini-whisper/releases/download/v0.9.0b5/MiniWhisper-0.9.0b5-arm64.dmg" sparkle:edSignature="JXTtzfL1L5H4xnnf55AkSEyxK+0/a2ekzP6YzJ4GX9TZRxnHB7h4zbNKcEQf4l9vBgNBJi+An5xscmGkqBM8BA==" length="17699501" type="application/octet-stream" />
+    </item>
+    <item>
       <title>Mini Whisper 0.9.0b4</title>
       <sparkle:version>0.9.0b4</sparkle:version>
       <sparkle:shortVersionString>0.9.0b4</sparkle:shortVersionString>
