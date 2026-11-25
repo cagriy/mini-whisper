@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.9.0b5] - 2026-11-25
+
 ### Added
 
 - Timeline: lifetime totals, the year, weekly rhythm, talk share, spend, dictation, records and
