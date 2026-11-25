@@ -68,7 +68,7 @@ public struct Milestones: Sendable, Equatable {
     public init(_ snapshot: StatsSnapshot, streaks: Streaks) {
         var days: [String: [Milestone.Ladder: Double]] = [:]
         for row in snapshot.meetings where row.isCounted {
-            guard let day = Streaks.startDay(row) else { continue }
+            guard let day = row.startDay else { continue }
             days[day, default: [:]].merge([.meetings: 1, .hours: row.duration, .words: Double(row.words)], uniquingKeysWith: +)
         }
         for row in snapshot.days {

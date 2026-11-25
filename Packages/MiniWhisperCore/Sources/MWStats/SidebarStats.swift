@@ -30,7 +30,7 @@ public struct SidebarStats: Sendable, Equatable {
         for row in snapshot.meetings where row.isCounted {
             lifetimeMeetings += 1
             lifetimeRecorded += row.duration
-            guard let start = row.localStart, let index = window[Self.dayKey(start)] else { continue }
+            guard let day = row.startDay, let index = window[day] else { continue }
             meetings += 1
             recorded += row.duration
             wordsTranscribed += row.words
@@ -73,9 +73,5 @@ public struct SidebarStats: Sendable, Equatable {
             window[StatsTime.dayKey(date, calendar: calendar)] = index
         }
         return window
-    }
-
-    private static func dayKey(_ local: DateComponents) -> String {
-        String(format: "%04d-%02d-%02d", local.year ?? 0, local.month ?? 0, local.day ?? 0)
     }
 }

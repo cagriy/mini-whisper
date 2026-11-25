@@ -199,4 +199,10 @@ import MWStats
         #expect(MeetingRow(id: Self.meetingID).localStart == nil)
         #expect(MeetingRow(id: Self.meetingID, at: "2026-11-30T23:30:00Z").localStart == nil)
     }
+
+    @Test func startDayIsTheLocalDayWhereTheMeetingTookPlace() {
+        #expect(MeetingRow(id: Self.meetingID, at: "2026-11-30T23:30:00-08:00").startDay == "2026-11-30")
+        #expect(MeetingRow(id: Self.meetingID, at: "2026-12-01T00:30:00+09:00").startDay == "2026-12-01")
+        #expect(MeetingRow(id: Self.meetingID).startDay == nil)
+    }
 }

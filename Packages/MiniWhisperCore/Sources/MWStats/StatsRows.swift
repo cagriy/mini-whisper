@@ -237,6 +237,12 @@ public struct MeetingRow: Sendable, Equatable {
     public var localStart: DateComponents? { Self.local(at) }
     public var localEnd: DateComponents? { Self.local(end) }
 
+    /// The local `yyyy-MM-dd` the meeting started on, where it took place: the day it counts on.
+    public var startDay: String? {
+        guard let start = localStart, let date = start.date, let calendar = start.calendar else { return nil }
+        return StatsTime.dayKey(date, calendar: calendar)
+    }
+
     private static func local(_ text: String) -> DateComponents? {
         guard let parsed = StatsTime.parse(text), let zone = TimeZone(secondsFromGMT: parsed.offset) else { return nil }
         var calendar = Calendar(identifier: .gregorian)

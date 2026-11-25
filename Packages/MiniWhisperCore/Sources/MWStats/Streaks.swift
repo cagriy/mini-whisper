@@ -27,7 +27,7 @@ public struct Streaks: Sendable, Equatable {
     public init(_ snapshot: StatsSnapshot) {
         var active = Set(snapshot.days.lazy.filter { $0.delivered > 0 }.map(\.day))
         for row in snapshot.meetings where row.isCounted {
-            if let day = Self.startDay(row) { active.insert(day) }
+            if let day = row.startDay { active.insert(day) }
         }
         activeDays = active.sorted()
 
@@ -61,13 +61,6 @@ public struct Streaks: Sendable, Equatable {
 
     public func activeDays(in year: Int) -> Int {
         activeDays.count { Self.year($0) == year }
-    }
-
-    /// The local day a meeting started, at the offset it was recorded with; nil when `at` does not
-    /// parse.
-    static func startDay(_ row: MeetingRow) -> String? {
-        guard let start = row.localStart, let date = start.date, let calendar = start.calendar else { return nil }
-        return StatsTime.dayKey(date, calendar: calendar)
     }
 
     /// The day `count` days after `key`, counted on the calendar so no day is skipped or repeated.
