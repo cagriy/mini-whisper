@@ -76,7 +76,7 @@ struct SidebarView: View {
                 blockOverTable(stats, trend: false)
                 UsageTableView(table: model.usageTable)
             }
-        } else {
+        } else if model.showsUsage {
             UsageTableView(table: model.usageTable, handle: model.showsStats ? foldHandle : nil)
         }
     }

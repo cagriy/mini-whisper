@@ -118,7 +118,10 @@ final class MainWindowModel {
     }
 
     /// The sidebar block and its handle: hidden while Settings shows and until there is data (R25).
-    var showsStats: Bool { sidebarStats != nil && navigation.destination != .settings }
+    var showsStats: Bool { sidebarStats != nil && showsUsage }
+
+    /// The usage table steps aside while Settings shows, so every section fits at the smallest window.
+    var showsUsage: Bool { navigation.destination != .settings }
 
     /// Flips at once; the config confirms it once written.
     func toggleStatsFold() {

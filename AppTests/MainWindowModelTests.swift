@@ -440,6 +440,18 @@ import Testing
         #expect(harness.model.showsStats)
     }
 
+    @Test func theUsageTableIsHiddenWhileSettingsShows() {
+        let harness = Harness()
+        defer { harness.cleanUp() }
+        #expect(harness.model.showsUsage)
+
+        harness.model.navigation.go(.settings)
+        #expect(!harness.model.showsUsage)
+
+        harness.model.navigation.go(.meetings)
+        #expect(harness.model.showsUsage)
+    }
+
     @Test func theBlockIsHiddenUntilThereIsData() throws {
         let harness = Harness()
         defer { harness.cleanUp() }
