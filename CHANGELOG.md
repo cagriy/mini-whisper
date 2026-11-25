@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.9.0b6] - 2026-11-25
+
+### Changed
+
+- Settings → Meetings → Suggest names from the conversation is marked Experimental.
+
 ## [0.9.0b5] - 2026-11-25
 
 ### Added
