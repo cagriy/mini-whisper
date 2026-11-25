@@ -49,6 +49,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var appliedOverlayStyle: OverlayStyle?
     private var appliedTheme: AppTheme?
     private var channelTracker = UpdateChannelPolicy.Tracker()
+    /// Asks for the sidebar's figures again.
+    private var sidebarRefresh: AsyncStream<Void>.Continuation?
     /// Set by the menu's Quit once it has stopped and saved everything.
     private var quitPrepared = false
 
@@ -312,6 +314,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             config: config
         )
         main?.model.usage = totals
+        startSidebarRefresh(stats: stats)
         Task(priority: .utility) { await reconciler.reconcile() }
         // Never removed: the window lives as long as the app. A key changed while the window was
         // in the background is read again for Suggest names when it comes forward.
@@ -424,6 +427,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         ))
     }
 
+    /// The sidebar's figures (design §5 Control flow, Sidebar refresh): at launch, after each change to
+    /// the record, when the window comes forward and when the typing speed changes. One computation at a
+    /// time, off the main actor; requests made meanwhile coalesce into one.
+    private func startSidebarRefresh(stats: StatsStore) {
+        let (requests, request) = AsyncStream<Void>.makeStream(bufferingPolicy: .bufferingNewest(1))
+        sidebarRefresh = request
+        request.yield()
+        // The record's change stream has this one reader.
+        Task { for await _ in stats.changes { request.yield() } }
+        Task { [weak self] in
+            for await _ in requests {
+                guard let typingWPM = self?.config.typingWPM else { return }
+                let summary = await Task.detached(priority: .utility) {
+                    SidebarStats(snapshot: await stats.snapshot(), typingWPM: typingWPM, now: Date(), calendar: .current)
+                }.value
+                self?.main?.model.sidebarStats = summary
+            }
+        }
+    }
+
     /// The statistics record as the stored files rebuild it, from every stored meeting: the seed
     /// itself sorts test calls and unfinished meetings out.
     private static func makeSeed(history: HistoryStore, configStore: ConfigStore, store: MeetingStore) async -> StatsSeed {
@@ -466,9 +489,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 openMeeting: openMeeting,
                 showLiveMeeting: { [weak self] in self?.meetings?.show() },
                 meetingPageLeft: { [weak self] in self?.meetings?.pageLeft() },
-                meetingEntered: { [weak self] in self?.meetings?.refreshKeyPresence() }
+                meetingEntered: { [weak self] in self?.meetings?.refreshKeyPresence() },
+                foldStats: { folded in
+                    Task {
+                        do {
+                            try await configStore.update { @Sendable in $0.timelineSidebarFolded = folded }
+                        } catch {
+                            Log.ui.warning("sidebar fold not saved: \(AnyError(error).description)")
+                        }
+                    }
+                },
+                refreshStats: { [weak self] in self?.sidebarRefresh?.yield() }
             )
         )
+        model.apply(config)
         return MainWindowController(model: model, store: configStore, savedFrame: config.mainWindowFrame)
     }
 
@@ -574,10 +608,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Every config value the app itself holds a copy of (F19). The stores read the
     /// rest through `ConfigStore` directly.
     private func apply(_ config: Config) {
+        let typingChanged = config.typingWPM != self.config.typingWPM
         self.config = config
         // R36: the one config-change consumer there is, so Settings sees a rule the
         // correction window just saved (N4).
         main?.model.settings.refresh(from: config)
+        main?.model.apply(config)
+        // Saved typing is reckoned at the typing speed.
+        if typingChanged { sidebarRefresh?.yield() }
         applyTheme(config.theme)
         sounds.setVolume(Float(config.soundVolume))
         // R3: stored now, honoured at the card's next show.

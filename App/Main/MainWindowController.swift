@@ -57,6 +57,7 @@ final class MainWindowController: NSObject, NSWindowDelegate {
         if !placed { place() }
         Log.ui.info("main window shown: \(destination)")
         WindowActivation.shown(window)
+        model.windowCameForward()
     }
 
     /// Orders the window out and stores its frame; quitting waits for the write. A hotkey

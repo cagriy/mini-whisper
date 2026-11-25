@@ -44,6 +44,8 @@ import Testing
         var pagesEntered = 0
         var liveShown = 0
         var timelineReports = 0
+        var foldsWritten: [Bool] = []
+        var statsRefreshes = 0
         lazy var model: MainWindowModel = {
             var calendar = Calendar(identifier: .gregorian)
             calendar.timeZone = TimeZone(identifier: "UTC")!
@@ -120,7 +122,9 @@ import Testing
                     },
                     showLiveMeeting: { [unowned self] in liveShown += 1 },
                     meetingPageLeft: { [unowned self] in pagesLeft += 1 },
-                    meetingEntered: { [unowned self] in pagesEntered += 1 }
+                    meetingEntered: { [unowned self] in pagesEntered += 1 },
+                    foldStats: { [unowned self] in foldsWritten.append($0) },
+                    refreshStats: { [unowned self] in statsRefreshes += 1 }
                 )
             )
         }()
@@ -380,6 +384,89 @@ import Testing
         #expect(harness.model.presented?.model === next)
         #expect(harness.model.navigation.origin == .meetings)
         #expect(harness.pagesLeft == 0)
+    }
+
+    // MARK: - Sidebar statistics
+
+    /// One delivered dictation today.
+    private static func sidebarStats() throws -> SidebarStats {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = try #require(TimeZone(identifier: "UTC"))
+        return try #require(SidebarStats(
+            snapshot: StatsSnapshot(days: [DayRow(day: "2026-11-09", delivered: 1, words: 12)]), typingWPM: 40,
+            now: now, calendar: calendar
+        ))
+    }
+
+    @Test func foldFlipsAtOnceAndWritesTheConfig() {
+        let harness = Harness()
+        defer { harness.cleanUp() }
+        #expect(!harness.model.statsFolded)
+
+        harness.model.toggleStatsFold()
+        #expect(harness.model.statsFolded)
+        #expect(harness.foldsWritten == [true])
+
+        harness.model.toggleStatsFold()
+        #expect(!harness.model.statsFolded)
+        #expect(harness.foldsWritten == [true, false])
+    }
+
+    @Test func applyingTheConfigConfirmsTheFold() {
+        let harness = Harness()
+        defer { harness.cleanUp() }
+        var config = Config()
+        config.timelineSidebarFolded = true
+
+        harness.model.apply(config)
+        #expect(harness.model.statsFolded)
+
+        config.timelineSidebarFolded = false
+        harness.model.apply(config)
+        #expect(!harness.model.statsFolded)
+        #expect(harness.foldsWritten.isEmpty)
+    }
+
+    @Test func theBlockIsHiddenWhileSettingsShows() throws {
+        let harness = Harness()
+        defer { harness.cleanUp() }
+        harness.model.sidebarStats = try Self.sidebarStats()
+        #expect(harness.model.showsStats)
+
+        harness.model.navigation.go(.settings)
+        #expect(!harness.model.showsStats)
+
+        harness.model.navigation.go(.dictations)
+        #expect(harness.model.showsStats)
+    }
+
+    @Test func theBlockIsHiddenUntilThereIsData() throws {
+        let harness = Harness()
+        defer { harness.cleanUp() }
+        #expect(!harness.model.showsStats)
+
+        harness.model.sidebarStats = try Self.sidebarStats()
+        #expect(harness.model.showsStats)
+    }
+
+    @Test func comingForwardRefreshes() {
+        let harness = Harness()
+        defer { harness.cleanUp() }
+
+        harness.model.windowCameForward()
+
+        #expect(harness.statsRefreshes == 1)
+    }
+
+    @Test func clickingTheBlockOpensTimeline() async {
+        let harness = Harness()
+        defer { harness.cleanUp() }
+
+        harness.model.openTimeline()
+        await harness.model.loading?.value
+
+        #expect(harness.model.navigation.destination == .timeline)
+        #expect(harness.model.timeline.playID == 1)
     }
 
     @Test func recordingPillShowsTheLiveMeeting() {

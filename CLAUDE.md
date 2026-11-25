@@ -20,6 +20,7 @@ App/                         app target sources (AppKit shell, SwiftUI windows a
 App/Design/                  `DS` tokens and components, the code side of DESIGN.md
 App/Main/                    the main window: sidebar, navigation, frame
 App/Search/                  one search over meetings and dictations
+App/Timeline/                the Timeline page: model, source, panels, motion
 App/Resources/               AppIcon.icns, on.mp3, off.mp3, mini-whisper.png, default prompts,
                              wespeaker_v2.mlmodelc (folder resource, CC BY 4.0), Sparkle-LICENSE.txt
 App/Info.plist, App/MiniWhisper.entitlements
@@ -72,7 +73,7 @@ empty XCTest bundle, not the result. Read the `✔/✘ Test run with N tests in 
 | `MWMeetingPipeline` | `SpeechGate`, `AudioMixer`, `SystemAudioRing`, `SystemAudioLeveller`, `SpeakerAttributor`, `SpeakerRegistry`, `SessionSupervisor`, `MeetingRecorder`, `MeetingBilling`, `Summariser`, `SilenceWatch`, `VoiceAudioBuffer`, `VoiceRecogniser`, `MeetingVoiceRoute`, `MeetingNamingRoute`, `MeetingController` | MWMeetings, MWStreaming, MWAudio, MWConfig, MWCorrections, MWUsage, MWTranscription, MWSupport, MWTestCall, MWVoices, MWNaming, MWStats |
 | `MWAgentAccess` | `MeetingsCLI`, `MCPServer`, `MeetingID` | MWMeetings, MWSupport |
 | `MWTestCall` | `TestScenario`, `ScenarioLibrary`, `VoiceCatalog`, `TranscriptNormalizer`, `WordAligner`, `TestCallConductor`, `TestCallScorer`, `TestRunHistory` | MWMeetings, MWConfig, MWSupport |
-| `MWStats` | `StatsTime`, `JSONLFile`, `WordCount`, `StatsRecording` seams, `StatsRows`, `StatsStore`, `StatsSeed`, `RecordedUsage`, `MeetingFigures`, `MeetingReconciler` | MWMeetings, MWUsage, MWHistory, MWConfig, MWSupport |
+| `MWStats` | `StatsTime`, `JSONLFile`, `WordCount`, `StatsRecording` seams, `StatsRows`, `StatsStore`, `StatsSeed`, `RecordedUsage`, `MeetingFigures`, `MeetingReconciler`, `StatFormat`, `SidebarStats`, `Milestones`, `Streaks`, `TimelineStats` | MWMeetings, MWUsage, MWHistory, MWConfig, MWSupport |
 | `MWTestSupport` | Fakes and helpers shared across test targets | all except MWPipeline; MWMeetings and MWStats included |
 
 Dependencies flow downwards only; nothing depends on `MWPipeline` or `MWMeetingPipeline`.

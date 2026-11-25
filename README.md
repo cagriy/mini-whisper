@@ -36,10 +36,11 @@ On first launch Mini Whisper asks for:
 
 ## The window
 
-**Meetings…**, **Dictations…** and **Settings...** in the menu bar open one window at that page.
-Its sidebar holds search (⌘F), Start Meeting (⌘N), Meetings (⌘1), Dictations (⌘2), Settings (⌘,)
-and a usage table: tokens, audio time and cost for today and this month. ⌘W or the close button
-hides the window; a recording carries on. The window reopens at the size and place you left it.
+**Meetings…**, **Dictations…**, **Timeline…** and **Settings...** in the menu bar open one window
+at that page. Its sidebar holds search (⌘F), Start Meeting (⌘N), Meetings (⌘1), Dictations (⌘2),
+Timeline (⌘3), Settings (⌘,), the last 30 days' statistics and a usage table: tokens, audio time
+and cost for today and this month. ⌘W or the close button hides the window; a recording carries
+on. The window reopens at the size and place you left it.
 
 - **Search** covers meeting titles, transcripts, notes and summaries, and stored dictations, in
   one list. A meeting result opens the meeting, a dictation result its Dictations row. Esc
@@ -47,6 +48,12 @@ hides the window; a recording carries on. The window reopens at the size and pla
 - **Dictations** lists stored dictations by day. Each row offers **Paste into *app*** (the app
   you used last; the window hides first), **Correct…**, **Copy** and **Delete**. **Clear…**
   deletes them all.
+- **Timeline** shows your totals, the year, weekly rhythm, talk share, estimated spend,
+  dictation, records and milestones. A record opens its meeting.
+- **Last 30 days**, above the usage table: meetings, time recorded, dictations, typing saved,
+  words, a trend of hours recorded and the all-time totals. A click opens Timeline. The handle on
+  the table's top line folds it, and it stays folded across launches. It hides while Settings is
+  open and drops its trend, then itself, when the window is too short.
 - **Theme**: Settings → General → Appearance → System, Light or Dark. The dictation overlay looks
   the same in each.
 

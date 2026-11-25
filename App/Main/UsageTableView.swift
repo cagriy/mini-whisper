@@ -1,9 +1,11 @@
 import MWUsage
 import SwiftUI
 
-/// The sidebar's foot (design §5.9, R21): today's and this month's tokens, audio and cost.
+/// The sidebar's foot (design §5.9, R21): today's and this month's tokens, audio and cost, with the
+/// stats block's fold handle on its top hairline.
 struct UsageTableView: View {
     let table: UsageTable
+    var handle: StatsFoldHandle?
 
     var body: some View {
         // A modifier on a `GridRow` would turn it into a single cell, so each cell is styled.
@@ -24,6 +26,8 @@ struct UsageTableView: View {
         .overlay(alignment: .top) { Rectangle().fill(DS.Colors.line).frame(height: DS.Size.hairline) }
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Usage")
+        // A frame as tall as the hairline centres the handle on it.
+        .overlay(alignment: .top) { handle.frame(height: DS.Size.hairline) }
     }
 
     private func row(_ label: String, _ cells: UsageTable.Row) -> some View {

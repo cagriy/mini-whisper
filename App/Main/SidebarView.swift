@@ -1,9 +1,10 @@
 import AppKit
+import MWStats
 import SwiftUI
 
 /// The sidebar (design §5.8, §5.9, R2, R3, R5): search, Start Meeting or the recording pill, the
-/// destinations with Settings' sections while Settings shows, and the usage table, with the
-/// window's shortcuts.
+/// destinations with Settings' sections while Settings shows, the stats block and the usage table,
+/// with the window's shortcuts.
 struct SidebarView: View {
     @Bindable var model: MainWindowModel
 
@@ -49,8 +50,10 @@ struct SidebarView: View {
                 }
             }
             .padding(.top, DS.Space.s2)
-            Spacer(minLength: 0)
-            UsageTableView(table: model.usageTable)
+            foot
+                // The gap a spacer above it would add.
+                .padding(.top, DS.Space.s5)
+                .frame(maxHeight: .infinity, alignment: .bottom)
         }
         // The traffic lights sit above the search pill.
         .padding(EdgeInsets(top: DS.Space.s7 + 34, leading: DS.Space.s6, bottom: DS.Space.s6, trailing: DS.Space.s6))
@@ -60,6 +63,33 @@ struct SidebarView: View {
             Rectangle().fill(DS.Colors.line).frame(width: DS.Size.hairline)
         }
         .background { shortcuts }
+    }
+
+    /// The usage table under the stats block as it fits (design §5 Interfaces › Sidebar, R25): whole,
+    /// without its trend, or not at all, the handle going with it. Each candidate carries the table, so
+    /// `ViewThatFits` is the stack's one flexible child and is offered all the room the rows leave: in a
+    /// stack beside the table it would be offered only a share.
+    @ViewBuilder private var foot: some View {
+        if let stats = model.sidebarStats, model.showsStats, !model.statsFolded {
+            ViewThatFits(in: .vertical) {
+                blockOverTable(stats, trend: true)
+                blockOverTable(stats, trend: false)
+                UsageTableView(table: model.usageTable)
+            }
+        } else {
+            UsageTableView(table: model.usageTable, handle: model.showsStats ? foldHandle : nil)
+        }
+    }
+
+    private func blockOverTable(_ stats: SidebarStats, trend: Bool) -> some View {
+        VStack(spacing: DS.Space.s5) {
+            StatsBlockView(stats: stats, showsTrend: trend, open: model.openTimeline)
+            UsageTableView(table: model.usageTable, handle: foldHandle)
+        }
+    }
+
+    private var foldHandle: StatsFoldHandle {
+        StatsFoldHandle(folded: model.statsFolded, toggle: model.toggleStatsFold)
     }
 
     private var sections: some View {

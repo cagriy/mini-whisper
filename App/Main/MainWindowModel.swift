@@ -1,10 +1,13 @@
 import Foundation
+import MWConfig
+import MWStats
 import MWSupport
 import MWUsage
 import Observation
 
-/// The main window's state (design §5.1, §5.7): the navigation, the page models, the search
-/// and the usage table. Navigating reloads the page it lands on; the search follows the query.
+/// The main window's state (design §5.1, §5.7): the navigation, the page models, the search,
+/// the usage table and the sidebar's statistics. Navigating reloads the page it lands on; the
+/// search follows the query.
 @MainActor
 @Observable
 final class MainWindowModel {
@@ -17,6 +20,10 @@ final class MainWindowModel {
         var meetingPageLeft: @MainActor () -> Void = {}
         /// The meeting page was navigated to.
         var meetingEntered: @MainActor () -> Void = {}
+        /// Writes the sidebar block's fold to `config.json`; the write comes back through `apply(_:)`.
+        var foldStats: @MainActor (Bool) -> Void = { _ in }
+        /// Computes the sidebar's figures again; they arrive in `sidebarStats`.
+        var refreshStats: @MainActor () -> Void = {}
     }
 
     /// The session on the meeting page, as last presented.
@@ -32,6 +39,10 @@ final class MainWindowModel {
     let settings: SettingsModel
     let timeline: TimelineModel
     var usage = UsageTotals()
+    /// The sidebar block's figures; nil until a counted meeting or a delivered dictation exists.
+    var sidebarStats: SidebarStats?
+    /// The block folded under its handle, leaving the usage table.
+    private(set) var statsFolded = false
     /// What the meeting page shows; nil once the page is left.
     private(set) var presented: PresentedMeeting?
     /// The recording pill's meeting, while one is active.
@@ -104,6 +115,30 @@ final class MainWindowModel {
 
     func showLiveMeeting() {
         deps.showLiveMeeting()
+    }
+
+    /// The sidebar block and its handle: hidden while Settings shows and until there is data (R25).
+    var showsStats: Bool { sidebarStats != nil && navigation.destination != .settings }
+
+    /// Flips at once; the config confirms it once written.
+    func toggleStatsFold() {
+        statsFolded.toggle()
+        deps.foldStats(statsFolded)
+    }
+
+    /// The fold as `config.json` holds it.
+    func apply(_ config: Config) {
+        statsFolded = config.timelineSidebarFolded
+    }
+
+    /// The figures may have aged while the window was away (R26).
+    func windowCameForward() {
+        deps.refreshStats()
+    }
+
+    /// The sidebar block was clicked.
+    func openTimeline() {
+        navigation.go(.timeline)
     }
 
     /// Every navigation lands here, including one that clears the query.
