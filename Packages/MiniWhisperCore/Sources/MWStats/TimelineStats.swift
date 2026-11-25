@@ -346,21 +346,13 @@ public enum TimelineStats {
         func row(of weekday: Int) -> Int { (weekday - firstWeekday + 7) % 7 }
     }
 
-    /// Day keys are Gregorian dates, so their weekdays and lengths come from one fixed calendar.
-    private static let utc: Calendar = {
-        var calendar = Calendar(identifier: .gregorian)
-        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
-        return calendar
-    }()
+    /// Day keys are Gregorian dates, so their weekdays and lengths come from `StatsTime.utc`.
+    private static var utc: Calendar { StatsTime.utc }
 
     private static func year(of key: String) -> Int? { Int(key.prefix(4)) }
 
     private static func weekday(of key: String) -> Int? {
-        let parts = key.split(separator: "-").compactMap { Int($0) }
-        guard parts.count == 3,
-              let date = utc.date(from: DateComponents(year: parts[0], month: parts[1], day: parts[2]))
-        else { return nil }
-        return utc.component(.weekday, from: date)
+        StatsTime.date(ofDay: key).map { utc.component(.weekday, from: $0) }
     }
 
     private static func timeOfDay(_ clock: DateComponents) -> TimeInterval {

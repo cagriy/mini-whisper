@@ -3,11 +3,19 @@ import Foundation
 /// Times in `stats/`. Day keys and timestamps are Gregorian whatever the calendar passed in,
 /// which only supplies the time zone, so they sort and parse alike on every Mac.
 public enum StatsTime {
-    private static let utc: Calendar = {
+    /// The calendar day keys are written in, for their weekdays, month lengths and arithmetic.
+    static let utc: Calendar = {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(secondsFromGMT: 0)!
         return calendar
     }()
+
+    /// Midnight UTC of a `yyyy-MM-dd` key in `utc`; nil when the key is malformed.
+    static func date(ofDay key: String) -> Date? {
+        let parts = key.split(separator: "-").compactMap { Int($0) }
+        guard parts.count == 3 else { return nil }
+        return utc.date(from: DateComponents(year: parts[0], month: parts[1], day: parts[2]))
+    }
 
     /// `yyyy-MM-dd` of the local day `date` falls on.
     public static func dayKey(_ date: Date, calendar: Calendar) -> String {

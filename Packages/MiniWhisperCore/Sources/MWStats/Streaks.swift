@@ -65,19 +65,11 @@ public struct Streaks: Sendable, Equatable {
 
     /// The day `count` days after `key`, counted on the calendar so no day is skipped or repeated.
     static func day(_ count: Int, after key: String) -> String? {
-        let parts = key.split(separator: "-").compactMap { Int($0) }
-        guard parts.count == 3,
-              let start = utc.date(from: DateComponents(year: parts[0], month: parts[1], day: parts[2])),
-              let date = utc.date(byAdding: .day, value: count, to: start)
+        guard let start = StatsTime.date(ofDay: key),
+              let date = StatsTime.utc.date(byAdding: .day, value: count, to: start)
         else { return nil }
-        return StatsTime.dayKey(date, calendar: utc)
+        return StatsTime.dayKey(date, calendar: StatsTime.utc)
     }
-
-    private static let utc: Calendar = {
-        var calendar = Calendar(identifier: .gregorian)
-        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
-        return calendar
-    }()
 
     private static func year(_ key: String) -> Int? { Int(key.prefix(4)) }
 

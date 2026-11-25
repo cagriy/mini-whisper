@@ -1,7 +1,7 @@
 import Foundation
 import Testing
 
-import MWStats
+@testable import MWStats
 
 @Suite struct StatsTimeTests {
     private func utc(_ text: String) throws -> Date {
@@ -84,5 +84,12 @@ import MWStats
         let london = try calendar("Europe/London")
 
         #expect(StatsTime.dictationCutoff(now: try utc(now), calendar: london) == (try utc(cutoff)))
+    }
+
+    @Test func aDayKeyIsMidnightUTCOfThatDate() throws {
+        #expect(StatsTime.date(ofDay: "2026-03-29") == (try utc("2026-03-29T00:00:00Z")))
+        #expect(StatsTime.date(ofDay: "2026-3-9") == (try utc("2026-03-09T00:00:00Z")))
+        #expect(StatsTime.date(ofDay: "2026-03") == nil)
+        #expect(StatsTime.date(ofDay: "") == nil)
     }
 }
