@@ -47,27 +47,51 @@ import Testing
         #expect(dark == token.dark)
     }
 
+    @Test(arguments: [false, true]) func heatRunsFromHoverToAccent(dark: Bool) throws {
+        let appearance: NSAppearance.Name = dark ? .darkAqua : .aqua
+        let hover = try Self.hex(DS.Colors.hover.nsColor, in: appearance)
+        let accent = try Self.hex(DS.Colors.accent.nsColor, in: appearance)
+
+        #expect(try Self.hex(DS.Colors.heat(0).nsColor, in: appearance) == hover)
+        #expect(try Self.hex(DS.Colors.heat(4).nsColor, in: appearance) == accent)
+        #expect(try Self.hex(DS.Colors.heat(-1).nsColor, in: appearance) == hover)
+        #expect(try Self.hex(DS.Colors.heat(5).nsColor, in: appearance) == accent)
+    }
+
+    @Test(arguments: [false, true], 1...3) func heatBlendsAccentIntoHoverByQuarters(dark: Bool, level: Int) throws {
+        let appearance: NSAppearance.Name = dark ? .darkAqua : .aqua
+        let hover = try Self.components(DS.Colors.hover.nsColor, in: appearance)
+        let accent = try Self.components(DS.Colors.accent.nsColor, in: appearance)
+        let heat = try Self.components(DS.Colors.heat(level).nsColor, in: appearance)
+        let share = Double(level) / 4
+
+        for channel in 0..<3 {
+            #expect(abs(heat[channel] - (hover[channel] + (accent[channel] - hover[channel]) * share)) < 0.001)
+        }
+    }
+
     @Test func radiiMatchDesignMD() {
         #expect(DS.Radius.field == 8)
         #expect(DS.Radius.row == 10)
         #expect(DS.Radius.card == 14)
+        #expect(DS.Radius.cell == 2)
     }
 
     @Test func typeScaleMatchesDesignMD() {
         let styles: [DS.TextStyle] = [
             .display, .title, .titleCompact, .titleDialog, .heading, .heading2, .heading3, .reading, .rowTitle, .body,
-            .meta, .mono,
+            .meta, .mono, .score, .cloudSmall,
         ]
 
-        #expect(styles.map(\.size) == [28, 22, 20, 18, 16, 15, 14, 15, 14, 13, 12, 12])
-        #expect(styles.map(\.lineHeight) == [34, 28, 26, 24, 24, 22, 20, 24, 20, 18, 16, 18])
+        #expect(styles.map(\.size) == [28, 22, 20, 18, 16, 15, 14, 15, 14, 13, 12, 12, 34, 13])
+        #expect(styles.map(\.lineHeight) == [34, 28, 26, 24, 24, 22, 20, 24, 20, 18, 16, 18, 40, 18])
         #expect(styles.map(\.weight) == [
             .medium, .medium, .medium, .medium, .semibold, .semibold, .semibold, .regular, .medium, .regular, .regular,
-            .regular,
+            .regular, .medium, .regular,
         ])
         #expect(styles.map(\.design) == [
             .serif, .serif, .serif, .serif, .default, .default, .default, .default, .default, .default, .default,
-            .monospaced,
+            .monospaced, .serif, .serif,
         ])
     }
 
@@ -86,12 +110,17 @@ import Testing
 
     /// The colour as `#RRGGBB` in sRGB, as the named appearance draws it.
     private static func hex(_ color: NSColor, in appearance: NSAppearance.Name) throws -> String {
+        let bytes = try components(color, in: appearance).map { Int(($0 * 255).rounded()) }
+        return String(format: "#%02X%02X%02X", bytes[0], bytes[1], bytes[2])
+    }
+
+    /// Red, green and blue in sRGB, 0 to 1, as the named appearance draws the colour.
+    private static func components(_ color: NSColor, in appearance: NSAppearance.Name) throws -> [Double] {
         var resolved: NSColor?
         try #require(NSAppearance(named: appearance)).performAsCurrentDrawingAppearance {
             resolved = color.usingColorSpace(.sRGB)
         }
         let srgb = try #require(resolved)
-        let bytes = [srgb.redComponent, srgb.greenComponent, srgb.blueComponent].map { Int(($0 * 255).rounded()) }
-        return String(format: "#%02X%02X%02X", bytes[0], bytes[1], bytes[2])
+        return [srgb.redComponent, srgb.greenComponent, srgb.blueComponent].map(Double.init)
     }
 }

@@ -41,6 +41,17 @@ enum DS {
         static let dialogShadow = Color(
             light: NSColor(hex: 0x23221F, alpha: 0.18), dark: NSColor(hex: 0x000000, alpha: 0.45)
         )
+
+        /// A heat cell at `level` 0 to 4: `hover` for nothing, `accent` for the most, and `accent` mixed into
+        /// `hover` at 25, 50 and 75% between. A level outside the range takes the nearest end.
+        static func heat(_ level: Int) -> Color {
+            heatLevels[min(max(level, 0), heatLevels.count - 1)]
+        }
+
+        private static let heatLevels = [
+            hover, Color(mixing: accent, 0.25, into: hover), Color(mixing: accent, 0.5, into: hover),
+            Color(mixing: accent, 0.75, into: hover), accent,
+        ]
     }
 
     enum Radius {
@@ -54,6 +65,8 @@ enum DS {
         static let card: CGFloat = 14
         /// The app mark's tile in About.
         static let mark: CGFloat = 16
+        /// Heat-grid cells and the tops of chart bars.
+        static let cell: CGFloat = 2
     }
 
     /// `space.1` to `space.10`.
@@ -99,7 +112,7 @@ enum DS {
         static let reading = TextStyle(size: 15, lineHeight: 24)
         /// Transcript paragraphs and notes.
         static let transcript = TextStyle(size: 14, lineHeight: 22)
-        /// A test call's word error rate.
+        /// A test call's word error rate and Timeline's lifetime totals.
         static let score = TextStyle(size: 34, lineHeight: 40, weight: .medium, design: .serif)
         static let rowTitle = TextStyle(size: 14, lineHeight: 20, weight: .medium)
         static let body = TextStyle(size: 13, lineHeight: 18)
@@ -111,6 +124,8 @@ enum DS {
         static let usage = TextStyle(size: 11, lineHeight: 16)
         /// The usage table's column headers.
         static let usageHeader = TextStyle(size: 10, lineHeight: 16)
+        /// The smallest words in the word cloud.
+        static let cloudSmall = TextStyle(size: 13, lineHeight: 18, design: .serif)
 
         var font: Font { .system(size: size, weight: weight, design: design) }
 
@@ -188,6 +203,26 @@ extension Color {
     fileprivate init(light: NSColor, dark: NSColor) {
         self.init(nsColor: NSColor(name: nil) { appearance in
             appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua ? dark : light
+        })
+    }
+
+    /// `top` mixed into `base` by `share` in sRGB, as CSS `color-mix(in srgb, …)` does, in whichever
+    /// appearance it is drawn.
+    fileprivate init(mixing top: Color, _ share: CGFloat, into base: Color) {
+        let top = NSColor(top)
+        let base = NSColor(base)
+        self.init(nsColor: NSColor(name: nil) { appearance in
+            var mixed = base
+            appearance.performAsCurrentDrawingAppearance {
+                guard let top = top.usingColorSpace(.sRGB), let base = base.usingColorSpace(.sRGB) else { return }
+                mixed = NSColor(
+                    srgbRed: base.redComponent + (top.redComponent - base.redComponent) * share,
+                    green: base.greenComponent + (top.greenComponent - base.greenComponent) * share,
+                    blue: base.blueComponent + (top.blueComponent - base.blueComponent) * share,
+                    alpha: 1
+                )
+            }
+            return mixed
         })
     }
 }
