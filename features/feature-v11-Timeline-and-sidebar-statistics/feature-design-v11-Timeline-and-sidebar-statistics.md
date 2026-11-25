@@ -58,7 +58,7 @@ Mini Whisper gains a numbers-only record of its user's meetings, dictation and e
 
 23. **R23 Block.** Above the usage table the sidebar shows "Last 30 days", six figures (meetings, recorded, dictations, saved typing, words transcribed, words dictated), a 30-bar trend of hours recorded and one lifetime line. Clicking it opens Timeline.
 24. **R24 Fold.** A handle on the usage table's top hairline folds the block, leaving the table and the handle. The state persists across launches. The block starts unfolded.
-25. **R25 Visibility and fit.** The block and its handle are hidden while Settings is open and until one counted meeting or delivered dictation exists. When the sidebar is too short the block drops its trend, then hides.
+25. **R25 Visibility and fit.** The block and its handle are hidden while Settings is open and until one counted meeting or delivered dictation exists. While Settings is open the usage table is hidden too, so every Settings section fits at the 900 × 600 minimum (decided 2026-11-25, [Settings sidebar fit › usage-hidden](./mockups/mockup-v11-settings-overflow.html#usage-hidden)). When the sidebar is too short the block drops its trend, then hides.
 26. **R26 Freshness.** The block updates after each recorded dictation, spend or meeting row, and when the window comes forward.
 
 **Settings and menu**
@@ -337,6 +337,7 @@ States: the empty state is the cloud-and-pulse mark, "Nothing to show yet" in `t
 - The handle is a 34 × 20 pill, `color.sidebar` fill and `color.line` border, centred on the usage table's top hairline, with a chevron pointing down when unfolded and up when folded. Its accessibility label is "Fold statistics" or "Unfold statistics".
 - "Last 30 days" is today and the 29 local days before it. A figure with nothing in that window shows zero.
 - Fit: the block is 218 px. Everything else in the sidebar, spacing included, is 362 px, so at the 600 px minimum 20 px remain, and 14 px while a meeting records. The block sits in `ViewThatFits(in: .vertical)` with three candidates: full, without the trend, nothing.
+- Settings: with Settings' eleven sections showing the column needs 657 px, so while Settings is open the usage table hides as the block does, and the sections fit at the 600 px minimum ([Settings sidebar fit](./mockups/mockup-v11-settings-overflow.html#usage-hidden), [artifact](https://claude.ai/artifact/6hvrrh4ipkvpDuvUMUetSd#usage-hidden)).
 
 **Settings**, as accepted in [Statistics settings placement › Statistics section](./mockups/mockup-v11-settings-placement.html#statistics-section) ([artifact](https://claude.ai/artifact/4MT6gNnJH7KqxZd31kRCVf#statistics-section)).
 
@@ -554,6 +555,8 @@ Acceptance, by hand on a beta: after phase A, dictate and record, then confirm r
 - **Settings: in Dictations** ([in-dictations](./mockups/mockup-v11-settings-placement.html#in-dictations), [artifact](https://claude.ai/artifact/4MT6gNnJH7KqxZd31kRCVf#in-dictations)). Not chosen: Reset also erases meeting figures.
 - **Settings: in General** ([in-general](./mockups/mockup-v11-settings-placement.html#in-general), [artifact](https://claude.ai/artifact/4MT6gNnJH7KqxZd31kRCVf#in-general)). Not chosen: a full scroll down the longest page.
 - **One module for the whole feature in the app target.** Rejected: the rules would be testable only through `xcodebuild`.
+- **Settings sidebar: the sections scroll** ([scrolling-sections](./mockups/mockup-v11-settings-overflow.html#scrolling-sections)). Not chosen: the last sections would sit below a fade at the minimum height.
+- **Settings sidebar: a taller minimum window** ([taller-minimum](./mockups/mockup-v11-settings-overflow.html#taller-minimum)), 660 instead of 600 pt. Not chosen: every page would lose 60 pt of the smallest window.
 
 ## 7. Risks and issues
 

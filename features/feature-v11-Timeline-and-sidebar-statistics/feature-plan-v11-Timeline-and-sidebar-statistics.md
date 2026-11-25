@@ -1110,7 +1110,7 @@ The fixture is synthetic: two well-formed day lines and a third cut mid-object w
 
 ## Deviations from the design
 
-None — plan matches design v11 exactly.
+1. **R25 extended by the user, 2026-11-25.** While Settings is open the usage table hides too, so every Settings section fits at the 900 × 600 minimum. Found in Stage 21's renders (the Timeline row and the Statistics section took the Settings sidebar to 657 pt); decided on [Settings sidebar fit](./mockups/mockup-v11-settings-overflow.html#usage-hidden) over scrolling the sections or a 660 pt minimum. The design was updated in place (R25, §5 Interfaces › Sidebar, §6).
 
 ## Execution schedule
 
@@ -1228,3 +1228,5 @@ Recorded during implementation.
 - **Stage 21, docs.** `CLAUDE.md`'s layout lists folders only, so it gains `App/Timeline/` and not `StatsBlockView.swift`.
 - **Stage 21, open issue found, not changed: Settings overflows the sidebar at the minimum height.** With Settings' eleven sections showing, the sidebar needs 657 pt: 598 before v11, plus 27 for Statistics (Stage 11) and 32 for the Timeline row (Stage 20). At the 600 pt minimum the overflow splits, the search pill rises under the traffic lights and the usage table's Month row is cut off; at the 720 pt default it fits. The stats block is hidden in Settings and plays no part. The fix (scroll the sections, hide the usage table in Settings, or a taller minimum) is a design decision.
 - **Stage 21, visual check.** Offscreen renders (light and dark) of the main window at 900 × 600 and of the sidebar: idle at 600 (full), 570 (no trend) and 530 (table alone, no handle); recording at 600 and 594 (full) and 590 (no trend); folded at 600 and 530 (chevron up); Settings; no data. They match the figures-handle mockup. Hover, the fold across a relaunch and the refresh after a dictation need the running app and were not checked.
+- **After Stage 21, `fix: hide the usage table while Settings shows`.** Lands the R25 extension above in Stage 21's files (`MainWindowModel.showsUsage`, the sidebar foot, one test), test first, as a `fix:` commit rather than a new numbered stage so Phase C's numbering holds. A re-render of the Settings sidebar at 600 pt shows every section with the search pill in place.
+- **Phase B boundary.** The run stopped after Batch 15 and the fix, for the next beta cut. Stages 22–27 (Phase C) remain.
