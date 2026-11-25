@@ -9,14 +9,17 @@ struct TimelineContent: Equatable, Sendable {
     let report: TimelineReport
     /// `meta.since`, a local `yyyy-MM-dd`; nil before the record is seeded.
     let since: String?
+    /// The Dictation panel's apps by bundle identifier.
+    var appNames: [String: String] = [:]
 }
 
-/// Gathers the report's inputs, the record, the kept meetings and the typing speed, and computes it,
-/// all off the main actor (design §5 Architecture, R32).
+/// Gathers the report's inputs, the record, the kept meetings and the typing speed, computes it and
+/// names its apps, all off the main actor (design §5 Architecture, R32).
 struct TimelineSource: Sendable {
     let stats: StatsStore
     let meetings: any MeetingSource
     let config: ConfigStore
+    var apps: any AppListing = NSWorkspaceApps()
     var now: @Sendable () -> Date = { Date() }
     var calendar: @Sendable () -> Calendar = { .current }
 
@@ -39,6 +42,9 @@ struct TimelineSource: Sendable {
         let report = TimelineStats.compute(TimelineInputs(
             snapshot: snapshot, kept: kept, typingWPM: typingWPM, now: now(), calendar: calendar()
         ))
-        return TimelineContent(report: report, since: snapshot.meta?.since)
+        let names = (report.dictation?.apps ?? []).map { ($0.bundleID, apps.name(forBundleID: $0.bundleID)) }
+        return TimelineContent(
+            report: report, since: snapshot.meta?.since, appNames: Dictionary(uniqueKeysWithValues: names)
+        )
     }
 }

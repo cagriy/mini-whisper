@@ -5,7 +5,8 @@ import MWStats
 import Testing
 @testable import MiniWhisper
 
-/// Timeline's inputs as the app gathers them: the record, the kept meetings and the typing speed.
+/// Timeline's inputs as the app gathers them: the record, the kept meetings, the typing speed and
+/// the names of the apps dictated into.
 @Suite(.timeLimit(.minutes(1))) struct TimelineSourceTests {
     /// Wednesday 25 November 2026, 12:00 UTC.
     private static let now = Date(timeIntervalSince1970: 1_795_608_000)
@@ -39,9 +40,11 @@ import Testing
             directory: directory.appendingPathComponent("stats", isDirectory: true), now: { now }, calendar: { calendar }
         )
         await stats.seed(StatsSeed(history: [], usage: [:], meetings: [], now: now, calendar: calendar))
-        for index in 0..<20 {
+        let apps = Array(repeating: "com.example.notes", count: 12) + Array(repeating: "com.example.gone", count: 6)
+            + [nil, nil]
+        for (index, app) in apps.enumerated() {
             await stats.record(DictationAttempt(
-                id: "d\(index)", bundleID: nil, engine: nil, seconds: 6, words: 12, outcome: .delivered, wait: nil,
+                id: "d\(index)", bundleID: app, engine: nil, seconds: 6, words: 12, outcome: .delivered, wait: nil,
                 costUSD: 0
             ))
         }
@@ -57,7 +60,7 @@ import Testing
         let source = TimelineSource(
             stats: stats,
             meetings: Index(entries: [Self.entry(kept, "Board review"), Self.entry(unfinished, "Live", ended: false)]),
-            config: config, now: { now }, calendar: { calendar }
+            config: config, apps: StubApps(names: ["com.example.notes": "Notes"]), now: { now }, calendar: { calendar }
         )
 
         let content = await source.report()
@@ -67,5 +70,7 @@ import Testing
         #expect(content.report.records?.longestMeeting?.meeting?.title == "Board review")
         #expect(content.report.records?.mostSpeakers?.id == unfinished)
         #expect(content.report.records?.mostSpeakers?.meeting == nil)
+        // The top apps' names: the Finder name, or the readable end of a bundle identifier.
+        #expect(content.appNames == ["com.example.notes": "Notes", "com.example.gone": "gone"])
     }
 }

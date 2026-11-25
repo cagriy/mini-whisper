@@ -85,23 +85,15 @@ final class TimelineModel {
         return years.first { $0.year == selectedYear } ?? years.last
     }
 
-    func canStepYear(by offset: Int) -> Bool {
-        guard let shown = shownYear else { return false }
-        return report?.year?.years.contains { $0.year == shown.year + offset } ?? false
-    }
-
-    func stepYear(by offset: Int) {
-        guard canStepYear(by: offset), let shown = shownYear else { return }
-        selectedYear = shown.year + offset
-    }
-
     /// Shows the report, then reconciles and shows it again if a row changed. An opening that is not a
-    /// return plays the panels from the top, on this year and on Meetings; the redraw after a reconcile
-    /// plays nothing.
+    /// return first starts over: from the top, on this year and on Meetings, with every panel to play
+    /// again. The redraw after a reconcile plays nothing.
     func reload(replay: Bool) async {
-        show(await deps.report(), replay: replay)
+        // Before the first suspension, so a page built for this opening never restores a stale anchor.
+        if replay { startOver() }
+        content = await deps.report()
         guard await deps.reconcile() else { return }
-        show(await deps.report(), replay: false)
+        content = await deps.report()
     }
 
     /// A record of a deleted meeting fails to open; the rebuilt report then shows it as deleted.
@@ -110,7 +102,7 @@ final class TimelineModel {
             try await deps.openMeeting(record.id)
         } catch {
             Log.stats.warning("timeline: meeting \(record.id.uuidString) not opened: \(AnyError(error).description)")
-            show(await deps.report(), replay: false)
+            content = await deps.report()
         }
     }
 
@@ -118,9 +110,7 @@ final class TimelineModel {
         deps.openSettings()
     }
 
-    private func show(_ content: TimelineContent, replay: Bool) {
-        self.content = content
-        guard replay else { return }
+    private func startOver() {
         playID += 1
         playback.replay(playID)
         anchor = nil

@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// A setting's number as it reads, such as `60 s`, beside a pill with − and +. Each press moves
-/// the value one step within its range.
+/// A setting's number as it reads, such as `60 s`, beside a pill with − and +, or with chevrons. Each
+/// press moves the value one step within its range.
 struct StepperPill: View {
     /// Names it for assistive technology; the row it sits in names it on screen.
     let title: String
@@ -9,6 +9,9 @@ struct StepperPill: View {
     let range: ClosedRange<Int>
     let step: Int
     let label: String
+    /// Chevrons for a value that pages, such as a year.
+    var decrease = "minus"
+    var increase = "plus"
 
     var body: some View {
         HStack(spacing: DS.Space.s4) {
@@ -17,9 +20,9 @@ struct StepperPill: View {
                 .monospacedDigit()
                 .foregroundStyle(DS.Colors.textSecondary)
             HStack(spacing: 0) {
-                button("minus", by: -step, enabled: value > range.lowerBound)
+                button(decrease, by: -step, enabled: value > range.lowerBound)
                 Rectangle().fill(DS.Colors.line).frame(width: DS.Size.hairline)
-                button("plus", by: step, enabled: value < range.upperBound)
+                button(increase, by: step, enabled: value < range.upperBound)
             }
             .frame(height: DS.Size.controlSmall)
             .overlay(Capsule().strokeBorder(DS.Colors.line))

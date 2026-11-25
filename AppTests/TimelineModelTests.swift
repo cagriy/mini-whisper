@@ -19,6 +19,8 @@ import Testing
         /// What each report call returns, in turn; the last repeats.
         var contents: [TimelineContent]
         var reports = 0
+        /// The page as each report call found it.
+        var duringReports: [(playID: Int, anchor: TimelineModel.Panel?)] = []
         var reconciled = false
         var reconciles = 0
         /// The page as the reconcile found it.
@@ -30,6 +32,7 @@ import Testing
 
         lazy var model: TimelineModel = TimelineModel(deps: TimelineModel.Dependencies(
             report: { @MainActor [unowned self] in
+                duringReports.append((model.playID, model.anchor))
                 defer { reports += 1 }
                 return contents[min(reports, contents.count - 1)]
             },
@@ -191,6 +194,19 @@ import Testing
         #expect(!model.playback.play(.totals).played)
     }
 
+    // A return builds the page from the anchor it left, so a fresh opening clears it before anything
+    // is drawn, and plays whatever report is shown.
+    @Test func anOpeningStartsOverBeforeItsReportIsBuilt() async {
+        let harness = Harness(Self.dictated("2026-11-24"))
+        let model = harness.model
+        model.anchor = .records
+
+        await model.reload(replay: true)
+
+        #expect(harness.duringReports.first?.playID == 1)
+        #expect(harness.duringReports.first?.anchor == nil)
+    }
+
     @Test func theReportIsShownBeforeTheReconcile() async {
         let first = Self.dictated("2026-11-24")
         let harness = Harness(first)
@@ -221,26 +237,6 @@ import Testing
 
         #expect(harness.reports == 1)
         #expect(harness.model.playID == 0)
-    }
-
-    // MARK: - The year
-
-    @Test func theYearStepsWithinTheYearsShown() async throws {
-        let harness = Harness(Self.dictated("2024-03-02", "2026-11-24"))
-        let model = harness.model
-        await model.reload(replay: true)
-
-        #expect(model.canStepYear(by: 1) == false)
-        #expect(model.canStepYear(by: -1))
-        model.stepYear(by: -1)
-        #expect(model.shownYear?.year == 2025)
-        model.stepYear(by: -1)
-        #expect(model.shownYear?.year == 2024)
-        #expect(model.canStepYear(by: -1) == false)
-        model.stepYear(by: -1)
-        #expect(model.shownYear?.year == 2024)
-        model.stepYear(by: 1)
-        #expect(model.shownYear?.year == 2025)
     }
 
     // MARK: - Records and settings
